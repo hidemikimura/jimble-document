@@ -208,6 +208,32 @@
 
 }
 </code></pre>
+<h2 id="フィルタの効く範囲">フィルタの効く範囲<a class="anchor" href="#フィルタの効く範囲">#</a></h2>
+<p><strong>フィルタは「書いた場所」に付きます。パスには付きません。</strong>
+効くのは、同じブロックで登録したルートと、そこから <code>path()</code> / <code>install()</code> で
+ネストしたものだけです。</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/admin"</span>, () -&gt; {
+	before(AdminController::requireAuth);
+	get(<span class="h-s">"/users"</span>, ...);          <span class="h-c">// ← 効く</span>
+	install(GroupController::<span class="h-k">new</span>);   <span class="h-c">// ← 効く（中のルートも全部）</span>
+});
+
+path(<span class="h-s">"/admin"</span>, () -&gt; {
+	get(<span class="h-s">"/login"</span>, ...);          <span class="h-c">// ← 効かない（別のブロック）</span>
+});
+</code></pre>
+<p>パスが同じでも、<strong>別のブロックで登録したルートには効きません。</strong>
+だから「<code>/admin</code> 配下は全部認証」を成り立たせたいときは、
+<code>/admin</code> のルートを1か所にまとめてください。
+逆に言うと、<strong>誰かが別の場所で <code>/admin/...</code> を足しても、
+知らないうちにフィルタに捕まることがありません。</strong></p>
+<p>ブロックの中では、<code>before</code> を書いた位置とルートを書いた位置の前後は関係ありません。
+ブロック全体に効きます。</p>
+<p>フィルタはルートごとに<strong>起動時に1度だけ</strong>組み立てます。
+そのため、<strong>確定した後にフィルタを足すと落ちます</strong>（「足したのに効かない」を作らないため）。
+ルート定義はコントローラの初期化ブロックの中で完結させてください。</p>
+<p><strong>未マッチ（404）のときに呼ばれるのは、一番外側の <code>error</code> だけ</strong>です。
+どのルートにも当たっていないので、内側のブロックが決まりません。</p>
 <h2 id="ルートごとの印">ルートごとの印<a class="anchor" href="#ルートごとの印">#</a></h2>
 <p>フィルタを1本だけ外したいときは、注釈ではなく<strong>属性</strong>を使います。</p>
 <pre class="code"><code class="lang-java"><span class="h-k">static</span> <span class="h-k">final</span> AttributeKey&lt;Boolean&gt; NO_AUTH = <span class="h-k">new</span> AttributeKey&lt;&gt;(<span class="h-s">"no_auth"</span>, <span class="h-k">false</span>);
@@ -252,6 +278,7 @@ get(<span class="h-s">"/health_check"</span>, context -&gt; context.response().s
 			<li class="level-2"><a href="#パスパラメータ">パスパラメータ</a></li>
 			<li class="level-2"><a href="#まとめる">まとめる</a></li>
 			<li class="level-2"><a href="#フィルタ">フィルタ</a></li>
+			<li class="level-2"><a href="#フィルタの効く範囲">フィルタの効く範囲</a></li>
 			<li class="level-2"><a href="#ルートごとの印">ルートごとの印</a></li>
 			<li class="level-2"><a href="#コントローラに分ける">コントローラに分ける</a></li>
 			<li class="level-2"><a href="#エラーの扱い">エラーの扱い</a></li>

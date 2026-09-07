@@ -150,6 +150,22 @@
 <p><strong>原因</strong>: <code>install(SomeController::new)</code> を書き忘れています。
 jimble はクラスパスを走査しないので、書かないと登録されません。</p>
 <p><strong>対処</strong>: 起動ログのルート一覧を見てください。無ければ登録されていません。</p>
+<h2 id="before-が効いていない同じパスなのに">before が効いていない（同じパスなのに）<a class="anchor" href="#before-が効いていない同じパスなのに">#</a></h2>
+<p><code>before</code> は<strong>書いたブロックの中だけ</strong>に効きます。パスには付きません。</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/admin"</span>, () -&gt; {
+	before(requireAuth);
+	get(<span class="h-s">"/users"</span>, ...);
+});
+
+install(() -&gt; <span class="h-k">new</span> SpaController(<span class="h-s">"/admin"</span>, ...));   <span class="h-c">// ← 認証されない</span>
+</code></pre>
+<p>同じ <code>/admin</code> でも、別の場所で登録したルートは別のブロックです。
+まとめたいなら、同じブロックに入れてください。</p>
+<p>逆の症状（<strong>効いてほしくないのに効く</strong>）は起きません。これが起きていたのが
+移行前の形で、<code>/admin</code> の SPA ログイン画面まで認証に捕まっていました。</p>
+<p>なお、<strong>ルートが確定した後に <code>before</code> を足すと落ちます。</strong>
+「足したのに効かない」を黙って通さないためです。
+ルート定義はコントローラの初期化ブロックの中で完結させてください。</p>
 <h2 id="セッションが保存されていない">セッションが保存されていない<a class="anchor" href="#セッションが保存されていない">#</a></h2>
 <p><strong>症状</strong>: <code>put()</code> したのに次のリクエストで消えている。</p>
 <p><strong>原因</strong>: <code>save()</code> を呼んでいません。自動保存はしません。</p>
@@ -272,6 +288,7 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 		<ul>
 			<li class="level-2"><a href="#ローカルで-cookie-が効かない">ローカルで Cookie が効かない</a></li>
 			<li class="level-2"><a href="#ルートが登録されていない">ルートが登録されていない</a></li>
+			<li class="level-2"><a href="#before-が効いていない同じパスなのに">before が効いていない（同じパスなのに）</a></li>
 			<li class="level-2"><a href="#セッションが保存されていない">セッションが保存されていない</a></li>
 			<li class="level-2"><a href="#select-の結果が取れない">select の結果が取れない</a></li>
 			<li class="level-2"><a href="#db-のエラーに気づかない">DB のエラーに気づかない</a></li>

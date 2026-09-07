@@ -144,6 +144,12 @@ before(...);
 after(...);
 </code></pre>
 <p>メソッド名は jooby と同じ小文字です。<code>path()</code> の入れ子も同じです。</p>
+<p><strong>ただし <code>before</code> / <code>after</code> / <code>error</code> の効く範囲が違います。</strong>
+jooby はパスに付きますが、jimble は<strong>書いたブロックの中だけ</strong>に効きます。
+同じ <code>/admin</code> でも、別のブロックで登録したルートには効きません
+（<a href="./routing">フィルタの効く範囲</a>）。
+「<code>/admin</code> 配下は全部認証」に頼っている場合は、<code>/admin</code> のルートが
+1か所にまとまっているか確かめてください。</p>
 <h2 id="書き換えるもの">書き換えるもの<a class="anchor" href="#書き換えるもの">#</a></h2>
 <h3 id="context">Context<a class="anchor" href="#context">#</a></h3>
 <table>
