@@ -4,8 +4,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>jimble new - jimble</title>
-<meta name="description" content="雛形を作る、マイグレーション、コード生成">
+<title>jimble コマンド - jimble</title>
+<meta name="description" content="入れ方と、new / migrate / codegen">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -139,7 +139,7 @@
 		<ul>
 			<li>
 				<a href="cli"
-				   class="current">jimble new</a>
+				   class="current">jimble コマンド</a>
 			</li>
 			<li>
 				<a href="gradle"
@@ -189,7 +189,7 @@
 
 	<main id="main">
 		<article>
-			<h1 id="cli">CLI<a class="anchor" href="#cli">#</a></h1>
+			<h1 id="jimble-コマンド">jimble コマンド<a class="anchor" href="#jimble-コマンド">#</a></h1>
 <pre class="code"><code class="lang-text">使い方: jimble &lt;コマンド&gt;
 
   new &lt;name&gt;              プロジェクトの雛形を作る
@@ -197,6 +197,37 @@
   codegen &lt;ソースルート&gt;   テーブル定義のコードを生成する（例: src/main/java）
   version                 版を表示する
 </code></pre>
+<h2 id="入れる">入れる<a class="anchor" href="#入れる">#</a></h2>
+<p><strong>jimble のリポジトリからビルドして、PATH に通します。</strong></p>
+<pre class="code"><code class="lang-bash"><span class="h-k">cd</span> jimble
+<span class="h-k">./gradlew</span> :jimble-cli:installDist
+<span class="h-k">export</span> PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
+</code></pre>
+<pre class="code"><code class="lang-bash">$ jimble version
+<span class="h-k">jimble</span> 0.1.1-SNAPSHOT
+</code></pre>
+<p>毎回書きたくなければ、<code>~/.zshrc</code> に上の <code>export</code> を足すか、リンクを張ってください。</p>
+<pre class="code"><code class="lang-bash">ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>java</code> として Java 25 が引ける必要があります。</strong>
+起動スクリプトは <code>JAVA_HOME</code> か PATH の <code>java</code> を使うので、
+古い Java だと <code>UnsupportedClassVersionError</code> になります。
+生成したプロジェクトをビルドするのに <strong>Gradle 9 以上</strong>も要ります。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>jimble を直したら <code>installDist</code> をやり直してください。</strong>
+動くのは <code>build/install/</code> にコピーされたほうなので、
+<strong>直しただけでは反映されません。</strong></p>
+</div>
+<h3 id="手元でビルドした-jimble-を使うとき">手元でビルドした jimble を使うとき<a class="anchor" href="#手元でビルドした-jimble-を使うとき">#</a></h3>
+<p><code>jimble new</code> が作る <code>build.gradle.kts</code> は、<strong>CLI をビルドした版</strong>を参照します。
+公開していない版（<code>0.1.1-SNAPSHOT</code> など）なら、<strong>先にローカルへ publish</strong>してください。</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> publishToMavenLocal
+<span class="h-k">./gradlew</span> -p gradle-plugin publishToMavenLocal
+</code></pre>
+<p>雛形の <code>settings.gradle.kts</code> は <code>mavenLocal()</code> を先に見るようにしてあります。
+公開済みの版だけを使うなら、これは要りません。</p>
 <h2 id="jimble-new">jimble new<a class="anchor" href="#jimble-new">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> new my-blog
 </code></pre>
@@ -206,11 +237,12 @@
 	build.gradle.kts
 	gradle.properties
 	.gitignore
-	src/main/java/my_blog/App.java
-	src/main/jte/index.jte
-	conf/application.conf
-	conf/migration/my_blog/001_create_note.sql.example
 	README.md
+	src/main/java/myblog/App.java
+	src/main/jte/myblog/index.jte
+	conf/application.conf
+	conf/logback.xml
+	conf/migration/my_blog/001_create_note.sql.example
 </code></pre>
 <p><strong>空のディレクトリは作りません。</strong> 使う段になってから作ってください。
 <code>.example</code> が付いているものは、名前を変えれば有効になります。</p>
@@ -218,30 +250,47 @@
 <ul>
 <li>使えるのは英小文字・数字・<code>-</code>・<code>_</code> です</li>
 <li>先頭は英字です</li>
-<li>パッケージ名は <code>-</code> を <code>_</code> にしたもの（<code>my-blog</code> → <code>my_blog</code>）</li>
+<li><strong>パッケージ名は英数字だけ残したもの</strong>（<code>my-blog</code> → <code>myblog</code>）</li>
+<li><strong>DB 名は英数字以外を <code>_</code> にしたもの</strong>（<code>my-blog</code> → <code>my_blog</code>）</li>
 <li>Java の予約語や、既にあるディレクトリ名は断られます</li>
 </ul>
 <p>理由はエラーメッセージに書いてあります。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**DB も Redis も要らないものが出ます。**手を入れずにビルドして起動できます。
+使うようになったら、<code>build.gradle.kts</code> と <code>application.conf</code> の
+コメントを外していく形にしてあります。</p>
+</div>
 <h2 id="次にすること">次にすること<a class="anchor" href="#次にすること">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">cd</span> my-blog
 <span class="h-k">gradle</span> wrapper          # Gradle ラッパーを用意する（1回だけ）
 <span class="h-k">./gradlew</span> run           # 起動する
 <span class="h-k">./gradlew</span> jimbleRun     # ホットリロードで起動する
 </code></pre>
+<pre class="code"><code class="lang-text">$ curl http://localhost:9000/hello
+{"message":"hello, jimble"}
+</code></pre>
 <h2 id="migrate--codegen">migrate / codegen<a class="anchor" href="#migrate--codegen">#</a></h2>
+<p><strong>プロジェクトの中では Gradle から呼びます。</strong></p>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate
 <span class="h-k">./gradlew</span> codegen
 </code></pre>
-<p>どちらもアプリの設定（<code>application.conf</code>）とマイグレーションの SQL を
-<strong>クラスパスから探します</strong>。プロジェクトの中から Gradle 越しに呼ぶのが確実です。</p>
 <p><code>io.jimble.db</code> プラグインを入れておくと、<code>compileJava</code> の前に
 <code>migrate → codegen</code> が自動で繋がります。</p>
 <p>中身は <a href="./codegen">マイグレーションとコード生成</a>、タスクと設定は
 <a href="./gradle">Gradle プラグイン</a> を見てください。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>jimble migrate</code> / <code>jimble codegen</code> を素で叩いても動きません。</strong>
+どちらも設定（<code>application.conf</code>）とマイグレーションの SQL を
+<strong>クラスパスから探す</strong>ので、アプリのリソースが見えている必要があります。
+CI や本番で Gradle が使えないところでは、jar をクラスパスに足して呼んでください。</p>
+<pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+</code></pre>
+</div>
 <h2 id="版を確認する">版を確認する<a class="anchor" href="#版を確認する">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> version
 </code></pre>
-<p>jar の <code>Implementation-Version</code> を読んでいます。</p>
+<p>jar の <code>Implementation-Version</code> を読んでいます。
+<strong>雛形が参照する jimble の版もこれ</strong>です（手で書いていません）。</p>
 
 		</article>
 
@@ -258,6 +307,8 @@
 	<nav class="toc" aria-label="このページの中身">
 		<p class="section">このページ</p>
 		<ul>
+			<li class="level-2"><a href="#入れる">入れる</a></li>
+			<li class="level-3"><a href="#手元でビルドした-jimble-を使うとき">手元でビルドした jimble を使うとき</a></li>
 			<li class="level-2"><a href="#jimble-new">jimble new</a></li>
 			<li class="level-2"><a href="#次にすること">次にすること</a></li>
 			<li class="level-2"><a href="#migrate--codegen">migrate / codegen</a></li>
