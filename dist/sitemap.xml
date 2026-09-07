@@ -21,6 +21,7 @@
 	<url><loc>https://jimble.io/ja/pitfalls</loc></url>
 	<url><loc>https://jimble.io/ja/principles</loc></url>
 	<url><loc>https://jimble.io/ja/quickstart</loc></url>
+	<url><loc>https://jimble.io/ja/ratelimit</loc></url>
 	<url><loc>https://jimble.io/ja/request-response</loc></url>
 	<url><loc>https://jimble.io/ja/routing</loc></url>
 	<url><loc>https://jimble.io/ja/server</loc></url>

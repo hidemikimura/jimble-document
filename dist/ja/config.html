@@ -74,6 +74,10 @@
 				   class="">セッションと安全側の既定</a>
 			</li>
 			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
 				<a href="execution"
 				   class="">実行モデル</a>
 			</li>
@@ -263,6 +267,9 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 	idle_timeout_seconds = <span class="h-n">60</span>
 	compression          = <span class="h-k">true</span>
 	bot_access_log       = <span class="h-k">true</span>
+
+	shutdown_grace_seconds   = <span class="h-n">0</span>    <span class="h-c"># 止め始めてから新規を断つまで</span>
+	shutdown_timeout_seconds = <span class="h-n">15</span>   <span class="h-c"># 処理中を待つ上限</span>
 }
 
 cookie {
@@ -280,6 +287,11 @@ upload {
 	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># 1リクエスト合計（50MB）</span>
 	max_files      = <span class="h-n">20</span>
 	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># 空なら java.io.tmpdir</span>
+}
+
+rate_limit {
+	store   = <span class="h-s">"memory"</span>       <span class="h-c"># memory | redis | db</span>
+	enabled = <span class="h-k">true</span>
 }
 
 cache {

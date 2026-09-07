@@ -1,0 +1,332 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>レートリミット - jimble</title>
+<meta name="description" content="ルートに宣言する。トークンバケット、メモリ / Redis / DB">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="current">レートリミット</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="レートリミット">レートリミット<a class="anchor" href="#レートリミット">#</a></h1>
+<p>**ルートに宣言します。**書いたところにだけかかります。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 1本だけ</span>
+post(<span class="h-s">"/api/login"</span>, handler)
+	.attribute(RateLimit.KEY, RateLimit.perIp(<span class="h-n">5</span>, Duration.ofMinutes(<span class="h-n">1</span>)));
+
+<span class="h-c">// このブロック全部</span>
+path(<span class="h-s">"/api"</span>, () -&gt; {
+	rateLimit(RateLimit.perIp(<span class="h-n">60</span>, Duration.ofMinutes(<span class="h-n">1</span>)));
+
+	get(<span class="h-s">"/items"</span>, handler);
+	get(<span class="h-s">"/items/{id}"</span>, handler);
+});
+</code></pre>
+<p><code>before</code> と同じで<strong>書いたブロックに付きます</strong>（パスのノードではありません）。
+内側に別のものを書けば内側が勝ち、ルートが属性で持っていればそれが勝ちます。</p>
+<h2 id="数え方">数え方<a class="anchor" href="#数え方">#</a></h2>
+<p><strong>トークンバケット</strong>です。<code>duration</code> かけて <code>limit</code> 個まで戻ります。
+<strong>短いバーストは通り、続けて叩くと止まります。</strong></p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>固定の窓（「1分あたり N 回」）にしなかったのは、
+窓の境目で<strong>一瞬 2N 回通ってしまう</strong>ためです。</p>
+</div>
+<h2 id="数える単位">数える単位<a class="anchor" href="#数える単位">#</a></h2>
+<pre class="code"><code class="lang-java">RateLimit.perIp(<span class="h-n">60</span>, Duration.ofMinutes(<span class="h-n">1</span>));                       <span class="h-c">// 送信元ごと</span>
+RateLimit.of(context -&gt; context.session().id(), <span class="h-n">10</span>, Duration.ofMinutes(<span class="h-n">1</span>));   <span class="h-c">// ログインごと</span>
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>perIp</code> は <code>server.trust_proxy</code> を見ます。**プロキシの後ろに置いているのに
+<code>false</code> のままだと、<strong>全員がロードバランサの IP として1つに数えられます</strong>
+（<a href="./server">サーバー設定</a>）。</p>
+</div>
+<p>社内からのアクセスなど、数えたくないものは外せます。</p>
+<pre class="code"><code class="lang-java">RateLimit.perIp(<span class="h-n">60</span>, Duration.ofMinutes(<span class="h-n">1</span>))
+	.exclude(context -&gt; context.request().proxyAddress().startsWith(<span class="h-s">"10."</span>));
+</code></pre>
+<h2 id="止めたときに返るもの">止めたときに返るもの<a class="anchor" href="#止めたときに返るもの">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ステータス</td>
+<td><strong>429</strong></td>
+</tr>
+<tr>
+<td><code>Retry-After</code></td>
+<td>待つ秒数（切り上げ。最低 1）</td>
+</tr>
+<tr>
+<td><code>X-RateLimit-Limit</code> / <code>X-RateLimit-Remaining</code></td>
+<td>上限と残り</td>
+</tr>
+</tbody>
+</table>
+<p>**<code>before</code> より前で止めます。**認証や DB を触らせないためです。</p>
+<h2 id="置き場">置き場<a class="anchor" href="#置き場">#</a></h2>
+<pre class="code"><code class="lang-conf">rate_limit {
+	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
+	enabled = <span class="h-k">true</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>台をまたぐか</th>
+<th>向き</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memory</code>（既定）</td>
+<td><strong>またがない</strong></td>
+<td>1台のとき</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>またぐ</td>
+<td>複数台に並べるとき</td>
+</tr>
+<tr>
+<td><code>db</code></td>
+<td>またぐ</td>
+<td>Redis が無くて、<strong>回数が少ない</strong>とき</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>memory</code> のまま複数台に並べると、全体では台数ぶん通ります。</strong>
+3台なら 3 倍です。並べるなら <code>redis</code> にしてください。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>redis</code> は Lua で数えます。「残り」と「最後に足した時刻」を
+<strong>一緒に読み書きしないと数え落ちる</strong>ためです。
+<code>db</code> は <code>SELECT ... FOR UPDATE</code> なので、<strong>高い頻度には向きません</strong>
+（ログインの試行回数のような用途向け）。テーブルは初めて使うときに作ります。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>数えられなかったときは通します。<strong>Redis が落ちているだけで
+サイト全体が 429 になるほうが困るからです。
+ただし</strong>黙っては通しません</strong>（<code>流量制限を数えられませんでした（通します）</code> がログに出ます）。</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="session-security">
+				<span>前</span>セッションと安全側の既定
+			</a>
+			<a class="next" href="execution">
+				<span>次</span>実行モデル
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#数え方">数え方</a></li>
+			<li class="level-2"><a href="#数える単位">数える単位</a></li>
+			<li class="level-2"><a href="#止めたときに返るもの">止めたときに返るもの</a></li>
+			<li class="level-2"><a href="#置き場">置き場</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

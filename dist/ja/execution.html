@@ -74,6 +74,10 @@
 				   class="">セッションと安全側の既定</a>
 			</li>
 			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
 				<a href="execution"
 				   class="current">実行モデル</a>
 			</li>
@@ -334,6 +338,9 @@ onComplete ※必ず通る
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>SIGTERM を受けると、預けたものが逆順に止まります</strong>（<a href="./server">サーバー設定</a>）。
+コンテナは SIGTERM を送って待つので、受け取らずに死ぬと
+処理中のリクエストが途中で切れます。</p>
 <p>普通に動かしているぶんには要りません。<strong>プロセスが終われば全部止まります。</strong>
 要るのは<b>プロセスを終わらせずにアプリを入れ替えるとき</b>、つまり <code>jimbleRun</code> です。
 止め忘れたものは入れ替え後のものと二重に動き、「同じジョブが2回走る」という形で出ます
@@ -345,8 +352,8 @@ onComplete ※必ず通る
 		</article>
 
 		<nav class="pager" aria-label="前後のページ">
-			<a class="prev" href="session-security">
-				<span>前</span>セッションと安全側の既定
+			<a class="prev" href="ratelimit">
+				<span>前</span>レートリミット
 			</a>
 			<a class="next" href="db">
 				<span>次</span>DB を使う

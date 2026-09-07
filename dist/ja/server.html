@@ -74,6 +74,10 @@
 				   class="">セッションと安全側の既定</a>
 			</li>
 			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
 				<a href="execution"
 				   class="">実行モデル</a>
 			</li>
@@ -195,6 +199,9 @@
 	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># X-Forwarded-* を信じるか</span>
 	compression          = <span class="h-k">true</span>       <span class="h-c"># 応答を gzip で返すか</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># ボットのアクセスログを分けるか</span>
+
+	shutdown_grace_seconds   = <span class="h-n">0</span>      <span class="h-c"># 止め始めてから新規を断つまで（秒）</span>
+	shutdown_timeout_seconds = <span class="h-n">15</span>     <span class="h-c"># 処理中を待つ上限（秒）</span>
 }
 </code></pre>
 <p>**書かなければ上の既定で動きます。**いま何が効いているかは起動ログに出ます。</p>
@@ -315,19 +322,41 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 <td>依存に入れていません</td>
 </tr>
 <tr>
-<td><strong>レートリミット</strong></td>
-<td>未実装（要件 F-R-15、Phase 2）</td>
-</tr>
-<tr>
 <td><strong>ヘルスチェックのルート</strong></td>
-<td>jimble は用意しません。<code>get(&quot;/health_check&quot;, context -&gt; context.response().send())</code> を自分で書きます</td>
-</tr>
-<tr>
-<td><strong>グレースフル停止（排出待ち）</strong></td>
-<td><code>stop()</code> はサーバーを止めるだけです。前段で外してから止めてください</td>
+<td>jimble は用意しません（下の「止める」を参照）</td>
 </tr>
 </tbody>
 </table>
+<h2 id="止める">止める<a class="anchor" href="#止める">#</a></h2>
+<p><strong>いきなり止めません。</strong><code>stop()</code> はこの順に進みます。</p>
+<ol>
+<li><strong>「止め始めた」ことにする</strong> — <code>Shutdown.isStopping()</code> が true になる。<strong>普通のリクエストはまだ受ける</strong></li>
+<li><code>server.shutdown_grace_seconds</code> 待つ（既定 0）</li>
+<li><strong>新しいリクエストを断つ</strong>（503）</li>
+<li>処理中のものが終わるのを <code>server.shutdown_timeout_seconds</code>（既定 15 秒）まで待つ</li>
+<li>サーバーを止める</li>
+</ol>
+<p><strong>SIGTERM を受けたら自動で走ります</strong>（コンテナはこれを送って待ちます）。</p>
+<h3 id="ヘルスチェックを先に落とす">ヘルスチェックを先に落とす<a class="anchor" href="#ヘルスチェックを先に落とす">#</a></h3>
+<p>jimble はヘルスチェックのルートを用意しません。<strong>こう書いてください。</strong></p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/health_check"</span>, context -&gt;
+	context.response().send(Shutdown.isStopping() ? <span class="h-n">503</span> : <span class="h-n">200</span>));
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p>ロードバランサがこの台を外すまでには時間がかかります。
+その間に来たリクエストを 503 にすると、<strong>外から見たらエラー</strong>です。
+だから 1 と 3 の間に猶予を置けるようにしてあります。
+ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → <code>shutdown_grace_seconds = 10</code>）を入れてください。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>待ちきれなかったら、残ったまま止めます。</strong>
+そのときは <code>処理中のリクエストが N 件残ったまま停止します</code> が warn に出ます。
+止まらないほうが困る（コンテナに強制終了される）ためです。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>自分で立てたスレッドも一緒に止めたいなら <code>Shutdown.add(...)</code> に預けてください
+（<a href="./execution">実行モデル</a>）。</p>
+</div>
 <h2 id="jimble-をプロキシにする">jimble をプロキシにする<a class="anchor" href="#jimble-をプロキシにする">#</a></h2>
 <p>逆に、jimble から別のサーバーへ流すこともできます。</p>
 <pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/api"</span>, <span class="h-s">"http://backend:8080"</span>));
@@ -358,6 +387,8 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 			<li class="level-2"><a href="#圧縮">圧縮</a></li>
 			<li class="level-2"><a href="#ボットを弾く">ボットを弾く</a></li>
 			<li class="level-2"><a href="#無いもの">無いもの</a></li>
+			<li class="level-2"><a href="#止める">止める</a></li>
+			<li class="level-3"><a href="#ヘルスチェックを先に落とす">ヘルスチェックを先に落とす</a></li>
 			<li class="level-2"><a href="#jimble-をプロキシにする">jimble をプロキシにする</a></li>
 		</ul>
 	</nav>
