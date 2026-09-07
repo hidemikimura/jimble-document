@@ -1,0 +1,211 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ホットリロード - jimble</title>
+<meta name="description" content="./gradlew jimbleRun。直したら次のリクエストで反映される">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="current">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="ホットリロード">ホットリロード<a class="anchor" href="#ホットリロード">#</a></h1>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleRun
+</code></pre>
+<h2 id="何が起きているか">何が起きているか<a class="anchor" href="#何が起きているか">#</a></h2>
+<pre class="code"><code class="lang-text">ブラウザ ──▶ プロキシ（9000） ──▶ アプリ（別プロセス・9100）
+</code></pre>
+<ol>
+<li><code>jimbleRun</code> が 9000 番でプロキシを立てる</li>
+<li>その裏でアプリを<strong>別プロセス</strong>として 9100 番（<code>port + 100</code>）で起動する</li>
+<li>ソースが変わったのを見つけたら印を付ける</li>
+<li><strong>次のリクエストが来たとき</strong>にビルドして、アプリを入れ替える</li>
+<li>入れ替わってからリクエストを流す</li>
+</ol>
+<p><strong>保存したそばからビルドはしません。</strong> リクエストが来るまで待ちます。
+連続して保存しているあいだ、何度もビルドが走るのを避けるためです。</p>
+<h2 id="クラスローダを差し替えないのはなぜか">クラスローダを差し替えないのはなぜか<a class="anchor" href="#クラスローダを差し替えないのはなぜか">#</a></h2>
+<p>多くのホットリロードは、同じプロセスの中でクラスローダを作り直します。
+速いのですが、<code>static</code> の状態が残ったり、残らなかったりします。
+「リロードしたときだけ落ちる」「リロードしたときだけ通る」が起きます。</p>
+<p>jimble は<strong>プロセスごと入れ替えます</strong>。1秒ほど遅くなりますが、
+起動したてのプロセスと同じ状態です。挙動が本番とずれません。</p>
+<h2 id="ビルドが失敗したら">ビルドが失敗したら<a class="anchor" href="#ビルドが失敗したら">#</a></h2>
+<p>エラーがそのままブラウザに出ます。ターミナルを見に行かなくて済みます。
+直して再読み込みすれば、またビルドが走ります。</p>
+<p><strong>アプリが落ちたままでも、プロキシは生きています。</strong> ポートは変わりません。</p>
+<h2 id="設定">設定<a class="anchor" href="#設定">#</a></h2>
+<pre class="code"><code class="lang-kotlin">jimbleRun {
+	<span class="h-c">// 要るのはこれだけ。ほかは既定がある</span>
+	mainClass = <span class="h-s">"my_blog.App"</span>
+
+	port    = <span class="h-n">9000</span>              <span class="h-c">// プロキシ（ブラウザが見るほう）</span>
+	appPort = <span class="h-n">9100</span>              <span class="h-c">// アプリ。既定は port + 100</span>
+	env     = <span class="h-s">"local"</span>
+
+	buildTasks      = listOf(<span class="h-s">":my-blog:classes"</span>)
+	watchExtensions = listOf(<span class="h-s">".java"</span>, <span class="h-s">".jte"</span>, <span class="h-s">".conf"</span>)
+	excludeDirs     = listOf(<span class="h-s">"build"</span>)
+
+	restartMode         = <span class="h-s">"on_request"</span>   <span class="h-c">// on_request | on_change</span>
+	quietMillis         = <span class="h-n">300</span>
+	startTimeoutSeconds = <span class="h-n">60</span>
+
+	jvmArgs = listOf(<span class="h-s">"-Xmx1g"</span>)
+	args    = listOf()
+}
+</code></pre>
+<p><code>restartMode = &quot;on_change&quot;</code> にすると、保存した時点でビルドと入れ替えを始めます。
+待ち時間は減りますが、保存のたびに走ります。</p>
+<h2 id="気をつけること">気をつけること<a class="anchor" href="#気をつけること">#</a></h2>
+<ul>
+<li><strong><code>jimbleRun</code> は開発用です。</strong> 本番では <code>./gradlew run</code> か、作った jar を直接動かします</li>
+<li>ツールチェーン（Java 25）で動きます。Gradle デーモンの JVM ではありません</li>
+<li><code>gradlew</code> があっても <code>gradle/wrapper/gradle-wrapper.properties</code> が無ければ、
+ラッパーは壊れていると判断してシステムの <code>gradle</code> を使います</li>
+</ul>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#何が起きているか">何が起きているか</a></li>
+			<li class="level-2"><a href="#クラスローダを差し替えないのはなぜか">クラスローダを差し替えないのはなぜか</a></li>
+			<li class="level-2"><a href="#ビルドが失敗したら">ビルドが失敗したら</a></li>
+			<li class="level-2"><a href="#設定">設定</a></li>
+			<li class="level-2"><a href="#気をつけること">気をつけること</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

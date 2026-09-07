@@ -1,0 +1,261 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL DSL - jimble</title>
+<meta name="description" content="SQL.select / insert / update / delete">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="current">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="sql-dsl">SQL DSL<a class="anchor" href="#sql-dsl">#</a></h1>
+<p>文字列で SQL を書くこともできますが、DSL のほうが型が効きます。</p>
+<h2 id="引く">引く<a class="anchor" href="#引く">#</a></h2>
+<pre class="code"><code class="lang-java">List&lt;Data&gt; posts = db.selectList(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.published.eq(<span class="h-k">true</span>))
+		.orderBy(Post.created_at.desc())
+		.limit(<span class="h-n">20</span>)
+);
+</code></pre>
+<p><code>limit</code> と <code>offset</code> があります。<code>select()</code> に何も渡さなければ全列です。列を選ぶなら渡します。</p>
+<pre class="code"><code class="lang-java">SQL.select(Post.id, Post.title).from(Post.instance())
+</code></pre>
+<h2 id="条件">条件<a class="anchor" href="#条件">#</a></h2>
+<pre class="code"><code class="lang-java">.where(Post.id.eq(<span class="h-n">1L</span>))
+.where(Post.title.like(<span class="h-s">"%jimble%"</span>))
+.where(Post.created_at.ge(from).and(Post.created_at.lt(to)))
+.where(Post.id.<span class="h-k">in</span>(List.of(<span class="h-n">1L</span>, <span class="h-n">2L</span>, <span class="h-n">3L</span>)))
+</code></pre>
+<p><code>where</code> を複数回呼ぶと AND で繋がります。</p>
+<h2 id="結合">結合<a class="anchor" href="#結合">#</a></h2>
+<pre class="code"><code class="lang-java">SQL.select()
+	.from(Post.instance())
+	.left(Comment.instance()).on(Comment.post_id.eq(Post.id))
+	.where(Post.id.eq(id))
+</code></pre>
+<p>内部結合は <code>inner(...)</code> です。<code>on()</code> は直前の結合に付きます。</p>
+<p>結果はテーブル名でネストするので、<code>row.getData(&quot;comment&quot;)</code> で取れます。</p>
+<h2 id="入れる直す消す">入れる・直す・消す<a class="anchor" href="#入れる直す消す">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(
+	SQL.insert(Post.instance())
+		.value(Post.title, title)
+		.value(Post.created_at, <span class="h-k">new</span> Date())
+);
+
+<span class="h-k">int</span> updated = db.update(
+	SQL.update(Post.instance())
+		.set(Post.published, <span class="h-k">true</span>)
+		.where(Post.id.eq(id))
+);
+
+<span class="h-k">int</span> deleted = db.delete(
+	SQL.delete(Post.instance()).where(Post.id.eq(id))
+);
+</code></pre>
+<p><code>insert</code> は採番された ID を返します。ID が要らないときは
+<code>insertNoReturnKey</code> のほうが速いです。</p>
+<p>送られた項目だけ直す、という書き方はこうなります。</p>
+<pre class="code"><code class="lang-java">patch(<span class="h-s">"/posts/{id}"</span>, context -&gt; {
+
+	<span class="h-k">long</span> id = id(context);
+	BlogApp.findPost(id);
+
+	Data request = context.request().bodyAll();
+
+	UpdateBuilder builder = SQL.update(Post.instance());
+	<span class="h-k">boolean</span> hasChange = <span class="h-k">false</span>;
+
+	<span class="h-k">if</span> (request.containsKey(<span class="h-s">"title"</span>)) {
+		builder.set(Post.title, request.getString(<span class="h-s">"title"</span>));
+		hasChange = <span class="h-k">true</span>;
+	}
+
+	<span class="h-k">if</span> (request.containsKey(<span class="h-s">"body"</span>)) {
+		builder.set(Post.body, request.getString(<span class="h-s">"body"</span>));
+		hasChange = <span class="h-k">true</span>;
+	}
+
+	<span class="h-k">if</span> (request.containsKey(<span class="h-s">"published"</span>)) {
+		builder.set(Post.published, request.getBoolean(<span class="h-s">"published"</span>));
+		hasChange = <span class="h-k">true</span>;
+	}
+
+	<span class="h-k">if</span> (!hasChange) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">400</span>, <span class="h-s">"変える項目がありません（title / body / published）"</span>);
+	}
+
+	<span class="h-k">int</span> updated = BlogExample.db().update(builder.where(Post.id.eq(id)));
+
+	context.response().json(<span class="h-s">"updated"</span>, updated);
+
+});</code></pre>
+<h2 id="関数を使う">関数を使う<a class="anchor" href="#関数を使う">#</a></h2>
+<p><code>Dsl</code> に関数が並んでいます。</p>
+<pre class="code"><code class="lang-java">SQL.select(Dsl.count(), Dsl.max(Post.created_at)).from(Post.instance())
+</code></pre>
+<p><code>CASE WHEN</code> のように<strong>値としても列としても使えるもの</strong>は、
+select に直接は渡せません。<code>SelectQuery</code> で包んでください。</p>
+<pre class="code"><code class="lang-java">SQL.select(<span class="h-k">new</span> SelectQuery().dsl(Dsl.caseWhen()...)).from(...)
+</code></pre>
+<p>包まずに渡すと、列ではなく<strong>バインドされる値</strong>として扱われます。</p>
+<h2 id="まとめて流す">まとめて流す<a class="anchor" href="#まとめて流す">#</a></h2>
+<pre class="code"><code class="lang-java">db.insertBatch(builderList);
+db.executeBatch(builderList);
+</code></pre>
+<p>戻り値は件数のリストです。<code>DB.isBatchSuccess(list)</code> で全部通ったか見られます。</p>
+<h2 id="大きい結果">大きい結果<a class="anchor" href="#大きい結果">#</a></h2>
+<p>全部をリストに載せたくないときは、1行ずつ受け取ります。</p>
+<pre class="code"><code class="lang-java">db.selectListWithFetcher(row -&gt; {
+	<span class="h-c">// 1行ずつ来る</span>
+}, SQL.select().from(Post.instance()));
+</code></pre>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#引く">引く</a></li>
+			<li class="level-2"><a href="#条件">条件</a></li>
+			<li class="level-2"><a href="#結合">結合</a></li>
+			<li class="level-2"><a href="#入れる直す消す">入れる・直す・消す</a></li>
+			<li class="level-2"><a href="#関数を使う">関数を使う</a></li>
+			<li class="level-2"><a href="#まとめて流す">まとめて流す</a></li>
+			<li class="level-2"><a href="#大きい結果">大きい結果</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

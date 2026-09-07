@@ -1,0 +1,311 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jooby からの移行 - jimble</title>
+<meta name="description" content="何がそのまま動き、何を書き換えるか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="current">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="jooby-からの移行">jooby からの移行<a class="anchor" href="#jooby-からの移行">#</a></h1>
+<p>jimble のルーティング DSL は jooby に寄せてあります。
+<strong>多くのルート定義はそのまま動きます。</strong> 書き換えが要るのは、その周りです。</p>
+<h2 id="そのまま動くもの">そのまま動くもの<a class="anchor" href="#そのまま動くもの">#</a></h2>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, ctx -&gt; ...);
+post(<span class="h-s">"/posts"</span>, ctx -&gt; ...);
+path(<span class="h-s">"/admin"</span>, () -&gt; { ... });
+before(...);
+after(...);
+</code></pre>
+<p>メソッド名は jooby と同じ小文字です。<code>path()</code> の入れ子も同じです。</p>
+<h2 id="書き換えるもの">書き換えるもの<a class="anchor" href="#書き換えるもの">#</a></h2>
+<h3 id="context">Context<a class="anchor" href="#context">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>jooby</th>
+<th>jimble</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ctx.path(&quot;id&quot;).value()</code></td>
+<td><code>context.route().variables().get(&quot;id&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.query(&quot;q&quot;).value()</code></td>
+<td><code>context.request().bodyQuery().getString(&quot;q&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.form(&quot;name&quot;).value()</code></td>
+<td><code>context.request().bodyForm().getString(&quot;name&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.body(Foo.class)</code></td>
+<td><code>context.request().bodyJson()</code> → <code>Data</code></td>
+</tr>
+<tr>
+<td><code>ctx.send(&quot;text&quot;)</code></td>
+<td><code>context.response().send(&quot;text&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.render(obj)</code></td>
+<td><code>context.response().json(...)</code> / <code>.view(...)</code></td>
+</tr>
+<tr>
+<td><code>ctx.setResponseCode(201)</code></td>
+<td><code>context.response().code(201)</code></td>
+</tr>
+<tr>
+<td><code>ctx.sessionOrNull()</code></td>
+<td><code>context.session()</code></td>
+</tr>
+</tbody>
+</table>
+<p>jimble は<strong>入力を型付きのクラスに詰め直しません</strong>。<code>Data</code> のまま扱います。
+リフレクションでのバインドをやめたためです。値の検証は
+<a href="./request-response.html">ValidationRules</a> でやります。</p>
+<h3 id="di-をやめる">DI をやめる<a class="anchor" href="#di-をやめる">#</a></h3>
+<pre class="code"><code class="lang-java"><span class="h-c">// jooby</span>
+<span class="h-a">@Inject</span>
+<span class="h-k">public</span> PostController (PostService service) { ... }
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// jimble</span>
+install(PostController::<span class="h-k">new</span>);
+</code></pre>
+<p>依存は <code>new</code> するか、<code>static</code> のメソッドを呼びます。
+「差し替えたい」場合は、コンストラクタで渡してください。</p>
+<pre class="code"><code class="lang-java">install(() -&gt; <span class="h-k">new</span> PostController(<span class="h-k">new</span> PostService(db)));
+</code></pre>
+<h3 id="注釈をやめる">注釈をやめる<a class="anchor" href="#注釈をやめる">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>jooby</th>
+<th>jimble</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@GET @Path(&quot;/x&quot;)</code></td>
+<td><code>get(&quot;/x&quot;, ...)</code></td>
+</tr>
+<tr>
+<td><code>@Transactional</code></td>
+<td><code>try (DBTransaction transaction = ...)</code></td>
+</tr>
+<tr>
+<td><code>@Inject</code></td>
+<td>コンストラクタで渡す</td>
+</tr>
+</tbody>
+</table>
+<h3 id="起動">起動<a class="anchor" href="#起動">#</a></h3>
+<pre class="code"><code class="lang-java"><span class="h-c">// jooby</span>
+<span class="h-k">public</span> <span class="h-k">class</span> App <span class="h-k">extends</span> Jooby {
+	{ get(<span class="h-s">"/"</span>, ctx -&gt; <span class="h-s">"hello"</span>); }
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) { runApp(args, App::<span class="h-k">new</span>); }
+}
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// jimble</span>
+<span class="h-k">public</span> <span class="h-k">class</span> App <span class="h-k">extends</span> JimbleApp {
+	{ get(<span class="h-s">"/"</span>, context -&gt; context.response().send(<span class="h-s">"hello"</span>)); }
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) { JimbleServer.start(<span class="h-k">new</span> App()); }
+}
+</code></pre>
+<p><strong>ハンドラは値を返しません。</strong> <code>context.response()</code> に組み立てて送ります。
+戻り値でレンダリングを分岐させると、何が返るかがコードから読めなくなるためです。</p>
+<h3 id="設定">設定<a class="anchor" href="#設定">#</a></h3>
+<p><code>application.conf</code> の書式は同じ HOCON です。<strong>キーの名前が変わります。</strong></p>
+<table>
+<thead>
+<tr>
+<th>jooby</th>
+<th>jimble</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>server.port</code></td>
+<td><code>server.port</code>（同じ）</td>
+</tr>
+<tr>
+<td><code>application.env</code></td>
+<td><code>-Djimble.env=&lt;env&gt;</code></td>
+</tr>
+<tr>
+<td><code>jooby.*</code></td>
+<td>無くなりました</td>
+</tr>
+</tbody>
+</table>
+<p><code>jooby.*</code> のキーは<strong>読まれません。エラーも出ません</strong>。
+設定ファイルを持ってくるときは、必ず起動ログの構成行を確認してください。</p>
+<h3 id="テンプレート">テンプレート<a class="anchor" href="#テンプレート">#</a></h3>
+<p>jooby の jte モジュールを使っていたなら、テンプレートはそのままです。
+<code>io.jimble.jte</code> プラグインに置き換えてください。</p>
+<p>渡すモデルは <code>Data</code> になります。<code>@param Data data</code> で受けます。</p>
+<h2 id="移行の順番">移行の順番<a class="anchor" href="#移行の順番">#</a></h2>
+<ol>
+<li><code>build.gradle.kts</code> を差し替える（<code>io.jimble.jte</code> / <code>io.jimble.run</code>）</li>
+<li><code>App.java</code> を <code>JimbleApp</code> にする。ルート定義は貼るだけ</li>
+<li>ハンドラの中を <code>context.request()</code> / <code>context.response()</code> に書き換える</li>
+<li><code>@Inject</code> を <code>install()</code> とコンストラクタに置き換える</li>
+<li><code>@Transactional</code> を <code>try (DBTransaction ...)</code> に置き換える</li>
+<li>起動して、<strong>ルート一覧と構成行を確認する</strong></li>
+</ol>
+<h2 id="移行しなくてよいもの">移行しなくてよいもの<a class="anchor" href="#移行しなくてよいもの">#</a></h2>
+<p>DB 層はそのままです。<code>SQL</code> / <code>Column</code> / <code>Table</code> / <code>Data</code> / <code>DB</code> の使い方は変わりません。
+生成されたテーブル定義のクラスも、そのまま使えます。</p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#そのまま動くもの">そのまま動くもの</a></li>
+			<li class="level-2"><a href="#書き換えるもの">書き換えるもの</a></li>
+			<li class="level-3"><a href="#context">Context</a></li>
+			<li class="level-3"><a href="#di-をやめる">DI をやめる</a></li>
+			<li class="level-3"><a href="#注釈をやめる">注釈をやめる</a></li>
+			<li class="level-3"><a href="#起動">起動</a></li>
+			<li class="level-3"><a href="#設定">設定</a></li>
+			<li class="level-3"><a href="#テンプレート">テンプレート</a></li>
+			<li class="level-2"><a href="#移行の順番">移行の順番</a></li>
+			<li class="level-2"><a href="#移行しなくてよいもの">移行しなくてよいもの</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,244 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>バッチ - jimble</title>
+<meta name="description" content="cron で回る処理。中断指示、二重起動、管理画面">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="current">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="バッチ">バッチ<a class="anchor" href="#バッチ">#</a></h1>
+<h2 id="書く">書く<a class="anchor" href="#書く">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> PostCleanupBatch <span class="h-k">extends</span> AbstractBatch {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String batchName () { <span class="h-k">return</span> <span class="h-s">"記事の掃除"</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String cron () {
+
+		<span class="h-c">// 毎日 3:15</span>
+		<span class="h-k">return</span> <span class="h-s">"15 3 * * *"</span>;
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">void</span> execute (BatchArgs args) {
+
+		<span class="h-k">int</span> days = settings().getInt(<span class="h-s">"days"</span>);
+
+		<span class="h-k">while</span> (!isCancelOrder()) {
+			<span class="h-c">// 長い処理は中断指示を見る（要件 F-B-06）</span>
+		}
+
+	}
+
+}</code></pre>
+<ul>
+<li><code>batchName()</code> は管理画面に出る名前です</li>
+<li><code>isScheduler()</code> が <code>true</code> のものだけ、スケジューラが拾います</li>
+<li><code>cron()</code> は5フィールドの cron 式です</li>
+<li><code>settings()</code> は DB に入れた設定（<code>defaultBatchSettings()</code> が初期値）です</li>
+</ul>
+<h2 id="登録する">登録する<a class="anchor" href="#登録する">#</a></h2>
+<p>走査はしないので、自分で登録します。</p>
+<pre class="code"><code class="lang-java">BatchRegistry.add(PostCleanupBatch::<span class="h-k">new</span>);
+
+<span class="h-c">// DB の一覧を、いま登録されているものに合わせる</span>
+BatchRegistry.sync(DBUtil.getMainDB());
+</code></pre>
+<h2 id="中断できるようにする">中断できるようにする<a class="anchor" href="#中断できるようにする">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">while</span> (!isCancelOrder()) {
+	<span class="h-c">// 1件ずつ処理する</span>
+}
+</code></pre>
+<p>管理画面から中断を押すと <code>isCancelOrder()</code> が <code>true</code> になります。
+<strong>長く回る処理では必ず見てください。</strong> 見ていないバッチは止められません。</p>
+<h2 id="二重起動">二重起動<a class="anchor" href="#二重起動">#</a></h2>
+<p>同じバッチが同時に走る本数は <code>allowConcurrentExecutionCount()</code> で決まります。
+既定は1本です。前の実行がまだ終わっていなければ、次はスキップされます。</p>
+<p>サーバーが複数台でも、DB のテーブルで排他するので1本しか走りません。</p>
+<h2 id="単体で走らせる">単体で走らせる<a class="anchor" href="#単体で走らせる">#</a></h2>
+<p>バッチの入口は<strong>自分で書きます</strong>。起動の順番がそのファイルに全部出ます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogBatch {
+
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) {
+
+		DBUtil.load(Conf.conf().config(), BlogBatch.<span class="h-k">class</span>);   <span class="h-c">// 1. DB</span>
+		BatchTables.install(DBUtil.getMainDB());              <span class="h-c">// 2. バッチのテーブル</span>
+
+		BatchRegistry.add(PostCleanupBatch::<span class="h-k">new</span>);             <span class="h-c">// 3. 登録</span>
+		BatchRegistry.sync(DBUtil.getMainDB());
+
+		BatchResult result = BatchExecutor.start(args);       <span class="h-c">// 4. 実行</span>
+
+		DBUtil.stop();
+		System.exit(result.isExecuted() ? <span class="h-n">0</span> : <span class="h-n">1</span>);
+
+	}
+
+}
+</code></pre>
+<pre class="code"><code class="lang-bash">java -cp app.jar blog.BlogBatch env=local class=blog.batch.PostCleanupBatch days=30
+</code></pre>
+<p><code>key=value</code> の形で渡したものが <code>args.cliArgs</code> に入ります。</p>
+<p>cron で回すなら <code>DbScheduler</code> を入口にした常駐プロセスを別に立てます。</p>
+<h2 id="管理画面">管理画面<a class="anchor" href="#管理画面">#</a></h2>
+<p><code>jimble-batch-manager</code> を入れると、Web からバッチの一覧・実行・中断・履歴が見られます。</p>
+<pre class="code"><code class="lang-kotlin">implementation(<span class="h-s">"io.jimble:jimble-batch-manager:&lt;版&gt;"</span>)
+</code></pre>
+<pre class="code"><code class="lang-java">install(BatchManagerController::<span class="h-k">new</span>);
+</code></pre>
+<p><strong>認証は自分で付けてください。</strong> <code>before</code> に置くだけです。
+何も付けないと誰でもバッチを起動できます。</p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#書く">書く</a></li>
+			<li class="level-2"><a href="#登録する">登録する</a></li>
+			<li class="level-2"><a href="#中断できるようにする">中断できるようにする</a></li>
+			<li class="level-2"><a href="#二重起動">二重起動</a></li>
+			<li class="level-2"><a href="#単体で走らせる">単体で走らせる</a></li>
+			<li class="level-2"><a href="#管理画面">管理画面</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

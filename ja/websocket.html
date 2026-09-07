@@ -1,0 +1,284 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebSocket - jimble</title>
+<meta name="description" content="双方向。1メッセージごとに Context が作られる">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="current">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="websocket">WebSocket<a class="anchor" href="#websocket">#</a></h1>
+<h2 id="書く">書く<a class="anchor" href="#書く">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> ChatHandler <span class="h-k">implements</span> WsHandler {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">boolean</span> onUpgrade (WsSession session) {
+
+		<span class="h-c">// 認証はここで通す。Cookie が読めるのはこの時点だけ。断ると 403</span>
+		<span class="h-k">return</span> <span class="h-s">"secret"</span>.equals(session.cookie(<span class="h-s">"token"</span>));
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">void</span> onMessage (WsContext context, String message) {
+
+		context.session().send(<span class="h-s">"echo: "</span> + message);
+
+	}
+
+}</code></pre>
+<h2 id="登録する">登録する<a class="anchor" href="#登録する">#</a></h2>
+<pre class="code"><code class="lang-java">ws(<span class="h-s">"/ws/posts"</span>, PostFeedHandler::<span class="h-k">new</span>);
+</code></pre>
+<p>HTTP のルートと同じ場所に書きます。起動ログにも <code>WS /ws/posts</code> と出ます。</p>
+<p>渡すのは<strong>インスタンスではなくコンストラクタ参照</strong>です。
+接続ごとにハンドラが作られます。</p>
+<h2 id="呼ばれる順番">呼ばれる順番<a class="anchor" href="#呼ばれる順番">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>いつ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>onUpgrade(WsSession)</code></td>
+<td>HTTP から昇格する前。<code>false</code> を返すと 403</td>
+</tr>
+<tr>
+<td><code>onOpen(WsContext)</code></td>
+<td>繋がったあと</td>
+</tr>
+<tr>
+<td><code>onMessage(WsContext, String)</code></td>
+<td>テキストが来たとき</td>
+</tr>
+<tr>
+<td><code>onBinary(WsContext, byte[])</code></td>
+<td>バイナリが来たとき</td>
+</tr>
+<tr>
+<td><code>onClose(WsContext, int, String)</code></td>
+<td>閉じたとき</td>
+</tr>
+<tr>
+<td><code>onError(WsContext, Throwable)</code></td>
+<td>落ちたとき</td>
+</tr>
+</tbody>
+</table>
+<p>すべて <code>default</code> 実装があるので、要るものだけ書けば済みます。</p>
+<h2 id="認証は-onupgrade-で">認証は onUpgrade で<a class="anchor" href="#認証は-onupgrade-で">#</a></h2>
+<p><strong>Cookie が読めるのは <code>onUpgrade</code> の時点だけです。</strong>
+昇格したあとは、もう HTTP のヘッダはありません。</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">public</span> <span class="h-k">boolean</span> onUpgrade (WsSession session) {
+
+	<span class="h-k">return</span> <span class="h-s">"secret"</span>.equals(session.cookie(<span class="h-s">"token"</span>));
+
+}
+</code></pre>
+<p><code>false</code> を返すと 403 で断ります。</p>
+<h2 id="メッセージごとに-context">メッセージごとに Context<a class="anchor" href="#メッセージごとに-context">#</a></h2>
+<p><strong>1メッセージにつき <code>Context</code> が1つ作られます。</strong>
+リクエストやバッチの1実行と同じ扱いです。</p>
+<p>つまり <code>onMessage</code> の中では、DB もセッションも普通に使えます。
+メッセージの処理が終われば、接続が続いていても DB 接続は返されます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">void</span> onMessage (WsContext context, String message) {
+
+	Data request = Data.fromJsonString(message);
+
+	<span class="h-k">switch</span> (request.getStringOptional(<span class="h-s">"command"</span>)) {
+
+		<span class="h-k">case</span> <span class="h-s">"latest"</span> -&gt; context.session().send(<span class="h-k">new</span> Data()
+			.putData(<span class="h-s">"type"</span>, <span class="h-s">"latest"</span>)
+			.putData(<span class="h-s">"posts"</span>, titles()));
+
+		<span class="h-k">case</span> <span class="h-s">"subscribe"</span> -&gt; {
+			SUBSCRIBERS.add(context.session());
+			context.session().send(<span class="h-k">new</span> Data().putData(<span class="h-s">"type"</span>, <span class="h-s">"subscribed"</span>));
+		}
+
+		<span class="h-c">/*
+		 * 何が使えるのかを返す。
+		 * 黙って無視すると、クライアント側は
+		 * 「届いていないのか、コマンドが違うのか」が分からない。
+		 */</span>
+		<span class="h-k">default</span> -&gt; context.session().send(<span class="h-k">new</span> Data()
+			.putData(<span class="h-s">"type"</span>, <span class="h-s">"error"</span>)
+			.putData(<span class="h-s">"message"</span>, <span class="h-s">"知らないコマンドです"</span>)
+			.putData(<span class="h-s">"commands"</span>, List.of(<span class="h-s">"latest"</span>, <span class="h-s">"subscribe"</span>)));
+
+	}
+
+}</code></pre>
+<p>知らないコマンドを黙って捨てないでください。
+クライアント側からは「届いていないのか、コマンドが違うのか」が分かりません。</p>
+<h2 id="他の接続へ送る">他の接続へ送る<a class="anchor" href="#他の接続へ送る">#</a></h2>
+<p>繋がっているセッションを自分で持っておきます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">static</span> <span class="h-k">final</span> Set&lt;WsSession&gt; SUBSCRIBERS = ConcurrentHashMap.newKeySet();
+
+<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> notifyNewPost (String title) {
+
+	Data event = <span class="h-k">new</span> Data().putData(<span class="h-s">"type"</span>, <span class="h-s">"new_post"</span>).putData(<span class="h-s">"title"</span>, title);
+
+	<span class="h-c">// send() が false なら、その接続はもう無い。そのまま外す</span>
+	SUBSCRIBERS.removeIf(session -&gt; !session.send(event));
+
+}
+</code></pre>
+<p>サーバーが複数台あるなら、この配り方では他の台に繋がっている人へ届きません。
+Redis の pub/sub などを間に入れてください。jimble はそこまでは持っていません。</p>
+<h2 id="sse-との使い分け">SSE との使い分け<a class="anchor" href="#sse-との使い分け">#</a></h2>
+<p>クライアントから送るものが無いなら <a href="./sse.html">SSE</a> のほうが簡単です。
+プロキシの設定も要らず、繋ぎ直しもブラウザがやってくれます。</p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#書く">書く</a></li>
+			<li class="level-2"><a href="#登録する">登録する</a></li>
+			<li class="level-2"><a href="#呼ばれる順番">呼ばれる順番</a></li>
+			<li class="level-2"><a href="#認証は-onupgrade-で">認証は onUpgrade で</a></li>
+			<li class="level-2"><a href="#メッセージごとに-context">メッセージごとに Context</a></li>
+			<li class="level-2"><a href="#他の接続へ送る">他の接続へ送る</a></li>
+			<li class="level-2"><a href="#sse-との使い分け">SSE との使い分け</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,249 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>リクエストとレスポンス - jimble</title>
+<meta name="description" content="入力の読み方、入れ子パラメータ、検証、返し方">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="current">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="リクエストとレスポンス">リクエストとレスポンス<a class="anchor" href="#リクエストとレスポンス">#</a></h1>
+<h2 id="入力を読む">入力を読む<a class="anchor" href="#入力を読む">#</a></h2>
+<p><code>context.request()</code> から取れます。どこから来た値かで分かれています。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bodyPath()</code></td>
+<td>パスパラメータ（<code>/users/{id}</code>）</td>
+</tr>
+<tr>
+<td><code>bodyQuery()</code></td>
+<td>クエリ文字列</td>
+</tr>
+<tr>
+<td><code>bodyForm()</code></td>
+<td><code>application/x-www-form-urlencoded</code> / <code>multipart</code></td>
+</tr>
+<tr>
+<td><code>bodyJson()</code></td>
+<td>JSON の本文</td>
+</tr>
+<tr>
+<td><code>bodyFile()</code></td>
+<td>アップロードされたファイル</td>
+</tr>
+<tr>
+<td><code>bodyAll()</code></td>
+<td>上を全部重ねたもの</td>
+</tr>
+</tbody>
+</table>
+<p><code>bodyAll()</code> の重ね順は <strong>path → query → form → json</strong> です。
+あとのものが前を上書きします。</p>
+<p>戻り値はどれも <code>Data</code>（<code>LinkedHashMap&lt;String,Object&gt;</code> の派生）です。
+<code>getString</code> <code>getInt</code> <code>getLong</code> <code>getBoolean</code> <code>getData</code> <code>getDataList</code> などで取り出します。
+<code>getStringOptional</code> は「無ければ null」、<code>getString</code> は「無ければ空文字」です。</p>
+<h2 id="入れ子のパラメータ">入れ子のパラメータ<a class="anchor" href="#入れ子のパラメータ">#</a></h2>
+<p><code>.</code> と <code>[ ]</code> のどちらでも入れ子にできます。</p>
+<pre class="code"><code class="lang-text">user.name=taro
+user[name]=taro          同じ
+items[0].price=100
+items[].price=100        末尾に足す
+</code></pre>
+<p><code>[ ]</code> の中が数字なら添字、空なら追加、それ以外なら名前です。
+JSON の本文と混ざったときは、フォームの値が JSON を上書きします。</p>
+<h2 id="検証する">検証する<a class="anchor" href="#検証する">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty())
+	.put(Item.age, <span class="h-k">new</span> ValidationRule().integer(<span class="h-n">1</span>, <span class="h-n">120</span>));
+
+Data request = <span class="h-k">new</span> Data();
+request.putData(Item.name, <span class="h-s">""</span>);
+request.putData(Item.age, <span class="h-s">"999"</span>);
+
+<span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
+Data errors = rules.validate(<span class="h-k">null</span>, request);
+
+Data messages = ValidationMessages.toMessages(errors);</code></pre>
+<p><strong>エラーは最初の1件で止めません。</strong> 全部集めてから返します。
+入力し直す人にとって、1件ずつ言われるのがいちばん困るからです。</p>
+<p><code>ValidationMessages.toMessages(errors)</code> で、項目名 → メッセージの <code>Data</code> になります。
+そのまま JSON で返すか、テンプレートに渡します。</p>
+<h2 id="返す">返す<a class="anchor" href="#返す">#</a></h2>
+<pre class="code"><code class="lang-java">context.response().send(<span class="h-s">"text"</span>);                   <span class="h-c">// text/plain</span>
+context.response().json(<span class="h-s">"posts"</span>, list);            <span class="h-c">// JSON</span>
+context.response().view(<span class="h-s">"blog/posts.jte"</span>);         <span class="h-c">// テンプレート</span>
+context.response().redirect(<span class="h-s">"/"</span>);                  <span class="h-c">// 302</span>
+context.response().download(file, <span class="h-s">"報告書.xlsx"</span>);  <span class="h-c">// ダウンロード</span>
+context.response().code(<span class="h-n">201</span>).send();               <span class="h-c">// 本文なし</span>
+</code></pre>
+<p><code>json()</code> は組み立てるだけで、送るのは <code>send()</code> です。
+複数回 <code>json()</code> を呼ぶと、1つの JSON に足されていきます。</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
+<h2 id="大きいものを流す">大きいものを流す<a class="anchor" href="#大きいものを流す">#</a></h2>
+<p>全部をメモリに載せたくないときは <code>outputStream()</code> を直接使います。</p>
+<pre class="code"><code class="lang-java">context.response().setResponseHeader(<span class="h-s">"Content-Type"</span>, <span class="h-s">"text/csv; charset=UTF-8"</span>);
+
+<span class="h-k">try</span> (OutputStream out = context.response().outputStream()) {
+	<span class="h-c">// 1行ずつ書く。書いたそばから流れていく</span>
+}
+</code></pre>
+<p>進捗を送りたいだけなら <a href="./sse.html">SSE</a> のほうが簡単です。</p>
+<h2 id="二重送信">二重送信<a class="anchor" href="#二重送信">#</a></h2>
+<p><code>send()</code> を2回呼ぶとエラーになります。
+<code>isSent()</code> で送信済みかどうかを見られます。
+<code>after</code> フィルタや <code>error</code> ハンドラの中では、これを見てから触ってください。</p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#入力を読む">入力を読む</a></li>
+			<li class="level-2"><a href="#入れ子のパラメータ">入れ子のパラメータ</a></li>
+			<li class="level-2"><a href="#検証する">検証する</a></li>
+			<li class="level-2"><a href="#返す">返す</a></li>
+			<li class="level-2"><a href="#大きいものを流す">大きいものを流す</a></li>
+			<li class="level-2"><a href="#二重送信">二重送信</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

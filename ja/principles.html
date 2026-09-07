@@ -1,0 +1,220 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>考え方 - jimble</title>
+<meta name="description" content="注釈なし・DIなし・起動時走査なし。なぜそうしたのか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="current">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="考え方">考え方<a class="anchor" href="#考え方">#</a></h1>
+<p>jimble には守っている決めごとがいくつかあります。
+機能を足すかどうかは、たいていここで決まります。</p>
+<h2 id="1-上から順に追えること">1. 上から順に追えること<a class="anchor" href="#1-上から順に追えること">#</a></h2>
+<p>コードを読む人が、<code>main</code> から目的の処理までを<strong>指でたどれる</strong>ことを最優先します。</p>
+<p>そのために捨てたもの:</p>
+<ul>
+<li><strong>注釈でのルート定義</strong>（<code>@GET @Path(&quot;/x&quot;)</code>）。
+どのクラスが読まれるのかがコードに出ないため</li>
+<li><strong>DI コンテナ</strong>。
+<code>@Inject</code> された実装がどれになるかは、実行するまで分からないため</li>
+<li><strong>注釈でのトランザクション</strong>（<code>@Transactional</code>）。
+どこで始まってどこで終わるかが、メソッドの外にあるため</li>
+</ul>
+<p>かわりに <code>new</code> を書きます。<code>install(AdminController::new)</code> と書きます。
+<code>try (DBTransaction transaction = ...)</code> と書きます。数行増えます。</p>
+<h2 id="2-起動時にクラスパスを走査しない">2. 起動時にクラスパスを走査しない<a class="anchor" href="#2-起動時にクラスパスを走査しない">#</a></h2>
+<p>コントローラもバッチも MCP のツールも、<strong>自分で登録します</strong>。</p>
+<pre class="code"><code class="lang-java">tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
+tool(<span class="h-s">"create_post"</span>, CreatePostTool::<span class="h-k">new</span>);
+
+resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span class="h-k">new</span>);</code></pre>
+<p>走査しないので、起動が速く、何が登録されたかが起動ログで完結し、
+ネイティブイメージや jlink とも喧嘩しません。
+登録し忘れは、起動ログのルート一覧で気づけます。</p>
+<h2 id="3-黙って間違えないこと">3. 黙って間違えないこと<a class="anchor" href="#3-黙って間違えないこと">#</a></h2>
+<p>いちばん高くつくバグは、落ちないバグです。
+jimble は「静かに効かなくなる」状態を潰すことに時間を使っています。</p>
+<p>例:</p>
+<ul>
+<li><code>env=local</code> なのに <code>cookie.secure = true</code> なら、起動時に <strong>WARN を出します</strong>。
+そのままだとブラウザが Cookie を返さず、セッションも CSRF も Flash も
+エラーなしで効かなくなるためです</li>
+<li>トランザクションを開いたまま実行が終わったら、<strong>ERROR を出してロールバックします</strong>。
+黙って接続をプールへ返すと「入れたつもりが入っていない」が残ります</li>
+<li>ドキュメントのコード片は実コードから抜いています。
+印の付いた場所が消えたら、<strong>サイトのビルドが落ちます</strong></li>
+</ul>
+<h2 id="4-例外にしないところ">4. 例外にしないところ<a class="anchor" href="#4-例外にしないところ">#</a></h2>
+<p>DB のエラーは例外ではなく戻り値で返します。
+<code>select</code> 系は <code>null</code>、更新系は <code>-1</code> です。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
+
+	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
+
+	<span class="h-c">/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */</span>
+	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
+		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
+		<span class="h-k">return</span>;
+	}
+
+}</code></pre>
+<p>理由は、DB のエラーの多くが「呼び出し側が分岐したいもの」だからです。
+例外にすると <code>try</code> で囲むか、囲み忘れて上まで飛ばすかの二択になります。</p>
+<h2 id="5-一つの実行--一つの-context">5. 一つの実行 = 一つの Context<a class="anchor" href="#5-一つの実行--一つの-context">#</a></h2>
+<p>Web のリクエスト・バッチの実行・MQ の1件・WebSocket の1メッセージ、
+それぞれに <code>Context</code> が1つ作られます。
+DB 接続もセッションもここにぶら下がり、終わりで畳まれます。</p>
+<p><code>Context</code> は <code>ScopedValue</code> で渡します。<code>ThreadLocal</code> ではありません。
+仮想スレッドの上では <code>ScopedValue</code> のほうが安く、
+かつ<strong>書き換えられない</strong>ので、途中ですり替わることがありません。</p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#1-上から順に追えること">1. 上から順に追えること</a></li>
+			<li class="level-2"><a href="#2-起動時にクラスパスを走査しない">2. 起動時にクラスパスを走査しない</a></li>
+			<li class="level-2"><a href="#3-黙って間違えないこと">3. 黙って間違えないこと</a></li>
+			<li class="level-2"><a href="#4-例外にしないところ">4. 例外にしないところ</a></li>
+			<li class="level-2"><a href="#5-一つの実行--一つの-context">5. 一つの実行 = 一つの Context</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,247 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>セッションと安全側の既定 - jimble</title>
+<meta name="description" content="セッション・CSRF・Flash・署名付き Cookie">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="current">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="セッションと安全側の既定">セッションと安全側の既定<a class="anchor" href="#セッションと安全側の既定">#</a></h1>
+<h2 id="セッション">セッション<a class="anchor" href="#セッション">#</a></h2>
+<pre class="code"><code class="lang-java">context.session().put(<span class="h-s">"user_id"</span>, <span class="h-n">42</span>);
+
+<span class="h-c">// 明示的に保存する（要件 F-S-02）。自動保存はしない</span>
+context.session().save();</code></pre>
+<p><strong>自動保存はしません。</strong> <code>save()</code> を呼ばなければ書かれません。
+「読んだだけのリクエストで毎回書き込む」を避けるためです。</p>
+<p>保存先は <code>application.conf</code> で選びます。</p>
+<pre class="code"><code class="lang-conf">session {
+	store       = <span class="h-s">"db"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	cookie_name = <span class="h-s">"sid"</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>store</th>
+<th>向いているところ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>none</code></td>
+<td>セッションを使わない（既定）</td>
+</tr>
+<tr>
+<td><code>db</code></td>
+<td>サーバーが複数台。DB がある</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>サーバーが複数台。速さが要る</td>
+</tr>
+<tr>
+<td><code>cookie</code></td>
+<td>サーバーに何も置きたくない。中身は署名される</td>
+</tr>
+</tbody>
+</table>
+<h2 id="csrf">CSRF<a class="anchor" href="#csrf">#</a></h2>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
+
+	<span class="h-c">/*
+	 * 状態を変えるものだけ検証する。
+	 * GET / HEAD / OPTIONS / TRACE は素通しする（Csrf.SAFE_METHODS）。
+	 */</span>
+	before(Csrf::verify);
+
+	get(<span class="h-s">""</span>, FormController::show);
+	post(<span class="h-s">""</span>, FormController::submit);
+
+});</code></pre>
+<p><code>Csrf::verify</code> を <code>before</code> に置くと、その下のルートが守られます。
+<code>GET</code> <code>HEAD</code> <code>OPTIONS</code> <code>TRACE</code> は素通しです（<code>Csrf.SAFE_METHODS</code>）。</p>
+<p>トークンは <code>context.request().csrfToken()</code> で取り、フォームの hidden に入れます。</p>
+<h2 id="flash">Flash<a class="anchor" href="#flash">#</a></h2>
+<p>リダイレクトの先へ1回だけ渡すものです。</p>
+<pre class="code"><code class="lang-java">context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"保存しました"</span>);
+context.response().redirect(<span class="h-s">"/"</span>);
+</code></pre>
+<p>読んだ時点で消えます。Cookie に署名して入れています。</p>
+<h2 id="cookie-の既定は-secure--true">Cookie の既定は secure = true<a class="anchor" href="#cookie-の既定は-secure--true">#</a></h2>
+<p>jimble の Cookie は既定で <code>Secure</code> が付きます。HTTPS でしか送られません。</p>
+<p><strong>ローカルは http なので、そのままだとブラウザが Cookie を返しません。</strong>
+セッションも CSRF も Flash も、エラーを出さずに効かなくなります。</p>
+<p>これは静かに壊れる典型なので、jimble は <code>env=local</code> かつ <code>cookie.secure = true</code>
+のときに<strong>起動時に WARN を出します</strong>。</p>
+<pre class="code"><code class="lang-text">cookie.secure = true のままです（env=local）。
+ローカルは http なので、ブラウザは Cookie を送り返しません。
+application.conf に次を足してください。
+  cookie { secure = false }
+</code></pre>
+<p><code>jimble new</code> の雛形には最初からこの節が入っています。
+<strong>本番へ出すときは消してください。</strong></p>
+<h2 id="cookie">Cookie<a class="anchor" href="#cookie">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-c">// 30日</span>
+context.cookies().put(<span class="h-s">"last_post"</span>, String.valueOf(id), <span class="h-n">30L</span> * <span class="h-n">24</span> * <span class="h-n">60</span> * <span class="h-n">60</span>);
+
+String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
+</code></pre>
+<p><strong>書いた値は同じリクエストの中で読み返せます。</strong> 受信した Cookie しか見えないと、
+発行したばかりの CSRF トークンを読み直すたびに別のものが出てしまうためです。</p>
+<p>署名を付けたいときは <code>Cookies.sign(value)</code> で署名し、<code>put(Cookie, 平文)</code> で入れます。
+読むときは <code>context.request().unsignCookie(&quot;名前&quot;)</code> です。改ざんされていたら <code>null</code> が返ります。
+鍵は <code>application.conf</code> の <code>cookie.secret</code>（Cookie セッションは <code>session.secret</code>）で、
+本番では環境変数から渡してください。</p>
+<pre class="code"><code class="lang-conf">cookie {
+	secret = ${?COOKIE_SECRET}
+}
+</code></pre>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#セッション">セッション</a></li>
+			<li class="level-2"><a href="#csrf">CSRF</a></li>
+			<li class="level-2"><a href="#flash">Flash</a></li>
+			<li class="level-2"><a href="#cookie-の既定は-secure--true">Cookie の既定は secure = true</a></li>
+			<li class="level-2"><a href="#cookie">Cookie</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

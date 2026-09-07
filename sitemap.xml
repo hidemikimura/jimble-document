@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	<url><loc>https://jimble.io/ja/batch.html</loc></url>
+	<url><loc>https://jimble.io/ja/cli.html</loc></url>
+	<url><loc>https://jimble.io/ja/config.html</loc></url>
+	<url><loc>https://jimble.io/ja/db.html</loc></url>
+	<url><loc>https://jimble.io/ja/hot-reload.html</loc></url>
+	<url><loc>https://jimble.io/ja/index.html</loc></url>
+	<url><loc>https://jimble.io/ja/mcp.html</loc></url>
+	<url><loc>https://jimble.io/ja/migration-jooby.html</loc></url>
+	<url><loc>https://jimble.io/ja/mq.html</loc></url>
+	<url><loc>https://jimble.io/ja/pitfalls.html</loc></url>
+	<url><loc>https://jimble.io/ja/principles.html</loc></url>
+	<url><loc>https://jimble.io/ja/quickstart.html</loc></url>
+	<url><loc>https://jimble.io/ja/request-response.html</loc></url>
+	<url><loc>https://jimble.io/ja/routing.html</loc></url>
+	<url><loc>https://jimble.io/ja/session-security.html</loc></url>
+	<url><loc>https://jimble.io/ja/sql.html</loc></url>
+	<url><loc>https://jimble.io/ja/sse.html</loc></url>
+	<url><loc>https://jimble.io/ja/transaction.html</loc></url>
+	<url><loc>https://jimble.io/ja/view.html</loc></url>
+	<url><loc>https://jimble.io/ja/websocket.html</loc></url>
+</urlset>

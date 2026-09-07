@@ -1,0 +1,297 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>落とし穴 - jimble</title>
+<meta name="description" content="黙って効かなくなるところ。先に読んでおくと1日得します">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="current">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="落とし穴">落とし穴<a class="anchor" href="#落とし穴">#</a></h1>
+<p>落ちるバグは自分で見つかります。ここに集めたのは、<strong>落ちないバグ</strong>です。</p>
+<h2 id="ローカルで-cookie-が効かない">ローカルで Cookie が効かない<a class="anchor" href="#ローカルで-cookie-が効かない">#</a></h2>
+<p><strong>症状</strong>: セッションもログインも CSRF も Flash も、エラーなしで効かない。</p>
+<p><strong>原因</strong>: <code>cookie.secure</code> の既定は <code>true</code> です。ローカルは http なので、
+ブラウザが Cookie を送り返しません。</p>
+<p><strong>対処</strong>: ローカルの <code>application.conf</code> に入れます。本番では消します。</p>
+<pre class="code"><code class="lang-conf">cookie {
+	secure = <span class="h-k">false</span>
+}
+</code></pre>
+<p>起動時に WARN が出るので、ログを見てください。</p>
+<h2 id="ルートが登録されていない">ルートが登録されていない<a class="anchor" href="#ルートが登録されていない">#</a></h2>
+<p><strong>症状</strong>: 404 になる。コードには書いてある。</p>
+<p><strong>原因</strong>: <code>install(SomeController::new)</code> を書き忘れています。
+jimble はクラスパスを走査しないので、書かないと登録されません。</p>
+<p><strong>対処</strong>: 起動ログのルート一覧を見てください。無ければ登録されていません。</p>
+<h2 id="セッションが保存されていない">セッションが保存されていない<a class="anchor" href="#セッションが保存されていない">#</a></h2>
+<p><strong>症状</strong>: <code>put()</code> したのに次のリクエストで消えている。</p>
+<p><strong>原因</strong>: <code>save()</code> を呼んでいません。自動保存はしません。</p>
+<pre class="code"><code class="lang-java">context.session().put(<span class="h-s">"user_id"</span>, <span class="h-n">42</span>);
+
+<span class="h-c">// 明示的に保存する（要件 F-S-02）。自動保存はしない</span>
+context.session().save();</code></pre>
+<h2 id="select-の結果が取れない">select の結果が取れない<a class="anchor" href="#select-の結果が取れない">#</a></h2>
+<p><strong>症状</strong>: <code>row.getString(&quot;title&quot;)</code> が空。</p>
+<p><strong>原因</strong>: 結果はテーブル名でネストしています。</p>
+<pre class="code"><code class="lang-java">Data row = db.select(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.id.eq(<span class="h-n">1L</span>))
+);
+
+<span class="h-c">// SELECT の結果はテーブル名でネストする（要件 F-D-02）</span>
+String title = row.getData(<span class="h-s">"post"</span>).getString(<span class="h-s">"title"</span>);
+
+<span class="h-c">// Column で引けば、途中の文字列が出てこない</span>
+String same = row.getString(Post.title);</code></pre>
+<p><code>Column</code> で引けば間違えません。</p>
+<h2 id="db-のエラーに気づかない">DB のエラーに気づかない<a class="anchor" href="#db-のエラーに気づかない">#</a></h2>
+<p><strong>症状</strong>: 0件のはずがないのに0件。あるいは NPE。</p>
+<p><strong>原因</strong>: DB のエラーは例外ではなく戻り値です。<code>select</code> は <code>null</code>、更新系は <code>-1</code>。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
+
+	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
+
+	<span class="h-c">/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */</span>
+	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
+		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
+		<span class="h-k">return</span>;
+	}
+
+}</code></pre>
+<h2 id="トランザクションが続いていない">トランザクションが続いていない<a class="anchor" href="#トランザクションが続いていない">#</a></h2>
+<p><strong>症状</strong>: <code>commit()</code> のあとの更新が、ロールバックしても戻らない。</p>
+<p><strong>原因</strong>: これは移送元の話です。移送元の <code>commit()</code> はトランザクションを
+終わらせていたので、そこから先が自動コミットになっていました。
+jimble では <code>commit()</code> は終わらせません。終わらせるのは <code>commitEndTransaction()</code> です。</p>
+<p><strong>移送してきたコードを見るときは、<code>commit()</code> の後ろを確認してください。</strong></p>
+<h2 id="コミットもロールバックもされていないが出る">「コミットもロールバックもされていない」が出る<a class="anchor" href="#コミットもロールバックもされていないが出る">#</a></h2>
+<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+</code></pre>
+<p><strong>原因</strong>: try-with-resources で囲まずに <code>beginTransaction()</code> して、途中で <code>return</code> しています。</p>
+<p><strong>対処</strong>: 囲んでください。jimble は実行の終わりに拾ってロールバックしますが、
+それは事故の後始末であって、正しい書き方ではありません。</p>
+<h2 id="sse-が届かない全部まとめて届く">SSE が届かない・全部まとめて届く<a class="anchor" href="#sse-が届かない全部まとめて届く">#</a></h2>
+<p><strong>原因</strong>: 間にいる nginx が溜め込んでいます。</p>
+<p><strong>対処</strong>: jimble は <code>X-Accel-Buffering: no</code> を付けています。
+それでも駄目なら nginx 側で <code>proxy_buffering off;</code> を設定してください。</p>
+<h2 id="sse-のループが終わらない">SSE のループが終わらない<a class="anchor" href="#sse-のループが終わらない">#</a></h2>
+<p><strong>原因</strong>: <code>sse.isOpen()</code> を見ていません。</p>
+<p><code>isOpen()</code> は<strong>寿命が残っているか</strong>を返します。切断は検出できません
+（helidon が教えてくれず、書き込みが永久にブロックすることがあります）。
+ループの中で必ず見てください。詳しくは <a href="./sse.html">SSE</a> を読んでください。</p>
+<h2 id="websocket-で-cookie-が読めない">WebSocket で Cookie が読めない<a class="anchor" href="#websocket-で-cookie-が読めない">#</a></h2>
+<p><strong>原因</strong>: 昇格したあとに読もうとしています。
+HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです。</p>
+<p><strong>対処</strong>: 認証は <code>onUpgrade</code> でやります。<code>false</code> を返せば 403 になります。</p>
+<h2 id="mq-が2回実行された">MQ が2回実行された<a class="anchor" href="#mq-が2回実行された">#</a></h2>
+<p><strong>原因</strong>: そういうものです。「ちょうど1回」は作れません。</p>
+<p><strong>対処</strong>: 何度やっても同じになるように書いてください。詳しくは <a href="./mq.html">MQ</a>。</p>
+<h2 id="hocon-のコメントで落ちる">HOCON のコメントで落ちる<a class="anchor" href="#hocon-のコメントで落ちる">#</a></h2>
+<pre class="code"><code class="lang-text">Key '/' may not be followed by token: '*'
+</code></pre>
+<p><strong>原因</strong>: <code>/* */</code> を使っています。HOCON のコメントは <code>#</code> か <code>//</code> です。</p>
+<h2 id="gradle-が起動しない">Gradle が起動しない<a class="anchor" href="#gradle-が起動しない">#</a></h2>
+<pre class="code"><code class="lang-text">* What went wrong: 25.0.4
+</code></pre>
+<p><strong>原因</strong>: Gradle 8 は Java 25 の上では動きません。
+（ツールチェーンとして Java 25 を使うのは 8 でもできますが、Gradle 自身が動きません）</p>
+<p><strong>対処</strong>: Gradle 9 以上を使ってください。</p>
+<h2 id="kotlin-のコメントが入れ子になる">Kotlin のコメントが入れ子になる<a class="anchor" href="#kotlin-のコメントが入れ子になる">#</a></h2>
+<p><code>build.gradle.kts</code> のブロックコメントに <code>/*</code> が現れると、
+<strong>そこから入れ子のコメントが始まります</strong>（Kotlin のブロックコメントは入れ子にできます）。
+外側が閉じないまま、その下のコードが全部消えます。<strong>エラーは出ません。</strong></p>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">/*
+ * docs/site/&lt;言語&gt;/*.md を読む     ← この /* が入れ子を開く
+ */</span>
+<span class="h-k">tasks</span>.register(<span class="h-s">"site"</span>) { ... }      ← 登録されない。エラーも出ない
+</code></pre>
+<p>パスを書くときは <code>*</code> を避けるか、<code>//</code> を使ってください。</p>
+<h2 id="gitignore-の-docs-が全階層に効く">.gitignore の <code>docs/</code> が全階層に効く<a class="anchor" href="#gitignore-の-docs-が全階層に効く">#</a></h2>
+<p><strong>症状</strong>: 公開したリポジトリからテンプレートが消えている。</p>
+<p><strong>原因</strong>: <code>.gitignore</code> に <code>docs/</code> と書くと、git は<strong>どの階層の <code>docs/</code> にも</strong>効かせます。
+<code>jimble-docs/src/main/jte/docs/</code> まで巻き込みます。</p>
+<p><strong>対処</strong>: 先頭に <code>/</code> を付けて <code>/docs/</code> と書きます。</p>
+<h2 id="gradle-9-で落ちるビルドスクリプト">Gradle 9 で落ちるビルドスクリプト<a class="anchor" href="#gradle-9-で落ちるビルドスクリプト">#</a></h2>
+<p>Gradle 8 では通り、9 で落ちるものがあります。</p>
+<table>
+<thead>
+<tr>
+<th>書き方</th>
+<th>何が起きるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>val x by tasks.registering { }</code></td>
+<td>9.6 で非推奨。Kotlin DSL では<strong>コンパイルエラー</strong>。<code>tasks.register(&quot;x&quot;) { }</code> にします</td>
+</tr>
+<tr>
+<td><code>&quot;...&quot;.formatted(...)</code></td>
+<td>Java 15 のメソッド。9.7 の Kotlin スクリプトからは<strong>解決できません</strong>。文字列テンプレートにします</td>
+</tr>
+</tbody>
+</table>
+<p><strong>ビルドスクリプトは、実際に使うバージョンで一度は流してください。</strong></p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#ローカルで-cookie-が効かない">ローカルで Cookie が効かない</a></li>
+			<li class="level-2"><a href="#ルートが登録されていない">ルートが登録されていない</a></li>
+			<li class="level-2"><a href="#セッションが保存されていない">セッションが保存されていない</a></li>
+			<li class="level-2"><a href="#select-の結果が取れない">select の結果が取れない</a></li>
+			<li class="level-2"><a href="#db-のエラーに気づかない">DB のエラーに気づかない</a></li>
+			<li class="level-2"><a href="#トランザクションが続いていない">トランザクションが続いていない</a></li>
+			<li class="level-2"><a href="#コミットもロールバックもされていないが出る">「コミットもロールバックもされていない」が出る</a></li>
+			<li class="level-2"><a href="#sse-が届かない全部まとめて届く">SSE が届かない・全部まとめて届く</a></li>
+			<li class="level-2"><a href="#sse-のループが終わらない">SSE のループが終わらない</a></li>
+			<li class="level-2"><a href="#websocket-で-cookie-が読めない">WebSocket で Cookie が読めない</a></li>
+			<li class="level-2"><a href="#mq-が2回実行された">MQ が2回実行された</a></li>
+			<li class="level-2"><a href="#hocon-のコメントで落ちる">HOCON のコメントで落ちる</a></li>
+			<li class="level-2"><a href="#gradle-が起動しない">Gradle が起動しない</a></li>
+			<li class="level-2"><a href="#kotlin-のコメントが入れ子になる">Kotlin のコメントが入れ子になる</a></li>
+			<li class="level-2"><a href="#gitignore-の-docs-が全階層に効く">.gitignore の docs/ が全階層に効く</a></li>
+			<li class="level-2"><a href="#gradle-9-で落ちるビルドスクリプト">Gradle 9 で落ちるビルドスクリプト</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,255 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>トランザクション - jimble</title>
+<meta name="description" content="try-with-resources で囲む。畳み忘れは実行の終わりに拾う">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="current">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="トランザクション">トランザクション<a class="anchor" href="#トランザクション">#</a></h1>
+<p>注釈はありません。<strong>囲んだところがトランザクションです。</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
+
+	transaction.beginTransaction();
+
+	<span class="h-k">long</span> id = db.insert(
+		SQL.insert(Post.instance())
+			.value(Post.title, request.getString(<span class="h-s">"title"</span>))
+			.value(Post.body, request.getString(<span class="h-s">"body"</span>))
+			.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
+			.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
+			.value(Post.created_at, <span class="h-k">new</span> Date())
+	);
+
+	<span class="h-k">if</span> (id &lt;= <span class="h-n">0</span>) {
+		transaction.rollbackEndTransaction();
+		<span class="h-k">return</span> -<span class="h-n">1</span>;
+	}
+
+	<span class="h-k">new</span> NoticeExecutor().put(db, <span class="h-k">new</span> Data()
+		.putData(<span class="h-s">"post_id"</span>, id)
+		.putData(<span class="h-s">"title"</span>, request.getString(<span class="h-s">"title"</span>)));
+
+	transaction.commitEndTransaction();
+
+	<span class="h-c">/*
+	 * コミットしてから流す。
+	 * 先に流すと、ロールバックしたときに
+	 * 「入っていない記事のお知らせ」だけが届く。
+	 */</span>
+	PostFeedHandler.notifyNewPost(request.getStringOptional(<span class="h-s">"title"</span>));
+
+	<span class="h-k">return</span> id;
+
+}</code></pre>
+<h2 id="使い分け">使い分け<a class="anchor" href="#使い分け">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>何をするか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>beginTransaction()</code></td>
+<td>始める。他で始まっていれば何もしない</td>
+</tr>
+<tr>
+<td><code>commit()</code></td>
+<td>確定する。<strong>トランザクションは続く</strong></td>
+</tr>
+<tr>
+<td><code>commitEndTransaction()</code></td>
+<td>確定して終わる</td>
+</tr>
+<tr>
+<td><code>rollback()</code></td>
+<td>戻す。トランザクションは続く</td>
+</tr>
+<tr>
+<td><code>rollbackEndTransaction()</code></td>
+<td>戻して終わる</td>
+</tr>
+<tr>
+<td><code>close()</code></td>
+<td>開いたままなら戻す</td>
+</tr>
+</tbody>
+</table>
+<p><code>commit()</code> と <code>commitEndTransaction()</code> の違いに注意してください。
+<code>commit()</code> は「ここまでを確定して、まだ続ける」です。
+移送元のコードでは <code>commit()</code> が中で終わらせていたため、
+<strong>そこから先が黙って自動コミットになる</strong>という穴がありました。jimble では直っています。</p>
+<h2 id="畳み忘れ">畳み忘れ<a class="anchor" href="#畳み忘れ">#</a></h2>
+<p>try-with-resources を使わずに <code>beginTransaction()</code> して、途中で <code>return</code> すると、
+ロールバックもされず接続もプールへ戻りません。</p>
+<p>jimble は<strong>実行（<code>Context</code>）の終わりに拾います</strong>。</p>
+<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+</code></pre>
+<p>黙って戻すと「入れたつもりが入っていない」が残るので、ERROR を出してからロールバックします。
+このログが出たら、囲み忘れです。</p>
+<h2 id="短く書く">短く書く<a class="anchor" href="#短く書く">#</a></h2>
+<pre class="code"><code class="lang-java">DBTransaction.transaction(db, transaction -&gt; {
+	db.insert(...);
+	db.update(...);
+});
+</code></pre>
+<p>始めて、渡した処理を走らせて、<code>commitEndTransaction()</code> まで済ませます。
+例外が出れば <code>close()</code> がロールバックします。</p>
+<h2 id="mq-と混ぜるとき">MQ と混ぜるとき<a class="anchor" href="#mq-と混ぜるとき">#</a></h2>
+<p>キューに積むのは<strong>コミットしてからです</strong>。</p>
+<pre class="code"><code class="lang-java">transaction.commitEndTransaction();
+
+PostFeedHandler.notifyNewPost(title);
+</code></pre>
+<p>先に流すと、ロールバックしたときに「入っていない記事のお知らせ」だけが届きます。
+逆に、DB のキュー（<a href="./mq.html">MQ</a>）へ積むのは<strong>トランザクションの中</strong>です。
+同じ DB なので、ロールバックすれば積んだものも消えます。</p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#使い分け">使い分け</a></li>
+			<li class="level-2"><a href="#畳み忘れ">畳み忘れ</a></li>
+			<li class="level-2"><a href="#短く書く">短く書く</a></li>
+			<li class="level-2"><a href="#mq-と混ぜるとき">MQ と混ぜるとき</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

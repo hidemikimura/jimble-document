@@ -1,0 +1,282 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP - jimble</title>
+<meta name="description" content="Model Context Protocol のサーバーを立てる（2026-07-28 / Streamable HTTP）">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="current">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="mcp">MCP<a class="anchor" href="#mcp">#</a></h1>
+<p>アプリの機能を、AI から呼べる形で公開します。
+jimble が実装しているのは <strong>2026-07-28</strong> 版の Streamable HTTP です。</p>
+<h2 id="公開するものを並べる">公開するものを並べる<a class="anchor" href="#公開するものを並べる">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
+
+	{
+</code></pre>
+<pre class="code"><code class="lang-java">tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
+tool(<span class="h-s">"create_post"</span>, CreatePostTool::<span class="h-k">new</span>);
+
+resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span class="h-k">new</span>);</code></pre>
+<pre class="code"><code class="lang-java">	}
+
+}
+</code></pre>
+<pre class="code"><code class="lang-java">install(BlogMcp::<span class="h-k">new</span>);
+</code></pre>
+<p><strong>上から読めば、このサーバーが何を公開しているかが全部分かります。</strong>
+注釈もクラスパスの走査もありません。Java の MCP 実装はたいてい注釈で宣言して
+起動時に走査しますが、それだと「どのクラスが拾われているか」が実行するまで分かりません。</p>
+<h2 id="ツールを書く">ツールを書く<a class="anchor" href="#ツールを書く">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> GetWeatherTool <span class="h-k">implements</span> McpTool {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String description () {
+
+		<span class="h-c">// ここはモデルが読む。いつ使うか・何ができないかを書く</span>
+		<span class="h-k">return</span> <span class="h-s">"都市名から現在の天気を返す。過去や予報は返せない"</span>;
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> JsonSchema inputSchema () {
+
+		<span class="h-k">return</span> JsonSchema.<span class="h-k">object</span>()
+			.string(<span class="h-s">"city"</span>, <span class="h-s">"都市名"</span>).required();
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> ToolResult call (WebContext context, Data arguments) {
+
+		String city = arguments.getString(<span class="h-s">"city"</span>);
+
+		<span class="h-k">if</span> (!isKnown(city)) {
+			<span class="h-c">// モデルが読んで直せる失敗は、例外ではなく isError で返す</span>
+			<span class="h-k">return</span> ToolResult.error(<span class="h-s">"その都市は扱えません: %s"</span>.formatted(city));
+		}
+
+		<span class="h-k">return</span> ToolResult.text(weatherOf(city));
+
+	}
+
+}</code></pre>
+<p><code>description()</code> は<strong>モデルが読みます</strong>。人間向けのコメントではありません。
+いつ使うか、そして<strong>何ができないか</strong>を書いてください。
+「過去や予報は返せない」の一文が、無駄な呼び出しを減らします。</p>
+<p>入力の形は JSON Schema で宣言します。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> JsonSchema inputSchema () {
+
+	<span class="h-k">return</span> JsonSchema.<span class="h-k">object</span>()
+		.string(<span class="h-s">"title"</span>, <span class="h-s">"タイトル（%d 文字まで）"</span>.formatted(MAX_TITLE)).required()
+		.string(<span class="h-s">"body"</span>, <span class="h-s">"本文"</span>)
+		.bool(<span class="h-s">"published"</span>, <span class="h-s">"すぐ公開するか（既定は非公開）"</span>);
+
+}</code></pre>
+<h2 id="失敗の返し方">失敗の返し方<a class="anchor" href="#失敗の返し方">#</a></h2>
+<p>失敗には2種類あります。</p>
+<table>
+<thead>
+<tr>
+<th>どちらか</th>
+<th>返し方</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>モデルが読んで直せる（引数が変、対象が無い）</td>
+<td><code>ToolResult.error(&quot;...&quot;)</code></td>
+</tr>
+<tr>
+<td>直せない（DB が落ちている、設定が無い）</td>
+<td>例外を投げる</td>
+</tr>
+</tbody>
+</table>
+<p><code>ToolResult.error()</code> は <code>isError</code> を立てて<strong>正常な応答として</strong>返します。
+モデルはそれを読んで、引数を変えてもう一度呼べます。
+例外にしてしまうと、モデルには「壊れた」としか見えません。</p>
+<h2 id="リソースとプロンプト">リソースとプロンプト<a class="anchor" href="#リソースとプロンプト">#</a></h2>
+<pre class="code"><code class="lang-java">resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span class="h-k">new</span>);
+prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">new</span>);
+</code></pre>
+<p>リソースは読み取り専用のデータ、プロンプトは定型の指示です。</p>
+<h2 id="口は1本">口は1本<a class="anchor" href="#口は1本">#</a></h2>
+<p>公開されるのは <code>POST /mcp</code> の1本だけです。</p>
+<ul>
+<li><strong>GET も DELETE も 405 で断ります。</strong> どちらも 2026-07-28 で仕様から消えました</li>
+<li><strong>セッションはありません。</strong> <code>Mcp-Session-Id</code> は使いません</li>
+<li><strong>サーバーから要求は出しません。</strong> 送るのは応答だけです</li>
+</ul>
+<p>パスを変えるなら設定します。</p>
+<pre class="code"><code class="lang-conf">mcp {
+	path            = <span class="h-s">"/mcp"</span>
+	name            = <span class="h-s">"blog"</span>
+	version         = <span class="h-s">"1.0.0"</span>
+	allowed_origins = [<span class="h-s">"https://example.com"</span>]
+}
+</code></pre>
+<h2 id="origin-を必ず設定してください">Origin を必ず設定してください<a class="anchor" href="#origin-を必ず設定してください">#</a></h2>
+<p><code>allowed_origins</code> を設定しないと、<code>Origin</code> ヘッダの検査ができません。
+ブラウザから叩ける MCP サーバーは、<strong>DNS リバインディングの的になります</strong>。
+ローカルで動かすサーバーほど危険です（<code>localhost</code> は誰の手元にもあります）。</p>
+<h2 id="つなぐ">つなぐ<a class="anchor" href="#つなぐ">#</a></h2>
+<pre class="code"><code class="lang-json">{
+	<span class="h-s">"mcpServers"</span>: {
+		<span class="h-s">"blog"</span>: {
+			<span class="h-s">"type"</span>: <span class="h-s">"http"</span>,
+			<span class="h-s">"url"</span>: <span class="h-s">"http://localhost:9000/mcp"</span>
+		}
+	}
+}
+</code></pre>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#公開するものを並べる">公開するものを並べる</a></li>
+			<li class="level-2"><a href="#ツールを書く">ツールを書く</a></li>
+			<li class="level-2"><a href="#失敗の返し方">失敗の返し方</a></li>
+			<li class="level-2"><a href="#リソースとプロンプト">リソースとプロンプト</a></li>
+			<li class="level-2"><a href="#口は1本">口は1本</a></li>
+			<li class="level-2"><a href="#origin-を必ず設定してください">Origin を必ず設定してください</a></li>
+			<li class="level-2"><a href="#つなぐ">つなぐ</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,237 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設定 - jimble</title>
+<meta name="description" content="application.conf。環境別の上書きと、秘密の渡し方">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="index.html">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index.html"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart.html"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles.html"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing.html"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response.html"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view.html"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security.html"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db.html"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql.html"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction.html"
+				   class="">トランザクション</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch.html"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq.html"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse.html"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket.html"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp.html"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli.html"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload.html"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config.html"
+				   class="current">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls.html"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby.html"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="設定">設定<a class="anchor" href="#設定">#</a></h1>
+<p><code>src/main/resources/application.conf</code> に書きます。書式は HOCON です。</p>
+<h2 id="環境で切り替える">環境で切り替える<a class="anchor" href="#環境で切り替える">#</a></h2>
+<pre class="code"><code class="lang-text">application.conf          共通
+application.prod.conf     本番だけ（共通を上書きする）
+</code></pre>
+<p>環境は <code>-Djimble.env=prod</code> で決まります。既定は <code>local</code> です。</p>
+<h2 id="秘密はファイルに書かない">秘密はファイルに書かない<a class="anchor" href="#秘密はファイルに書かない">#</a></h2>
+<pre class="code"><code class="lang-conf">db {
+	main_db {
+		url      = <span class="h-s">"jdbc:mariadb://127.0.0.1:3306/app"</span>
+		url      = ${?DB_URL}
+		password = <span class="h-s">""</span>
+		password = ${?DB_PASSWORD}
+	}
+}
+</code></pre>
+<p><code>${?ENV_NAME}</code> は「環境変数があれば上書き、無ければ前の行のまま」です。
+同じキーを2回書くのが正しい書き方です。</p>
+<h2 id="コメントは--か-">コメントは # か //<a class="anchor" href="#コメントは--か-">#</a></h2>
+<p><strong>HOCON に <code>/* */</code> はありません。</strong> 書くとこうなります。</p>
+<pre class="code"><code class="lang-text">Key '/' may not be followed by token: '*'
+</code></pre>
+<h2 id="主なキー">主なキー<a class="anchor" href="#主なキー">#</a></h2>
+<pre class="code"><code class="lang-conf">server {
+	port        = <span class="h-n">9000</span>
+	trust_proxy = <span class="h-k">false</span>      <span class="h-c"># ロードバランサの後ろに置くまで false</span>
+	max_request_size     = <span class="h-n">10485760</span>
+	max_header_size      = <span class="h-n">16384</span>
+	idle_timeout_seconds = <span class="h-n">60</span>
+	compression          = <span class="h-k">true</span>
+	bot_access_log       = <span class="h-k">true</span>
+}
+
+cookie {
+	secure = <span class="h-k">true</span>            <span class="h-c"># ローカルでは false（下を参照）</span>
+	secret = ${?COOKIE_SECRET}
+}
+
+session {
+	store       = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	cookie_name = <span class="h-s">"sid"</span>
+}
+
+sse {
+	max_duration_seconds = <span class="h-n">300</span>
+	max_events           = <span class="h-n">0</span>
+	retry_millis         = <span class="h-n">3000</span>
+}
+
+mcp {
+	path            = <span class="h-s">"/mcp"</span>
+	allowed_origins = []
+}
+
+migration {
+	on_startup   = <span class="h-k">false</span>
+	resource_dir = <span class="h-s">"migration"</span>
+}
+
+codegen {
+	<span class="h-k">package</span> = <span class="h-s">"db"</span>
+}
+</code></pre>
+<h2 id="trust_proxy-は既定で-false">trust_proxy は既定で false<a class="anchor" href="#trust_proxy-は既定で-false">#</a></h2>
+<p><code>true</code> にすると <code>X-Forwarded-For</code> を信じます。
+<strong>ロードバランサの後ろに置くまでは <code>false</code> のままにしてください。</strong>
+直接叩ける状態で <code>true</code> にすると、送信元 IP を誰でも偽れます。</p>
+<h2 id="cookiesecure-は既定で-true">cookie.secure は既定で true<a class="anchor" href="#cookiesecure-は既定で-true">#</a></h2>
+<p>安全側が既定ですが、ローカルは http なのでブラウザが Cookie を返しません。
+セッションも CSRF も Flash も、エラーを出さずに効かなくなります。</p>
+<p><code>env=local</code> かつ <code>secure = true</code> のときは、起動時に WARN が出ます。
+ローカル用の <code>application.conf</code> には <code>cookie { secure = false }</code> を入れて、
+<strong>本番へ出すときに消してください</strong>。</p>
+<h2 id="起動ログで確認する">起動ログで確認する<a class="anchor" href="#起動ログで確認する">#</a></h2>
+<pre class="code"><code class="lang-text">jimble 構成: env=local / session=none / cache=db / redis=なし / db=[blog_example]
+</code></pre>
+<p>読み込まれた設定が起動の1行目に出ます。
+「設定したつもりが効いていない」はここで気づけます。</p>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#環境で切り替える">環境で切り替える</a></li>
+			<li class="level-2"><a href="#秘密はファイルに書かない">秘密はファイルに書かない</a></li>
+			<li class="level-2"><a href="#コメントは--か-">コメントは # か //</a></li>
+			<li class="level-2"><a href="#主なキー">主なキー</a></li>
+			<li class="level-2"><a href="#trust_proxy-は既定で-false">trust_proxy は既定で false</a></li>
+			<li class="level-2"><a href="#cookiesecure-は既定で-true">cookie.secure は既定で true</a></li>
+			<li class="level-2"><a href="#起動ログで確認する">起動ログで確認する</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>
