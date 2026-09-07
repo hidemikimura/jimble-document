@@ -76,7 +76,12 @@
 			var li = document.createElement('li');
 			var a = document.createElement('a');
 
-			a.href = page.slug + '.html';
+			/*
+			 * 拡張子は付けない。
+			 * Cloudflare Pages は /ja/x.html を /ja/x へ 307 で正規化するので、
+			 * 付けるとクリックのたびに1回よけいに往復する。
+			 */
+			a.href = page.slug;
 			a.innerHTML = '<strong>' + escape(page.title) + '</strong>'
 				+ '<span>' + escape(excerpt(page.text, needle) || page.summary) + '</span>';
 
