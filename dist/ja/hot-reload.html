@@ -177,10 +177,70 @@
 
 	jvmArgs = listOf(<span class="h-s">"-Xmx1g"</span>)
 	args    = listOf()
+
+	debug        = <span class="h-k">true</span>                 <span class="h-c">// デバッガを繋げるようにする</span>
+	debugPort    = <span class="h-n">5005</span>
+	debugListen  = <span class="h-k">false</span>                <span class="h-c">// true = アプリのほうから IDE に繋ぎに行く</span>
+	debugSuspend = <span class="h-k">false</span>                <span class="h-c">// true = 繋がるまでアプリを止めておく</span>
 }
 </code></pre>
 <p><code>restartMode = &quot;on_change&quot;</code> にすると、保存した時点でビルドと入れ替えを始めます。
 待ち時間は減りますが、保存のたびに走ります。</p>
+<h2 id="デバッガで止める">デバッガで止める<a class="anchor" href="#デバッガで止める">#</a></h2>
+<p><strong>アプリは Gradle とは別のプロセスで動きます。</strong> だから IDE の
+「Gradle タスクをデバッグ実行」で <code>jimbleRun</code> を動かしても、<strong>アプリの
+ブレークポイントには止まりません</strong>（止まるのは Gradle のほうです）。</p>
+<p>アプリのプロセスに繋いでください。</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleRun -Pjimble.debug          # 5005 番
+<span class="h-k">./gradlew</span> jimbleRun -Pjimble.debug=5010
+</code></pre>
+<p>ビルドファイルに書くなら <code>jimbleRun { debug = true }</code> です。</p>
+<p>IntelliJ IDEA の設定は2通りあります。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>debugListen = false</code>（既定）</th>
+<th><code>debugListen = true</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>待ち受けるのは</td>
+<td>アプリ</td>
+<td>IDE</td>
+</tr>
+<tr>
+<td>IntelliJ の設定</td>
+<td>Remote JVM Debug → <strong>Attach to remote JVM</strong></td>
+<td>Remote JVM Debug → <strong>Listen to remote JVM</strong> ＋ <strong>Auto restart</strong></td>
+</tr>
+<tr>
+<td>動かす順番</td>
+<td>アプリ → IDE</td>
+<td>IDE → アプリ</td>
+</tr>
+<tr>
+<td>作り直したあと</td>
+<td><strong>繋ぎ直しが要る</strong></td>
+<td><strong>勝手に繋ぎ直る</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>ホットリロードで使うなら <code>debugListen = true</code> を勧めます。</strong>
+<code>jimbleRun</code> は保存のたびにアプリのプロセスを入れ替えるので、
+既定（アプリが待ち受ける形）だと入れ替わるたびに繋ぎ直しになります。</p>
+<p>起動時に、どちらの形で待っているかがログに出ます。</p>
+<pre class="code"><code class="lang-text">[jimbleRun] デバッグ: 5005 番で待ち受けます。
+  IntelliJ の Remote JVM Debug（Attach to remote JVM）で繋いでください。
+  作り直すたびにプロセスが入れ替わるので、そのつど繋ぎ直しが要ります。
+  繋ぎっぱなしにしたいなら jimbleRun { debugListen = true } にしてください。
+</code></pre>
+<p>起動処理そのものを追いたいときは <code>debugSuspend = true</code> にします。
+デバッガが繋がるまでアプリが動き出しません。</p>
+<p><strong>待ち受けるのは <code>localhost</code> だけです。</strong> JDWP が開いているということは
+そのマシンで任意のコードを動かせるということなので、外には開けていません。
+別のホストから繋ぐ必要があるときは <code>jvmArgs</code> に自分で書いてください。</p>
 <h2 id="気をつけること">気をつけること<a class="anchor" href="#気をつけること">#</a></h2>
 <ul>
 <li><strong><code>jimbleRun</code> は開発用です。</strong> 本番では <code>./gradlew run</code> か、作った jar を直接動かします</li>
@@ -199,6 +259,7 @@
 			<li class="level-2"><a href="#クラスローダを差し替えないのはなぜか">クラスローダを差し替えないのはなぜか</a></li>
 			<li class="level-2"><a href="#ビルドが失敗したら">ビルドが失敗したら</a></li>
 			<li class="level-2"><a href="#設定">設定</a></li>
+			<li class="level-2"><a href="#デバッガで止める">デバッガで止める</a></li>
 			<li class="level-2"><a href="#気をつけること">気をつけること</a></li>
 		</ul>
 	</nav>
