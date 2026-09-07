@@ -3,6 +3,7 @@
 	<url><loc>https://jimble.io/ja/assets</loc></url>
 	<url><loc>https://jimble.io/ja/async</loc></url>
 	<url><loc>https://jimble.io/ja/batch</loc></url>
+	<url><loc>https://jimble.io/ja/cache</loc></url>
 	<url><loc>https://jimble.io/ja/cli</loc></url>
 	<url><loc>https://jimble.io/ja/config</loc></url>
 	<url><loc>https://jimble.io/ja/db</loc></url>
@@ -11,6 +12,7 @@
 	<url><loc>https://jimble.io/ja/execution</loc></url>
 	<url><loc>https://jimble.io/ja/hot-reload</loc></url>
 	<url><loc>https://jimble.io/ja/index</loc></url>
+	<url><loc>https://jimble.io/ja/log</loc></url>
 	<url><loc>https://jimble.io/ja/mcp</loc></url>
 	<url><loc>https://jimble.io/ja/migration-jooby</loc></url>
 	<url><loc>https://jimble.io/ja/mq</loc></url>
@@ -24,6 +26,8 @@
 	<url><loc>https://jimble.io/ja/sse</loc></url>
 	<url><loc>https://jimble.io/ja/testing</loc></url>
 	<url><loc>https://jimble.io/ja/transaction</loc></url>
+	<url><loc>https://jimble.io/ja/upload</loc></url>
+	<url><loc>https://jimble.io/ja/validation</loc></url>
 	<url><loc>https://jimble.io/ja/view</loc></url>
 	<url><loc>https://jimble.io/ja/websocket</loc></url>
 </urlset>

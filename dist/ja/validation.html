@@ -1,0 +1,557 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>検証とページング - jimble</title>
+<meta name="description" content="ValidationRule / ValidationExecutor と、page・per の読み方">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="current">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="検証とページング">検証とページング<a class="anchor" href="#検証とページング">#</a></h1>
+<h2 id="検証は3段ある">検証は3段ある<a class="anchor" href="#検証は3段ある">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>段</th>
+<th>クラス</th>
+<th>何をするか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1項目</td>
+<td><code>ValidationRule</code></td>
+<td>「空でない」「1〜120 の整数」を積む</td>
+</tr>
+<tr>
+<td>1リクエスト</td>
+<td><code>ValidationRules</code></td>
+<td>列ごとにルールを結びつけ、まとめて回す</td>
+</tr>
+<tr>
+<td>1ルート</td>
+<td><code>ValidationExecutor</code></td>
+<td>失敗したら<strong>後続の処理を止めて 422 を返す</strong></td>
+</tr>
+</tbody>
+</table>
+<p>下だけ、上だけ、どちらでも使えます。</p>
+<h2 id="ルールを組み立てる">ルールを組み立てる<a class="anchor" href="#ルールを組み立てる">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRule rule = <span class="h-k">new</span> ValidationRule()
+	.empty()
+	.textLengthMax(<span class="h-n">100</span>);
+</code></pre>
+<p>積んだ順に走り、<strong>最初に落ちたところで止まります</strong>（1項目につきエラーは1件）。</p>
+<table>
+<thead>
+<tr>
+<th>分類</th>
+<th>メソッド</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>必須</td>
+<td><code>empty()</code> / <code>required()</code>（同じもの）</td>
+</tr>
+<tr>
+<td>文字数</td>
+<td><code>textLength(min, max)</code> / <code>textLengthMin(min)</code> / <code>textLengthMax(max)</code></td>
+</tr>
+<tr>
+<td>バイト数</td>
+<td><code>textByteLength(min, max[, charset])</code> / <code>textByteLengthMin</code> / <code>textByteLengthMax</code>（既定 UTF-8）</td>
+</tr>
+<tr>
+<td>数値</td>
+<td><code>integer()</code> / <code>integer(min, max)</code> / <code>integerMin</code> / <code>integerMax</code> / <code>number()</code> / <code>number(min, max)</code> / <code>numberMin</code> / <code>numberMax</code></td>
+</tr>
+<tr>
+<td>形式</td>
+<td><code>bool()</code> / <code>email()</code> / <code>url()</code> / <code>domain()</code> / <code>date()</code> / <code>date(format)</code> / <code>regex(regex)</code> / <code>enumType(Class)</code></td>
+</tr>
+<tr>
+<td>文字種</td>
+<td><code>characterType(CharacterType[])</code> / <code>characterType(Character[])</code> / 両方</td>
+</tr>
+<tr>
+<td>自作</td>
+<td><code>custom(IValidator)</code></td>
+</tr>
+<tr>
+<td>分岐</td>
+<td><code>insertRequired()</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>empty()</code> 以外は、空を通します。</strong>
+<code>textLengthMax(100)</code> は「入っているなら 100 文字以内」という意味で、
+空文字や <code>null</code> はエラーにしません。<strong>必須は必ず <code>empty()</code> で書いてください。</strong></p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><code>regex(...)</code> は <code>matches</code> ではなく <strong><code>find</code>（部分一致）</strong> です。
+全体に効かせたいときは <code>^</code> と <code>$</code> を自分で書いてください。</p>
+</div>
+<h2 id="列にまとめる">列にまとめる<a class="anchor" href="#列にまとめる">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty())
+	.put(Item.age, <span class="h-k">new</span> ValidationRule().integer(<span class="h-n">1</span>, <span class="h-n">120</span>));
+
+Data request = <span class="h-k">new</span> Data();
+request.putData(Item.name, <span class="h-s">""</span>);
+request.putData(Item.age, <span class="h-s">"999"</span>);
+
+<span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
+Data errors = rules.validate(<span class="h-k">null</span>, request);
+
+Data messages = ValidationMessages.toMessages(errors);</code></pre>
+<ul>
+<li><strong>項目をまたいだエラーは全部集めます</strong>（1件ずつ言われるのが、入力し直す人にはいちばん困るため）</li>
+<li><strong>送られてこなかった項目は検証しません</strong>（<code>insertRequired()</code> を除く）</li>
+<li>1つの列に配列が来たら、要素ごとに回します</li>
+<li><code>put(rule)</code>（列なし）で、項目に紐づかない相関チェックも書けます</li>
+</ul>
+<h3 id="生のエラーの形">生のエラーの形<a class="anchor" href="#生のエラーの形">#</a></h3>
+<p><code>validate</code> が返すのは<strong>文言ではありません。</strong>「どの種別で落ちたか」と「そのときの設定」です。</p>
+<pre class="code"><code class="lang-java">{ <span class="h-s">"validation_type"</span>: Empty, <span class="h-s">"validation_setting"</span>: {}, <span class="h-s">"input"</span>: <span class="h-s">""</span> }
+</code></pre>
+<p>これを人が読む形に変えるのが <code>ValidationMessages.toMessages(errors)</code> で、
+<strong>項目名 → メッセージの一覧</strong>になります。</p>
+<pre class="code"><code class="lang-json">{ <span class="h-s">"title"</span>: [<span class="h-s">"入力してください"</span>], <span class="h-s">"age"</span>: [<span class="h-s">"1 以上 120 以下の整数で入力してください"</span>] }
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p>文言を持たずに種別で返しているので、<strong>同じ検証結果を日本語にも英語にも API のコードにも変えられます。</strong></p>
+</div>
+<h3 id="文言を差し替える">文言を差し替える<a class="anchor" href="#文言を差し替える">#</a></h3>
+<pre class="code"><code class="lang-java">ValidationMessages.put(ValidationErrorType.Empty, (type, settings) -&gt; <span class="h-s">"required"</span>);
+
+ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty());
+
+Data request = <span class="h-k">new</span> Data();
+request.putData(Item.name, <span class="h-s">""</span>);
+
+assertEquals(List.of(<span class="h-s">"required"</span>),
+	ValidationMessages.toMessages(rules.validate(<span class="h-k">null</span>, request)).get(<span class="h-s">"name"</span>));</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><code>ValidationMessages</code> は <strong>static でグローバル</strong>です。テストで差し替えたら
+<code>finally</code> で <code>ValidationMessages.reset()</code> してください。
+忘れると、<strong>あとから走ったテストだけが落ちます。</strong></p>
+</div>
+<h2 id="登録のときだけ必須">登録のときだけ必須<a class="anchor" href="#登録のときだけ必須">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().insertRequired().empty())
+	.insertRequestChecker(req -&gt; req.getBoolean(<span class="h-s">"is_insert"</span>));
+
+Data update = <span class="h-k">new</span> Data();
+update.put(<span class="h-s">"is_insert"</span>, <span class="h-k">false</span>);
+assertTrue(rules.validate(<span class="h-k">null</span>, update).isEmpty(), <span class="h-s">"更新なのに必須になっている"</span>);
+
+Data insert = <span class="h-k">new</span> Data();
+insert.put(<span class="h-s">"is_insert"</span>, <span class="h-k">true</span>);
+assertFalse(rules.validate(<span class="h-k">null</span>, insert).isEmpty(), <span class="h-s">"登録なのに必須になっていない"</span>);</code></pre>
+<p>「登録リクエストかどうか」の判定は <code>insertRequestChecker</code> に渡します。
+同じ判定が各バリデータの <code>isInsertRequest</code> にも届きます。</p>
+<h2 id="複数行を検証する">複数行を検証する<a class="anchor" href="#複数行を検証する">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty());
+
+Data ok = <span class="h-k">new</span> Data();
+ok.putData(Item.name, <span class="h-s">"あ"</span>);
+
+Data ng = <span class="h-k">new</span> Data();
+ng.putData(Item.name, <span class="h-s">""</span>);
+
+List&lt;Data&gt; errors = rules.validate(<span class="h-k">null</span>, List.of(ok, ng, ok));
+
+assertEquals(<span class="h-n">1</span>, errors.size());
+assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h-s">"index"</span>), <span class="h-s">"行番号が違う"</span>);</code></pre>
+<p><strong>エラーのある行だけ</strong>返り、各行に <code>index</code> が入ります（<strong>1 始まり</strong>）。</p>
+<h2 id="ルートにかける">ルートにかける<a class="anchor" href="#ルートにかける">#</a></h2>
+<p><code>ValidationExecutor</code> を継承して <code>validate</code> だけ書きます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">class</span> Failing <span class="h-k">extends</span> ValidationExecutor {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> <span class="h-k">void</span> validate (WebContext context) {
+
+		log.add(<span class="h-s">"validate"</span>);
+		addError(<span class="h-s">"title"</span>, <span class="h-s">"入力してください"</span>);
+
+	}
+
+}</code></pre>
+<p>ルートでは<strong>いちばん先に積みます。</strong></p>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+	{
+		post(<span class="h-s">"/items"</span>, context -&gt; {
+			context.addExecutor(<span class="h-k">new</span> Failing());
+			context.addExecutor(<span class="h-k">new</span> UseCase());
+		});
+	}
+};</code></pre>
+<p>失敗すると、こうなります。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ステータス</td>
+<td><strong>422</strong></td>
+</tr>
+<tr>
+<td>本文</td>
+<td><code>{&quot;validation&quot;: {&quot;項目名&quot;: [&quot;メッセージ&quot;]}}</code> <strong>＋ 送られてきた入力値</strong></td>
+</tr>
+<tr>
+<td>後続の Executor</td>
+<td><strong>実行されない</strong>（捨てられる）</td>
+</tr>
+<tr>
+<td><code>error(...)</code> フック</td>
+<td><strong>通らない</strong>（例外を投げていないため。<a href="./errors">エラー処理</a>）</td>
+</tr>
+</tbody>
+</table>
+<p><code>ValidationRules</code> の結果をそのまま積むこともできます。</p>
+<pre class="code"><code class="lang-java">addErrors(rules.validate(db, context.request().bodyAll()));
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>ValidationExecutor</code> は <strong><code>WebContext</code> をフィールドに持ちません。</strong>
+<code>validate(WebContext)</code> の引数で受け取ります。
+インスタンスを使い回したときに、<strong>前のリクエストのコンテキストに書き込む</strong>事故を避けるためです。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>列定義からルールは自動生成されません。</strong>
+生成されたテーブルクラス（<code>Post.title</code> など）が持っているのは
+型・NULL 可否・主キーだけで、<strong>varchar の桁数を持っていません。</strong>
+<code>textLengthMax</code> を自動で導く材料が無いので、ルールは手で書きます。</p>
+</div>
+<h2 id="ページング">ページング<a class="anchor" href="#ページング">#</a></h2>
+<h3 id="リクエストから読む">リクエストから読む<a class="anchor" href="#リクエストから読む">#</a></h3>
+<pre class="code"><code class="lang-java">Paging paging = context.request().paging();
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>読むキー</td>
+<td><code>page</code> / <code>per</code></td>
+</tr>
+<tr>
+<td>既定</td>
+<td><code>page = 1</code>、<code>per = 10</code></td>
+</tr>
+<tr>
+<td>全件</td>
+<td><code>per=all</code>（LIMIT を付けません）</td>
+</tr>
+<tr>
+<td>キー名の変更</td>
+<td><code>paging.page</code> / <code>paging.per</code>（設定）</td>
+</tr>
+<tr>
+<td>数値でない値</td>
+<td>無視して既定を使います</td>
+</tr>
+</tbody>
+</table>
+<p><code>context.request().paging(20)</code> と書けば、<code>per</code> が来ていないときの既定を変えられます。</p>
+<h3 id="select-にかける">SELECT にかける<a class="anchor" href="#select-にかける">#</a></h3>
+<pre class="code"><code class="lang-java">Paging paging = <span class="h-k">new</span> Paging();
+paging.load(request(<span class="h-s">"2"</span>, <span class="h-s">"10"</span>), <span class="h-n">0</span>);
+
+SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
+
+assertEquals(<span class="h-n">10</span>, response.list.size(), <span class="h-s">"1ページ分だけ取れていない"</span>);
+assertEquals(TOTAL, response.rowCount, <span class="h-s">"総件数が LIMIT に影響されている"</span>);
+
+assertEquals(TOTAL, paging.totalCount());
+assertEquals(<span class="h-n">3</span>, paging.maxPage(), <span class="h-s">"25 件を 10 件ずつなら 3 ページ"</span>);
+assertEquals(<span class="h-n">11</span>, paging.start());</code></pre>
+<p><code>selectListWithRowCount</code> が<strong>総件数の COUNT も投げます。</strong>
+COUNT 文は FROM / WHERE / GROUP BY / HAVING だけを写すので、
+SELECT 句や ORDER BY、LIMIT には影響されません。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>総件数を数えるのは <code>selectListWithRowCount</code> だけ</strong>です。
+ふつうの <code>selectList(builder)</code> では <code>paging.totalCount()</code> が 0 のままで、
+<strong>ページャが「1 / 1 ページ」になります。</strong></p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>生 SQL 版（<code>selectListWithRowCount(sql, params...)</code>）は <code>Paging</code> を触りません。
+自分で <code>paging.set(response.list.size(), response.rowCount)</code> を呼んでください。</p>
+</div>
+<h3 id="取れるもの">取れるもの<a class="anchor" href="#取れるもの">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page()</code></td>
+<td>現在ページ</td>
+</tr>
+<tr>
+<td><code>per()</code></td>
+<td>1ページの件数</td>
+</tr>
+<tr>
+<td><code>perAll()</code></td>
+<td>全件指定だったか</td>
+</tr>
+<tr>
+<td><code>totalCount()</code></td>
+<td>総件数</td>
+</tr>
+<tr>
+<td><code>maxPage()</code></td>
+<td>総ページ数（<strong>最低 1</strong>）</td>
+</tr>
+<tr>
+<td><code>start()</code></td>
+<td>このページの先頭が何件目か（<strong>1 始まり</strong>）</td>
+</tr>
+<tr>
+<td><code>count()</code></td>
+<td>このページで実際に取れた件数</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>「次がある / 前がある」のメソッドはありません。</strong>
+<code>page() &gt; 1</code> と <code>page() &lt; maxPage()</code> で判定してください。</p>
+</div>
+<h3 id="レスポンスに載る">レスポンスに載る<a class="anchor" href="#レスポンスに載る">#</a></h3>
+<p><code>context.request().paging()</code> を<strong>呼んだ時点で</strong>レスポンスに載ります。自分で詰め直す必要はありません。</p>
+<pre class="code"><code class="lang-json">{
+  <span class="h-s">"rows"</span>: [ ... ],
+  <span class="h-s">"paging"</span>: { <span class="h-s">"page"</span>: <span class="h-n">2</span>, <span class="h-s">"per"</span>: <span class="h-n">10</span>, <span class="h-s">"perAll"</span>: <span class="h-k">false</span>,
+              <span class="h-s">"maxPage"</span>: <span class="h-n">3</span>, <span class="h-s">"totalCount"</span>: <span class="h-n">25</span>, <span class="h-s">"start"</span>: <span class="h-n">11</span>, <span class="h-s">"count"</span>: <span class="h-n">10</span> }
+}
+</code></pre>
+<p>テンプレートからも同じものが見えます（<code>${paging.page()}</code>）。</p>
+<h3 id="気をつけること">気をつけること<a class="anchor" href="#気をつけること">#</a></h3>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>per</code> に上限がありません。</strong><code>?per=100000</code> を送られると
+<code>LIMIT 100000</code> がそのまま出ます。外に公開する一覧では、
+<code>paging(...)</code> の前後で自分で上限を決めてください。</p>
+</div>
+<p>範囲外のページ（<code>?page=999</code>）はエラーにならず、<strong>0 件が返ります。</strong></p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="upload">
+				<span>前</span>ファイルアップロード
+			</a>
+			<a class="next" href="errors">
+				<span>次</span>エラー処理
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#検証は3段ある">検証は3段ある</a></li>
+			<li class="level-2"><a href="#ルールを組み立てる">ルールを組み立てる</a></li>
+			<li class="level-2"><a href="#列にまとめる">列にまとめる</a></li>
+			<li class="level-3"><a href="#生のエラーの形">生のエラーの形</a></li>
+			<li class="level-3"><a href="#文言を差し替える">文言を差し替える</a></li>
+			<li class="level-2"><a href="#登録のときだけ必須">登録のときだけ必須</a></li>
+			<li class="level-2"><a href="#複数行を検証する">複数行を検証する</a></li>
+			<li class="level-2"><a href="#ルートにかける">ルートにかける</a></li>
+			<li class="level-2"><a href="#ページング">ページング</a></li>
+			<li class="level-3"><a href="#リクエストから読む">リクエストから読む</a></li>
+			<li class="level-3"><a href="#select-にかける">SELECT にかける</a></li>
+			<li class="level-3"><a href="#取れるもの">取れるもの</a></li>
+			<li class="level-3"><a href="#レスポンスに載る">レスポンスに載る</a></li>
+			<li class="level-3"><a href="#気をつけること">気をつけること</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,453 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ログ - jimble</title>
+<meta name="description" content="Log の使い方、アクセスログ、実行 ID、logback の設定">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="current">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="ログ">ログ<a class="anchor" href="#ログ">#</a></h1>
+<pre class="code"><code class="lang-java">Log.info(<span class="h-s">"起動しました"</span>);
+Log.warn(<span class="h-s">"設定が足りません: %s"</span>.formatted(key));
+Log.debug(<span class="h-s">"見つかりませんでした"</span>);
+Log.error(cause, <span class="h-s">"保存できませんでした: id=%d"</span>.formatted(id));
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>**<code>{}</code> のプレースホルダは使えません。**SLF4J の書式ではないので、
+<code>Log.info(&quot;id={}&quot;, id)</code> と書いても <code>{}</code> のまま出ます。
+<code>String.formatted(...)</code> で組み立ててください。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>Log.error(cause, &quot;説明&quot;)</code> は、<strong>メッセージが例外のもの</strong>になります。
+書いた説明は構造化データのほうに入り、同梱のエンコーダが1行目に並べて出します。</p>
+<pre class="code"><code class="lang-text">[2026-09-07 13:12:19]-[main] error 保存できませんでした / java.lang.IllegalStateException: 書けません
+</code></pre>
+</div>
+<h2 id="ロガーの名前">ロガーの名前<a class="anchor" href="#ロガーの名前">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>ロガー</th>
+<th>何が出るか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>access</code></td>
+<td>アクセスログ（1リクエストに1行）</td>
+</tr>
+<tr>
+<td><code>access.bot</code></td>
+<td>ボットのアクセスログ</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td><code>Log.error(...)</code></td>
+</tr>
+<tr>
+<td><code>io.jimble.util.log.Log</code></td>
+<td><code>Log.info</code> / <code>warn</code> / <code>debug</code> / <code>trace</code></td>
+</tr>
+<tr>
+<td>任意の名前</td>
+<td><code>Log.appInfo(&quot;my.audit&quot;, ...)</code> などで指定</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><code>Log.info</code> などの<strong>呼び出し元クラス名はロガー名になりません。</strong>
+いつも <code>io.jimble.util.log.Log</code> です。
+用途で分けたいときは <code>Log.appInfo(&quot;名前&quot;, ...)</code> を使ってください。</p>
+</div>
+<h2 id="どのログにも必ず入るもの">どのログにも必ず入るもの<a class="anchor" href="#どのログにも必ず入るもの">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>キー</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request_id</code></td>
+<td>実行 ID（リクエストの外では <code>-</code>）</td>
+</tr>
+<tr>
+<td><code>sql_execute_count</code></td>
+<td>そのリクエストで投げた SQL の本数</td>
+</tr>
+<tr>
+<td><code>sql_execute_time</code></td>
+<td>その合計時間（ミリ秒）</td>
+</tr>
+<tr>
+<td><code>local_info</code></td>
+<td><strong>サーバー自身</strong>の IP とホスト名</td>
+</tr>
+</tbody>
+</table>
+<p><strong>SQL の本数と時間がどのログにも入る</strong>のが要点です。
+N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-O-02）。</p>
+<h2 id="アクセスログ">アクセスログ<a class="anchor" href="#アクセスログ">#</a></h2>
+<p><strong>1リクエストに1行</strong>、リクエストの終わりに出ます。<strong>ルートに当たらなくても出ます</strong>（404 も残る）。</p>
+<table>
+<thead>
+<tr>
+<th>キー</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>method</code> / <code>path</code> / <code>query</code></td>
+<td>リクエスト</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>ステータスコード</td>
+</tr>
+<tr>
+<td><code>elapsed</code></td>
+<td>実行時間（ミリ秒）</td>
+</tr>
+<tr>
+<td><code>matched</code></td>
+<td>ルートに当たったか</td>
+</tr>
+<tr>
+<td><code>bot</code></td>
+<td>ボットと判定したか</td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-json">{<span class="h-s">"logger_name"</span>:<span class="h-s">"access"</span>,<span class="h-s">"level"</span>:<span class="h-s">"INFO"</span>,<span class="h-s">"message"</span>:<span class="h-s">"GET /users/42 200"</span>,
+ <span class="h-s">"request_id"</span>:<span class="h-s">"m1abcd-xyz-1"</span>,<span class="h-s">"sql_execute_count"</span>:<span class="h-n">2</span>,<span class="h-s">"sql_execute_time"</span>:<span class="h-n">4.0</span>,
+ <span class="h-s">"method"</span>:<span class="h-s">"GET"</span>,<span class="h-s">"path"</span>:<span class="h-s">"/users/42"</span>,<span class="h-s">"query"</span>:<span class="h-s">""</span>,<span class="h-s">"status"</span>:<span class="h-n">200</span>,<span class="h-s">"elapsed"</span>:<span class="h-n">12.34</span>,
+ <span class="h-s">"matched"</span>:<span class="h-k">true</span>,<span class="h-s">"bot"</span>:<span class="h-k">false</span>}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>クライアントの IP と User-Agent は入っていません。</strong><code>local_info</code> はサーバー自身のものです。
+要るなら <code>Log.addFieldProvider(...)</code> で足してください。</p>
+</div>
+<h3 id="ボットを分ける">ボットを分ける<a class="anchor" href="#ボットを分ける">#</a></h3>
+<p><code>server.bot_access_log</code>（既定 <code>true</code>）が有効なら、ボットの行は <strong><code>access.bot</code></strong> に出ます。
+判定は User-Agent の一覧（<code>crawler-user-agents</code>）との照合です。</p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p>クローラは全体の何割にもなります。分けておくと、
+**人のアクセスだけを数えられます。**同じところに出したいなら <code>false</code> にしてください。</p>
+</div>
+<h2 id="実行-id">実行 ID<a class="anchor" href="#実行-id">#</a></h2>
+<p><code>36進の時刻-乱数-連番</code> で、リクエスト（や WebSocket のメッセージ、バッチ）ごとに1つ採番されます。
+持ち回りは <code>ScopedValue</code> で、<strong>MDC は使っていません。</strong></p>
+<p>先頭が時刻なので、<strong>ID を並べ替えると時系列になります。</strong></p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>レスポンスヘッダには出ません。</strong>
+「この画面のエラーのログを探したい」を成り立たせるなら、
+<code>after</code> で <code>context.response().setResponseHeader(&quot;X-Request-Id&quot;, context.executionId())</code> を自分で書いてください。</p>
+</div>
+<h2 id="sql-のログ">SQL のログ<a class="anchor" href="#sql-のログ">#</a></h2>
+<p>SQL の<strong>本数と時間</strong>は自動で数えます（上の表）。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>SQL 文そのものとバインド値はログに出しません。</strong>
+遅いクエリの閾値もありません。
+出したい場合は DB 側（<code>general_log</code> / <code>slow_query_log</code>）で見てください。</p>
+</div>
+<p><code>log.db = true</code> にすると、アプリが <code>DBLog.save(db, data)</code> で書いたものが
+<code>db_log</code> テーブルに入ります。<strong>SQL を自動で記録する機能ではありません。</strong></p>
+<h2 id="logback-の設定">logback の設定<a class="anchor" href="#logback-の設定">#</a></h2>
+<p>jimble は logback とエンコーダを持っていますが、<strong>設定ファイルはアプリのものです。</strong>
+<code>jimble new</code> の雛形は <code>conf/logback.xml</code> を作ります（<code>conf/</code> は jar に入ります）。</p>
+<pre class="code"><code class="lang-xml">&lt;configuration&gt;
+
+	&lt;!-- 人が読む形 --&gt;
+	&lt;appender name="console" class="ch.qos.logback.core.ConsoleAppender"&gt;
+		&lt;encoder&gt;
+			&lt;pattern&gt;%d{HH:mm:ss.SSS} %-5level %logger{20} - %msg%n&lt;/pattern&gt;
+			&lt;charset&gt;UTF-8&lt;/charset&gt;
+		&lt;/encoder&gt;
+	&lt;/appender&gt;
+
+	&lt;!-- 例外。スタックトレースを字下げして出す（jimble 同梱） --&gt;
+	&lt;appender name="error" class="ch.qos.logback.core.ConsoleAppender"&gt;
+		&lt;target&gt;System.err&lt;/target&gt;
+		&lt;encoder class="io.jimble.util.log.encoder.LogbackErrorEncoder"/&gt;
+	&lt;/appender&gt;
+
+	&lt;!-- 機械が読む形。1行に1つの JSON（jimble 同梱） --&gt;
+	&lt;appender name="json" class="ch.qos.logback.core.ConsoleAppender"&gt;
+		&lt;encoder class="io.jimble.util.log.encoder.LogbackJsonEncoder"/&gt;
+	&lt;/appender&gt;
+
+	&lt;logger name="access" level="INFO" additivity="false"&gt;
+		&lt;appender-ref ref="json"/&gt;
+	&lt;/logger&gt;
+
+	&lt;logger name="access.bot" level="INFO" additivity="false"&gt;
+		&lt;appender-ref ref="json"/&gt;
+	&lt;/logger&gt;
+
+	&lt;logger name="error" level="ERROR" additivity="false"&gt;
+		&lt;appender-ref ref="error"/&gt;
+	&lt;/logger&gt;
+
+	&lt;root level="INFO"&gt;
+		&lt;appender-ref ref="console"/&gt;
+	&lt;/root&gt;
+
+&lt;/configuration&gt;
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>access.bot</code> は <code>access</code> の子です。</strong><code>additivity=&quot;false&quot;</code> を外すと、
+ボットの行が<strong>両方に出ます</strong>（人のアクセスを数えているつもりで二重に数えます）。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>設定ファイルを置かないと logback の既定になり、
+<strong>アクセスログもアプリのログも同じところに混ざります。</strong></p>
+</div>
+<p>環境で分けたいときは、<code>logback.xml</code> の代わりに
+<code>-Dlogback.configurationFile=conf/logback.prod.xml</code> を渡してください。</p>
+<h2 id="テストで拾う">テストで拾う<a class="anchor" href="#テストで拾う">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-a">@BeforeEach</span>
+<span class="h-k">void</span> captureLog () {
+
+	Log.sink((loggerName, level, message, data, throwable) -&gt;
+		logs.add(<span class="h-k">new</span> Entry(loggerName, level, message, data)));
+
+}
+
+<span class="h-a">@AfterEach</span>
+<span class="h-k">void</span> restoreLog () {
+
+	Log.resetSink();
+
+}</code></pre>
+<p><code>Log.sink(...)</code> は<strong>全体を差し替えます</strong>。<code>@AfterEach</code> で <code>Log.resetSink()</code> を忘れないでください。</p>
+<h2 id="設定キー">設定キー<a class="anchor" href="#設定キー">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>キー</th>
+<th>既定</th>
+<th>何をするか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>server.bot_access_log</code></td>
+<td><code>true</code></td>
+<td>ボットのアクセスログを <code>access.bot</code> に分ける</td>
+</tr>
+<tr>
+<td><code>log.db</code></td>
+<td><code>false</code></td>
+<td><code>DBLog.save(...)</code> を有効にする</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**ログのレベル・出力先・書式に設定キーはありません。**それは <code>logback.xml</code> の仕事です。</p>
+</div>
+<p>日本語が化けるときは <code>-Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8</code> を付けてください
+（<a href="./deploy">本番で動かす</a>）。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="config">
+				<span>前</span>設定
+			</a>
+			<a class="next" href="deploy">
+				<span>次</span>本番で動かす
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#ロガーの名前">ロガーの名前</a></li>
+			<li class="level-2"><a href="#どのログにも必ず入るもの">どのログにも必ず入るもの</a></li>
+			<li class="level-2"><a href="#アクセスログ">アクセスログ</a></li>
+			<li class="level-3"><a href="#ボットを分ける">ボットを分ける</a></li>
+			<li class="level-2"><a href="#実行-id">実行 ID</a></li>
+			<li class="level-2"><a href="#sql-のログ">SQL のログ</a></li>
+			<li class="level-2"><a href="#logback-の設定">logback の設定</a></li>
+			<li class="level-2"><a href="#テストで拾う">テストで拾う</a></li>
+			<li class="level-2"><a href="#設定キー">設定キー</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

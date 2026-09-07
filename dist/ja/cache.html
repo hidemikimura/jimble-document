@@ -1,0 +1,399 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>キャッシュとロック - jimble</title>
+<meta name="description" content="DB / メモリ / Redis の差し替え、グループ無効化、分散ロック">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="current">キャッシュとロック</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="キャッシュとロック">キャッシュとロック<a class="anchor" href="#キャッシュとロック">#</a></h1>
+<h2 id="3つの実装から選ぶ">3つの実装から選ぶ<a class="anchor" href="#3つの実装から選ぶ">#</a></h2>
+<pre class="code"><code class="lang-conf">cache {
+	type = <span class="h-s">"db"</span>        <span class="h-c"># db | memory | redis</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>置き場所</th>
+<th>プロセスをまたぐ</th>
+<th>期限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db</code>（<strong>既定</strong>）</td>
+<td><code>db_cache</code> テーブル</td>
+<td><strong>またぐ</strong></td>
+<td><strong>無い</strong></td>
+</tr>
+<tr>
+<td><code>memory</code></td>
+<td>JVM のメモリ</td>
+<td>またがない</td>
+<td><code>cache.memory.expire</code>（秒）</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>Redis</td>
+<td><strong>またぐ</strong></td>
+<td><strong>無い</strong></td>
+</tr>
+</tbody>
+</table>
+<p>知らない値を書いても落ちません。<strong>警告を出して <code>db</code> になります。</strong>
+いま何で動いているかは起動ログに出ます（<code>cache=db</code>）。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>**<code>db</code> と <code>redis</code> には期限がありません。**古いものを消す仕組みも入っていません。
+入れっぱなしにすると <code>db_cache</code> は増え続けます。
+<strong>消すのは入れた側の仕事です</strong>（<code>remove</code> / <code>removeGroup</code>）。</p>
+</div>
+<h2 id="読み書き">読み書き<a class="anchor" href="#読み書き">#</a></h2>
+<pre class="code"><code class="lang-java">ICache cache = Cache.instance(db);
+
+cache.set(<span class="h-s">"top:posts"</span>, json, <span class="h-s">"application/json"</span>);
+String json = cache.getString(<span class="h-s">"top:posts"</span>);
+
+cache.remove(<span class="h-s">"top:posts"</span>);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>返り</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getString(key)</code></td>
+<td>文字列。無ければ <code>null</code>（メモリ実装だけ <code>&quot;&quot;</code>）</td>
+</tr>
+<tr>
+<td><code>get(key)</code></td>
+<td><code>CacheData</code>（作成日時・種類つき）。<strong><code>isError()</code> を見る</strong></td>
+</tr>
+<tr>
+<td><code>set(key, value, contentType[, group])</code></td>
+<td>入ったら <code>true</code></td>
+</tr>
+<tr>
+<td><code>has(key, group)</code> / <code>remove(key)</code> / <code>removeGroup(group)</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>256KB を超える値はファイルに落ちます</strong>（gzip、<code>cache.temp_dir</code>）。
+<code>CacheData#hasContentFile()</code> が true になり、そのまま
+<code>context.response().cache(data)</code> で <code>Content-Encoding: gzip</code> として返せます。
+古い世代のファイルを消す仕組みは無いので、置き場は定期的に見てください。</p>
+</div>
+<h2 id="グループでまとめて消す">グループでまとめて消す<a class="anchor" href="#グループでまとめて消す">#</a></h2>
+<p>「記事を1本直したら、その記事に関わるキャッシュを全部捨てたい」ときに使います。</p>
+<pre class="code"><code class="lang-java">cache.set(<span class="h-s">"key-4"</span>, <span class="h-s">"値"</span>, <span class="h-s">"text/plain"</span>, <span class="h-s">"group"</span>);
+cache.set(<span class="h-s">"key-5"</span>, <span class="h-s">"値"</span>, <span class="h-s">"text/plain"</span>, <span class="h-s">"group"</span>);
+cache.set(<span class="h-s">"key-6"</span>, <span class="h-s">"値"</span>, <span class="h-s">"text/plain"</span>, <span class="h-s">"keep"</span>);
+
+cache.removeGroup(<span class="h-s">"group"</span>);</code></pre>
+<p>jimble 自身もこれを使っています。スケジューラは台ごとの生存情報を同じグループに入れ、
+<code>getStringGroup(group)</code> で<strong>全台ぶんをまとめて読み出します。</strong></p>
+<h2 id="ローディングキャッシュ">ローディングキャッシュ<a class="anchor" href="#ローディングキャッシュ">#</a></h2>
+<p>「無ければ作る」を1か所に書く形です。</p>
+<pre class="code"><code class="lang-java">LoadingCache&lt;List&lt;Data&gt;&gt; cache = Cache.loadingCache(
+	<span class="h-s">"top:posts"</span>, db, Duration.ofMinutes(<span class="h-n">5</span>), loaderDb -&gt; loaderDb.selectList(...));
+
+List&lt;Data&gt; posts = cache.get();
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>値の置き場</td>
+<td><strong>その JVM のメモリ</strong>（共有キャッシュには「作った印」だけ置く）</td>
+</tr>
+<tr>
+<td>期限</td>
+<td><code>Duration</code> を渡さなければ<strong>無期限</strong></td>
+</tr>
+<tr>
+<td>他の台が <code>clear()</code> したとき</td>
+<td><strong>1分に1回</strong>だけ共有キャッシュを見に行って捨てる</td>
+</tr>
+<tr>
+<td>ローダーに渡る <code>DB</code></td>
+<td>新しい接続（呼び出し元のトランザクションとは別）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>ローダーが <code>null</code> を返しても「読み込み済み」になります。</strong>
+期限が来るまで <code>null</code> を返し続けるので、
+「たまたま無かった」を覚え込ませたくないなら、空のリストなど<strong>値で表してください。</strong></p>
+</div>
+<h2 id="分散ロック">分散ロック<a class="anchor" href="#分散ロック">#</a></h2>
+<p><strong>Redis を使います。</strong>「複数台のうち1台だけに処理させたい」ときのものです。</p>
+<pre class="code"><code class="lang-java">RedisLockResult result = RedisLock.lock(key);
+
+assertEquals(RedisLockStatus.Success, result.status());
+
+closeQuietly(result);</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// 100ms 待って取れなければあきらめる。取れたら 30 秒保持する</span>
+<span class="h-k">try</span> (RedisLockResult lock = RedisLock.tryLock(<span class="h-s">"batch:daily"</span>, <span class="h-n">100</span>, <span class="h-n">30000</span>)) {
+
+	<span class="h-k">if</span> (lock.status() != RedisLockStatus.Success) {
+		<span class="h-k">return</span>;   <span class="h-c">// 誰かが動かしている</span>
+	}
+
+	<span class="h-c">// ここが1台だけになる</span>
+
+} <span class="h-k">catch</span> (IOException ignore) {
+}
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>取れなくても例外は飛びません。</strong><code>status()</code> を必ず見てください。
+見ないと「ロックしていないのに処理が進む」形になります。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>同じスレッドからは同じキーを取れてしまいます</strong>（再入できるロックのため）。
+「もう誰かが持っているはず」を同じスレッドで確かめると、素通りします。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>tryLock</code> の保持時間は延長されません。**30 秒と書いて処理が 40 秒かかると、
+<strong>途中で解放されて2台目が入ってきます。</strong>
+引数なしの <code>RedisLock.lock(key)</code> は、持っている間ずっと延長されます（そのかわり待ち続けます）。</p>
+</div>
+<p>Redis を設定していないときは、<strong>黙って成功させずに例外</strong>になります（要件 F-U-10）。
+「ロックが無いのに進んでしまった」を作らないためです。</p>
+<h3 id="db-だけでロックする">DB だけでロックする<a class="anchor" href="#db-だけでロックする">#</a></h3>
+<p>Redis が無い場所では <code>DBLock</code> を使えます。<strong>トランザクションの中で</strong>、
+先に行を作ってから取ります。</p>
+<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// 1回だけ</span>
+...
+<span class="h-k">if</span> (DBLock.lock(db, <span class="h-s">"daily"</span>)) {       <span class="h-c">// SELECT ... FOR UPDATE</span>
+	<span class="h-c">// トランザクションが終わるまで1つだけ</span>
+}
+</code></pre>
+<p>行が無ければ <code>false</code> です。解放は<strong>トランザクションの終わり</strong>で、明示的に外す口はありません。</p>
+<h2 id="設定キー">設定キー<a class="anchor" href="#設定キー">#</a></h2>
+<pre class="code"><code class="lang-conf">cache {
+	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
+	temp_dir      = <span class="h-s">""</span>       <span class="h-c"># 大きい値を落とす場所。空なら一時ディレクトリ</span>
+	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory のときだけ。秒。0 で無期限</span>
+}
+
+redis {
+	host = <span class="h-s">""</span>                <span class="h-c"># 空なら「Redis 無し」</span>
+	port = <span class="h-n">6379</span>
+	ssl  = <span class="h-k">false</span>
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>redis.host</code> が空なら <strong>Redis 無し</strong>です。アプリは起動します。
+<code>cache.type = redis</code> にしていると起動時に警告が出て、使った時点で失敗します。</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="async">
+				<span>前</span>遅延読み込みと先読み
+			</a>
+			<a class="next" href="batch">
+				<span>次</span>バッチ
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#3つの実装から選ぶ">3つの実装から選ぶ</a></li>
+			<li class="level-2"><a href="#読み書き">読み書き</a></li>
+			<li class="level-2"><a href="#グループでまとめて消す">グループでまとめて消す</a></li>
+			<li class="level-2"><a href="#ローディングキャッシュ">ローディングキャッシュ</a></li>
+			<li class="level-2"><a href="#分散ロック">分散ロック</a></li>
+			<li class="level-3"><a href="#db-だけでロックする">DB だけでロックする</a></li>
+			<li class="level-2"><a href="#設定キー">設定キー</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

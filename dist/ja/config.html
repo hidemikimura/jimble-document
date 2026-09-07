@@ -50,6 +50,14 @@
 				   class="">リクエストとレスポンス</a>
 			</li>
 			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
 				<a href="errors"
 				   class="">エラー処理</a>
 			</li>
@@ -87,6 +95,10 @@
 			<li>
 				<a href="async"
 				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
 			</li>
 		</ul>
 		<p class="section">実行基盤</p>
@@ -132,6 +144,10 @@
 			<li>
 				<a href="config"
 				   class="current">設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
 			</li>
 			<li>
 				<a href="deploy"
@@ -242,6 +258,25 @@ session {
 	cookie_name = <span class="h-s">"sid"</span>
 }
 
+upload {
+	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># 1ファイル（10MB）</span>
+	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># 1リクエスト合計（50MB）</span>
+	max_files      = <span class="h-n">20</span>
+	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># 空なら java.io.tmpdir</span>
+}
+
+cache {
+	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
+	temp_dir      = <span class="h-s">""</span>
+	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory のときだけ。秒</span>
+}
+
+redis {
+	host = <span class="h-s">""</span>                <span class="h-c"># 空なら Redis 無し</span>
+	port = <span class="h-n">6379</span>
+	ssl  = <span class="h-k">false</span>
+}
+
 sse {
 	max_duration_seconds = <span class="h-n">300</span>
 	max_events           = <span class="h-n">0</span>
@@ -284,8 +319,8 @@ codegen {
 			<a class="prev" href="testing">
 				<span>前</span>テスト
 			</a>
-			<a class="next" href="deploy">
-				<span>次</span>本番で動かす
+			<a class="next" href="log">
+				<span>次</span>ログ
 			</a>
 		</nav>
 	</main>

@@ -50,6 +50,14 @@
 				   class="current">リクエストとレスポンス</a>
 			</li>
 			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
 				<a href="errors"
 				   class="">エラー処理</a>
 			</li>
@@ -87,6 +95,10 @@
 			<li>
 				<a href="async"
 				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
 			</li>
 		</ul>
 		<p class="section">実行基盤</p>
@@ -132,6 +144,10 @@
 			<li>
 				<a href="config"
 				   class="">設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
 			</li>
 			<li>
 				<a href="deploy"
@@ -182,7 +198,7 @@
 </tr>
 <tr>
 <td><code>bodyFile()</code></td>
-<td>アップロードされたファイル</td>
+<td>アップロードされたファイル（<a href="./upload">ファイルアップロード</a>）</td>
 </tr>
 <tr>
 <td><code>bodyAll()</code></td>
@@ -221,6 +237,8 @@ Data messages = ValidationMessages.toMessages(errors);</code></pre>
 入力し直す人にとって、1件ずつ言われるのがいちばん困るからです。</p>
 <p><code>ValidationMessages.toMessages(errors)</code> で、項目名 → メッセージの <code>Data</code> になります。
 そのまま JSON で返すか、テンプレートに渡します。</p>
+<p>ルールの一覧、ルート単位でかける <code>ValidationExecutor</code>、ページングは
+<a href="./validation">検証とページング</a> にまとめてあります。</p>
 <h2 id="返す">返す<a class="anchor" href="#返す">#</a></h2>
 <pre class="code"><code class="lang-java">context.response().send(<span class="h-s">"text"</span>);                   <span class="h-c">// text/plain</span>
 context.response().json(<span class="h-s">"posts"</span>, list);            <span class="h-c">// JSON</span>
@@ -252,8 +270,8 @@ context.response().code(<span class="h-n">201</span>).send();               <spa
 			<a class="prev" href="routing">
 				<span>前</span>ルーティング
 			</a>
-			<a class="next" href="errors">
-				<span>次</span>エラー処理
+			<a class="next" href="upload">
+				<span>次</span>ファイルアップロード
 			</a>
 		</nav>
 	</main>

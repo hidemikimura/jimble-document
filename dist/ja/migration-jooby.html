@@ -50,6 +50,14 @@
 				   class="">リクエストとレスポンス</a>
 			</li>
 			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
 				<a href="errors"
 				   class="">エラー処理</a>
 			</li>
@@ -87,6 +95,10 @@
 			<li>
 				<a href="async"
 				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
 			</li>
 		</ul>
 		<p class="section">実行基盤</p>
@@ -132,6 +144,10 @@
 			<li>
 				<a href="config"
 				   class="">設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
 			</li>
 			<li>
 				<a href="deploy"
@@ -216,7 +232,7 @@ jooby はパスに付きますが、jimble は<strong>書いたブロックの�
 </table>
 <p>jimble は<strong>入力を型付きのクラスに詰め直しません</strong>。<code>Data</code> のまま扱います。
 リフレクションでのバインドをやめたためです。値の検証は
-<a href="./request-response">ValidationRules</a> でやります。</p>
+<a href="./validation">ValidationRules</a> でやります。</p>
 <h3 id="di-をやめる">DI をやめる<a class="anchor" href="#di-をやめる">#</a></h3>
 <pre class="code"><code class="lang-java"><span class="h-c">// jooby</span>
 <span class="h-a">@Inject</span>

@@ -1,0 +1,419 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ファイルアップロード - jimble</title>
+<meta name="description" content="multipart の受け取り、一時ファイル、上限、保存とダウンロード">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="current">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="ファイルアップロード">ファイルアップロード<a class="anchor" href="#ファイルアップロード">#</a></h1>
+<p><code>multipart/form-data</code> で来たファイルは <code>bodyFile()</code> から取ります。</p>
+<pre class="code"><code class="lang-java">Data files = context.request().bodyFile();
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>ファイルは <code>bodyAll()</code> にも <code>bodyForm()</code> にも載りません。</strong><code>bodyFile()</code> だけです。
+同じ本文に入っているテキスト項目のほうは、いつもどおり <code>bodyAll()</code> から取れます。</p>
+</div>
+<h2 id="受け取る">受け取る<a class="anchor" href="#受け取る">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">for</span> (Object value : context.request().bodyFile().values()) {
+	<span class="h-k">if</span> (value <span class="h-k">instanceof</span> List&lt;?&gt; list) {
+		<span class="h-k">for</span> (Object item : list) {
+			UploadFile uploadFile = (UploadFile) item;
+			received.add(<span class="h-s">"%s:%s:%d"</span>.formatted(
+				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
+			received.add(<span class="h-s">"content="</span> + read(uploadFile.file.toPath()));
+			tempFiles.add(uploadFile.file.toPath());
+		}
+	}
+}</code></pre>
+<p>取り出すのは <code>UploadFile</code> です。<strong>メソッドを持たない入れ物</strong>で、中身はこれだけです。</p>
+<table>
+<thead>
+<tr>
+<th>フィールド</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>フォームの <code>name</code> 属性</td>
+</tr>
+<tr>
+<td><code>fileName</code></td>
+<td><strong>クライアントが名乗った</strong>ファイル名（無ければ <code>&quot;&quot;</code>）</td>
+</tr>
+<tr>
+<td><code>contentType</code></td>
+<td><strong>クライアントが名乗った</strong> Content-Type（無ければ <code>&quot;&quot;</code>）</td>
+</tr>
+<tr>
+<td><code>fileSize</code></td>
+<td>実際に書き出したバイト数</td>
+</tr>
+<tr>
+<td><code>file</code></td>
+<td>一時ファイル（<code>java.io.File</code>）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>ファイルが1件でも <code>List</code> にくるまれます。</strong>
+<code>bodyFile()</code> の値を <code>UploadFile</code> に直接キャストすると落ちます。
+同じ <code>name</code> で複数送れる以上、常にリストとして扱うのが正しい形です。</p>
+</div>
+<h2 id="一時ファイル">一時ファイル<a class="anchor" href="#一時ファイル">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>置き場所</td>
+<td><code>upload.temp_dir</code>（既定は <code>java.io.tmpdir</code>）</td>
+</tr>
+<tr>
+<td>名前</td>
+<td><code>jimble-upload-&lt;連番&gt;.tmp</code>。<strong>元のファイル名は使いません</strong></td>
+</tr>
+<tr>
+<td>消えるとき</td>
+<td><strong>リクエストが終わるとき</strong>（コンテキストのクローズ）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>リクエストが終わったあとに <code>uploadFile.file</code> は触れません。</strong>
+非同期に処理を投げたり、パスだけ DB に入れて後で読んだりすると、
+<strong>もう無いファイル</strong>を掴みます。残したいものはハンドラの中でコピーしてください。</p>
+</div>
+<p>一時ファイルには <code>deleteOnExit()</code> を付けていません。
+プロセスが落ちれば残るので、そこは OS の一時ディレクトリの掃除に任せています。</p>
+<h2 id="上限">上限<a class="anchor" href="#上限">#</a></h2>
+<p><strong>設定を書かなくても上限は掛かります</strong>（要件 NF-S-05）。</p>
+<pre class="code"><code class="lang-conf">upload {
+	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># 1ファイル。既定 10MB</span>
+	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># 1リクエスト合計。既定 50MB</span>
+	max_files      = <span class="h-n">20</span>         <span class="h-c"># 件数</span>
+	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># 空なら java.io.tmpdir</span>
+}
+</code></pre>
+<p>超えたときはその場で例外になり、<strong>書きかけの一時ファイルも消します。</strong></p>
+<table>
+<thead>
+<tr>
+<th>条件</th>
+<th>返り</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>件数超過</td>
+<td><strong>413</strong>「アップロードできるファイル数は N 件までです」</td>
+</tr>
+<tr>
+<td>1ファイル／合計の超過</td>
+<td><strong>413</strong>「アップロードのサイズが上限（N バイト）を超えています」</td>
+</tr>
+<tr>
+<td>multipart として読めない</td>
+<td><strong>400</strong>「multipart を読めませんでした」</td>
+</tr>
+</tbody>
+</table>
+<p>サイズは<strong>読みながら</strong>見ています。全部受け取ってから測ると、
+上限を超えた分までディスクに書いてしまうからです。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>server.max_request_size</code>（既定 10MB）のほうが先に効きます。</strong>
+<code>upload.max_total_size</code> の既定は 50MB なので、<strong>そのままでは 50MB は届きません。</strong>
+大きいものを許すなら、両方を上げてください。</p>
+</div>
+<h2 id="保存する">保存する<a class="anchor" href="#保存する">#</a></h2>
+<p><strong>保存のヘルパはありません。</strong><code>uploadFile.file</code> を JDK の <code>Files</code> で写します。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">static</span> String saveImage (WebContext context) <span class="h-k">throws</span> Exception {
+
+	UploadFile uploadFile = firstFile(context);
+
+	<span class="h-k">if</span> (uploadFile == <span class="h-k">null</span> || uploadFile.fileSize &lt;= <span class="h-n">0</span>) {
+		<span class="h-k">return</span> <span class="h-k">null</span>;
+	}
+
+	String extension = extensionOf(uploadFile.fileName);
+
+	<span class="h-k">if</span> (!ALLOWED_EXTENSIONS.contains(extension)) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> io.jimble.web.http.HttpException(
+			<span class="h-n">400</span>, <span class="h-s">"受け付けられない形式です: %s（%s のみ）"</span>
+				.formatted(uploadFile.fileName, String.join(<span class="h-s">" "</span>, ALLOWED_EXTENSIONS)));
+	}
+
+	Path dir = Path.of(UPLOAD_DIR);
+	Files.createDirectories(dir);
+
+	String saved = UUID.randomUUID() + extension;
+
+	<span class="h-c">/*
+	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
+	 * 残したいものはここで移す。
+	 */</span>
+	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+
+	<span class="h-k">return</span> saved;
+
+}</code></pre>
+<p>要点は3つです。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>名前はこちらで付ける</strong></td>
+<td><code>UUID.randomUUID() + extension</code></td>
+</tr>
+<tr>
+<td><strong>拡張子は許可リストで見る</strong></td>
+<td>落ちたら 400 で断る</td>
+</tr>
+<tr>
+<td><code>Files.copy</code></td>
+<td>元は消えるので、コピーでも移動でもよい</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>uploadFile.fileName</code> をそのまま保存先に使わないでください。</strong>
+jimble はこの名前を<strong>一切検査しません</strong>（クライアントが名乗ったままです）。
+<code>../../etc/passwd</code> のような名前が来ると、置き場所の外に書けてしまいます。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>**<code>contentType</code> も検査していません。**クライアントの自己申告です。
+<code>image/png</code> と名乗った実行ファイルが来ます。
+拡張子の許可リストと、必要なら中身の検査を自分で書いてください。</p>
+</div>
+<h2 id="テキスト項目との混在">テキスト項目との混在<a class="anchor" href="#テキスト項目との混在">#</a></h2>
+<p>同じ本文に入っているので、<strong>1回で解析して持っておきます</strong>（本文は1回しか読めません）。
+ファイル名の無いパートはテキスト項目として扱われ、<code>bodyAll()</code> に載ります。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>テキスト項目は <strong>UTF-8 固定</strong>で読み、<strong>全量をメモリに載せます</strong>（サイズ上限はありません）。
+ここを守っているのは <code>server.max_request_size</code> だけです。</p>
+</div>
+<h2 id="返すダウンロード">返す（ダウンロード）<a class="anchor" href="#返すダウンロード">#</a></h2>
+<pre class="code"><code class="lang-java">context.response().download(file);                  <span class="h-c">// 実ファイル名で添付</span>
+context.response().download(file, <span class="h-s">"報告書.xlsx"</span>);   <span class="h-c">// 名前を指定して添付</span>
+context.response().file(file);                      <span class="h-c">// インライン（種類は中身から判定）</span>
+context.response().file(file, <span class="h-s">"image/png"</span>);         <span class="h-c">// インライン（種類を指定）</span>
+context.response().stream(<span class="h-k">in</span>, <span class="h-s">"text/csv"</span>);          <span class="h-c">// ストリーム</span>
+context.response().stream(<span class="h-k">in</span>, <span class="h-s">"text/csv"</span>, length);  <span class="h-c">// 長さが分かっているストリーム</span>
+</code></pre>
+<p><code>Content-Disposition</code> は RFC 5987 の形（<code>filename*=UTF-8''...</code>）で付くので、
+<strong>日本語のファイル名がそのまま通ります。</strong></p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>互換用の <code>filename=&quot;...&quot;</code>（ASCII 版）は併記していません。
+また、名前に<strong>半角スペースが入ると <code>+</code> になります</strong>（<code>%20</code> ではありません）。
+気になる場合はスペースを <code>_</code> に置き換えてから渡してください。</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="request-response">
+				<span>前</span>リクエストとレスポンス
+			</a>
+			<a class="next" href="validation">
+				<span>次</span>検証とページング
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#受け取る">受け取る</a></li>
+			<li class="level-2"><a href="#一時ファイル">一時ファイル</a></li>
+			<li class="level-2"><a href="#上限">上限</a></li>
+			<li class="level-2"><a href="#保存する">保存する</a></li>
+			<li class="level-2"><a href="#テキスト項目との混在">テキスト項目との混在</a></li>
+			<li class="level-2"><a href="#返すダウンロード">返す（ダウンロード）</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>
