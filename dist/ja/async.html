@@ -1,0 +1,334 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>遅延読み込みと先読み - jimble</title>
+<meta name="description" content="参照された時点で引く。全部たどるなら IN 句1本にまとめる">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="current">遅延読み込みと先読み</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="遅延読み込みと先読み">遅延読み込みと先読み<a class="anchor" href="#遅延読み込みと先読み">#</a></h1>
+<p>一覧に「詳細も返せるようにしておきたいが、返さないことも多い」ものがあります。
+<code>AsyncData</code> / <code>AsyncList</code> は、<strong>参照された時点ではじめて SQL を投げます</strong>。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">protected</span> List&lt;Data&gt; load () {
+
+	<span class="h-k">return</span> BlogExample.db().selectList(
+		SQL.select()
+			.from(Comment.instance())
+			.where(Comment.post_id.eq(postId))
+			.orderBy(Comment.created_at)
+	);
+
+}</code></pre>
+<pre class="code"><code class="lang-java">Data post = ...;
+post.put(<span class="h-s">"comments"</span>, <span class="h-k">new</span> CommentList(post.getLong(Post.id)));
+
+<span class="h-c">// ここまでは SQL が飛ばない</span>
+post.getJsonString();   <span class="h-c">// ← ここで飛ぶ</span>
+</code></pre>
+<h2 id="実装するもの">実装するもの<a class="anchor" href="#実装するもの">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>何をするか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>load()</code></td>
+<td>1件ぶん引く</td>
+</tr>
+<tr>
+<td><code>setData(Data)</code></td>
+<td>引いたものを自分に反映する</td>
+</tr>
+<tr>
+<td><code>setRelationData(...)</code></td>
+<td>全件の <code>setData</code> が終わってから1回だけ。要らなければ書かない</td>
+</tr>
+<tr>
+<td><code>hashKey()</code></td>
+<td>同じものかどうかを決めるキー</td>
+</tr>
+</tbody>
+</table>
+<p><code>AsyncData</code> は <code>Data</code>、<code>AsyncList</code> は <code>List</code> として振る舞うので、
+読み込んだあとは普通のデータです。</p>
+<h2 id="読み込みを起こさずに見られるもの">読み込みを起こさずに見られるもの<a class="anchor" href="#読み込みを起こさずに見られるもの">#</a></h2>
+<pre class="code"><code class="lang-java">list.isLoaded()       <span class="h-c">// 読み込み済みか</span>
+list.isLoadFailed()   <span class="h-c">// 失敗したか</span>
+list.loadedValues()   <span class="h-c">// すでに持っている値だけ</span>
+list.loadedSize()     <span class="h-c">// すでに持っている件数</span>
+</code></pre>
+<p><code>toString()</code> も読み込みを起こしません。<strong>ログに1行出しただけで枝という枝に
+SQL が飛ぶ</strong>、ということが起きないようにしてあります。</p>
+<p><code>hashCode()</code> / <code>equals()</code> も <code>hashKey()</code> しか見ません。<strong>比較しただけで
+SQL が飛びません。</strong></p>
+<h2 id="読み込みに失敗したとき">読み込みに失敗したとき<a class="anchor" href="#読み込みに失敗したとき">#</a></h2>
+<p>例外は投げません。ログを出して先へ進みます。</p>
+<p><strong>失敗しても「読み込み済み」になります。</strong> そうしないと、参照されるたびに
+落ちるクエリを投げ続けます。失敗したことは <code>isLoadFailed()</code> で分かります。</p>
+<h2 id="n1-になるとき">N+1 になるとき<a class="anchor" href="#n1-になるとき">#</a></h2>
+<p>一覧の全行にぶら下げて、全部を JSON にすると <strong>1 + N 本</strong>飛びます。</p>
+<pre class="code"><code class="lang-text">記事を20件引く          1本
+  記事1のコメント        1本
+  記事2のコメント        1本
+  ...                   ×20
+</code></pre>
+<p>これを2本にするのが<strong>先読み</strong>です。</p>
+<h2 id="先読み">先読み<a class="anchor" href="#先読み">#</a></h2>
+<p><code>load()</code> と同じことを、<code>IN</code> 句で書きます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">protected</span> Map&lt;Object, List&lt;Data&gt;&gt; loadBatch (List&lt;Object&gt; ids) {
+
+	List&lt;Data&gt; rows = BlogExample.db().selectList(
+		SQL.select()
+			.from(Comment.instance())
+			.where(Comment.post_id.<span class="h-k">in</span>(ids))
+			.orderBy(Comment.post_id, Comment.created_at)
+	);
+
+	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
+		<span class="h-c">// 引けなかった。1つも読み込み済みにしないよう、例外にして個別読みへ落とす</span>
+		<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"コメントを引けませんでした: "</span> + BlogExample.db().getError());
+	}
+
+	Map&lt;Object, List&lt;Data&gt;&gt; byPost = <span class="h-k">new</span> LinkedHashMap&lt;&gt;();
+
+	<span class="h-k">for</span> (Data row : rows) {
+		byPost
+			.computeIfAbsent(row.getLong(Comment.post_id), key -&gt; <span class="h-k">new</span> ArrayList&lt;&gt;())
+			.add(row);
+	}
+
+	<span class="h-k">return</span> byPost;
+
+}</code></pre>
+<p>あわせて、まとめる単位を宣言します。</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">public</span> String batchKey () { <span class="h-k">return</span> <span class="h-s">"CommentList"</span>; }
+
+<span class="h-a">@Override</span>
+<span class="h-k">public</span> Object batchId () { <span class="h-k">return</span> postId; }
+</code></pre>
+<p><strong>同じ <code>batchKey</code> を持つ未読み込みの枝が、<code>loadBatch</code> 1回にまとまります。</strong>
+<code>ids</code> には、ほかの枝の <code>batchId</code> も入って渡ってきます。</p>
+<p><code>load()</code> と <code>loadBatch()</code> は<strong>同じファイルに並べて置いてください</strong>。
+片方だけ直すと結果がずれます。置き場を分けない理由がこれです。</p>
+<h2 id="走らせる">走らせる<a class="anchor" href="#走らせる">#</a></h2>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts/with-comments"</span>, context -&gt; {
+
+	List&lt;Data&gt; posts = <span class="h-k">new</span> ArrayList&lt;&gt;();
+
+	<span class="h-k">for</span> (Data row : BlogApp.listPosts()) {
+		posts.add(BlogApp.withComments(row));
+	}
+
+	context.response().json(<span class="h-s">"posts"</span>, posts);
+
+	<span class="h-c">/*
+	 * ここまでで飛んだ SQL は記事の1本だけ。
+	 * これを呼ばずに JSON にすると、記事の数だけコメントの SQL が飛ぶ。
+	 */</span>
+	AsyncPrefetch.run(context.response());
+
+});</code></pre>
+<p><code>AsyncPrefetch.run(...)</code> がツリーを走査し、未読み込みで <code>batchKey</code> を持つ枝を
+集めて埋めます。<strong>走査そのものは SQL を起こしません</strong>（未読み込みの枝の中は見ません）。</p>
+<p>レスポンスを送る直前に自動で走らせることもできます。</p>
+<pre class="code"><code class="lang-conf">async {
+	prefetch {
+		on_response = <span class="h-k">true</span>
+		max_depth   = <span class="h-n">5</span>
+	}
+}
+</code></pre>
+<p><strong>既定は <code>false</code></strong> です。隠れた I/O を作らないためで、
+入れたとたんに挙動が変わることはありません。</p>
+<h2 id="先読みしてもしなくても結果は同じ">先読みしてもしなくても、結果は同じ<a class="anchor" href="#先読みしてもしなくても結果は同じ">#</a></h2>
+<p>変わるのはクエリの本数だけです。</p>
+<ul>
+<li><code>loadBatch</code> が返さなかった <code>batchId</code> は、<strong>個別に引いて0件だったのと同じ</strong>扱いになります</li>
+<li><code>loadBatch</code> が例外を投げたら、<strong>そのまとまりは1つも読み込み済みにしません</strong>。
+それぞれが個別に <code>load()</code> されるので、結果は変わりません（速さだけが戻ります）</li>
+<li><code>loadBatch</code> を書いていないクラスは、そのまま個別に読まれます</li>
+</ul>
+<h2 id="止まること">止まること<a class="anchor" href="#止まること">#</a></h2>
+<p>埋めると新しい枝が生えるので、生えなくなるまで繰り返します。
+無限に回らないよう、3つで止めています。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(batchKey, batchId)</code> は1回だけ展開する</td>
+<td>A が B を、B が A を持っていても2周目で止まる</td>
+</tr>
+<tr>
+<td>周回の上限</td>
+<td><code>async.prefetch.max_depth</code>（既定 5）</td>
+</tr>
+<tr>
+<td>同じオブジェクトを二度たどらない</td>
+<td>参照の同一性で判定する</td>
+</tr>
+</tbody>
+</table>
+
+		</article>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#実装するもの">実装するもの</a></li>
+			<li class="level-2"><a href="#読み込みを起こさずに見られるもの">読み込みを起こさずに見られるもの</a></li>
+			<li class="level-2"><a href="#読み込みに失敗したとき">読み込みに失敗したとき</a></li>
+			<li class="level-2"><a href="#n1-になるとき">N+1 になるとき</a></li>
+			<li class="level-2"><a href="#先読み">先読み</a></li>
+			<li class="level-2"><a href="#走らせる">走らせる</a></li>
+			<li class="level-2"><a href="#先読みしてもしなくても結果は同じ">先読みしてもしなくても、結果は同じ</a></li>
+			<li class="level-2"><a href="#止まること">止まること</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+
+</body>
+</html>
