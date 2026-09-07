@@ -7,5 +7,8 @@
 /static/*
   Cache-Control: public, max-age=600
 
+https://:project.workers.dev/*
+  X-Robots-Tag: noindex
+
 https://:project.pages.dev/*
   X-Robots-Tag: noindex

@@ -1,13 +1,23 @@
 # jimble-document
 
-<https://jimble.io> の中身。**Cloudflare Pages がこのリポジトリをそのまま配っている。**
+<https://jimble.io> の中身。**Cloudflare Workers（静的アセット）がこのリポジトリを配っている。**
 
-## ここを直さないこと
+```
+wrangler.jsonc   配り方の設定（手で管理する）
+README.md        これ（手で管理する）
+dist/            サイト本体。すべて生成物
+```
+
+**資産は `dist/` だけ**である。ルートに置いたものは配られない。
+根拠：`wrangler.jsonc` を資産のディレクトリに入れていた頃は
+`https://jimble.io/wrangler.jsonc` が 200 で返っていた。
+
+## dist/ を直さないこと
 
 **すべて生成物である。** 原稿は本体（<https://github.com/hidemikimura/jimble>）の
 `docs/site/ja/*.md` にあり、コード片は `examples/` とテストの実コードから抜いている。
 
-ここで直しても、次に生成したときに消える。
+`dist/` で直しても、次に生成したときに消える。
 
 ## 更新のしかた
 
@@ -17,40 +27,55 @@
 ./gradlew :jimble-docs:site
 ```
 
-`docs/site/build/` に出たものを、このリポジトリの直下へ丸ごと上書きして push する。
-Cloudflare Pages が push を拾って配り直す。
+`docs/site/build/` に出たものを、このリポジトリの `dist/` へ丸ごと置き換えて push する。
 
-## Cloudflare Pages の設定
+```bash
+rm -rf dist && mkdir dist
+cp -r <本体>/docs/site/build/. dist/
+git add -A && git commit -m "ドキュメント更新" && git push
+```
 
-| 項目 | 値 |
+`wrangler.jsonc` と `README.md` は `dist/` の外なので、置き換えても消えない。
+
+## wrangler.jsonc
+
+```jsonc
+{
+	"name": "<ダッシュボードの Worker 名>",
+	"compatibility_date": "2026-09-07",
+	"assets": {
+		"directory": "./dist",
+		"not_found_handling": "404-page",
+		"html_handling": "auto-trailing-slash"
+	}
+}
+```
+
+| 設定 | なぜ要るか |
 |---|---|
-| ビルドコマンド | （なし） |
-| 出力ディレクトリ | `/` |
-| ルートディレクトリ | `/` |
-
-ビルドは本体側で済んでいるので、Pages 側では何もしない。
+| `not_found_handling: "404-page"` | **Workers は既定でこれをしない。**無いと、見つからないパスが<b>本文が空の 404</b> になる（従来の Pages は自動で `404.html` を返すが、Workers は返さない） |
+| `html_handling: "auto-trailing-slash"` | `/ja/routing.html` を `/ja/routing` へ正規化する。既定と同じ値だが、設定ファイルを置いた以上は明示しておく |
 
 ## リンクに拡張子を付けていない
 
-ファイルは `ja/routing.html` だが、リンクは `/ja/routing` である。
-Cloudflare Pages が `.html` を落とした形へ **307 で正規化する**ので、
-拡張子を付けるとクリックのたびに1回よけいに往復する。
-sitemap も検索の遷移先も拡張子なしで出している。
+ファイルは `dist/ja/routing.html` だが、リンクは `/ja/routing` である。
+`.html` を付けると **307 で正規化されて1回よけいに往復する**ので、
+本文のリンクも sitemap も検索の遷移先も拡張子なしで出している。
 
 **そのため、ファイルを直接ブラウザで開くとリンクが辿れない。**
 手元で見るときはサーバー越しにする。
 
 ```bash
-cd docs/site/build && python3 -m http.server 8080
+cd dist && python3 -m http.server 8080
 ```
 
-## 生成物に含まれるもの
+## dist/ の中身
 
 | ファイル | 役目 |
 |---|---|
 | `index.html` | `/` に来た人を `/ja/` へ送る（`_redirects` が効かないときの保険） |
 | `_redirects` | `/` → `/ja/` の 302 |
-| `_headers` | CSP ほかの安全側のヘッダ。`*.pages.dev` は検索避け |
+| `_headers` | CSP ほかの安全側のヘッダ。`*.workers.dev` は検索避け |
 | `sitemap.xml` / `robots.txt` | |
 | `404.html` | |
 | `ja/*.html` | 本文 20 ページ |
