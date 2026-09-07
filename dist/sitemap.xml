@@ -5,11 +5,13 @@
 	<url><loc>https://jimble.io/ja/batch</loc></url>
 	<url><loc>https://jimble.io/ja/cache</loc></url>
 	<url><loc>https://jimble.io/ja/cli</loc></url>
+	<url><loc>https://jimble.io/ja/codegen</loc></url>
 	<url><loc>https://jimble.io/ja/config</loc></url>
 	<url><loc>https://jimble.io/ja/db</loc></url>
 	<url><loc>https://jimble.io/ja/deploy</loc></url>
 	<url><loc>https://jimble.io/ja/errors</loc></url>
 	<url><loc>https://jimble.io/ja/execution</loc></url>
+	<url><loc>https://jimble.io/ja/gradle</loc></url>
 	<url><loc>https://jimble.io/ja/hot-reload</loc></url>
 	<url><loc>https://jimble.io/ja/index</loc></url>
 	<url><loc>https://jimble.io/ja/log</loc></url>
@@ -21,12 +23,14 @@
 	<url><loc>https://jimble.io/ja/quickstart</loc></url>
 	<url><loc>https://jimble.io/ja/request-response</loc></url>
 	<url><loc>https://jimble.io/ja/routing</loc></url>
+	<url><loc>https://jimble.io/ja/server</loc></url>
 	<url><loc>https://jimble.io/ja/session-security</loc></url>
 	<url><loc>https://jimble.io/ja/sql</loc></url>
 	<url><loc>https://jimble.io/ja/sse</loc></url>
 	<url><loc>https://jimble.io/ja/testing</loc></url>
 	<url><loc>https://jimble.io/ja/transaction</loc></url>
 	<url><loc>https://jimble.io/ja/upload</loc></url>
+	<url><loc>https://jimble.io/ja/util</loc></url>
 	<url><loc>https://jimble.io/ja/validation</loc></url>
 	<url><loc>https://jimble.io/ja/view</loc></url>
 	<url><loc>https://jimble.io/ja/websocket</loc></url>

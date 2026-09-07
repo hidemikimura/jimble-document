@@ -1,0 +1,482 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ユーティリティ - jimble</title>
+<meta name="description" content="Data・JSON・HTTP クライアント・CSV・暗号。どこに何があるか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="current">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="ユーティリティ">ユーティリティ<a class="anchor" href="#ユーティリティ">#</a></h1>
+<p><code>jimble-util</code> には移送元から持ってきた道具が <strong>約 28,000 行</strong>入っています。
+ここは<strong>地図</strong>です。網羅ではなく「よく使うもの」と「引っかかるところ」を並べます。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>公開 API としての整理は Phase 2 です。</strong>
+パッケージの切り方も名前も、移送元のままのところが残っています。</p>
+</div>
+<h2 id="data">Data<a class="anchor" href="#data">#</a></h2>
+<p><code>io.jimble.util.data.Data</code> は <strong><code>LinkedHashMap&lt;String, Object&gt;</code> の派生</strong>です。
+リクエストも SELECT の結果も JSON もこれで扱います（<a href="./request-response">リクエストとレスポンス</a>）。</p>
+<pre class="code"><code class="lang-java">Data data = <span class="h-k">new</span> Data();
+data.putData(SITE_ID, <span class="h-n">1L</span>);
+data.putData(SITE_NAME, <span class="h-s">"俺的まとめ"</span>);
+
+Data site = data.getData(<span class="h-s">"site"</span>);
+
+assertEquals(<span class="h-n">1L</span>, site.getLong(<span class="h-s">"id"</span>));
+assertEquals(<span class="h-s">"俺的まとめ"</span>, site.getString(<span class="h-s">"name"</span>));</code></pre>
+<p>DB の値は<strong>列（<code>Column</code>）で読み書き</strong>します。列版は<strong>テーブル名のネストを辿ります。</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>putData(Column, 値)</code></td>
+<td><strong>必ずネストを作る</strong></td>
+</tr>
+<tr>
+<td><code>putDataTakeCare(Column, 値)</code></td>
+<td>既存の形に合わせる（ネストが無ければ平ら）</td>
+</tr>
+<tr>
+<td><code>flattenTable(Table)</code> / <code>extractTableData(Table)</code></td>
+<td>平らにする / 取り出す。<strong>無ければ <code>null</code></strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>getStringOptional</code> などの Optional 版は Data を書き換えます。</strong>
+無ければ空文字を <strong><code>put</code> してから</strong>返すので、読んだだけでキーが増えます。
+JSON にして返す直前やループの中で呼ぶと、出力が変わります。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>「無い」と「0」が区別できません。</strong><code>getString</code> は <code>null</code>、
+<code>getInt</code> は <code>0</code>、<code>getBoolean</code> は <code>false</code> を返します。
+区別したいときは <code>getIntObject</code> など <strong>Object 版</strong>か <code>isNull(key)</code> を使ってください。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>toString()</code> は要約です</strong>（キーと型だけ）。
+ログに1行出しただけで中身が全部流れる／<code>Async</code> が読み込まれる、を防ぐためです。
+JSON が要るときは <code>getJsonString()</code> を呼んでください。</p>
+</div>
+<h2 id="json">JSON<a class="anchor" href="#json">#</a></h2>
+<p>自前実装です（Jackson も Gson も使っていません）。</p>
+<pre class="code"><code class="lang-java">Data nested = <span class="h-k">new</span> Data();
+nested.put(<span class="h-s">"title"</span>, <span class="h-s">"記事タイトル"</span>);
+
+Data data = <span class="h-k">new</span> Data();
+data.put(<span class="h-s">"name"</span>, <span class="h-s">"俺的まとめ"</span>);
+data.put(<span class="h-s">"count"</span>, <span class="h-n">3</span>);
+data.put(<span class="h-s">"feed"</span>, nested);
+data.put(<span class="h-s">"tags"</span>, List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</span>));
+
+String json = data.getJsonString();
+Data restored = Data.fromJsonString(json);
+
+assertEquals(<span class="h-s">"俺的まとめ"</span>, restored.getString(<span class="h-s">"name"</span>));
+assertEquals(<span class="h-n">3</span>, restored.getInt(<span class="h-s">"count"</span>));
+assertEquals(<span class="h-s">"記事タイトル"</span>, restored.getData(<span class="h-s">"feed"</span>).getString(<span class="h-s">"title"</span>));
+assertEquals(List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</span>), restored.getStringList(<span class="h-s">"tags"</span>));</code></pre>
+<table>
+<thead>
+<tr>
+<th>やること</th>
+<th>書き方</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Data → 文字列</td>
+<td><code>data.getJsonString()</code> / <code>getJsonString(true)</code>（整形）</td>
+</tr>
+<tr>
+<td>文字列 → Data</td>
+<td><code>Data.fromJsonString(json)</code></td>
+</tr>
+<tr>
+<td>任意のオブジェクト</td>
+<td><code>Dson.encodes(obj)</code> / <code>Dson.decodes(json, Xxx.class)</code></td>
+</tr>
+<tr>
+<td>ストリームに直接</td>
+<td><code>data.outputJsonString(outputStream)</code></td>
+</tr>
+<tr>
+<td>組み立てずに逐次書く</td>
+<td><code>JsonHashWriter</code> / <code>JsonArrayWriter</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>Dson.encodes</code> / <code>decodes</code>（static 版）は失敗しても <code>null</code> を返すだけ</strong>です。
+理由が要るなら <code>new Dson()</code> を作り、<code>decode(...)</code> のあとに <code>isError()</code> /
+<code>getErrorException()</code> を見てください。</p>
+</div>
+<h2 id="型変換">型変換<a class="anchor" href="#型変換">#</a></h2>
+<p><code>Convertor.convert(conf, src, 変換先.class)</code> が入口です。
+Bean ↔ <code>Data</code> ↔ Map ↔ List ↔ プリミティブが同じ1本を通ります。
+<code>data.convert(new MyBean())</code> も中身は同じものです。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>Configration</code> は使い回さないでください。**変換の途中で階層カウンタと
+循環参照の記録が書き換わります。<strong>1回の変換に1つ</strong>作ります。</p>
+</div>
+<h2 id="http-クライアント">HTTP クライアント<a class="anchor" href="#http-クライアント">#</a></h2>
+<p>JDK の <code>HttpClient</code> の薄いラッパで、メソッドごとにクラスがあります。</p>
+<pre class="code"><code class="lang-java">HttpGetExecutor res = <span class="h-k">new</span> HttpGetExecutor()
+	.setUrl(<span class="h-s">"https://example.com/api"</span>)
+	.addHeader(<span class="h-s">"Accept"</span>, <span class="h-s">"application/json"</span>)
+	.setTimeout(<span class="h-n">5000</span>)
+	.execute();
+
+<span class="h-k">if</span> (res.isError) {
+	Log.error(res.errorException, <span class="h-s">"取得に失敗しました"</span>);
+	<span class="h-k">return</span>;
+}
+
+Data json = res.getContentJson();
+</code></pre>
+<ul>
+<li>POST は <code>HttpPostExecutor</code>。<code>addBodyForm(name, value)</code> / <code>setBodyJson(data)</code></li>
+<li><strong>ファイルを1つでも足すと multipart になります</strong>（<code>addBodyForm(name, file, contentType)</code>）</li>
+<li>プロキシは <code>setProxy(new HttpProxy(host, port, id, pass))</code></li>
+<li><strong>例外を投げません。</strong><code>isError</code> を見てください（DB と同じ流儀）</li>
+</ul>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>タイムアウトの既定は 30 秒</strong>で、接続と応答の<strong>両方に同じ値</strong>が入ります。個別には指定できません。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>setIgnoreSslError(true)</code> は JVM 全体に効きます。</strong>
+証明書の検証を止めるシステムプロパティを立てるので、
+<strong>同じプロセスの他の通信も検証しなくなり、元に戻りません。</strong></p>
+</div>
+<h2 id="csv">CSV<a class="anchor" href="#csv">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (CsvReader reader = <span class="h-k">new</span> CsvReader(<span class="h-k">new</span> File(<span class="h-s">"in.csv"</span>))) {
+	<span class="h-k">while</span> (reader.next()) {
+		String name = reader.getString(<span class="h-s">"name"</span>);
+	}
+}
+</code></pre>
+<p><strong>1行ずつ読みます</strong>（全部メモリに載せません）。書くほうは <code>CsvWriter#writeLine(Object...)</code>。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>文字コードを省略すると、判定に失敗したときは Shift_JIS になります。</strong>
+UTF-8 と分かっているなら <code>new CsvReader(file, &quot;UTF-8&quot;)</code> と書いてください。</p>
+</div>
+<h2 id="xml">XML<a class="anchor" href="#xml">#</a></h2>
+<p><code>XmlParser.parse(file)</code> で <code>XmlData</code> の木にします（<strong>全部メモリに載ります</strong>）。
+組み立ては <code>XmlBuilder.build(xmlData)</code>。</p>
+<h2 id="ハッシュと暗号">ハッシュと暗号<a class="anchor" href="#ハッシュと暗号">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>やること</th>
+<th>使うもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>パスワード</td>
+<td><code>PasswordUtil.createHash</code> / <code>check</code>（<a href="./session-security">セッションと安全側の既定</a>）</td>
+</tr>
+<tr>
+<td>署名（改ざん検知）</td>
+<td><code>Signer.sign</code> / <code>unsign</code>（HMAC-SHA256）</td>
+</tr>
+<tr>
+<td>暗号化</td>
+<td><strong><code>Aead.encrypt</code> / <code>decrypt</code></strong>（AES-256-GCM）</td>
+</tr>
+<tr>
+<td>短い ID</td>
+<td><code>Hashids</code></td>
+</tr>
+<tr>
+<td>ハッシュ値</td>
+<td><code>Hash.md5</code> / <code>sha256</code> / <code>sipHash</code> / <code>xxHash64</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>CipherUtil</code>（AES/CBC）は IV が設定で固定</strong>です。同じ平文が必ず同じ暗号文になり、
+改ざんも検知できません。移送元との互換のために残しています。
+<strong>新しく書くところは <code>Aead</code> を使ってください。</strong></p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>Hashids</code> の既定インスタンスは salt が空です。**並びが推測できるので、
+**見せたくない ID の隠蔽には使えません。**必要なら salt を指定して自分で作ってください。</p>
+</div>
+<h2 id="db-に置く-key-value">DB に置く key-value<a class="anchor" href="#db-に置く-key-value">#</a></h2>
+<pre class="code"><code class="lang-java">DBValue.set(db, <span class="h-s">"last_imported_at"</span>, <span class="h-s">"2026-09-07"</span>);
+String value = DBValue.getString(db, <span class="h-s">"last_imported_at"</span>, <span class="h-s">""</span>);
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>get</code> は値が無いと既定値を書き込みます</strong>（読むだけのつもりで INSERT が飛びます）。
+値は <strong>250 文字まで</strong>、消す API はありません。
+キャッシュはプロセスごとなので、<strong>他の台の <code>set</code> は伝わりません。</strong></p>
+</div>
+<h2 id="そのほか">そのほか<a class="anchor" href="#そのほか">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>分野</th>
+<th>クラス</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文字列</td>
+<td><code>StringUtil</code>（置換・全半角・Base62・パスワード生成）/ <code>IcuUtil</code>（かな・全半角）</td>
+</tr>
+<tr>
+<td>日時</td>
+<td><code>DateUtil</code>（<code>java.util.Date</code> ベース。<code>getFrom</code> / <code>getTo</code> は「その日の 00:00:00 / 23:59:59」）</td>
+</tr>
+<tr>
+<td>URL</td>
+<td><code>UrlUtil</code> / <code>UrlBuilder</code>（ドメイン抽出・punycode・エンコード）</td>
+</tr>
+<tr>
+<td>数値・パース</td>
+<td><code>Parse.parseInt</code> など（<strong>失敗しても例外を投げません</strong>）</td>
+</tr>
+<tr>
+<td>正規表現</td>
+<td><code>Patterns</code>（メール・URL・ドメイン・電話）</td>
+</tr>
+<tr>
+<td>ファイル</td>
+<td><code>FileUtil</code> / <code>IOUtil</code> / <code>FileCharDetecter</code>（文字コード判定）</td>
+</tr>
+<tr>
+<td>スレッド</td>
+<td><code>VirtualThreadManager</code> / <code>ThreadManager</code>（<a href="./execution">実行モデル</a>）</td>
+</tr>
+<tr>
+<td>計測</td>
+<td><code>StopWatch</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>Patterns</code> の TLD 一覧は<strong>書き切りの文字列</strong>です。新しい TLD は通りません。</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="pitfalls">
+				<span>前</span>落とし穴
+			</a>
+			<a class="next" href="migration-jooby">
+				<span>次</span>jooby からの移行
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#data">Data</a></li>
+			<li class="level-2"><a href="#json">JSON</a></li>
+			<li class="level-2"><a href="#型変換">型変換</a></li>
+			<li class="level-2"><a href="#http-クライアント">HTTP クライアント</a></li>
+			<li class="level-2"><a href="#csv">CSV</a></li>
+			<li class="level-2"><a href="#xml">XML</a></li>
+			<li class="level-2"><a href="#ハッシュと暗号">ハッシュと暗号</a></li>
+			<li class="level-2"><a href="#db-に置く-key-value">DB に置く key-value</a></li>
+			<li class="level-2"><a href="#そのほか">そのほか</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

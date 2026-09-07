@@ -100,6 +100,10 @@
 				<a href="cache"
 				   class="">キャッシュとロック</a>
 			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -134,6 +138,10 @@
 				   class="">jimble new</a>
 			</li>
 			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
 				<a href="hot-reload"
 				   class="">ホットリロード</a>
 			</li>
@@ -144,6 +152,10 @@
 			<li>
 				<a href="config"
 				   class="current">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
 			</li>
 			<li>
 				<a href="log"
@@ -159,6 +171,10 @@
 			<li>
 				<a href="pitfalls"
 				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
 			</li>
 			<li>
 				<a href="migration-jooby"
@@ -239,6 +255,7 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 </code></pre>
 <h2 id="主なキー">主なキー<a class="anchor" href="#主なキー">#</a></h2>
 <pre class="code"><code class="lang-conf">server {
+	host        = <span class="h-s">""</span>         <span class="h-c"># 待ち受けるアドレス。空なら全部</span>
 	port        = <span class="h-n">9000</span>
 	trust_proxy = <span class="h-k">false</span>      <span class="h-c"># ロードバランサの後ろに置くまで false</span>
 	max_request_size     = <span class="h-n">10485760</span>
@@ -319,8 +336,8 @@ codegen {
 			<a class="prev" href="testing">
 				<span>前</span>テスト
 			</a>
-			<a class="next" href="log">
-				<span>次</span>ログ
+			<a class="next" href="server">
+				<span>次</span>サーバー設定
 			</a>
 		</nav>
 	</main>

@@ -1,0 +1,487 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradle プラグイン - jimble</title>
+<meta name="description" content="io.jimble.db / jte / run のタスクと設定">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="current">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="gradle-プラグイン">Gradle プラグイン<a class="anchor" href="#gradle-プラグイン">#</a></h1>
+<p>3つあります。<strong>必要なものだけ入れてください。</strong></p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>何をするか</th>
+<th>主なタスク</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>io.jimble.db</code></td>
+<td>マイグレーションとコード生成を <code>compileJava</code> の前に流す</td>
+<td><code>migrate</code> / <code>codegen</code> / <code>codegenCheck</code></td>
+</tr>
+<tr>
+<td><code>io.jimble.jte</code></td>
+<td><code>src/main/jte</code> を <code>compileJava</code> の前に Java に変換する</td>
+<td><code>generateJte</code></td>
+</tr>
+<tr>
+<td><code>io.jimble.run</code></td>
+<td>開発用のホットリロード</td>
+<td><code>jimbleRun</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
+	application
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.1.0"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.1.0"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.1.0"</span>
+}
+</code></pre>
+<p>**Plugin Portal には出していません。**Maven Central から取るので、
+<code>settings.gradle.kts</code> に置き場所を書いてください（<code>jimble new</code> の雛形には入っています）。</p>
+<pre class="code"><code class="lang-kotlin">pluginManagement {
+	repositories {
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>プラグインは <strong>Gradle デーモンの中</strong>で動くので、バイトコードは Java 17 で出しています。
+アプリ側（Java 25）とは別です。<strong>Gradle は 9 以上</strong>が要ります。</p>
+</div>
+<h2 id="iojimbledb">io.jimble.db<a class="anchor" href="#iojimbledb">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate       # 未適用の SQL を当てる
+<span class="h-k">./gradlew</span> codegen       # テーブル定義のクラスを作る（migrate のあと）
+<span class="h-k">./gradlew</span> codegenCheck  # コミットされている生成物がスキーマと合うか見る
+</code></pre>
+<p>中身は <a href="./codegen">マイグレーションとコード生成</a> を見てください。</p>
+<pre class="code"><code class="lang-kotlin">jimble {
+	sourceRoot   = <span class="h-s">"src/main/java"</span>   <span class="h-c">// 生成先</span>
+	env          = <span class="h-s">"local"</span>           <span class="h-c">// CLI に -Denv=... で渡る</span>
+	autoGenerate = <span class="h-k">true</span>              <span class="h-c">// compileJava の前に繋ぐか</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>プロパティ</th>
+<th>既定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sourceRoot</code></td>
+<td><code>src/main/java</code></td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td><code>-Pjimble.env</code> → 環境変数 <code>ENV</code> → <code>local</code></td>
+</tr>
+<tr>
+<td><code>autoGenerate</code></td>
+<td><code>-Pjimble.autoGenerate</code> → <strong><code>env == &quot;local&quot;</code> なら true</strong></td>
+</tr>
+</tbody>
+</table>
+<p>つまり<strong>ローカルでだけ</strong> <code>migrate → codegen → compileJava</code> が繋がります。
+CI では繋がらないので、コミットされた生成物でそのままコンパイルできます。</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> build -Pjimble.autoGenerate=true    # CI でも繋ぎたいとき
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>migrate</code> と <code>codegen</code> は<strong>毎回走ります</strong>（up-to-date になりません）。
+DB の状態は Gradle からは見えないためです。</p>
+</div>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p>どちらも実体は CLI（<code>io.jimble.db.cli.JimbleDbCli</code>）を叩いているだけです。
+<strong>ロジックを Gradle 側に置いていない</strong>ので、CI や本番では同じことを CLI で直接できます。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>クラスパスに<strong>このプロジェクトのクラスは入りません</strong>（リソースと依存だけ）。
+入れると <code>compileJava → codegen → compileJava</code> で循環します。
+SQL も設定もリソース側にあるので、これで足ります。</p>
+</div>
+<p><code>codegenCheck</code> がずれを見つけると、こう言って落ちます。</p>
+<pre class="code"><code class="lang-text">コミットされている生成物がスキーマと一致しません（2 件）。codegen を実行してコミットしてください。
+  生成物が古いです: db/blog_example/table/post/Post.java
+  生成物が足りません: db/blog_example/table/tag/Tag.java
+</code></pre>
+<h2 id="iojimblejte">io.jimble.jte<a class="anchor" href="#iojimblejte">#</a></h2>
+<p><code>src/main/jte</code> の <code>.jte</code> を <strong>Java に変換</strong>します。コンパイルは <code>compileJava</code> がやるので、
+<strong>テンプレートの型の間違いはビルドで落ちます</strong>（<a href="./view">テンプレート</a>）。</p>
+<table>
+<thead>
+<tr>
+<th>タスク</th>
+<th>入力</th>
+<th>出力</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>generateJte</code></td>
+<td><code>src/main/jte</code></td>
+<td><code>build/generated/sources/jte/main/java</code></td>
+</tr>
+<tr>
+<td><code>generateTestJte</code></td>
+<td><code>src/test/jte</code>（<strong>変えられません</strong>）</td>
+<td><code>build/generated/sources/jte/test/java</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-kotlin">jte {
+	sourceDirectory       = <span class="h-s">"src/main/jte"</span>
+	packageName           = <span class="h-s">"gg.jte.generated.precompiled"</span>
+	contentType           = <span class="h-s">"Html"</span>    <span class="h-c">// Html | Plain</span>
+	trimControlStructures = <span class="h-k">true</span>
+	htmlCommentsPreserved = <span class="h-k">false</span>
+}
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><code>packageName</code> は**変えないでください。**jte の既定と揃えてあります。
+ずらすと実行時にテンプレートが見つかりません。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>生成先は<strong>毎回まるごと消してから</strong>作ります。
+消したテンプレートの生成物が残ると、<strong>消したはずのものがコンパイルを通って jar に入ります。</strong></p>
+</div>
+<p>コンパイラ（<code>gg.jte:jte</code>）を持っているのはプラグインだけです。
+アプリの実行時クラスパスには <code>jte-runtime</code> しか入りません（要件 D-27）。</p>
+<h2 id="iojimblerun">io.jimble.run<a class="anchor" href="#iojimblerun">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleRun
+</code></pre>
+<p>仕組みと注意は <a href="./hot-reload">ホットリロード</a> にあります。ここは設定の一覧です。</p>
+<pre class="code"><code class="lang-kotlin">jimbleRun {
+	mainClass = <span class="h-s">"my_blog.App"</span>        <span class="h-c">// 必須</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>プロパティ</th>
+<th>既定</th>
+<th>何を決めるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mainClass</code></td>
+<td><strong>なし（必須）</strong></td>
+<td><code>main</code> を持つクラス</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td><code>9000</code></td>
+<td>ブラウザが見るプロキシのポート</td>
+</tr>
+<tr>
+<td><code>appPort</code></td>
+<td><code>port + 100</code></td>
+<td>アプリが待ち受けるポート</td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td><code>&quot;local&quot;</code></td>
+<td><code>jimble.env</code> として渡る</td>
+</tr>
+<tr>
+<td><code>buildTasks</code></td>
+<td><code>[&quot;:classes&quot;]</code></td>
+<td>変更時に流すタスク</td>
+</tr>
+<tr>
+<td><code>watchDirs</code></td>
+<td>なし</td>
+<td>追加で見張る（ルートからの相対パス）</td>
+</tr>
+<tr>
+<td><code>excludeDirs</code></td>
+<td>なし</td>
+<td>見張らない</td>
+</tr>
+<tr>
+<td><code>watchExtensions</code></td>
+<td><code>.java .jte .html .js .css .conf .xml .properties .yml .sql</code></td>
+<td>見張る拡張子</td>
+</tr>
+<tr>
+<td><code>restartMode</code></td>
+<td><code>&quot;on_request&quot;</code></td>
+<td><code>on_request</code>（次のリクエストで） / <code>immediate</code>（保存したら）</td>
+</tr>
+<tr>
+<td><code>quietMillis</code></td>
+<td><code>300</code></td>
+<td>変更が落ち着いたと見なす待ち</td>
+</tr>
+<tr>
+<td><code>startTimeoutSeconds</code></td>
+<td><code>60</code></td>
+<td>起動を待つ上限</td>
+</tr>
+<tr>
+<td><code>args</code></td>
+<td>なし</td>
+<td><code>main</code> に渡す引数</td>
+</tr>
+</tbody>
+</table>
+<p>見張るのは <code>src</code> と <code>conf</code>（あれば）＋ <code>watchDirs</code> です。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>restartMode</code> に書けない値を書くと落ちます。</strong>
+前は黙って <code>on_request</code> に倒していたので、書き間違えても
+「設定したのに効かない」だけが残っていました。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>debug</code> や <code>jvmArgs</code> のプロパティは<strong>ありません。</strong>
+アプリは Gradle と<strong>同じ JVM</strong>で動くので、IDE のデバッガがそのまま効きます。
+ヒープを変えたいときは <code>gradle.properties</code> の <code>org.gradle.jvmargs</code> です。</p>
+</div>
+<h3 id="ビルドに失敗したら">ビルドに失敗したら<a class="anchor" href="#ビルドに失敗したら">#</a></h3>
+<p>止まりません。<strong>ブラウザにそのまま出ます。</strong></p>
+<table>
+<thead>
+<tr>
+<th>何が起きたか</th>
+<th>ステータス</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>作り直しに失敗した</td>
+<td><strong>503</strong>（Gradle の出力をそのまま）</td>
+</tr>
+<tr>
+<td>アプリに繋がらない</td>
+<td><strong>502</strong></td>
+</tr>
+<tr>
+<td><code>jimbleRun</code> の中で例外</td>
+<td><strong>500</strong></td>
+</tr>
+</tbody>
+</table>
+<p>直して保存し、リロードすれば続きができます。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>ビルドは <code>gradlew</code> を<strong>子プロセスで</strong>叩きます（動いているビルドの中から
+同じプロジェクトのタスクは呼べないため）。
+<code>gradlew</code> が壊れていたら、理由を出して PATH の <code>gradle</code> に逃がします。</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="cli">
+				<span>前</span>jimble new
+			</a>
+			<a class="next" href="hot-reload">
+				<span>次</span>ホットリロード
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#iojimbledb">io.jimble.db</a></li>
+			<li class="level-2"><a href="#iojimblejte">io.jimble.jte</a></li>
+			<li class="level-2"><a href="#iojimblerun">io.jimble.run</a></li>
+			<li class="level-3"><a href="#ビルドに失敗したら">ビルドに失敗したら</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

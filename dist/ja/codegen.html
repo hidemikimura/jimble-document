@@ -1,0 +1,453 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイグレーションとコード生成 - jimble</title>
+<meta name="description" content="SQL の当て方、生成されるクラス、いつ何が走るか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="current">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="マイグレーションとコード生成">マイグレーションとコード生成<a class="anchor" href="#マイグレーションとコード生成">#</a></h1>
+<p><strong>スキーマが先、コードが後</strong>です。SQL を書いて当てると、テーブル定義のクラスがそこから作られます。</p>
+<table>
+<thead>
+<tr>
+<th>いつ</th>
+<th>ローカル</th>
+<th>それ以外（CI・staging・本番）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ビルド時</td>
+<td><code>migrate</code> → <code>codegen</code> → <code>compileJava</code></td>
+<td><strong><code>compileJava</code> だけ</strong></td>
+</tr>
+<tr>
+<td>起動時</td>
+<td>何もしない</td>
+<td><strong>未適用のマイグレーションを当てる</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**生成物はリポジトリにコミットします。**そうしないと、DB の無い環境でビルドできません。
+ずれていないかは CI で <code>codegenCheck</code> が見ます。</p>
+</div>
+<h2 id="マイグレーション">マイグレーション<a class="anchor" href="#マイグレーション">#</a></h2>
+<p><code>conf/migration/&lt;スキーマ名&gt;/</code> に SQL を置きます。</p>
+<pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
+
+CREATE TABLE `note` (
+	`id`         BIGINT UNSIGNED AUTO_INCREMENT COMMENT <span class="h-s">'ID'</span> PRIMARY KEY,
+	`title`      VARCHAR(<span class="h-n">200</span>) NOT NULL COMMENT <span class="h-s">'タイトル'</span>,
+	`created_at` DATETIME     NOT NULL COMMENT <span class="h-s">'作成日時'</span>
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT=<span class="h-s">'メモ'</span>;
+
+# <span class="h-c">--- !Downs</span>
+
+DROP TABLE `note`;
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate
+</code></pre>
+<ul>
+<li>ファイル名は自由。<strong>名前の自然順</strong>に当たります（<code>001_</code> を付けるのが分かりやすい）</li>
+<li><code>&lt;スキーマ名&gt;</code> は設定の <code>scheme</code>（無ければデータソース名）</li>
+<li><strong>クラスパスから探します</strong>。<code>conf/</code> をリソースに足しておいてください（<a href="./config">設定</a>）</li>
+</ul>
+<h3 id="記録と失敗">記録と失敗<a class="anchor" href="#記録と失敗">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>テーブル</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>migration</code></td>
+<td>当てた SQL、ハッシュ、状態（<code>complete</code> / <code>up_error</code> / <code>down_error</code>）</td>
+</tr>
+<tr>
+<td><code>migration_history</code></td>
+<td><strong>1文ごとの実行履歴</strong>（種類・SQL・成否・日時）</td>
+</tr>
+</tbody>
+</table>
+<p>失敗すると**そこで止まり、アプリは起動しません。**中途半端な状態でリクエストを受けないためです。
+失敗したことは <code>migration</code> に <code>up_error</code> として残り、次回は down → up をやり直します。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>**DDL はロールバックされません。**MariaDB / MySQL は <code>CREATE TABLE</code> などで暗黙にコミットします。
+1ファイルに複数の DDL を書くと、<strong>途中まで当たった状態</strong>で止まります。</p>
+</div>
+<h3 id="当て終わった-sql-を書き換えない">当て終わった SQL を書き換えない<a class="anchor" href="#当て終わった-sql-を書き換えない">#</a></h3>
+<p>ハッシュを見ているので、<strong>当たったあとに書き換えると失敗します。</strong></p>
+<pre class="code"><code class="lang-text">適用済みのマイグレーションが書き換えられています: 003_xxx.sql
+（down が無効なため巻き戻せません。新しい SQL ファイルを追加してください）
+</code></pre>
+<p><code>migration.down = true</code>（既定は <code>false</code>）にすると、down → 新しい up でやり直します。
+**手で戻すコマンドはありません。**down が動くのは「ファイルが消えた」「ハッシュが変わった」の2つだけです。</p>
+<h3 id="複数のサーバーが同時に起動しても">複数のサーバーが同時に起動しても<a class="anchor" href="#複数のサーバーが同時に起動しても">#</a></h3>
+<p><code>db_lock</code> の行を <code>FOR UPDATE</code> で取ってから当てるので、<strong>1台しか流れません。</strong>
+待ちきれなかった側は起動に失敗します（<code>migration.lock_timeout_seconds</code>、既定 60 秒）。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>ロック待ちのタイムアウトは<strong>そのセッションだけ</strong>に設定します（<code>SET SESSION</code>）。
+サーバー全体の設定は変えません。</p>
+</div>
+<h3 id="java-で書くマイグレーション">Java で書くマイグレーション<a class="anchor" href="#java-で書くマイグレーション">#</a></h3>
+<p>SQL では書けない移行（既存データの詰め替えなど）はクラスで書きます。</p>
+<pre class="code"><code class="lang-java">CodeMigration.add(<span class="h-k">new</span> V20260901FillUserKana());
+Migration.install();
+</code></pre>
+<p><code>versionYyyyMmDd()</code> の順に1回だけ走り、結果は <code>migration_code</code> に残ります。
+<strong>クラスパスは走査しません</strong>（原則2）。書いたら <code>add</code> してください。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>CLI の <code>migrate</code> はコードマイグレーションを走らせません。</strong>
+登録がアプリのコードにあるためで、動くのは<strong>アプリの起動時</strong>だけです。</p>
+</div>
+<h2 id="コード生成">コード生成<a class="anchor" href="#コード生成">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
+</code></pre>
+<p>DB のスキーマから、データソースごとに3種類を作ります。</p>
+<table>
+<thead>
+<tr>
+<th>生成物</th>
+<th>置き場所</th>
+<th>何に使うか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>スキーマクラス</td>
+<td><code>db/&lt;データソース&gt;/BlogExample.java</code></td>
+<td><code>BlogExample.db()</code>、テーブル一覧</td>
+</tr>
+<tr>
+<td>テーブルクラス</td>
+<td><code>db/&lt;データソース&gt;/table/post/Post.java</code></td>
+<td><code>Post.id</code> などの <code>Column</code></td>
+</tr>
+<tr>
+<td>型付きアクセサ</td>
+<td><code>db/&lt;データソース&gt;/table_data/post/AbstractPostData.java</code></td>
+<td><code>data.title(&quot;...&quot;).published(true)</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> Post <span class="h-k">extends</span> Table {
+
+	<span class="h-c">/* 記事ID */</span>
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">final</span> Column id = <span class="h-k">new</span> Column(instance(), <span class="h-s">"id"</span>, <span class="h-k">long</span>.<span class="h-k">class</span>, <span class="h-k">false</span>, <span class="h-k">null</span>, <span class="h-k">true</span>);
+
+	<span class="h-k">private</span> <span class="h-k">static</span> <span class="h-k">final</span> List&lt;Column&gt; COLUMNS = List.of(id, title, body, published, created_at);
+}
+</code></pre>
+<p>列の一覧は<strong>生成時に確定</strong>します（実行時にリフレクションしません）。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>生成先のディレクトリは毎回まるごと作り直します。</strong>
+<code>db/&lt;データソース&gt;/</code> の下に手で書いたファイルを置くと、<strong>次の <code>codegen</code> で消えます。</strong>
+生成物の先頭にも印が入ります。</p>
+</div>
+<pre class="code"><code class="lang-java"><span class="h-c">/*
+ * このファイルは jimble が作りました（codegen）。手で直さないでください。
+ * 直しても次の codegen で消えます。
+ */</span>
+</code></pre>
+<h3 id="型の対応">型の対応<a class="anchor" href="#型の対応">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>DB の型</th>
+<th>Java</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bigint</code></td>
+<td><code>long</code></td>
+</tr>
+<tr>
+<td><code>tinyint</code> / <code>bool</code></td>
+<td><strong><code>boolean</code></strong></td>
+</tr>
+<tr>
+<td><code>int</code> / <code>smallint</code> / <code>mediumint</code></td>
+<td><code>int</code></td>
+</tr>
+<tr>
+<td><code>decimal</code> / <code>float</code> / <code>double</code></td>
+<td><code>double</code></td>
+</tr>
+<tr>
+<td><code>datetime</code> / <code>date</code> / <code>timestamp</code></td>
+<td><code>java.util.Date</code></td>
+</tr>
+<tr>
+<td><code>varchar</code> / <code>text</code> など</td>
+<td><code>String</code></td>
+</tr>
+<tr>
+<td><code>json</code></td>
+<td><code>Data</code></td>
+</tr>
+<tr>
+<td>そのほか（<code>blob</code> / <code>enum</code> など）</td>
+<td><code>String</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>tinyint</code> は桁数に関係なく <code>boolean</code></strong> です。<code>tinyint(4)</code> に 0/1 以外を入れているなら
+<code>smallint</code> にしてください。
+<strong><code>decimal</code> は <code>double</code></strong> になるので、金額の計算には向きません。</p>
+</div>
+<h3 id="生成しないテーブル">生成しないテーブル<a class="anchor" href="#生成しないテーブル">#</a></h3>
+<p>jimble が自分で作るテーブル（<code>migration</code> / <code>db_cache</code> / <code>session</code> / <code>batch_*</code> など）は自動で外れます。
+<strong>MQ のキュー表は名前をアプリが決める</strong>ので、自分で書いてください。</p>
+<pre class="code"><code class="lang-conf">codegen {
+	<span class="h-k">package</span>        = <span class="h-s">"db"</span>
+	exclude_tables = [<span class="h-s">"mq_blog"</span>, <span class="h-s">"mq_scheduler"</span>]
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>ワイルドカードは使えません（<code>mq_*</code> とは書けません）。1つずつ並べてください。</p>
+</div>
+<h2 id="設定">設定<a class="anchor" href="#設定">#</a></h2>
+<pre class="code"><code class="lang-conf">migration {
+	on_startup            = <span class="h-s">"auto"</span>   <span class="h-c"># auto | true | false。auto はローカル以外で当てる</span>
+	down                  = <span class="h-k">false</span>    <span class="h-c"># 巻き戻すか</span>
+	lock_timeout_seconds  = <span class="h-n">60</span>
+	resource_dir          = <span class="h-s">"migration"</span>
+}
+
+codegen {
+	<span class="h-k">package</span>        = <span class="h-s">"db"</span>
+	exclude_tables = []
+}
+</code></pre>
+<h2 id="cli-から">CLI から<a class="anchor" href="#cli-から">#</a></h2>
+<p>Gradle が使えないところ（CI・本番）では CLI で同じことができます。</p>
+<pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
+</code></pre>
+<p>設定も SQL も<strong>クラスパスから</strong>探します。
+Gradle のタスクは <a href="./gradle">Gradle プラグイン</a> にまとめてあります。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="cache">
+				<span>前</span>キャッシュとロック
+			</a>
+			<a class="next" href="batch">
+				<span>次</span>バッチ
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#マイグレーション">マイグレーション</a></li>
+			<li class="level-3"><a href="#記録と失敗">記録と失敗</a></li>
+			<li class="level-3"><a href="#当て終わった-sql-を書き換えない">当て終わった SQL を書き換えない</a></li>
+			<li class="level-3"><a href="#複数のサーバーが同時に起動しても">複数のサーバーが同時に起動しても</a></li>
+			<li class="level-3"><a href="#java-で書くマイグレーション">Java で書くマイグレーション</a></li>
+			<li class="level-2"><a href="#コード生成">コード生成</a></li>
+			<li class="level-3"><a href="#型の対応">型の対応</a></li>
+			<li class="level-3"><a href="#生成しないテーブル">生成しないテーブル</a></li>
+			<li class="level-2"><a href="#設定">設定</a></li>
+			<li class="level-2"><a href="#cli-から">CLI から</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

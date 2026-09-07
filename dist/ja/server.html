@@ -1,0 +1,375 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>サーバー設定 - jimble</title>
+<meta name="description" content="ポート・待ち受けアドレス・上限・プロキシ・圧縮">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="current">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="サーバー設定">サーバー設定<a class="anchor" href="#サーバー設定">#</a></h1>
+<pre class="code"><code class="lang-conf">server {
+	host                 = <span class="h-s">""</span>         <span class="h-c"># 待ち受けるアドレス。空なら全部</span>
+	port                 = <span class="h-n">9000</span>
+	max_request_size     = <span class="h-n">10485760</span>   <span class="h-c"># リクエスト本文の上限（10MB）</span>
+	max_header_size      = <span class="h-n">16384</span>      <span class="h-c"># ヘッダ全体の上限（16KB）</span>
+	idle_timeout_seconds = <span class="h-n">60</span>
+	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># X-Forwarded-* を信じるか</span>
+	compression          = <span class="h-k">true</span>       <span class="h-c"># 応答を gzip で返すか</span>
+	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># ボットのアクセスログを分けるか</span>
+}
+</code></pre>
+<p>**書かなければ上の既定で動きます。**いま何が効いているかは起動ログに出ます。</p>
+<pre class="code"><code class="lang-text">jimble を起動しました: http://localhost:9000
+サーバー設定: 待受=全部 / 本文上限=10485760byte / ヘッダ上限=16384byte / アイドル=60秒 / 圧縮=true / プロキシ信頼=false
+</code></pre>
+<h2 id="ポート">ポート<a class="anchor" href="#ポート">#</a></h2>
+<p>**ポートだけはシステムプロパティでも指定できます。**コンテナで「設定ファイルは触らずポートだけ変える」ためです。</p>
+<pre class="code"><code class="lang-bash">java -Djimble.server.port=8080 -jar app.jar
+</code></pre>
+<p>優先順は <code>-Djimble.server.port</code> &gt; <code>server.port</code> &gt; 9000 です。</p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><code>JimbleServer.start(app, 0)</code> にすると<strong>空いているポートを自動で取ります。</strong>
+テストはこれを使ってください（固定にすると、並べて走らせたときだけ落ちます）。
+実際のポートは <code>server.port()</code> で取れます。</p>
+</div>
+<h2 id="待ち受けるアドレス">待ち受けるアドレス<a class="anchor" href="#待ち受けるアドレス">#</a></h2>
+<p>**空なら全部のアドレスで待ちます。**外から見えてはいけないものは絞ってください。</p>
+<pre class="code"><code class="lang-conf">server { host = <span class="h-s">"127.0.0.1"</span> }
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p>手元で動かす MCP サーバーはこれが要ります（<a href="./mcp">MCP</a>）。
+<strong>ファイアウォールに頼ると、設定を忘れたときに黙って公開されます。</strong></p>
+</div>
+<h2 id="上限">上限<a class="anchor" href="#上限">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>上限</th>
+<th>超えたら</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>リクエスト本文</td>
+<td><code>server.max_request_size</code>（10MB）</td>
+<td><strong>413</strong></td>
+</tr>
+<tr>
+<td>ヘッダ全体</td>
+<td><code>server.max_header_size</code>（16KB）</td>
+<td>接続ごと切られる</td>
+</tr>
+<tr>
+<td>何もしない接続</td>
+<td><code>server.idle_timeout_seconds</code>（60秒）</td>
+<td>閉じる</td>
+</tr>
+</tbody>
+</table>
+<p>アップロードにはこれとは別の上限があります（<a href="./upload">ファイルアップロード</a>）。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>アップロードの合計上限（既定 50MB）より本文の上限（既定 10MB）のほうが小さい</strong>ので、
+大きいものを受けるなら両方を上げてください。</p>
+</div>
+<p>読み取り／書き込みのタイムアウトはありません。</p>
+<h2 id="プロキシの後ろに置く">プロキシの後ろに置く<a class="anchor" href="#プロキシの後ろに置く">#</a></h2>
+<p>**既定では <code>X-Forwarded-*</code> を信じません。**信じるのは、前段のプロキシを必ず通ると分かってからです。</p>
+<pre class="code"><code class="lang-conf">server { trust_proxy = <span class="h-k">true</span> }
+</code></pre>
+<p><code>true</code> にすると <code>proxyAddress()</code> が次の順で送信元を返します。</p>
+<ol>
+<li><code>CF-Connecting-IP</code></li>
+<li><code>X-Real-IP</code></li>
+<li><code>X-Forwarded-For</code> の<strong>先頭</strong></li>
+<li>どれも無ければ接続元</li>
+</ol>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>trust_proxy</code> を true にしても <code>address()</code> は変わりません。</strong>
+<code>address()</code> は常に<strong>TCP の接続元</strong>（＝ロードバランサ）です。
+送信元で判断するところは <code>proxyAddress()</code> を使ってください。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>ボット判定（<code>isBotAccess()</code>）は <code>address()</code> を見ます。</strong>
+プロキシの後ろでは、判定に使う IP がロードバランサのものになります。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>scheme()</code> も <code>X-Forwarded-Proto</code> を見ません。</strong>
+TLS を前段で終端していると、アプリからは <code>http</code> に見えます。
+リダイレクト先を組み立てるときに気をつけてください。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>直接叩ける状態で <code>true</code> にしないでください。</strong>
+ヘッダは誰でも付けられるので、<strong>送信元をいくらでも偽れます。</strong>
+信頼する upstream を IP で絞る仕組みはありません（真偽値1つです）。</p>
+</div>
+<h2 id="圧縮">圧縮<a class="anchor" href="#圧縮">#</a></h2>
+<p><code>server.compression</code>（既定 <code>true</code>）で <strong>on / off</strong> します。
+何を圧縮するかはサーバー（Helidon）が <code>Accept-Encoding</code> を見て決めます。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**圧縮レベルや、種類ごとの除外はありません。**細かく制御したいときは前段でやってください。</p>
+</div>
+<h2 id="ボットを弾く">ボットを弾く<a class="anchor" href="#ボットを弾く">#</a></h2>
+<p>判定だけならアクセスログの分離で足ります（<a href="./log">ログ</a>）。<strong>弾く</strong>なら宣言します。</p>
+<pre class="code"><code class="lang-java">before(BotBlocker.forbidden());                          <span class="h-c">// 403 を返す</span>
+before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s">"/"</span>)));   <span class="h-c">// 好きに返す</span>
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**既定の「弾く」動作は用意していません。**検索エンジンまで弾くと困るので、
+何を返すかはアプリが決める形にしてあります。</p>
+</div>
+<h2 id="無いもの">無いもの<a class="anchor" href="#無いもの">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TLS / HTTPS</strong></td>
+<td>前段（ロードバランサ・nginx）で終端してください</td>
+</tr>
+<tr>
+<td><strong>HTTP/2</strong></td>
+<td>依存に入れていません</td>
+</tr>
+<tr>
+<td><strong>レートリミット</strong></td>
+<td>未実装（要件 F-R-15、Phase 2）</td>
+</tr>
+<tr>
+<td><strong>ヘルスチェックのルート</strong></td>
+<td>jimble は用意しません。<code>get(&quot;/health_check&quot;, context -&gt; context.response().send())</code> を自分で書きます</td>
+</tr>
+<tr>
+<td><strong>グレースフル停止（排出待ち）</strong></td>
+<td><code>stop()</code> はサーバーを止めるだけです。前段で外してから止めてください</td>
+</tr>
+</tbody>
+</table>
+<h2 id="jimble-をプロキシにする">jimble をプロキシにする<a class="anchor" href="#jimble-をプロキシにする">#</a></h2>
+<p>逆に、jimble から別のサーバーへ流すこともできます。</p>
+<pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/api"</span>, <span class="h-s">"http://backend:8080"</span>));
+</code></pre>
+<p><code>X-Forwarded-For</code> は<strong>既存の値に足します</strong>（上書きしません）。
+タイムアウトは <code>proxy.connect_timeout_ms</code>（5秒）と <code>proxy.request_timeout_ms</code>（30秒）で、
+転送に失敗したら <strong>502</strong> を返します。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="config">
+				<span>前</span>設定
+			</a>
+			<a class="next" href="log">
+				<span>次</span>ログ
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#ポート">ポート</a></li>
+			<li class="level-2"><a href="#待ち受けるアドレス">待ち受けるアドレス</a></li>
+			<li class="level-2"><a href="#上限">上限</a></li>
+			<li class="level-2"><a href="#プロキシの後ろに置く">プロキシの後ろに置く</a></li>
+			<li class="level-2"><a href="#圧縮">圧縮</a></li>
+			<li class="level-2"><a href="#ボットを弾く">ボットを弾く</a></li>
+			<li class="level-2"><a href="#無いもの">無いもの</a></li>
+			<li class="level-2"><a href="#jimble-をプロキシにする">jimble をプロキシにする</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>
