@@ -233,7 +233,7 @@ String same = row.getString(Post.title);</code></pre>
 <code>select</code> 系は <code>null</code>、<code>insert</code> は <code>-1</code>、<code>update</code> / <code>delete</code> は <code>-1</code> です。
 理由は <code>db.getError()</code> に入っています。</p>
 <h2 id="マイグレーション">マイグレーション<a class="anchor" href="#マイグレーション">#</a></h2>
-<p><code>src/main/resources/migration/&lt;スキーマ名&gt;/001_xxx.sql</code> に置きます。</p>
+<p><code>conf/migration/&lt;スキーマ名&gt;/001_xxx.sql</code> に置きます。</p>
 <pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
 
 CREATE TABLE `note` (

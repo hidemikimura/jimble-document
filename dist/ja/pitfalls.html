@@ -237,6 +237,24 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 <pre class="code"><code class="lang-text">Key '/' may not be followed by token: '*'
 </code></pre>
 <p><strong>原因</strong>: <code>/* */</code> を使っています。HOCON のコメントは <code>#</code> か <code>//</code> です。</p>
+<h2 id="jimblerun-でメインマニフェスト属性がありません">jimbleRun で「メイン・マニフェスト属性がありません」<a class="anchor" href="#jimblerun-でメインマニフェスト属性がありません">#</a></h2>
+<p><code>gradle-wrapper.jar</code> に <code>Main-Class</code> がありません。<strong><code>gradlew</code> と <code>gradle-wrapper.jar</code> が
+食い違っています。</strong></p>
+<p>いまの <code>gradlew</code> はこう起動します。</p>
+<pre class="code"><code class="lang-sh">exec java -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" ...
+</code></pre>
+<p>これには <code>Main-Class</code> を持つ JAR が要ります。古い（<code>-classpath</code> 前提の）JAR が
+残っていると、<code>gradlew</code> も JAR も見た目は揃っているのに動きません。</p>
+<pre class="code"><code class="lang-sh">unzip -p gradle/wrapper/gradle-wrapper.jar META-INF/MANIFEST.MF
+<span class="h-c"># Main-Class: org.gradle.wrapper.GradleWrapperMain  ← これが無ければアウト</span>
+</code></pre>
+<p>直すには、そのプロジェクトで一度流してください。</p>
+<pre class="code"><code class="lang-sh"><span class="h-k">gradle</span> wrapper --gradle-version 9.7.1
+</code></pre>
+<p><code>jimbleRun</code> は作り直しのときに <code>./gradlew</code> を子プロセスで叩くので、
+<strong>保存のたびにこれが出ます。</strong> 壊れていると分かったときは
+理由を出して PATH の <code>gradle</code> に逃がすようにしてあるので、
+ホットリロード自体は続きます。</p>
 <h2 id="gradle-が起動しない">Gradle が起動しない<a class="anchor" href="#gradle-が起動しない">#</a></h2>
 <pre class="code"><code class="lang-text">* What went wrong: 25.0.4
 </code></pre>
@@ -299,6 +317,7 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 			<li class="level-2"><a href="#websocket-で-cookie-が読めない">WebSocket で Cookie が読めない</a></li>
 			<li class="level-2"><a href="#mq-が2回実行された">MQ が2回実行された</a></li>
 			<li class="level-2"><a href="#hocon-のコメントで落ちる">HOCON のコメントで落ちる</a></li>
+			<li class="level-2"><a href="#jimblerun-でメインマニフェスト属性がありません">jimbleRun で「メイン・マニフェスト属性がありません」</a></li>
 			<li class="level-2"><a href="#gradle-が起動しない">Gradle が起動しない</a></li>
 			<li class="level-2"><a href="#kotlin-のコメントが入れ子になる">Kotlin のコメントが入れ子になる</a></li>
 			<li class="level-2"><a href="#gitignore-の-docs-が全階層に効く">.gitignore の docs/ が全階層に効く</a></li>
