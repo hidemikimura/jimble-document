@@ -1,0 +1,348 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実行モデル - jimble</title>
+<meta name="description" content="リクエストごとに仮想スレッド。何がどのスレッドで動くか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="current">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="実行モデル">実行モデル<a class="anchor" href="#実行モデル">#</a></h1>
+<p><strong>リクエスト1本につき仮想スレッドが1本</strong>です。その上で、最初から最後まで<strong>同期的に</strong>走ります。</p>
+<ul>
+<li>スレッドプールの設定はありません（Helidon に任せています）</li>
+<li><code>CompletableFuture</code> を返す API はありません</li>
+<li>**ブロッキングして構いません。**JDBC もそのまま呼びます</li>
+</ul>
+<h2 id="1リクエストの流れ">1リクエストの流れ<a class="anchor" href="#1リクエストの流れ">#</a></h2>
+<pre class="code"><code class="lang-text">onRequest
+  ↓
+before（外側 → 内側）
+  ↓
+ルートの処理 / Executor を順に実行
+  ↓
+送信
+  ↓
+（例外なら）error（内側 → 外側）
+  ↓
+after（内側 → 外側）※必ず通る
+  ↓
+onComplete ※必ず通る
+</code></pre>
+<p><code>onRequest</code> は<strong>ルートに当たらなくても呼ばれます</strong>。
+<code>after</code> と <code>onComplete</code> は <code>finally</code> にあるので、例外が出ても必ず通ります。</p>
+<h3 id="送ったら止まるは1か所で見ている">「送ったら止まる」は1か所で見ている<a class="anchor" href="#送ったら止まるは1か所で見ている">#</a></h3>
+<p><code>before</code> でログイン画面を返したら、その先のルートも <code>after</code> も走りません。
+この判定は1か所（<code>Stage</code>）に閉じています。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>移送元（jooby_base）は同じ判定を7か所にコピーしていました。
+1か所に集めたのは、<strong>書き足したところだけ判定を忘れる</strong>のを防ぐためです（要件 F-C-13）。</p>
+</div>
+<h3 id="executor">Executor<a class="anchor" href="#executor">#</a></h3>
+<p>ルートは処理を直接書くほかに、<strong>Executor をキューに積む</strong>書き方ができます。</p>
+<pre class="code"><code class="lang-java">post(<span class="h-s">"/save"</span>, () -&gt; <span class="h-k">new</span> SaveExecutor());
+</code></pre>
+<ul>
+<li>キューは実行中にも積めます（<code>context.addExecutor(...)</code>）</li>
+<li><code>cancel()</code> を呼んでも<strong>その場では止まりません</strong>。<code>execute</code> から戻ったあとに残りが捨てられ、<code>onCancel</code> が呼ばれます</li>
+<li><code>OPTIONS</code> はプリフライト専用なので、<strong>キューを回しません</strong>（要件 F-W-19）</li>
+</ul>
+<h2 id="どこが何のスレッドで動くか">どこが何のスレッドで動くか<a class="anchor" href="#どこが何のスレッドで動くか">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>仕組み</th>
+<th>スレッド</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTP リクエスト</td>
+<td>Helidon の<strong>仮想スレッド</strong>（リクエストごとに1本）</td>
+</tr>
+<tr>
+<td><code>AsyncData</code> / <code>AsyncList</code> の読み込み・先読み</td>
+<td>**呼び出しスレッドそのもの。**名前に反して別スレッドは使いません</td>
+</tr>
+<tr>
+<td>SSE</td>
+<td><strong>そのリクエストの仮想スレッドを掴んだまま</strong></td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>Helidon のリスナのスレッド（接続ごと）</td>
+</tr>
+<tr>
+<td>MQ のワーカー</td>
+<td>仮想スレッド。型ごとに <code>mq.thread_count.&lt;型&gt;</code> 本</td>
+</tr>
+<tr>
+<td>スケジューラの時計</td>
+<td>プラットフォームスレッド1本（<code>jimble-scheduler</code>）</td>
+</tr>
+<tr>
+<td>スケジューラが起動するバッチ</td>
+<td>仮想スレッド。<code>scheduler.execute_threads</code> 本（<code>0</code> で無制限）</td>
+</tr>
+<tr>
+<td>バッチのハートビート</td>
+<td>仮想スレッド1本（<code>jimble-batch-heartbeat</code>）</td>
+</tr>
+</tbody>
+</table>
+<p>本数を絞りたいところでは <code>VirtualThreadManager</code> を使います。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>VirtualThreadManager(n)</code> の <code>n</code> は「<strong>同時に走る</strong>本数」です。
+セマフォを取るのは仮想スレッドを起こした後なので、待っているスレッドは作られています。
+仮想スレッドは安いので実害はありませんが、「n 本しか作らない」ではありません。</p>
+</div>
+<h2 id="詰まるのはスレッドではなく接続プール">詰まるのはスレッドではなく接続プール<a class="anchor" href="#詰まるのはスレッドではなく接続プール">#</a></h2>
+<p>仮想スレッドはいくらでも増えます。<strong>先に尽きるのは DB の接続です。</strong></p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>トランザクションの中や <code>selectListWithFetcher</code> の途中は、接続をプールに返していません。
+その状態で SSE のように長く繋ぐと、<strong>人数分だけプールを食います。</strong>
+<code>maximumPoolSize = 10</code> なら10人で尽き、11人目は「遅い」でも「エラー」でもなく
+<strong>接続待ちで止まったまま</strong>になります。</p>
+</div>
+<p>SSE で無限ループを書かないのはこのためです。
+有限のぶんを送って閉じ、クライアントに繋ぎ直させてください（<a href="./sse">SSE</a>）。</p>
+<h2 id="仮想スレッドで気をつけること">仮想スレッドで気をつけること<a class="anchor" href="#仮想スレッドで気をつけること">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>synchronized</code> を使わない</strong></td>
+<td>仮想スレッドがキャリアに固定されます。<code>ReentrantLock</code> を使ってください（jimble 自身もそうしています）</td>
+</tr>
+<tr>
+<td><strong>共有可変状態を守る</strong></td>
+<td><code>static</code> な <code>HashMap</code> は同時アクセスで壊れます。「たまたま動いていた」が起きにくいぶん、仮想スレッドでは<strong>実際に壊れます</strong></td>
+</tr>
+<tr>
+<td><strong><code>ThreadLocal</code> に頼らない</strong></td>
+<td>jimble はリクエストの受け渡しに <code>ScopedValue</code> を使っています（<code>Context.current()</code>）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="止めるとき">止めるとき<a class="anchor" href="#止めるとき">#</a></h2>
+<p>止め方は1か所（<code>Shutdown</code>）に預けます。</p>
+<pre class="code"><code class="lang-java">Shutdown.add(<span class="h-s">"わたしのワーカー"</span>, worker::stop);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>順番</td>
+<td><strong>後に預けたものから先に止める</strong>（立てた順の逆）。DB を先に閉じると、止まる途中のものが DB を使えないため</td>
+</tr>
+<tr>
+<td>失敗したら</td>
+<td>**残りは止める。**止められなかったものの名前が返る</td>
+</tr>
+<tr>
+<td>jimble が預けるもの</td>
+<td>DB プール / サーバー / スケジューラ</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>普通に動かしているぶんには要りません。<strong>プロセスが終われば全部止まります。</strong>
+要るのは<b>プロセスを終わらせずにアプリを入れ替えるとき</b>、つまり <code>jimbleRun</code> です。
+止め忘れたものは入れ替え後のものと二重に動き、「同じジョブが2回走る」という形で出ます
+（<a href="./hot-reload">ホットリロード</a>）。</p>
+</div>
+<p>リクエスト1本ぶんの後始末は <code>Shutdown</code> ではなく <code>context.onClose(...)</code> です。
+登録の逆順に呼ばれ、1つ失敗しても残りを畳みます。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="session-security">
+				<span>前</span>セッションと安全側の既定
+			</a>
+			<a class="next" href="db">
+				<span>次</span>DB を使う
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#1リクエストの流れ">1リクエストの流れ</a></li>
+			<li class="level-3"><a href="#送ったら止まるは1か所で見ている">「送ったら止まる」は1か所で見ている</a></li>
+			<li class="level-3"><a href="#executor">Executor</a></li>
+			<li class="level-2"><a href="#どこが何のスレッドで動くか">どこが何のスレッドで動くか</a></li>
+			<li class="level-2"><a href="#詰まるのはスレッドではなく接続プール">詰まるのはスレッドではなく接続プール</a></li>
+			<li class="level-2"><a href="#仮想スレッドで気をつけること">仮想スレッドで気をつけること</a></li>
+			<li class="level-2"><a href="#止めるとき">止めるとき</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

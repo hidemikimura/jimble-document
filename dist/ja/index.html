@@ -50,12 +50,24 @@
 				   class="">リクエストとレスポンス</a>
 			</li>
 			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
 				<a href="view"
 				   class="">テンプレート</a>
 			</li>
 			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
 				<a href="session-security"
 				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
 			</li>
 		</ul>
 		<p class="section">データベース</p>
@@ -114,8 +126,16 @@
 				   class="">ホットリロード</a>
 			</li>
 			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
 				<a href="config"
 				   class="">設定</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
 			</li>
 		</ul>
 		<p class="section">そのほか</p>
@@ -168,12 +188,24 @@ jimble が目指すのは <strong>読む人が上から順に追えること</st
 <td><a href="./request-response">リクエストとレスポンス</a></td>
 </tr>
 <tr>
+<td>例外・未マッチ・検証失敗の扱い</td>
+<td><a href="./errors">エラー処理</a></td>
+</tr>
+<tr>
 <td>jte テンプレート（コンパイル済み）</td>
 <td><a href="./view">テンプレート</a></td>
 </tr>
 <tr>
+<td>静的ファイル・SPA・MPA の配信</td>
+<td><a href="./assets">静的ファイルと SPA</a></td>
+</tr>
+<tr>
 <td>セッション・CSRF・Flash・署名付き Cookie</td>
 <td><a href="./session-security">セッションと安全側の既定</a></td>
+</tr>
+<tr>
+<td>仮想スレッド、何がどこで動くか、止め方</td>
+<td><a href="./execution">実行モデル</a></td>
 </tr>
 <tr>
 <td>SQL DSL、テーブル定義の生成、マイグレーション</td>
@@ -207,12 +239,22 @@ jimble が目指すのは <strong>読む人が上から順に追えること</st
 <td>雛形の生成、ホットリロード</td>
 <td><a href="./cli">jimble new</a> / <a href="./hot-reload">ホットリロード</a></td>
 </tr>
+<tr>
+<td>テストの書き方（DB を使うぶんの分け方も）</td>
+<td><a href="./testing">テスト</a></td>
+</tr>
 </tbody>
 </table>
 <h2 id="まず動かす">まず動かす<a class="anchor" href="#まず動かす">#</a></h2>
 <p><a href="./quickstart">5分で最初のエンドポイント</a> へ進んでください。</p>
 
 		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="next" href="quickstart">
+				<span>次</span>5分で最初のエンドポイント
+			</a>
+		</nav>
 	</main>
 
 	<nav class="toc" aria-label="このページの中身">
@@ -231,6 +273,7 @@ jimble が目指すのは <strong>読む人が上から順に追えること</st
 </footer>
 
 <script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
 
 </body>
 </html>

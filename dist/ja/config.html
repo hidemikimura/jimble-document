@@ -50,12 +50,24 @@
 				   class="">リクエストとレスポンス</a>
 			</li>
 			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
 				<a href="view"
 				   class="">テンプレート</a>
 			</li>
 			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
 				<a href="session-security"
 				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
 			</li>
 		</ul>
 		<p class="section">データベース</p>
@@ -114,8 +126,16 @@
 				   class="">ホットリロード</a>
 			</li>
 			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
 				<a href="config"
 				   class="current">設定</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
 			</li>
 		</ul>
 		<p class="section">そのほか</p>
@@ -150,34 +170,41 @@ conf/migration/&lt;スキーマ名&gt;/   マイグレーション
 	}
 }
 </code></pre>
-<p>こうすると <strong><code>conf/</code> の中身はそのまま jar に入ります。</strong> 配った jar だけで動きますし、
-<code>codegen</code> / <code>migrate</code> / <code>jimbleRun</code> / テストもクラスパスから見つけられます。</p>
-<p>そのうえで、<strong>実行時は jar の外の <code>conf/</code> が先に読まれます。</strong>
-値を1つ変えるのにビルドし直さなくて済むようにするためです。
-jar の中身は「外に <code>conf/</code> が無かったときの値」になります。</p>
-<p>読む順番はこうです。<strong>上にあるものが勝ちます。</strong></p>
+<p>こうすると <strong><code>conf/</code> の中身はそのまま jar に入ります。</strong>
+<code>codegen</code> / <code>migrate</code> / <code>jimbleRun</code> / テストも、同じファイルをクラスパスから見ます。</p>
+<p><strong>jimble が読むのはクラスパスだけです。</strong> jar の外は見ません。
+設定を変えたらビルドし直します。<strong>動いている jar と設定が1対1になります。</strong></p>
+<p><strong>読むのは1ファイルだけです。</strong></p>
 <ol>
-<li><code>conf/application.&lt;env&gt;.conf</code></li>
-<li>クラスパスの <code>application.&lt;env&gt;.conf</code></li>
-<li><code>conf/application.conf</code></li>
-<li>クラスパスの <code>application.conf</code></li>
-<li>システムプロパティ</li>
+<li><code>application.&lt;env&gt;.conf</code> があれば<strong>それ</strong></li>
+<li>無ければ <code>application.conf</code></li>
 </ol>
-<p>つまり <code>conf/</code> に置いたものが、jar に入っている同名のものより優先されます。
-<code>conf/</code> が無くても落ちません（クラスパスだけで動きます）。</p>
-<p><code>conf/</code> の場所は既定で<strong>カレントディレクトリの <code>conf</code></strong> です。
-<code>-Djimble.conf.dir=...</code> か環境変数 <code>JIMBLE_CONF_DIR</code> で変えられます。
-<code>jimble new</code> が作る雛形は、配布物（<code>installDist</code>）でも
-<code>$APP_HOME/conf</code> を読むように起動スクリプトを組んであります。</p>
 <p><strong>どのファイルを読んだかは起動ログに出ます。</strong></p>
-<pre class="code"><code class="lang-text">設定: /opt/app/conf/application.conf（クラスパスより優先）
+<pre class="code"><code class="lang-text">設定: jar:file:/opt/app/app.jar!/application.prod.conf
 </code></pre>
-<p>出ていなければ、<code>conf/</code> を見つけられていません。</p>
 <h2 id="環境で切り替える">環境で切り替える<a class="anchor" href="#環境で切り替える">#</a></h2>
+<p>共通を読み込むのは<strong>環境別ファイルの <code>include</code></strong> です。</p>
+<pre class="code"><code class="lang-conf"><span class="h-c"># application.prod.conf</span>
+include <span class="h-s">"application.conf"</span>
+
+db {
+	main {
+		url = ${?DB_URL}
+	}
+}
+</code></pre>
 <pre class="code"><code class="lang-text">application.conf          共通
-application.prod.conf     本番だけ（共通を上書きする）
+application.prod.conf     本番。1行目で共通を読み、続きで上書きする
 </code></pre>
 <p>環境は <code>-Djimble.env=prod</code> で決まります。既定は <code>local</code> です。</p>
+<p><strong>jimble は裏で共通を足しません。</strong> 足すと、<code>include</code> が効いているのか
+フレームワークが足しているのかが<strong>ファイルを見ても分からなくなる</strong>からです。
+読むファイルは1つ、続きは書いてあるとおりです。</p>
+<h3 id="include-を書き忘れたら">include を書き忘れたら<a class="anchor" href="#include-を書き忘れたら">#</a></h3>
+<p>共通の設定が丸ごと落ちます。落ちたら起動時に名指しで言います。</p>
+<pre class="code"><code class="lang-text">設定: application.conf にしかないキーが読まれていません: cipher, session, server
+ / application.prod.conf の先頭に include "application.conf" を書いてください
+</code></pre>
 <h2 id="秘密はファイルに書かない">秘密はファイルに書かない<a class="anchor" href="#秘密はファイルに書かない">#</a></h2>
 <pre class="code"><code class="lang-conf">db {
 	main_db {
@@ -252,6 +279,15 @@ codegen {
 「設定したつもりが効いていない」はここで気づけます。</p>
 
 		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="testing">
+				<span>前</span>テスト
+			</a>
+			<a class="next" href="deploy">
+				<span>次</span>本番で動かす
+			</a>
+		</nav>
 	</main>
 
 	<nav class="toc" aria-label="このページの中身">
@@ -259,6 +295,7 @@ codegen {
 		<ul>
 			<li class="level-2"><a href="#置き場所">置き場所</a></li>
 			<li class="level-2"><a href="#環境で切り替える">環境で切り替える</a></li>
+			<li class="level-3"><a href="#include-を書き忘れたら">include を書き忘れたら</a></li>
 			<li class="level-2"><a href="#秘密はファイルに書かない">秘密はファイルに書かない</a></li>
 			<li class="level-2"><a href="#コメントは--か-">コメントは # か //</a></li>
 			<li class="level-2"><a href="#主なキー">主なキー</a></li>
@@ -275,6 +312,7 @@ codegen {
 </footer>
 
 <script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
 
 </body>
 </html>

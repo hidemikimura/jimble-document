@@ -1,0 +1,391 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>テスト - jimble</title>
+<meta name="description" content="本物のサーバーを立てて叩く。DB を使うテストは分ける">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="current">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="テスト">テスト<a class="anchor" href="#テスト">#</a></h1>
+<p>jimble に<strong>テスト専用のモジュールやアノテーションはありません。</strong>
+JUnit 5 と <code>java.net.http.HttpClient</code> だけで書きます。</p>
+<p>道具はこれだけです。</p>
+<table>
+<thead>
+<tr>
+<th>やること</th>
+<th>使うもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>サーバーを立てる</td>
+<td><code>JimbleServer.start(app, 0)</code>（<strong>ポート 0 で空いているところ</strong>）</td>
+</tr>
+<tr>
+<td>止める</td>
+<td><code>server.stop()</code></td>
+</tr>
+<tr>
+<td>HTTP を投げる</td>
+<td>JDK の <code>HttpClient</code></td>
+</tr>
+<tr>
+<td>設定を差し替える</td>
+<td><code>Conf.replace(config)</code> / <code>Conf.reload()</code></td>
+</tr>
+<tr>
+<td>DB を使う</td>
+<td><code>DBUtil.load(...)</code> / <code>Migration.install()</code> / <code>DBUtil.stop()</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="立てて叩く">立てて、叩く<a class="anchor" href="#立てて叩く">#</a></h2>
+<p><strong>これが基本形です。</strong> 実際に Helidon が起動するので、
+ルーティング・フィルタ・エラー処理・Content-Type まで通しで確かめられます。</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@BeforeAll</span>
+<span class="h-k">static</span> <span class="h-k">void</span> startServer () {
+
+	server = JimbleServer.start(<span class="h-k">new</span> SampleApp(), <span class="h-n">0</span>);
+	client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(<span class="h-n">5</span>)).build();
+
+}
+
+<span class="h-a">@AfterAll</span>
+<span class="h-k">static</span> <span class="h-k">void</span> stopServer () {
+
+	<span class="h-k">if</span> (server != <span class="h-k">null</span>) {
+		server.stop();
+	}
+
+}
+
+<span class="h-c">/**
+ * リクエストを送る
+ */</span>
+<span class="h-k">private</span> <span class="h-k">static</span> HttpResponse&lt;String&gt; request (String method, String path) <span class="h-k">throws</span> Exception {
+
+	HttpRequest request = HttpRequest.newBuilder()
+		.uri(URI.create(<span class="h-s">"http://127.0.0.1:"</span> + server.port() + path))
+		.method(method, HttpRequest.BodyPublishers.noBody())
+		.timeout(Duration.ofSeconds(<span class="h-n">10</span>))
+		.build();
+
+	<span class="h-k">return</span> client.send(request, HttpResponse.BodyHandlers.ofString());
+
+}</code></pre>
+<p>ポートを <code>0</code> にするのが要点です。固定にすると、
+<strong>他のテストと同時に走ったときだけ落ちます。</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Test</span>
+<span class="h-k">void</span> hello () <span class="h-k">throws</span> Exception {
+	assertEquals(<span class="h-s">"hello"</span>, request(<span class="h-s">"GET"</span>, <span class="h-s">"/hello"</span>).body());
+}
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><code>HttpClient</code> に <code>CookieManager</code> を持たせると、セッション・CSRF・Flash まで通ります。
+リダイレクトを検証したいときは <code>followRedirects(HttpClient.Redirect.NEVER)</code> にしてください
+（既定では追ってしまい、302 を見られません）。</p>
+</div>
+<h2 id="http-を通さずにルータだけ叩く">HTTP を通さずにルータだけ叩く<a class="anchor" href="#http-を通さずにルータだけ叩く">#</a></h2>
+<p>サーバーを立てずに <code>Dispatcher</code> を直接呼ぶこともできます。速いぶん、
+Helidon 側の挙動（ストリーム送信や圧縮）は確かめられません。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> Fakes.FakeResponseSink dispatch (JimbleApp app, String method, String rawPath) {
+
+	Dispatcher dispatcher = <span class="h-k">new</span> Dispatcher(app);
+	Fakes.FakeRequestSource source = <span class="h-k">new</span> Fakes.FakeRequestSource(method, rawPath);
+	Fakes.FakeResponseSink sink = <span class="h-k">new</span> Fakes.FakeResponseSink();
+
+	<span class="h-k">try</span> (WebContext context = <span class="h-k">new</span> WebContext(source, sink)) {
+		dispatcher.dispatch(context);
+		<span class="h-k">return</span> sink;
+	}</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><code>Fakes</code>（上のコードの <code>FakeRequestSource</code> / <code>FakeResponseSink</code>）は
+<strong>jimble のテストの中にあるもので、公開していません。</strong>
+アプリから同じことをするなら <code>RequestSource</code> / <code>ResponseSink</code> を自分で実装します。
+手間に見合うことは少ないので、<strong>まずは上の「立てて、叩く」を使ってください。</strong></p>
+</div>
+<h2 id="db-を使うテスト">DB を使うテスト<a class="anchor" href="#db-を使うテスト">#</a></h2>
+<h3 id="分ける">分ける<a class="anchor" href="#分ける">#</a></h3>
+<p>DB が要るテストには印を付けて、<strong>普段のビルドからは外します。</strong>
+繋ぎ先が無い環境（CI やクローンした直後）でビルドが赤くなるのを避けるためです。</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Tag</span>(<span class="h-s">"db"</span>)
+<span class="h-k">class</span> PostIntegrationTest { ... }
+</code></pre>
+<p>アプリ側の <code>build.gradle.kts</code> にこう足します。</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">tasks</span>.withType&lt;Test&gt;().configureEach {
+	useJUnitPlatform { excludeTags(<span class="h-s">"db"</span>) }
+}
+
+<span class="h-k">tasks</span>.register&lt;Test&gt;(<span class="h-s">"dbTest"</span>) {
+	group = <span class="h-s">"verification"</span>
+	testClassesDirs = sourceSets.test.get().output.classesDirs
+	classpath = sourceSets.test.get().runtimeClasspath
+	useJUnitPlatform { includeTags(<span class="h-s">"db"</span>) }
+
+	<span class="h-c">// 設定を dbtest に切り替える</span>
+	systemProperty(<span class="h-s">"jimble.env"</span>, <span class="h-s">"dbtest"</span>)
+
+	<span class="h-c">// 前のテストが TRUNCATE した結果を見てしまわないよう、毎回走らせる</span>
+	outputs.upToDateWhen { <span class="h-k">false</span> }
+}
+</code></pre>
+<p><code>conf/application.dbtest.conf</code> を置いて、繋ぎ先を書きます。
+<strong>共通の設定を読むのは1行目の <code>include</code> です</strong>（<a href="./config">設定</a>）。</p>
+<pre class="code"><code class="lang-conf">include <span class="h-s">"application.conf"</span>
+
+db {
+	main {
+		url      = <span class="h-s">"jdbc:mariadb://127.0.0.1:3306/app_test"</span>
+		url      = ${?TEST_DB_URL}
+	}
+}
+</code></pre>
+<h3 id="立ち上げる">立ち上げる<a class="anchor" href="#立ち上げる">#</a></h3>
+<pre class="code"><code class="lang-java"><span class="h-a">@BeforeAll</span>
+<span class="h-k">static</span> <span class="h-k">void</span> startServer () {
+
+	Conf.reload();
+
+	Migration.install();
+	DBUtil.load(Conf.conf().config(), BlogAppIntegrationTest.<span class="h-k">class</span>);
+
+	<span class="h-c">// ポート 0 で空いているところを使う。他のテストと衝突しない</span>
+	server = JimbleServer.start(<span class="h-k">new</span> BlogApp(), <span class="h-n">0</span>);
+
+	client = HttpClient.newBuilder()
+		.connectTimeout(Duration.ofSeconds(<span class="h-n">5</span>))
+		.cookieHandler(<span class="h-k">new</span> CookieManager())
+		.followRedirects(HttpClient.Redirect.NEVER)
+		.build();
+
+}</code></pre>
+<p>順番が決まっています。</p>
+<ol>
+<li><strong><code>Conf.reload()</code></strong> — 環境（<code>jimble.env</code>）は最初に読まれた時点で決まっているので、読み直す</li>
+<li><code>Migration.install()</code> — テーブルを作る</li>
+<li><code>DBUtil.load(...)</code> — 接続する</li>
+<li><code>JimbleServer.start(app, 0)</code></li>
+</ol>
+<p>後始末は <code>@AfterAll</code> の <code>DBUtil.stop()</code>、
+各テストの前に <code>TRUNCATE TABLE ...</code> です。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>テストごとに自動でロールバックする仕組みはありません。</strong>
+書いたものは残ります。<code>@BeforeEach</code> で消してください。</p>
+</div>
+<h3 id="並べて走らせない">並べて走らせない<a class="anchor" href="#並べて走らせない">#</a></h3>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>DB を使うテストを並列で走らせると、<strong>あるテストの <code>TRUNCATE</code> が別のテストの行を消します。</strong>
+「たまに落ちる」でしか出ないので、原因を追うのに時間を取られます。
+Gradle の共有サービス（<code>maxParallelUsages = 1</code>）で直列にするのが確実です。</p>
+</div>
+<h2 id="設定を差し替える">設定を差し替える<a class="anchor" href="#設定を差し替える">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-c">// 既存の設定に重ねる（ふつうはこちら）</span>
+Conf.replace(ConfigFactory
+	.parseString(<span class="h-s">"upload.max_file_size = 10"</span>)
+	.withFallback(Conf.conf().config()));
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><code>Conf.replace</code> は<strong>グローバルで、元に戻す口がありません。</strong>
+差し替えたテストは <code>@AfterEach</code> で <code>Conf.reload()</code> してください。
+忘れると、<strong>あとから走ったテストだけが落ちます</strong>（しかも実行順しだいで変わります）。</p>
+</div>
+<h2 id="jimble-自身のテストを動かす">jimble 自身のテストを動かす<a class="anchor" href="#jimble-自身のテストを動かす">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> build                 # DB 不要のぶん
+<span class="h-k">./gradlew</span> :jimble-db:dbTest     # DB を使うぶん
+</code></pre>
+<p>繋ぎ先は環境変数で変えられます。</p>
+<pre class="code"><code class="lang-bash">JIMBLE_TEST_DB_URL="jdbc:mariadb://127.0.0.1:3306/jimble_test" \
+JIMBLE_TEST_DB_USER=jimble \
+JIMBLE_TEST_DB_PASSWORD=jimble \
+  <span class="h-k">./gradlew</span> :jimble-db:dbTest
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>jimble new</code> が作る雛形には、まだテストの足場（JUnit の依存と <code>dbTest</code>）が入っていません。
+上のとおり手で足してください。</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="hot-reload">
+				<span>前</span>ホットリロード
+			</a>
+			<a class="next" href="config">
+				<span>次</span>設定
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#立てて叩く">立てて、叩く</a></li>
+			<li class="level-2"><a href="#http-を通さずにルータだけ叩く">HTTP を通さずにルータだけ叩く</a></li>
+			<li class="level-2"><a href="#db-を使うテスト">DB を使うテスト</a></li>
+			<li class="level-3"><a href="#分ける">分ける</a></li>
+			<li class="level-3"><a href="#立ち上げる">立ち上げる</a></li>
+			<li class="level-3"><a href="#並べて走らせない">並べて走らせない</a></li>
+			<li class="level-2"><a href="#設定を差し替える">設定を差し替える</a></li>
+			<li class="level-2"><a href="#jimble-自身のテストを動かす">jimble 自身のテストを動かす</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

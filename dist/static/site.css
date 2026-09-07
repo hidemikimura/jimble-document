@@ -253,3 +253,102 @@ article th { font-weight: 700; background: var(--code-bg); white-space: nowrap; 
 	.search { order: 3; max-width: none; flex-basis: 100%; }
 	article h1 { font-size: 1.6rem; }
 }
+
+/* 注記の枠 */
+.callout {
+	margin: 1.2rem 0;
+	padding: .8rem 1rem;
+	border: 1px solid var(--line);
+	border-left: 4px solid var(--muted);
+	border-radius: 6px;
+	background: var(--code-bg);
+}
+
+.callout > :first-child { margin-top: 0; }
+.callout > :last-child { margin-bottom: 0; }
+
+.callout-title {
+	margin: 0 0 .4rem;
+	font-size: .8rem;
+	font-weight: 700;
+	letter-spacing: .04em;
+	color: var(--muted);
+}
+
+.callout-note { border-left-color: var(--accent); }
+.callout-note .callout-title { color: var(--accent); }
+
+.callout-tip { border-left-color: #0a6b3d; }
+.callout-tip .callout-title { color: #0a6b3d; }
+
+.callout-warn { border-left-color: #8a5a00; }
+.callout-warn .callout-title { color: #8a5a00; }
+
+.callout-trap { border-left-color: #a4260a; }
+.callout-trap .callout-title { color: #a4260a; }
+
+@media (prefers-color-scheme: dark) {
+	.callout-tip { border-left-color: #7fd6a5; }
+	.callout-tip .callout-title { color: #7fd6a5; }
+	.callout-warn { border-left-color: #e0b96a; }
+	.callout-warn .callout-title { color: #e0b96a; }
+	.callout-trap { border-left-color: #ff9d80; }
+	.callout-trap .callout-title { color: #ff9d80; }
+}
+
+/* 前後のページ */
+.pager {
+	display: flex;
+	gap: 1rem;
+	margin: 2.5rem 0 1rem;
+	padding-top: 1.2rem;
+	border-top: 1px solid var(--line);
+}
+
+.pager a {
+	flex: 1 1 0;
+	padding: .7rem .9rem;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	text-decoration: none;
+	color: var(--fg);
+	line-height: 1.5;
+}
+
+.pager a:hover { background: var(--code-bg); }
+.pager .next { text-align: right; }
+
+.pager span {
+	display: block;
+	font-size: .75rem;
+	color: var(--muted);
+}
+
+.pager .prev + .next { margin-left: auto; }
+.pager .next:only-child { margin-left: auto; flex: 0 1 50%; }
+
+/* コードのコピー */
+pre.code { position: relative; }
+
+pre.code .copy {
+	position: absolute;
+	top: .4rem;
+	right: .4rem;
+	padding: .15rem .5rem;
+	font: inherit;
+	font-size: .75rem;
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity .12s;
+}
+
+pre.code:hover .copy, pre.code .copy:focus { opacity: 1; }
+pre.code .copy:hover { color: var(--fg); }
+
+@media (hover: none) {
+	pre.code .copy { opacity: 1; }
+}

@@ -1,0 +1,408 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>エラー処理 - jimble</title>
+<meta name="description" content="例外・未マッチ・検証失敗。どこで拾われ、何が返るか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="current">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="エラー処理">エラー処理<a class="anchor" href="#エラー処理">#</a></h1>
+<p>エラーが表に出る道は3本あります。<strong>通る場所が違います。</strong></p>
+<table>
+<thead>
+<tr>
+<th>何が起きたか</th>
+<th>誰が拾うか</th>
+<th>既定の返り</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>例外が投げられた</td>
+<td><code>error(...)</code> フック</td>
+<td>ステータスは例外しだい。本文はアプリが作る</td>
+</tr>
+<tr>
+<td>ルートに当たらなかった</td>
+<td><strong>いちばん外側の</strong> <code>error(...)</code></td>
+<td>404</td>
+</tr>
+<tr>
+<td>検証に失敗した</td>
+<td><code>ValidationExecutor</code>（<code>error</code> は通らない）</td>
+<td>422 と <code>validation</code> の JSON</td>
+</tr>
+</tbody>
+</table>
+<h2 id="error-の書き方">error の書き方<a class="anchor" href="#error-の書き方">#</a></h2>
+<pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
+	context.response().code(statusCode).send(<span class="h-s">"エラー: "</span> + statusCode);
+});
+</code></pre>
+<p>引数は3つです。<strong>例外だけでなくステータスコードも渡ってきます。</strong>
+<code>cause</code> から毎回コードを引き直さなくて済むようにするためです。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">void</span> handle (WebContext context, Throwable cause, <span class="h-k">int</span> statusCode) <span class="h-k">throws</span> Exception;
+</code></pre>
+<h2 id="効く範囲">効く範囲<a class="anchor" href="#効く範囲">#</a></h2>
+<p><code>before</code> / <code>after</code> と同じで、<strong>書いたブロックに付きます</strong>（パスのノードではありません）。
+実行は<b>内側から外側へ</b>。詳しくは <a href="./routing">ルーティング</a> を見てください。</p>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+	{
+		error((context, cause, statusCode) -&gt; log.add(<span class="h-s">"outer"</span>));
+
+		path(<span class="h-s">"/admin"</span>, () -&gt; {
+			error((context, cause, statusCode) -&gt; {
+				log.add(<span class="h-s">"inner"</span>);
+				<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"error handler failed"</span>);
+			});
+			get(<span class="h-s">"/x"</span>, context -&gt; {
+				<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">400</span>, <span class="h-s">"bad"</span>);
+			});
+		});
+	}
+};</code></pre>
+<p><code>/admin/x</code> に来ると、内側 → 外側の順に呼ばれます。
+<strong>内側が例外を投げても外側に進みます</strong>（下の「ハンドラ自身が失敗したら」）。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>未マッチ（404）のときだけ扱いが違います。<strong>いちばん外側のスコープに直接書いた <code>error</code> だけ</strong>が呼ばれます。
+どのルートにも当たっていないので、「内側」が決まらないためです。
+<code>path(&quot;/admin&quot;, ...)</code> の中に書いた <code>error</code> は、<code>/admin/nope</code> でも呼ばれません。</p>
+</div>
+<h2 id="ステータスコードの決まり方">ステータスコードの決まり方<a class="anchor" href="#ステータスコードの決まり方">#</a></h2>
+<p><code>JimbleApp#resolveStatusCode(Throwable)</code> が決めます。既定はこれだけです。</p>
+<table>
+<thead>
+<tr>
+<th>例外</th>
+<th>コード</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HttpException</code></td>
+<td><code>statusCode()</code> の値</td>
+</tr>
+<tr>
+<td><code>NotFoundException</code>（<code>HttpException</code> の子）</td>
+<td>404</td>
+</tr>
+<tr>
+<td>そのほか全部</td>
+<td><strong>500</strong></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+	{
+		error((context, cause, statusCode) -&gt; {
+			log.add(<span class="h-s">"error:"</span> + statusCode);
+			context.response().code(statusCode).send();
+		});
+		get(<span class="h-s">"/forbidden"</span>, context -&gt; {
+			<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">403</span>, <span class="h-s">"だめ"</span>);
+		});
+	}
+};</code></pre>
+<p>自分の例外にコードを割り当てるなら上書きします。</p>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+
+	{
+		error((context, cause, statusCode) -&gt; log.add(<span class="h-s">"error:"</span> + statusCode));
+		get(<span class="h-s">"/x"</span>, context -&gt; {
+			<span class="h-k">throw</span> <span class="h-k">new</span> MyException();
+		});
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> <span class="h-k">int</span> resolveStatusCode (Throwable cause) {
+		<span class="h-k">if</span> (cause <span class="h-k">instanceof</span> MyException) {
+			<span class="h-k">return</span> <span class="h-n">409</span>;
+		}
+		<span class="h-k">return</span> <span class="h-k">super</span>.resolveStatusCode(cause);
+	}
+
+};</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><code>CodeException</code>（<code>io.jimble.util.exception.CodeException</code>）は <strong>HTTP のステータスには効きません。</strong>
+DB のエラー（<code>db.getError()</code>）とバリデータの中で使う検査例外で、投げれば 500 です。</p>
+</div>
+<h2 id="本文は誰が作るか">本文は誰が作るか<a class="anchor" href="#本文は誰が作るか">#</a></h2>
+<p><strong>フレームワークは既定のエラーページを持ちません。</strong> 順番はこうです。</p>
+<ol>
+<li><code>context.response().code(statusCode)</code> を<strong>先に</strong>入れる（ハンドラが上書きできる）</li>
+<li><code>error(...)</code> を内側から順に呼ぶ。<strong>送った時点で止まる</strong></li>
+<li>誰も送らなければ <code>response().send()</code> を呼ぶ</li>
+</ol>
+<p>3 が <code>send(statusCode)</code> ではなく <code>send()</code> なのが要点です。
+ハンドラが <code>json(...)</code> などで組み立てた中身を、<strong>捨てずに送る</strong>ためです。</p>
+<p>つまり <code>code(...)</code> だけ入れて本文を作らなければ、ステータスだけが返ります。</p>
+<pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
+
+	<span class="h-c">// API なら JSON、画面なら HTML</span>
+	<span class="h-k">if</span> (context.request().acceptJson()) {
+		context.response().json(<span class="h-s">"error"</span>, cause.getMessage());
+		<span class="h-k">return</span>;
+	}
+
+	context.response().send(<span class="h-s">"エラー: %d %s"</span>.formatted(statusCode, cause.getMessage()));
+
+});
+</code></pre>
+<p><code>acceptJson()</code> は <code>Accept</code> に <code>application/json</code> か <code>text/javascript</code> があるかを見ます。</p>
+<h2 id="ハンドラ自身が失敗したら">ハンドラ自身が失敗したら<a class="anchor" href="#ハンドラ自身が失敗したら">#</a></h2>
+<p><strong>握って次（外側）へ進みます。</strong> エラー処理の失敗で何も返せなくなるほうが困るからです。
+失敗は <code>エラーハンドラで例外が発生しました</code> としてログに出ます。</p>
+<h2 id="ログの出しかた">ログの出しかた<a class="anchor" href="#ログの出しかた">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>ステータス</th>
+<th>ログ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>500 番台</td>
+<td><code>Log.error</code>（スタックトレースつき）</td>
+</tr>
+<tr>
+<td>それ以外（404 を含む）</td>
+<td><code>Log.debug</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p>404 をエラーログに出さないのは意図的です。
+クローラや古いリンクで毎日何千件も出るものを <code>error</code> に混ぜると、
+<strong>本物の 500 が埋もれます。</strong></p>
+</div>
+<p><code>after</code> と <code>onComplete</code> の中で例外が出た場合も、握ってログに出します（レスポンスは返ります）。</p>
+<h2 id="検証の失敗は-error-を通らない">検証の失敗は error を通らない<a class="anchor" href="#検証の失敗は-error-を通らない">#</a></h2>
+<p><code>ValidationExecutor</code> は<strong>例外を投げません。</strong>
+自分をキャンセルして、後続の Executor を捨て、そのまま返します。</p>
+<pre class="code"><code class="lang-java">context.response().putForm(context.request().bodyAll());
+context.response().json(<span class="h-s">"validation"</span>, errors);
+context.response().code(<span class="h-n">422</span>);
+</code></pre>
+<p>返る形はこうです。入力値も一緒に返るので、画面を組み直せます。</p>
+<pre class="code"><code class="lang-json">{
+  <span class="h-s">"validation"</span>: { <span class="h-s">"title"</span>: [<span class="h-s">"入力してください"</span>] },
+  <span class="h-s">"title"</span>: <span class="h-s">""</span>,
+  <span class="h-s">"body"</span>: <span class="h-s">"..."</span>
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>error(...)</code> に検証エラーの整形を書いても呼ばれません。</strong>
+422 の見た目を変えたいときは <code>ValidationExecutor</code> 側（<code>onCancel</code>）を見てください。</p>
+</div>
+<h2 id="アプリ全体で差し替えられるもの">アプリ全体で差し替えられるもの<a class="anchor" href="#アプリ全体で差し替えられるもの">#</a></h2>
+<p><code>JimbleApp</code> で上書きできるのは3つだけです。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>いつ呼ばれるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>protected void onRequest (WebContext context) throws Exception</code></td>
+<td>全リクエストの最初。**未マッチでも呼ばれる。**ここで送れば以降は走らない</td>
+</tr>
+<tr>
+<td><code>protected void onComplete (WebContext context)</code></td>
+<td>全リクエストの最後。例外が出ても必ず呼ばれる</td>
+</tr>
+<tr>
+<td><code>protected int resolveStatusCode (Throwable cause)</code></td>
+<td>例外 → ステータスコード</td>
+</tr>
+</tbody>
+</table>
+<p>ディスパッチャそのものは差し替えられません（<code>final</code>）。
+道を1本にしておくためです。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="request-response">
+				<span>前</span>リクエストとレスポンス
+			</a>
+			<a class="next" href="view">
+				<span>次</span>テンプレート
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#error-の書き方">error の書き方</a></li>
+			<li class="level-2"><a href="#効く範囲">効く範囲</a></li>
+			<li class="level-2"><a href="#ステータスコードの決まり方">ステータスコードの決まり方</a></li>
+			<li class="level-2"><a href="#本文は誰が作るか">本文は誰が作るか</a></li>
+			<li class="level-2"><a href="#ハンドラ自身が失敗したら">ハンドラ自身が失敗したら</a></li>
+			<li class="level-2"><a href="#ログの出しかた">ログの出しかた</a></li>
+			<li class="level-2"><a href="#検証の失敗は-error-を通らない">検証の失敗は error を通らない</a></li>
+			<li class="level-2"><a href="#アプリ全体で差し替えられるもの">アプリ全体で差し替えられるもの</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

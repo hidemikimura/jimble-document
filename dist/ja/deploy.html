@@ -1,0 +1,293 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>本番で動かす - jimble</title>
+<meta name="description" content="jar の作り方と、起動するコマンド">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble new</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="current">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="本番で動かす">本番で動かす<a class="anchor" href="#本番で動かす">#</a></h1>
+<h2 id="jar-を作る">jar を作る<a class="anchor" href="#jar-を作る">#</a></h2>
+<p>fat jar（依存も全部入り）にするのがいちばん簡単です。</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
+	application
+	id(<span class="h-s">"com.gradleup.shadow"</span>) version <span class="h-s">"&lt;版&gt;"</span>
+}
+
+application {
+	mainClass = <span class="h-s">"my_blog.App"</span>
+}
+
+<span class="h-k">tasks</span>.shadowJar {
+	archiveFileName = <span class="h-s">"app.jar"</span>
+	mergeServiceFiles()   <span class="h-c">// JDBC ドライバなどの META-INF/services が消えないように</span>
+}
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> shadowJar     # build/libs/app.jar
+</code></pre>
+<h2 id="web-を起動する">Web を起動する<a class="anchor" href="#web-を起動する">#</a></h2>
+<pre class="code"><code class="lang-bash">java \
+  -Djimble.env=prod \
+  -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+  -jar app.jar
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>渡すもの</th>
+<th>なぜ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-Djimble.env=prod</code></td>
+<td><code>application.prod.conf</code> を読み、<code>isProduction()</code> を true にします</td>
+</tr>
+<tr>
+<td><code>-Dstdout.encoding</code> / <code>-Dstderr.encoding</code></td>
+<td>付けないと <code>LANG</code> 未設定のコンテナで<strong>日本語のログが化けます</strong></td>
+</tr>
+</tbody>
+</table>
+<p>**<code>-Djimble.env</code> は JVM の引数です。**プログラム引数（<code>java -jar app.jar env=prod</code>）
+では効きません。</p>
+<h2 id="設定はどこから読まれるか">設定はどこから読まれるか<a class="anchor" href="#設定はどこから読まれるか">#</a></h2>
+<p><strong>jar の中だけです。</strong>（<code>conf/</code> をリソースに足してあるので、jar に入っています。
+<a href="./config">設定</a> を参照）</p>
+<pre class="code"><code class="lang-text">1. application.&lt;env&gt;.conf     ← あればこれだけ
+2. 無ければ application.conf
+</code></pre>
+<p>**読むのは1ファイルだけです。**共通を読み込むのは環境別ファイルの
+1行目に書く <code>include &quot;application.conf&quot;</code> です。
+書き忘れると共通の設定が落ちるので、<strong>起動時に名指しで言います。</strong></p>
+<p>**jar の外の設定は読みません。**設定を変えたらビルドし直します。
+そのぶん、動いている jar と設定が1対1になり、
+「直したのに効かない」が起きません。
+環境ごとに変わる値（DB のパスワードなど）は次の節のとおり環境変数で渡します。</p>
+<p><strong>どれを読んだかは起動ログに出ます</strong>（<a href="./config">設定</a>）。</p>
+<h2 id="秘密は環境変数で">秘密は環境変数で<a class="anchor" href="#秘密は環境変数で">#</a></h2>
+<p>設定ファイルには <code>${?ENV_NAME}</code> だけ書き、値は環境変数で渡します。</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">export</span> DB_PASSWORD='...'
+<span class="h-k">export</span> COOKIE_SECRET='...'
+<span class="h-k">export</span> CIPHER_KEY='...'
+java -Djimble.env=prod -jar app.jar
+</code></pre>
+<h2 id="バッチを動かす">バッチを動かす<a class="anchor" href="#バッチを動かす">#</a></h2>
+<p>fat jar から起動クラスを指定して呼びます。</p>
+<pre class="code"><code class="lang-bash">java \
+  -Djimble.env=prod \
+  -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+  -cp app.jar my_blog.batch.Batch \
+  class=my_blog.batch.PostCleanupBatch
+</code></pre>
+<p><code>class=</code> がバッチのクラス名です。ほかの <code>key=value</code> はバッチの引数になります。</p>
+<p><strong><code>env=prod</code> を引数で渡しても環境は変わりません。</strong>
+設定はバッチの入口に来る前に読み終わっているためです。
+食い違っていたら、その場で止めて言います。</p>
+<pre class="code"><code class="lang-text">env=prod と指定されていますが、いま動いているのは env=local です。
+  env= では環境は変わりません（設定はここに来る前に読み終わっています）。
+  JVM の引数で渡してください。
+    java -Djimble.env=prod -cp app.jar &lt;起動クラス&gt; ...
+</code></pre>
+<h2 id="スケジューラを動かす">スケジューラを動かす<a class="anchor" href="#スケジューラを動かす">#</a></h2>
+<p>cron でバッチを回すなら、スケジューラを常駐させます。</p>
+<pre class="code"><code class="lang-bash">java -Djimble.env=prod -cp app.jar my_blog.batch.Batch \
+  class=my_blog.batch.SchedulerBatch
+</code></pre>
+<p>止めるまで動き続けます。<code>systemd</code> などに任せてください。
+<strong>Web と同じプロセスで動かすこともできます</strong>が、複数台に並べるときは
+<code>batch.scheduler_id</code> の扱いを決めてから にしてください。</p>
+<h2 id="終了">終了<a class="anchor" href="#終了">#</a></h2>
+<p><code>SIGTERM</code> で終了処理が走ります（サーバー・スケジューラ・DB のプール）。
+<code>kill -9</code> はトランザクションが中途半端に残るので避けてください。</p>
+<h2 id="起動したら確認すること">起動したら確認すること<a class="anchor" href="#起動したら確認すること">#</a></h2>
+<p>起動ログの1行目あたりに構成が出ます。<strong>思っていたものと合っているか</strong>を見てください。</p>
+<pre class="code"><code class="lang-text">jimble 構成: env=prod / session=db / cache=db / redis=あり / db=[main] / パスワード暗号化=あり
+設定: /opt/app/conf/application.prod.conf, /opt/app/conf/application.conf（クラスパスより優先）
+</code></pre>
+<p><code>env=local</code> になっていたら、<code>-Djimble.env</code> が渡っていません。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="config">
+				<span>前</span>設定
+			</a>
+			<a class="next" href="pitfalls">
+				<span>次</span>落とし穴
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#jar-を作る">jar を作る</a></li>
+			<li class="level-2"><a href="#web-を起動する">Web を起動する</a></li>
+			<li class="level-2"><a href="#設定はどこから読まれるか">設定はどこから読まれるか</a></li>
+			<li class="level-2"><a href="#秘密は環境変数で">秘密は環境変数で</a></li>
+			<li class="level-2"><a href="#バッチを動かす">バッチを動かす</a></li>
+			<li class="level-2"><a href="#スケジューラを動かす">スケジューラを動かす</a></li>
+			<li class="level-2"><a href="#終了">終了</a></li>
+			<li class="level-2"><a href="#起動したら確認すること">起動したら確認すること</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>
