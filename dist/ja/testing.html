@@ -375,13 +375,23 @@ Conf.replace(ConfigFactory
 </div>
 <h2 id="jimble-自身のテストを動かす">jimble 自身のテストを動かす<a class="anchor" href="#jimble-自身のテストを動かす">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> build                 # DB 不要のぶん
-<span class="h-k">./gradlew</span> :jimble-db:dbTest     # DB を使うぶん
+<span class="h-k">./gradlew</span> :jimble-db:dbTest     # 実 MySQL / MariaDB を使うぶん
+<span class="h-k">./gradlew</span> :jimble-db:pgTest     # 同じテストを実 PostgreSQL に流す
 </code></pre>
+<p><code>dbTest</code> と <code>pgTest</code> は<strong>まったく同じテスト</strong>を走らせます。
+違うのは読む設定ファイル（<code>application.dbtest.conf</code> / <code>application.pgtest.conf</code>）だけで、
+後者に <code>product = &quot;postgresql&quot;</code> が入っています。
+<strong>テストのコードは1行も変えていません。</strong></p>
 <p>繋ぎ先は環境変数で変えられます。</p>
 <pre class="code"><code class="lang-bash">JIMBLE_TEST_DB_URL="jdbc:mariadb://127.0.0.1:3306/jimble_test" \
 JIMBLE_TEST_DB_USER=jimble \
 JIMBLE_TEST_DB_PASSWORD=jimble \
   <span class="h-k">./gradlew</span> :jimble-db:dbTest
+
+JIMBLE_TEST_PG_URL="jdbc:postgresql://127.0.0.1:5432/jimble_test" \
+JIMBLE_TEST_PG_USER=jimble \
+JIMBLE_TEST_PG_PASSWORD=jimble \
+  <span class="h-k">./gradlew</span> :jimble-db:pgTest
 </code></pre>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><code>jimble new</code> が作る雛形には、まだテストの足場（JUnit の依存と <code>dbTest</code>）が入っていません。

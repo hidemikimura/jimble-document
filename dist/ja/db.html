@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DB を使う - jimble</title>
-<meta name="description" content="データソースの設定、テーブル定義の生成、select の結果の形">
+<meta name="description" content="データソースの設定、DB 製品の選び方、テーブル定義の生成、select の結果の形">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -214,9 +214,87 @@ codegen {
 </code></pre>
 <p><strong>秘密はファイルに書かないでください。</strong> <code>${?ENV_NAME}</code> の形にしておくと、
 環境変数があればそちらが勝ちます。無ければ前の行の値が残ります。</p>
-<p>ドライバは自分で入れます。</p>
-<pre class="code"><code class="lang-kotlin">runtimeOnly(<span class="h-s">"org.mariadb.jdbc:mariadb-java-client:3.5.10"</span>)
+<p>ドライバは <code>jimble-db</code> が MySQL / MariaDB と PostgreSQL の両方を持っているので、
+ふつうは足す必要はありません。</p>
+<h2 id="db-製品を選ぶ">DB 製品を選ぶ<a class="anchor" href="#db-製品を選ぶ">#</a></h2>
+<p><code>product</code> に製品を書くと、<strong>SQL ビルダーがその製品用の SQL を出します。</strong></p>
+<pre class="code"><code class="lang-conf">db {
+	blog_example {
+		main     = <span class="h-k">true</span>
+		product  = <span class="h-s">"postgresql"</span>
+		driver   = <span class="h-s">"org.postgresql.Driver"</span>
+		url      = <span class="h-s">"jdbc:postgresql://127.0.0.1:5432/blog_example"</span>
+		username = <span class="h-s">"blog"</span>
+		password = ${?DB_PASSWORD}
+	}
+}
 </code></pre>
+<table>
+<thead>
+<tr>
+<th>書ける値</th>
+<th>製品</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mysql</code>（既定）／ <code>mariadb</code></td>
+<td>MySQL 8.x / MariaDB</td>
+</tr>
+<tr>
+<td><code>postgresql</code> ／ <code>postgres</code> ／ <code>pgsql</code></td>
+<td>PostgreSQL 16 以降</td>
+</tr>
+</tbody>
+</table>
+<p>省略すると <code>mysql</code> です。知らない値を書くと<strong>起動時に落ちます</strong>。</p>
+<p><strong>アプリのコードは1行も変わりません。</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-c">// この1行が、product に応じて</span>
+<span class="h-c">//   MySQL      SELECT `post`.`id` AS `post__id` ... LIMIT ? OFFSET ?</span>
+<span class="h-c">//   PostgreSQL SELECT "post"."id" AS "post__id" ... LIMIT ? OFFSET ?</span>
+<span class="h-c">// になります</span>
+SQL.select().from(Post.instance()).where(Post.id.eq(<span class="h-n">1L</span>));
+</code></pre>
+<p>データソースごとに違う製品を書けます（メインは MySQL、集計用は PostgreSQL、など）。</p>
+<h3 id="その製品で書けないもの">その製品で書けないもの<a class="anchor" href="#その製品で書けないもの">#</a></h3>
+<p><strong>書けないものは、SQL を組み立てたところで <code>DialectException</code> になります。</strong>
+実行してから製品の構文エラーで落ちる、ということはありません。</p>
+<table>
+<thead>
+<tr>
+<th>ビルダー</th>
+<th>PostgreSQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Dsl.match(...)</code>（全文検索）</td>
+<td>書けない。<code>to_tsvector</code> は語彙の分割もスコアも別物なので、黙って置き換えません</td>
+</tr>
+<tr>
+<td><code>Dsl.dateFormat(col, &quot;%Y-%m-%d&quot;)</code></td>
+<td>書けない。<code>to_char</code> は書式の言語が違うので、置き換えると<strong>例外にならずに違う文字列</strong>が返ります。Java 側で整えてください</td>
+</tr>
+<tr>
+<td><code>Dsl.jsonExtract(col, &quot;$.a[0]&quot;)</code></td>
+<td>配列・ワイルドカード・引用符つきキーは書けません。<code>$.a.b</code> の形だけ</td>
+</tr>
+</tbody>
+</table>
+<p>逆に、<strong>名前だけ違うものは黙って揃えます</strong>（<code>RAND</code> / <code>RANDOM</code>、<code>IFNULL</code> / <code>COALESCE</code>、
+<code>TRUNCATE</code> / <code>TRUNC</code> など）。<code>Dsl.concat(...)</code> は PostgreSQL では <code>||</code> になります
+（PostgreSQL の <code>concat()</code> は NULL を空文字として飲み込むので、
+名前だけ置き換えると MySQL と結果が変わります）。</p>
+<p>どうしてもその製品の書き方を使いたいときは <code>Dsl.freeSql(...)</code> で逃げられます。</p>
+<h3 id="気をつけること">気をつけること<a class="anchor" href="#気をつけること">#</a></h3>
+<ul>
+<li><strong>テーブル定義クラスの生成（<code>./gradlew codegen</code>）は MySQL / MariaDB だけです。</strong>
+PostgreSQL で使うなら、生成だけ MySQL 側で回して生成物を持ち込んでください</li>
+<li>**空間関数の座標の順が違います。**MySQL 8 の SRID 4326 は緯度・経度、
+PostGIS は経度・緯度です。jimble は吸収しないので、両方で使うなら自分で合わせてください</li>
+<li>マイグレーションの SQL（<code>conf/migration/...</code>）は<strong>自分で書いたものがそのまま流れます。</strong>
+製品を変えるなら DDL も書き換えてください</li>
+</ul>
 <h2 id="データソースが複数あるとき">データソースが複数あるとき<a class="anchor" href="#データソースが複数あるとき">#</a></h2>
 <pre class="code"><code class="lang-conf">db {
 	main_db { main = <span class="h-k">true</span>, ... }
@@ -325,6 +403,9 @@ DROP TABLE `note`;
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#設定する">設定する</a></li>
+			<li class="level-2"><a href="#db-製品を選ぶ">DB 製品を選ぶ</a></li>
+			<li class="level-3"><a href="#その製品で書けないもの">その製品で書けないもの</a></li>
+			<li class="level-3"><a href="#気をつけること">気をつけること</a></li>
 			<li class="level-2"><a href="#データソースが複数あるとき">データソースが複数あるとき</a></li>
 			<li class="level-2"><a href="#テーブル定義を生成する">テーブル定義を生成する</a></li>
 			<li class="level-2"><a href="#引く">引く</a></li>

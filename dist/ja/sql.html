@@ -281,6 +281,16 @@ select に直接は渡せません。<code>SelectQuery</code> で包んでくだ
 <pre class="code"><code class="lang-java">SQL.select(<span class="h-k">new</span> SelectQuery().dsl(Dsl.caseWhen()...)).from(...)
 </code></pre>
 <p>包まずに渡すと、列ではなく<strong>バインドされる値</strong>として扱われます。</p>
+<h2 id="db-製品が違うとき">DB 製品が違うとき<a class="anchor" href="#db-製品が違うとき">#</a></h2>
+<p><strong>同じコードのまま、<code>db.xxx.product</code> に応じた SQL が出ます。</strong>
+識別子の囲み（<code>`</code> と <code>&quot;</code>）、<code>ON DUPLICATE KEY UPDATE</code> と <code>ON CONFLICT</code>、
+<code>INSERT IGNORE</code> と <code>ON CONFLICT DO NOTHING</code>、<code>RAND()</code> と <code>RANDOM()</code> などは
+ビルダーが吸収します。</p>
+<p><strong>その製品で書けないものは、SQL を組み立てたところで例外</strong>（<code>DialectException</code>）になります。
+どれが書けないかは <a href="./db">DB を使う</a> にまとめてあります。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// PostgreSQL では DialectException（to_char は書式の言語が違う）</span>
+SQL.select(Dsl.dateFormat(Post.created_at, <span class="h-s">"%Y-%m-%d"</span>)).from(Post.instance());
+</code></pre>
 <h2 id="まとめて流す">まとめて流す<a class="anchor" href="#まとめて流す">#</a></h2>
 <pre class="code"><code class="lang-java">db.insertBatch(builderList);
 db.executeBatch(builderList);
@@ -313,6 +323,7 @@ db.executeBatch(builderList);
 			<li class="level-2"><a href="#結合">結合</a></li>
 			<li class="level-2"><a href="#入れる直す消す">入れる・直す・消す</a></li>
 			<li class="level-2"><a href="#関数を使う">関数を使う</a></li>
+			<li class="level-2"><a href="#db-製品が違うとき">DB 製品が違うとき</a></li>
 			<li class="level-2"><a href="#まとめて流す">まとめて流す</a></li>
 			<li class="level-2"><a href="#大きい結果">大きい結果</a></li>
 		</ul>
