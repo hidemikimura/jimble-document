@@ -252,6 +252,25 @@ A class that uses <code>System.exit()</code> — a batch entry point, say — mu
 sometimes does not.
 <strong>You can get &quot;it only fails after a reload&quot; and &quot;it only passes after a reload&quot;.</strong>
 When something looks wrong, stop <code>jimbleRun</code> and start it again.</p>
+<h3 id="the-serialization-filter-is-switched-off">The serialization filter is switched off<a class="anchor" href="#the-serialization-filter-is-switched-off">#</a></h3>
+<p>On startup, helidon installs a <strong>JVM-wide Java serialization filter</strong>
+(a guard that refuses to read back any class not on its allow-list).
+We run in the same JVM, so that filter lands <strong>on the Gradle daemon.</strong>
+It can only be set once and cannot be removed, so <strong>it stays in the daemon
+after you stop the app.</strong></p>
+<p>Once it is there, the next build dies on it.</p>
+<pre class="code"><code class="lang-text">Couldn't populate class org.gradle.api.services.BuildServiceParameters$None
+&gt; filter status: REJECTED
+</code></pre>
+<p>It shows up as <strong>&quot;the first run works; stop it, run again, and it will not
+start.&quot;</strong> Recreating the daemon (Gradle sync in the IDE, <code>gradle --stop</code>)
+fixes it, which makes the cause hard to spot.</p>
+<p>To avoid this, <code>jimbleRun</code> sets
+<code>helidon.serialFilter.missing.action</code> to <code>IGNORE</code> before it starts the app.
+<strong>It is only switched off while <code>jimbleRun</code> is running.</strong> In production the
+app has its own JVM, so helidon installs the filter as usual.</p>
+<p>If you set <code>-Dhelidon.serialFilter.missing.action=...</code> yourself, that wins
+and we leave it alone.</p>
 <h2 id="when-the-build-fails">When the build fails<a class="anchor" href="#when-the-build-fails">#</a></h2>
 <p>The error comes out in the browser as it is. You do not have to go look at the
 terminal. Fix it, reload, and the build runs again.</p>
@@ -313,6 +332,7 @@ the wrapper is judged broken and the system <code>gradle</code> is used</li>
 			<li class="level-3"><a href="#hand-over-how-to-stop-things">Hand over how to stop things</a></li>
 			<li class="level-3"><a href="#do-not-call-systemexit">Do not call System.exit()</a></li>
 			<li class="level-3"><a href="#this-is-not-production">This is not production</a></li>
+			<li class="level-3"><a href="#the-serialization-filter-is-switched-off">The serialization filter is switched off</a></li>
 			<li class="level-2"><a href="#when-the-build-fails">When the build fails</a></li>
 			<li class="level-2"><a href="#settings">Settings</a></li>
 			<li class="level-2"><a href="#things-to-watch-out-for">Things to watch out for</a></li>

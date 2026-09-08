@@ -248,6 +248,24 @@ IDE で <code>jimbleRun</code> を「デバッグ実行」すれば、<strong>�
 <p>同じ JVM で入れ替えるので、<code>static</code> の状態が残ったり残らなかったりします。
 <strong>「リロードしたときだけ落ちる」「リロードしたときだけ通る」が起こりえます。</strong>
 おかしいと思ったら、<code>jimbleRun</code> を止めて起動し直してください。</p>
+<h3 id="直列化フィルタは切っています">直列化フィルタは切っています<a class="anchor" href="#直列化フィルタは切っています">#</a></h3>
+<p>helidon は起動のときに、<strong>JVM 全体の Java 直列化フィルタ</strong>を張ります
+（許可リストに無いクラスは読み戻さない、という守り）。
+同じ JVM で動かすので、これは <strong>Gradle デーモンに張られます。</strong>
+一度張ると外せないので、<strong>アプリを止めてもデーモンに残ります。</strong></p>
+<p>残ったままだと、次のビルドがこれで落ちます。</p>
+<pre class="code"><code class="lang-text">Couldn't populate class org.gradle.api.services.BuildServiceParameters$None
+&gt; filter status: REJECTED
+</code></pre>
+<p>**「1回目は動く。止めてもう1回動かすと起動しない」**という出かたをします。
+デーモンを作り直す（IDE の Gradle 同期、<code>gradle --stop</code>）と直るので、
+何が原因か分かりにくいところです。</p>
+<p><code>jimbleRun</code> は、これを避けるために
+<code>helidon.serialFilter.missing.action</code> を <code>IGNORE</code> にしてからアプリを起動します。
+<strong>切るのは <code>jimbleRun</code> のあいだだけです。</strong> 本番はアプリが自分の JVM で
+動くので、helidon はいつもどおりフィルタを張ります。</p>
+<p>自分で <code>-Dhelidon.serialFilter.missing.action=...</code> を指定しているときは、
+そちらを尊重して何もしません。</p>
 <h2 id="ビルドが失敗したら">ビルドが失敗したら<a class="anchor" href="#ビルドが失敗したら">#</a></h2>
 <p>エラーがそのままブラウザに出ます。ターミナルを見に行かなくて済みます。
 直して再読み込みすれば、またビルドが走ります。</p>
@@ -308,6 +326,7 @@ IDE で <code>jimbleRun</code> を「デバッグ実行」すれば、<strong>�
 			<li class="level-3"><a href="#止め方を預けてください">止め方を預けてください</a></li>
 			<li class="level-3"><a href="#systemexit-を呼ばないでください">System.exit() を呼ばないでください</a></li>
 			<li class="level-3"><a href="#本番と同じではありません">本番と同じではありません</a></li>
+			<li class="level-3"><a href="#直列化フィルタは切っています">直列化フィルタは切っています</a></li>
 			<li class="level-2"><a href="#ビルドが失敗したら">ビルドが失敗したら</a></li>
 			<li class="level-2"><a href="#設定">設定</a></li>
 			<li class="level-2"><a href="#気をつけること">気をつけること</a></li>
