@@ -379,10 +379,75 @@ Migration.install();
 </tr>
 </tbody>
 </table>
+<p>PostgreSQL では次も同じ扱いになります。</p>
+<table>
+<thead>
+<tr>
+<th>DB の型</th>
+<th>Java</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bigserial</code></td>
+<td><code>long</code></td>
+</tr>
+<tr>
+<td><code>serial</code> / <code>smallserial</code></td>
+<td><code>int</code></td>
+</tr>
+<tr>
+<td><code>numeric</code> / <code>real</code> / <code>double precision</code></td>
+<td><code>double</code></td>
+</tr>
+<tr>
+<td><code>boolean</code></td>
+<td><code>boolean</code></td>
+</tr>
+<tr>
+<td><code>jsonb</code></td>
+<td><code>Data</code></td>
+</tr>
+</tbody>
+</table>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>tinyint</code> は桁数に関係なく <code>boolean</code></strong> です。<code>tinyint(4)</code> に 0/1 以外を入れているなら
 <code>smallint</code> にしてください。
 <strong><code>decimal</code> は <code>double</code></strong> になるので、金額の計算には向きません。</p>
+</div>
+<h3 id="postgresql-のとき">PostgreSQL のとき<a class="anchor" href="#postgresql-のとき">#</a></h3>
+<p><code>db.xxx.product = postgresql</code> を書いておけば、<strong>同じ <code>./gradlew codegen</code> が動きます</strong>
+（<a href="./db">DB を使う</a>）。読み方だけが変わり、生成されるクラスの形は同じです。</p>
+<p>いくつか、MySQL と揃わないところがあります。</p>
+<table>
+<thead>
+<tr>
+<th>もの</th>
+<th>どうなるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bigserial</code> / <code>serial</code></td>
+<td>連番として読みます（<code>nextval(...)</code> の既定値は出ません）</td>
+</tr>
+<tr>
+<td><strong>式インデックス</strong></td>
+<td><code>create unique index ... (lower(code))</code> のようなものは<b>一意キーに数えません</b>。列が取れないので、残った列だけで一意だと誤解しないためです</td>
+</tr>
+<tr>
+<td><strong>部分インデックス</strong></td>
+<td><code>where</code> 付きのものも<b>一意キーに数えません</b>。条件に合う行の中でしか一意でないからです</td>
+</tr>
+<tr>
+<td>生成される <code>SchemaSQL</code></td>
+<td>その製品の DDL で書かれます（コメントは <code>comment on ...</code> として別に出ます）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**カタログを引けなかったときは落とします。**黙って「テーブルが0件」として
+生成物を消してしまうと、原因が分からなくなるためです。</p>
 </div>
 <h3 id="生成しないテーブル">生成しないテーブル<a class="anchor" href="#生成しないテーブル">#</a></h3>
 <p>jimble が自分で作るテーブル（<code>migration</code> / <code>db_cache</code> / <code>session</code> / <code>batch_*</code> など）は自動で外れます。
@@ -438,6 +503,7 @@ Gradle のタスクは <a href="./gradle">Gradle プラグイン</a> にまと�
 			<li class="level-3"><a href="#java-で書くマイグレーション">Java で書くマイグレーション</a></li>
 			<li class="level-2"><a href="#コード生成">コード生成</a></li>
 			<li class="level-3"><a href="#型の対応">型の対応</a></li>
+			<li class="level-3"><a href="#postgresql-のとき">PostgreSQL のとき</a></li>
 			<li class="level-3"><a href="#生成しないテーブル">生成しないテーブル</a></li>
 			<li class="level-2"><a href="#設定">設定</a></li>
 			<li class="level-2"><a href="#cli-から">CLI から</a></li>

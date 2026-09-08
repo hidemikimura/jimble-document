@@ -273,7 +273,7 @@
 
 });</code></pre>
 <h2 id="関数を使う">関数を使う<a class="anchor" href="#関数を使う">#</a></h2>
-<p><code>Dsl</code> に関数が並んでいます。</p>
+<p><code>Dsl</code> に関数が並んでいます。<strong>どれも MySQL と PostgreSQL の両方で動きます。</strong></p>
 <pre class="code"><code class="lang-java">SQL.select(Dsl.count(), Dsl.max(Post.created_at)).from(Post.instance())
 </code></pre>
 <p><code>CASE WHEN</code> のように<strong>値としても列としても使えるもの</strong>は、
@@ -281,6 +281,154 @@ select に直接は渡せません。<code>SelectQuery</code> で包んでくだ
 <pre class="code"><code class="lang-java">SQL.select(<span class="h-k">new</span> SelectQuery().dsl(Dsl.caseWhen()...)).from(...)
 </code></pre>
 <p>包まずに渡すと、列ではなく<strong>バインドされる値</strong>として扱われます。</p>
+<h3 id="一覧">一覧<a class="anchor" href="#一覧">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>系統</th>
+<th>ある関数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文字列</td>
+<td><code>lower</code> / <code>upper</code> / <code>trim</code> / <code>ltrim</code> / <code>rtrim</code> / <code>length</code> / <code>byteLength</code> / <code>substring</code> / <code>replace</code> / <code>left</code> / <code>right</code> / <code>lpad</code> / <code>rpad</code> / <code>reverse</code> / <code>repeat</code> / <code>concat</code> / <code>concatWs</code> / <code>md5</code> / <code>locate</code></td>
+</tr>
+<tr>
+<td>数値</td>
+<td><code>abs</code> / <code>mod</code> / <code>power</code> / <code>sqrt</code> / <code>sign</code> / <code>exp</code> / <code>ln</code> / <code>log10</code> / <code>ceiling</code> / <code>floor</code> / <code>round</code> / <code>truncate</code> / <code>greatest</code> / <code>least</code></td>
+</tr>
+<tr>
+<td>日付</td>
+<td><code>now</code> / <code>curDate</code> / <code>curTime</code> / <code>date</code> / <code>year</code> / <code>month</code> / <code>day</code> / <code>hour</code> / <code>minute</code> / <code>second</code> / <code>quarter</code> / <code>dayOfWeek</code> / <code>dayOfYear</code> / <code>weekOfYear</code> / <code>dateAdd</code> / <code>dateSub</code> / <code>dateDiff</code> / <code>secondsBetween</code> / <code>unixTimestamp</code> / <code>fromUnixTime</code> / <code>secondsAgo</code> … <code>yearsAfter</code></td>
+</tr>
+<tr>
+<td>条件・型変換</td>
+<td><code>caseWhen</code> / <code>ifThenElse</code> / <code>ifnull</code> / <code>coalesce</code> / <code>nullif</code> / <code>cast</code> / <code>castDecimal</code> / <code>regexp</code> / <code>regexpIgnoreCase</code></td>
+</tr>
+<tr>
+<td>集約</td>
+<td><code>count</code> / <code>countDistinct</code> / <code>sum</code> / <code>sumDistinct</code> / <code>min</code> / <code>max</code> / <code>avg</code> / <code>stddev</code> / <code>variance</code> / <code>groupConcat</code> / <code>groupConcatDistinct</code></td>
+</tr>
+<tr>
+<td>ウィンドウ</td>
+<td><code>rowNumber</code> / <code>rank</code> / <code>denseRank</code> / <code>nTile</code> / <code>lag</code> / <code>lead</code> / <code>firstValue</code> / <code>lastValue</code> / <code>over</code></td>
+</tr>
+<tr>
+<td>JSON・地理空間</td>
+<td><code>jsonExtract</code> / <code>jsonUnquote</code> / <code>stGeomFromText</code> / <code>stDistanceSphere</code> / <code>stWithin</code> / <code>match</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java"><span class="h-c">// 名前を整えて、空なら「（無名）」</span>
+Dsl.coalesce(Dsl.trim(Post.title), <span class="h-s">"（無名）"</span>).as(<span class="h-s">"title"</span>)
+
+<span class="h-c">// 月ごとの件数</span>
+SQL.select(Dsl.year(Post.created_at).as(<span class="h-s">"y"</span>), Dsl.month(Post.created_at).as(<span class="h-s">"m"</span>), Dsl.count())
+    .from(Post.instance())
+    .groupBy(Dsl.year(Post.created_at), Dsl.month(Post.created_at))
+
+<span class="h-c">// 30 日後</span>
+Dsl.dateAdd(Post.created_at, <span class="h-n">30</span>, DateUnit.DAY)
+
+<span class="h-c">// タグをまとめて1つの文字列に</span>
+Dsl.groupConcat(Tag.name, <span class="h-s">"/"</span>).as(<span class="h-s">"tags"</span>)
+</code></pre>
+<p>単位（<code>DateUnit</code>）と型（<code>CastType</code>）は enum です。<strong>文字列では渡せません。</strong>
+SQL にそのまま入るところなので、外から来た文字列を通せないようにしてあります。</p>
+<h2 id="ウィンドウ関数">ウィンドウ関数<a class="anchor" href="#ウィンドウ関数">#</a></h2>
+<p><strong>行をまとめずに、まとめた結果を各行に付けます。</strong><code>GROUP BY</code> と違って行が減りません。</p>
+<pre class="code"><code class="lang-java">SQL.select(
+        Sale.shop_id
+        , Sale.amount
+        <span class="h-c">// 店ごとの売上順位</span>
+        , Dsl.rank().partitionBy(Sale.shop_id).orderBy(Sale.amount.desc()).as(<span class="h-s">"rank"</span>)
+        <span class="h-c">// 累計</span>
+        , Dsl.over(Dsl.sum(Sale.amount))
+            .orderBy(Sale.sold_at.asc())
+            .rowsBetween(WindowFrame.unboundedPreceding(), WindowFrame.currentRow())
+            .as(<span class="h-s">"total"</span>))
+    .from(Sale.instance());
+</code></pre>
+<p><code>Dsl.over(...)</code> には集約（<code>sum</code> / <code>count</code> / <code>avg</code> など）を渡します。
+別名や計算を中に入れると例外になります（<code>OVER</code> のあとに付けてください）。</p>
+<h2 id="製品の違いで気をつけること">製品の違いで気をつけること<a class="anchor" href="#製品の違いで気をつけること">#</a></h2>
+<p><strong>名前が同じでも意味が違う</strong>ものは DSL が揃えます。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>どう揃えているか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>length</code></td>
+<td><strong>文字数</strong>です（MySQL の <code>LENGTH</code> はバイト数）。バイト数は <code>byteLength</code></td>
+</tr>
+<tr>
+<td><code>dayOfWeek</code></td>
+<td><strong>日曜が 1</strong>（PostgreSQL の <code>DOW</code> は 0 なので +1 しています）</td>
+</tr>
+<tr>
+<td><code>weekOfYear</code></td>
+<td><strong>ISO 週</strong>（MySQL の <code>WEEK</code> は既定が ISO ではないので <code>WEEKOFYEAR</code>）</td>
+</tr>
+<tr>
+<td><code>second</code></td>
+<td>小数秒は<strong>切り捨て</strong>（PostgreSQL は素だと四捨五入して 60 を返すことがあります）</td>
+</tr>
+<tr>
+<td><code>unixTimestamp</code></td>
+<td><strong>接続のタイムゾーン</strong>で読みます（PostgreSQL の <code>timestamp</code> は素だと UTC 扱い）</td>
+</tr>
+<tr>
+<td><code>stddev</code> / <code>variance</code></td>
+<td><strong>標本</strong>（<code>STDDEV_SAMP</code> / <code>VAR_SAMP</code>）</td>
+</tr>
+<tr>
+<td><code>concat</code></td>
+<td>1つでも NULL なら NULL（PostgreSQL では <code>||</code> になります）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>揃えていない</strong>ものもあります。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>違い</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>greatest</code> / <code>least</code></td>
+<td>**MySQL は1つでも NULL なら NULL、PostgreSQL は NULL を無視します。**NULL が入りうるなら <code>ifnull</code> で埋めてから渡してください</td>
+</tr>
+<tr>
+<td><code>regexp</code></td>
+<td>正規表現の方言が違います（MySQL 8 は ICU、PostgreSQL は POSIX）。<code>^</code> <code>$</code> <code>[]</code> <code>+</code> は同じですが、<strong><code>\d</code> は片方でしか効きません。</strong><code>[0-9]</code> と書いてください</td>
+</tr>
+<tr>
+<td>0 除算・負の長さ</td>
+<td>MySQL は NULL を返し、<strong>PostgreSQL は落ちます</strong>（<code>mod(x, 0)</code>、<code>left(x, -1)</code> など）</td>
+</tr>
+<tr>
+<td>数値を文字列関数に渡す</td>
+<td>MySQL は暗黙に変換し、<strong>PostgreSQL は「関数が無い」で落ちます。</strong><code>cast</code> を挟んでください</td>
+</tr>
+<tr>
+<td><code>groupConcat</code></td>
+<td>MySQL は <code>group_concat_max_len</code>（既定 1024 バイト）を超えると<strong>黙って切ります</strong></td>
+</tr>
+<tr>
+<td><code>cast</code> で数にできない文字列</td>
+<td>MySQL は <strong>0</strong> を返し、PostgreSQL は落ちます</td>
+</tr>
+</tbody>
+</table>
+<p><strong>その製品に無いものは、SQL を組み立てたところで例外</strong>（<code>DialectException</code>）になります。
+<a href="./db">DB を使う</a> にまとめてあります。</p>
 <h2 id="db-製品が違うとき">DB 製品が違うとき<a class="anchor" href="#db-製品が違うとき">#</a></h2>
 <p><strong>同じコードのまま、<code>db.xxx.product</code> に応じた SQL が出ます。</strong>
 識別子の囲み（<code>`</code> と <code>&quot;</code>）、<code>ON DUPLICATE KEY UPDATE</code> と <code>ON CONFLICT</code>、
@@ -323,6 +471,9 @@ db.executeBatch(builderList);
 			<li class="level-2"><a href="#結合">結合</a></li>
 			<li class="level-2"><a href="#入れる直す消す">入れる・直す・消す</a></li>
 			<li class="level-2"><a href="#関数を使う">関数を使う</a></li>
+			<li class="level-3"><a href="#一覧">一覧</a></li>
+			<li class="level-2"><a href="#ウィンドウ関数">ウィンドウ関数</a></li>
+			<li class="level-2"><a href="#製品の違いで気をつけること">製品の違いで気をつけること</a></li>
 			<li class="level-2"><a href="#db-製品が違うとき">DB 製品が違うとき</a></li>
 			<li class="level-2"><a href="#まとめて流す">まとめて流す</a></li>
 			<li class="level-2"><a href="#大きい結果">大きい結果</a></li>
