@@ -1,0 +1,290 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your first endpoint in 5 minutes - jimble</title>
+<meta name="description" content="From jimble new to a running server with hot reload">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="current">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="your-first-endpoint-in-5-minutes">Your first endpoint in 5 minutes<a class="anchor" href="#your-first-endpoint-in-5-minutes">#</a></h1>
+<h2 id="what-you-need">What you need<a class="anchor" href="#what-you-need">#</a></h2>
+<ul>
+<li><strong>JDK 25</strong> (LTS). jimble uses virtual threads and <code>ScopedValue</code></li>
+<li><strong>Gradle 9 or later</strong>. Gradle 8 does not run on Java 25
+(8 can target Java 25 as a toolchain, but Gradle itself will not run there)</li>
+</ul>
+<p>You do not need a DB yet. You can add one later.</p>
+<p>Installing the <code>jimble</code> command is covered in <a href="./cli">The jimble command</a>
+(run <code>./gradlew :jimble-cli:installDist</code> in the repository and put it on your PATH).</p>
+<h2 id="1-create-the-skeleton">1. Create the skeleton<a class="anchor" href="#1-create-the-skeleton">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> new my-blog
+<span class="h-k">cd</span> my-blog
+<span class="h-k">gradle</span> wrapper
+</code></pre>
+<p><code>jimble new</code> creates the build files, <code>application.conf</code>, <code>App.java</code>,
+<code>index.jte</code>, and <code>.gitignore</code> — nothing else. It does not create empty directories.</p>
+<h2 id="2-start-it">2. Start it<a class="anchor" href="#2-start-it">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> run
+</code></pre>
+<pre class="code"><code class="lang-text">jimble 構成: env=local / session=none / cache=db / redis=なし / db=[]
+route: GET     /
+jimble を起動しました: http://localhost:9000
+</code></pre>
+<p>The startup log prints <strong>every route</strong>.
+That is so you catch &quot;the route I thought I registered isn't there&quot; at startup.</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">curl</span> http://localhost:9000/
+</code></pre>
+<h2 id="3-add-an-endpoint">3. Add an endpoint<a class="anchor" href="#3-add-an-endpoint">#</a></h2>
+<p>Add one line to the initializer block in <code>App.java</code>.</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/hello"</span>, context -&gt; context.response().send(<span class="h-s">"hello, jimble\n"</span>));</code></pre>
+<p>The <code>{ }</code> is an initializer block; it runs before the constructor.
+The initializer block of a class extending <code>JimbleApp</code> <em>is</em> your route definition.</p>
+<p>To return JSON:</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
+<p><code>json()</code> builds up a <code>Data</code> (a subclass of <code>LinkedHashMap&lt;String,Object&gt;</code>) and
+turns it into JSON at <code>send()</code> time.</p>
+<h2 id="4-make-your-edits-show-up">4. Make your edits show up<a class="anchor" href="#4-make-your-edits-show-up">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleRun
+</code></pre>
+<p><code>jimbleRun</code> puts a proxy on port 9000 and starts your app behind it, <strong>inside the same JVM</strong>.
+When you edit a source file, it builds and swaps it in on the next request.
+If the build fails, you see that error in the browser.</p>
+<p>See <a href="./hot-reload">Hot reload</a> for the details.</p>
+<h2 id="5-decide-how-errors-come-out">5. Decide how errors come out<a class="anchor" href="#5-decide-how-errors-come-out">#</a></h2>
+<pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt;
+	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, cause.getMessage())));</code></pre>
+<p>Whatever you pass to <code>error()</code> handles both thrown exceptions and the 404 for a
+request that matched no route.
+Register nothing and you get jimble's default shape.</p>
+<h2 id="what-to-read-next">What to read next<a class="anchor" href="#what-to-read-next">#</a></h2>
+<ul>
+<li><a href="./routing">Routing</a> — path parameters, filters, how to group routes</li>
+<li><a href="./db">Using the DB</a> — adding a database</li>
+<li><a href="./pitfalls">Traps</a> — read it now and save yourself a day</li>
+</ul>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="index">
+				<span>Previous</span>What jimble is
+			</a>
+			<a class="next" href="principles">
+				<span>Next</span>Principles
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#what-you-need">What you need</a></li>
+			<li class="level-2"><a href="#1-create-the-skeleton">1. Create the skeleton</a></li>
+			<li class="level-2"><a href="#2-start-it">2. Start it</a></li>
+			<li class="level-2"><a href="#3-add-an-endpoint">3. Add an endpoint</a></li>
+			<li class="level-2"><a href="#4-make-your-edits-show-up">4. Make your edits show up</a></li>
+			<li class="level-2"><a href="#5-decide-how-errors-come-out">5. Decide how errors come out</a></li>
+			<li class="level-2"><a href="#what-to-read-next">What to read next</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

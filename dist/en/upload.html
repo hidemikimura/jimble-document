@@ -1,0 +1,447 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File upload - jimble</title>
+<meta name="description" content="Receiving multipart, temp files, limits, saving and downloading">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="current">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="file-upload">File upload<a class="anchor" href="#file-upload">#</a></h1>
+<p>Files arriving as <code>multipart/form-data</code> come out of <code>bodyFile()</code>.</p>
+<pre class="code"><code class="lang-java">Data files = context.request().bodyFile();
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Files appear in neither <code>bodyAll()</code> nor <code>bodyForm()</code>.</strong> Only in <code>bodyFile()</code>.
+The text fields sitting in the same body still come out of <code>bodyAll()</code>, as usual.</p>
+</div>
+<h2 id="receiving">Receiving<a class="anchor" href="#receiving">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">for</span> (Object value : context.request().bodyFile().values()) {
+	<span class="h-k">if</span> (value <span class="h-k">instanceof</span> List&lt;?&gt; list) {
+		<span class="h-k">for</span> (Object item : list) {
+			UploadFile uploadFile = (UploadFile) item;
+			received.add(<span class="h-s">"%s:%s:%d"</span>.formatted(
+				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
+			received.add(<span class="h-s">"content="</span> + read(uploadFile.file.toPath()));
+			tempFiles.add(uploadFile.file.toPath());
+		}
+	}
+}</code></pre>
+<p>What you pull out is an <code>UploadFile</code>. It is <strong>a container with no methods</strong>, and this is all it holds.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>The form's <code>name</code> attribute</td>
+</tr>
+<tr>
+<td><code>fileName</code></td>
+<td>The file name <strong>the client claimed</strong> (<code>&quot;&quot;</code> when absent)</td>
+</tr>
+<tr>
+<td><code>contentType</code></td>
+<td>The Content-Type <strong>the client claimed</strong> (<code>&quot;&quot;</code> when absent)</td>
+</tr>
+<tr>
+<td><code>fileSize</code></td>
+<td>The number of bytes actually written out</td>
+</tr>
+<tr>
+<td><code>file</code></td>
+<td>The temp file (<code>java.io.File</code>)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Even a single file is wrapped in a <code>List</code>.</strong>
+Cast the value from <code>bodyFile()</code> straight to <code>UploadFile</code> and it blows up.
+Since several files can be sent under one <code>name</code>, always treating it as a list is the correct shape.</p>
+</div>
+<h2 id="temp-files">Temp files<a class="anchor" href="#temp-files">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where they go</td>
+<td><code>upload.temp_dir</code> (defaults to <code>java.io.tmpdir</code>)</td>
+</tr>
+<tr>
+<td>Name</td>
+<td><code>jimble-upload-&lt;sequence&gt;.tmp</code>. <strong>The original file name is not used</strong></td>
+</tr>
+<tr>
+<td>When they vanish</td>
+<td><strong>When the request ends</strong> (the context closes)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>You cannot touch <code>uploadFile.file</code> after the request has ended.</strong>
+Hand the work to an async job, or store only the path in the DB and read it later,
+and you grab <strong>a file that is already gone</strong>. Copy anything you want to keep, inside the handler.</p>
+</div>
+<p>Temp files do not get <code>deleteOnExit()</code>.
+If the process dies they stay behind, and we leave that to the OS cleaning out its temp directory.</p>
+<h2 id="limits">Limits<a class="anchor" href="#limits">#</a></h2>
+<p><strong>The limits apply whether or not you configure them</strong> (requirement NF-S-05).</p>
+<pre class="code"><code class="lang-conf">upload {
+	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># per file. 10MB by default</span>
+	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># per request, in total. 50MB by default</span>
+	max_files      = <span class="h-n">20</span>         <span class="h-c"># how many</span>
+	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># empty means java.io.tmpdir</span>
+}
+</code></pre>
+<p>Going over throws on the spot, and <strong>the half-written temp files are deleted too.</strong></p>
+<p>The messages themselves come out of jimble in Japanese; the English in
+parentheses is a gloss, not what the response says.</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>What comes back</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Too many files</td>
+<td><strong>413</strong>「アップロードできるファイル数は N 件までです」（&quot;at most N files&quot;）</td>
+</tr>
+<tr>
+<td>One file, or the total, over the limit</td>
+<td><strong>413</strong>「アップロードのサイズが上限（N バイト）を超えています」（&quot;over the N byte limit&quot;）</td>
+</tr>
+<tr>
+<td>Not readable as multipart</td>
+<td><strong>400</strong>「multipart を読めませんでした」（&quot;could not read the multipart body&quot;）</td>
+</tr>
+</tbody>
+</table>
+<p>Size is checked <strong>as the data is read</strong>. Measure it after taking everything in
+and you have already written the excess to disk.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>server.max_request_size</code> (10MB by default) bites first.</strong>
+<code>upload.max_total_size</code> defaults to 50MB, so <strong>out of the box, 50MB never arrives.</strong>
+If you want to allow large uploads, raise both.</p>
+</div>
+<h2 id="saving">Saving<a class="anchor" href="#saving">#</a></h2>
+<p><strong>There is no save helper.</strong> You copy <code>uploadFile.file</code> with the JDK's <code>Files</code>.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">static</span> String saveImage (WebContext context) <span class="h-k">throws</span> Exception {
+
+	UploadFile uploadFile = firstFile(context);
+
+	<span class="h-k">if</span> (uploadFile == <span class="h-k">null</span> || uploadFile.fileSize &lt;= <span class="h-n">0</span>) {
+		<span class="h-k">return</span> <span class="h-k">null</span>;
+	}
+
+	String extension = extensionOf(uploadFile.fileName);
+
+	<span class="h-k">if</span> (!ALLOWED_EXTENSIONS.contains(extension)) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> io.jimble.web.http.HttpException(
+			<span class="h-n">400</span>, <span class="h-s">"受け付けられない形式です: %s（%s のみ）"</span>
+				.formatted(uploadFile.fileName, String.join(<span class="h-s">" "</span>, ALLOWED_EXTENSIONS)));
+	}
+
+	Path dir = Path.of(UPLOAD_DIR);
+	Files.createDirectories(dir);
+
+	String saved = UUID.randomUUID() + extension;
+
+	<span class="h-c">/*
+	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
+	 * 残したいものはここで移す。
+	 */</span>
+	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+
+	<span class="h-k">return</span> saved;
+
+}</code></pre>
+<p>Three things matter.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>You pick the name</strong></td>
+<td><code>UUID.randomUUID() + extension</code></td>
+</tr>
+<tr>
+<td><strong>Check the extension against an allowlist</strong></td>
+<td>Reject with 400 when it fails</td>
+</tr>
+<tr>
+<td><code>Files.copy</code></td>
+<td>The original is deleted anyway, so copy or move — either is fine</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not use <code>uploadFile.fileName</code> as the destination.</strong>
+jimble <strong>does not inspect this name at all</strong> (it is exactly what the client claimed).
+A name like <code>../../etc/passwd</code> lets the write land outside your storage directory.</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>contentType</code> is not inspected either.</strong> It is the client's own declaration.
+An executable will arrive claiming to be <code>image/png</code>.
+Write the extension allowlist, and content inspection if you need it, yourself.</p>
+</div>
+<h2 id="mixing-with-text-fields">Mixing with text fields<a class="anchor" href="#mixing-with-text-fields">#</a></h2>
+<p>They sit in the same body, so <strong>we parse once and hold the result</strong> (the body can only be read once).
+Parts with no file name are treated as text fields and appear in <code>bodyAll()</code>.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>Text fields are read as <strong>UTF-8, always</strong>, and <strong>held entirely in memory</strong> (there is no size limit).
+The only thing guarding this is <code>server.max_request_size</code>.</p>
+</div>
+<h2 id="sending-files-back-download">Sending files back (download)<a class="anchor" href="#sending-files-back-download">#</a></h2>
+<pre class="code"><code class="lang-java">context.response().download(file);                  <span class="h-c">// attach under the real file name</span>
+context.response().download(file, <span class="h-s">"report.xlsx"</span>);   <span class="h-c">// attach under a name you choose</span>
+context.response().file(file);                      <span class="h-c">// inline (type detected from the content)</span>
+context.response().file(file, <span class="h-s">"image/png"</span>);         <span class="h-c">// inline (type given)</span>
+context.response().stream(<span class="h-k">in</span>, <span class="h-s">"text/csv"</span>);          <span class="h-c">// stream</span>
+context.response().stream(<span class="h-k">in</span>, <span class="h-s">"text/csv"</span>, length);  <span class="h-c">// stream of known length</span>
+</code></pre>
+<p><code>Content-Disposition</code> is written in the RFC 5987 form (<code>filename*=UTF-8''...</code>),
+so <strong>non-ASCII file names go through as they are.</strong></p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The compatibility <code>filename=&quot;...&quot;</code> (the ASCII form) is not written alongside it.
+Also, <strong>a space in the name becomes <code>+</code></strong> (not <code>%20</code>).
+If that bothers you, replace spaces with <code>_</code> before you pass the name in.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="request-response">
+				<span>Previous</span>Request and response
+			</a>
+			<a class="next" href="validation">
+				<span>Next</span>Validation and paging
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#receiving">Receiving</a></li>
+			<li class="level-2"><a href="#temp-files">Temp files</a></li>
+			<li class="level-2"><a href="#limits">Limits</a></li>
+			<li class="level-2"><a href="#saving">Saving</a></li>
+			<li class="level-2"><a href="#mixing-with-text-fields">Mixing with text fields</a></li>
+			<li class="level-2"><a href="#sending-files-back-download">Sending files back (download)</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

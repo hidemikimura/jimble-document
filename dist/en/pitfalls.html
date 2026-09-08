@@ -1,0 +1,411 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traps - jimble</title>
+<meta name="description" content="The places that go quiet instead of failing. Read this first and save yourself a day">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="current">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="traps">Traps<a class="anchor" href="#traps">#</a></h1>
+<p>Bugs that crash find themselves. What is collected here are <strong>the bugs that do not crash.</strong></p>
+<h2 id="cookies-do-not-work-locally">Cookies do not work locally<a class="anchor" href="#cookies-do-not-work-locally">#</a></h2>
+<p><strong>Symptom</strong>: session, login, CSRF, flash — none of them work, and there is no error.</p>
+<p><strong>Cause</strong>: <code>cookie.secure</code> defaults to <code>true</code>. Local is http, so the browser
+never sends the cookie back.</p>
+<p><strong>Fix</strong>: put this in your local <code>application.conf</code>. Take it out in production.</p>
+<pre class="code"><code class="lang-conf">cookie {
+	secure = <span class="h-k">false</span>
+}
+</code></pre>
+<p>A WARN is printed at startup, so read the log.</p>
+<h2 id="the-route-is-not-registered">The route is not registered<a class="anchor" href="#the-route-is-not-registered">#</a></h2>
+<p><strong>Symptom</strong>: you get a 404. The code is right there.</p>
+<p><strong>Cause</strong>: you forgot to write <code>install(SomeController::new)</code>.
+jimble does not scan the classpath, so if you do not write it, nothing is registered.</p>
+<p><strong>Fix</strong>: look at the route list in the startup log. If it is not there, it is not registered.</p>
+<h2 id="before-is-not-applying-and-it-is-the-same-path">before is not applying (and it is the same path)<a class="anchor" href="#before-is-not-applying-and-it-is-the-same-path">#</a></h2>
+<p><code>before</code> applies <strong>only inside the block you wrote it in</strong>. It does not attach to a path.</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/admin"</span>, () -&gt; {
+	before(requireAuth);
+	get(<span class="h-s">"/users"</span>, ...);
+});
+
+install(() -&gt; <span class="h-k">new</span> SpaController(<span class="h-s">"/admin"</span>, ...));   <span class="h-c">// ← not authenticated</span>
+</code></pre>
+<p>Same <code>/admin</code> or not, a route registered somewhere else is in a different block.
+If you want them covered together, put them in the same block.</p>
+<p>The opposite symptom — <strong>it applies where you did not want it to</strong> — does not happen.
+That is what used to happen in the code this was ported from, where even the SPA login
+screen under <code>/admin</code> was caught by the auth filter.</p>
+<p>Also, <strong>adding a <code>before</code> after the routes are settled throws.</strong>
+That is so &quot;I added it and it does nothing&quot; never gets through in silence.
+Keep route definitions entirely inside the controller's initializer block.</p>
+<h2 id="the-session-was-not-saved">The session was not saved<a class="anchor" href="#the-session-was-not-saved">#</a></h2>
+<p><strong>Symptom</strong>: you called <code>put()</code>, and on the next request it is gone.</p>
+<p><strong>Cause</strong>: you did not call <code>save()</code>. Nothing is saved automatically.</p>
+<pre class="code"><code class="lang-java">context.session().put(<span class="h-s">"user_id"</span>, <span class="h-n">42</span>);
+
+<span class="h-c">// 明示的に保存する（要件 F-S-02）。自動保存はしない</span>
+context.session().save();</code></pre>
+<h2 id="you-cannot-get-at-the-select-result">You cannot get at the select result<a class="anchor" href="#you-cannot-get-at-the-select-result">#</a></h2>
+<p><strong>Symptom</strong>: <code>row.getString(&quot;title&quot;)</code> comes back empty.</p>
+<p><strong>Cause</strong>: the result is nested under the table name.</p>
+<pre class="code"><code class="lang-java">Data row = db.select(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.id.eq(<span class="h-n">1L</span>))
+);
+
+<span class="h-c">// SELECT の結果はテーブル名でネストする（要件 F-D-02）</span>
+String title = row.getData(<span class="h-s">"post"</span>).getString(<span class="h-s">"title"</span>);
+
+<span class="h-c">// Column で引けば、途中の文字列が出てこない</span>
+String same = row.getString(Post.title);</code></pre>
+<p>Look it up with <code>Column</code> and you cannot get it wrong.</p>
+<h2 id="you-do-not-notice-the-db-error">You do not notice the DB error<a class="anchor" href="#you-do-not-notice-the-db-error">#</a></h2>
+<p><strong>Symptom</strong>: zero rows when zero is impossible. Or an NPE.</p>
+<p><strong>Cause</strong>: DB errors are return values, not exceptions. <code>select</code> gives <code>null</code>, the update
+family gives <code>-1</code>.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
+
+	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
+
+	<span class="h-c">/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */</span>
+	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
+		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
+		<span class="h-k">return</span>;
+	}
+
+}</code></pre>
+<h2 id="the-transaction-did-not-carry-on">The transaction did not carry on<a class="anchor" href="#the-transaction-did-not-carry-on">#</a></h2>
+<p><strong>Symptom</strong>: an update made after <code>commit()</code> does not go away when you roll back.</p>
+<p><strong>Cause</strong>: this one is about the code this was ported from. Its <code>commit()</code> ended the
+transaction, so everything past that point ran in autocommit.
+In jimble, <code>commit()</code> does not end it. <code>commitEndTransaction()</code> is what ends it.</p>
+<p><strong>When you read code you brought over, check what comes after each <code>commit()</code>.</strong></p>
+<h2 id="a-transaction-was-left-neither-committed-nor-rolled-back">&quot;A transaction was left neither committed nor rolled back&quot;<a class="anchor" href="#a-transaction-was-left-neither-committed-nor-rolled-back">#</a></h2>
+<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+</code></pre>
+<p><strong>Cause</strong>: you called <code>beginTransaction()</code> without wrapping it in try-with-resources,
+and then returned partway through.</p>
+<p><strong>Fix</strong>: wrap it. jimble picks it up at the end of the execution and rolls it back,
+but that is cleaning up after an accident, not the right way to write it.</p>
+<h2 id="sse-does-not-arrive-or-arrives-all-at-once">SSE does not arrive, or arrives all at once<a class="anchor" href="#sse-does-not-arrive-or-arrives-all-at-once">#</a></h2>
+<p><strong>Cause</strong>: an nginx in between is buffering it up.</p>
+<p><strong>Fix</strong>: jimble attaches <code>X-Accel-Buffering: no</code>. If that is not enough,
+set <code>proxy_buffering off;</code> on the nginx side.</p>
+<h2 id="the-sse-loop-never-ends">The SSE loop never ends<a class="anchor" href="#the-sse-loop-never-ends">#</a></h2>
+<p><strong>Cause</strong>: you are not checking <code>sse.isOpen()</code>.</p>
+<p><code>isOpen()</code> tells you <strong>whether the lifetime is still running</strong>. It cannot detect a
+disconnect (helidon does not tell it, and the write can block forever).
+Check it inside every loop. <a href="./sse">SSE</a> has the details.</p>
+<h2 id="you-cannot-read-cookies-in-a-websocket">You cannot read cookies in a WebSocket<a class="anchor" href="#you-cannot-read-cookies-in-a-websocket">#</a></h2>
+<p><strong>Cause</strong>: you are trying to read them after the upgrade.
+The HTTP headers are visible at <code>onUpgrade</code> and nowhere else.</p>
+<p><strong>Fix</strong>: authenticate in <code>onUpgrade</code>. Return <code>false</code> and you get a 403.</p>
+<h2 id="an-mq-message-ran-twice">An MQ message ran twice<a class="anchor" href="#an-mq-message-ran-twice">#</a></h2>
+<p><strong>Cause</strong>: that is how it is. Exactly-once cannot be built.</p>
+<p><strong>Fix</strong>: write it so that running it again changes nothing. <a href="./mq">MQ</a> has the details.</p>
+<h2 id="a-hocon-comment-breaks-the-config">A HOCON comment breaks the config<a class="anchor" href="#a-hocon-comment-breaks-the-config">#</a></h2>
+<pre class="code"><code class="lang-text">Key '/' may not be followed by token: '*'
+</code></pre>
+<p><strong>Cause</strong>: you used <code>/* */</code>. HOCON comments are <code>#</code> or <code>//</code>.</p>
+<h2 id="jimblerun-says-no-main-manifest-attribute">jimbleRun says &quot;no main manifest attribute&quot;<a class="anchor" href="#jimblerun-says-no-main-manifest-attribute">#</a></h2>
+<p><code>gradle-wrapper.jar</code> has no <code>Main-Class</code>. <strong>Your <code>gradlew</code> and your
+<code>gradle-wrapper.jar</code> do not match.</strong></p>
+<p>Today's <code>gradlew</code> starts like this.</p>
+<pre class="code"><code class="lang-sh">exec java -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" ...
+</code></pre>
+<p>That needs a JAR with a <code>Main-Class</code>. Leave an old JAR (one written for <code>-classpath</code>)
+lying around and <code>gradlew</code> and the JAR look like a matched pair while nothing works.</p>
+<pre class="code"><code class="lang-sh">unzip -p gradle/wrapper/gradle-wrapper.jar META-INF/MANIFEST.MF
+<span class="h-c"># Main-Class: org.gradle.wrapper.GradleWrapperMain  ← if this is missing, that is your problem</span>
+</code></pre>
+<p>To fix it, run this once in that project.</p>
+<pre class="code"><code class="lang-sh"><span class="h-k">gradle</span> wrapper --gradle-version 9.7.1
+</code></pre>
+<p><code>jimbleRun</code> shells out to <code>./gradlew</code> on every rebuild, so <strong>you see this on every save.</strong>
+Once it works out that the wrapper is broken, it prints the reason and falls back to
+the <code>gradle</code> on your PATH, so hot reload itself keeps going.</p>
+<h2 id="gradle-will-not-start">Gradle will not start<a class="anchor" href="#gradle-will-not-start">#</a></h2>
+<pre class="code"><code class="lang-text">* What went wrong: 25.0.4
+</code></pre>
+<p><strong>Cause</strong>: Gradle 8 does not run on Java 25.
+(Using Java 25 as a toolchain works on 8 — it is Gradle itself that will not run.)</p>
+<p><strong>Fix</strong>: use Gradle 9 or later.</p>
+<h2 id="kotlin-comments-nest">Kotlin comments nest<a class="anchor" href="#kotlin-comments-nest">#</a></h2>
+<p>If a <code>/*</code> turns up inside a block comment in <code>build.gradle.kts</code>,
+<strong>a nested comment starts right there</strong> (Kotlin block comments nest).
+The outer one never closes, and every line of code below it disappears. <strong>There is no error.</strong></p>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">/*
+ * Reads docs/site/&lt;lang&gt;/*.md      ← this /* opens a nested comment
+ */</span>
+<span class="h-k">tasks</span>.register(<span class="h-s">"site"</span>) { ... }      ← never registered, and never complains
+</code></pre>
+<p>When you write a path, avoid <code>*</code>, or use <code>//</code>.</p>
+<h2 id="docs-in-gitignore-applies-at-every-level"><code>docs/</code> in .gitignore applies at every level<a class="anchor" href="#docs-in-gitignore-applies-at-every-level">#</a></h2>
+<p><strong>Symptom</strong>: the templates are missing from the repository you published.</p>
+<p><strong>Cause</strong>: write <code>docs/</code> in <code>.gitignore</code> and git applies it to <strong>a <code>docs/</code> at any level.</strong>
+It drags <code>jimble-docs/src/main/jte/docs/</code> in with it.</p>
+<p><strong>Fix</strong>: put a <code>/</code> in front and write <code>/docs/</code>.</p>
+<h2 id="build-scripts-that-break-on-gradle-9">Build scripts that break on Gradle 9<a class="anchor" href="#build-scripts-that-break-on-gradle-9">#</a></h2>
+<p>Some things pass on Gradle 8 and break on 9.</p>
+<table>
+<thead>
+<tr>
+<th>What you wrote</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>val x by tasks.registering { }</code></td>
+<td>Deprecated in 9.6. In the Kotlin DSL it is a <strong>compile error</strong>. Use <code>tasks.register(&quot;x&quot;) { }</code></td>
+</tr>
+<tr>
+<td><code>&quot;...&quot;.formatted(...)</code></td>
+<td>A Java 15 method. From a 9.7 Kotlin script it <strong>cannot be resolved</strong>. Use a string template</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Run your build script at least once on the version you are actually going to use.</strong></p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="deploy">
+				<span>Previous</span>Running in production
+			</a>
+			<a class="next" href="util">
+				<span>Next</span>Utilities
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#cookies-do-not-work-locally">Cookies do not work locally</a></li>
+			<li class="level-2"><a href="#the-route-is-not-registered">The route is not registered</a></li>
+			<li class="level-2"><a href="#before-is-not-applying-and-it-is-the-same-path">before is not applying (and it is the same path)</a></li>
+			<li class="level-2"><a href="#the-session-was-not-saved">The session was not saved</a></li>
+			<li class="level-2"><a href="#you-cannot-get-at-the-select-result">You cannot get at the select result</a></li>
+			<li class="level-2"><a href="#you-do-not-notice-the-db-error">You do not notice the DB error</a></li>
+			<li class="level-2"><a href="#the-transaction-did-not-carry-on">The transaction did not carry on</a></li>
+			<li class="level-2"><a href="#a-transaction-was-left-neither-committed-nor-rolled-back">"A transaction was left neither committed nor rolled back"</a></li>
+			<li class="level-2"><a href="#sse-does-not-arrive-or-arrives-all-at-once">SSE does not arrive, or arrives all at once</a></li>
+			<li class="level-2"><a href="#the-sse-loop-never-ends">The SSE loop never ends</a></li>
+			<li class="level-2"><a href="#you-cannot-read-cookies-in-a-websocket">You cannot read cookies in a WebSocket</a></li>
+			<li class="level-2"><a href="#an-mq-message-ran-twice">An MQ message ran twice</a></li>
+			<li class="level-2"><a href="#a-hocon-comment-breaks-the-config">A HOCON comment breaks the config</a></li>
+			<li class="level-2"><a href="#jimblerun-says-no-main-manifest-attribute">jimbleRun says "no main manifest attribute"</a></li>
+			<li class="level-2"><a href="#gradle-will-not-start">Gradle will not start</a></li>
+			<li class="level-2"><a href="#kotlin-comments-nest">Kotlin comments nest</a></li>
+			<li class="level-2"><a href="#docs-in-gitignore-applies-at-every-level">docs/ in .gitignore applies at every level</a></li>
+			<li class="level-2"><a href="#build-scripts-that-break-on-gradle-9">Build scripts that break on Gradle 9</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,278 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Templates - jimble</title>
+<meta name="description" content="jte. It compiles, so your types hold">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="current">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="templates">Templates<a class="anchor" href="#templates">#</a></h1>
+<p>jimble's templates are <a href="https://jte.gg/">jte</a>.
+Rather than interpreting strings at runtime, <strong>it compiles them to Java.</strong></p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/"</span>, context -&gt; {
+
+	context.response().putData(<span class="h-s">"title"</span>, <span class="h-s">"ブログ"</span>);
+	context.response().putData(<span class="h-s">"posts"</span>, listPosts());
+	context.response().view(<span class="h-s">"blog/posts.jte"</span>);
+
+});</code></pre>
+<p>Whatever you put in with <code>putData()</code> arrives as <code>Data</code>, and <code>view()</code> names the template.</p>
+<h2 id="the-template-side">The template side<a class="anchor" href="#the-template-side">#</a></h2>
+<p><code>src/main/jte/blog/posts.jte</code>:</p>
+<pre class="code"><code class="lang-jte"><span class="h-a">@import</span> db.blog_example.table.post.Post
+<span class="h-a">@import</span> io.jimble.util.data.Data
+<span class="h-a">@import</span> java.util.List
+
+<span class="h-a">@param</span> Data data
+
+!{List&lt;Data&gt; posts = data.getDataList(<span class="h-s">"posts"</span>);}
+
+&lt;h1&gt;${data.getString(<span class="h-s">"title"</span>)}&lt;/h1&gt;
+
+<span class="h-a">@for</span>(Data post : posts)
+	&lt;b&gt;${post.getString(Post.title)}&lt;/b&gt;
+	&lt;p&gt;${post.getString(Post.body)}&lt;/p&gt;
+<span class="h-a">@endfor</span>
+</code></pre>
+<ul>
+<li><code>${ }</code> is <strong>HTML-escaped</strong>. Use <code>$unsafe{ }</code> to emit raw output</li>
+<li>Because of <code>@param</code> and <code>@import</code>, your types hold inside the template too</li>
+<li>You can look values up by <code>Column</code>, as in <code>Post.title</code>, so you never scatter string keys through your templates</li>
+</ul>
+<h2 id="building">Building<a class="anchor" href="#building">#</a></h2>
+<p>Add the <code>io.jimble.jte</code> plugin and <code>src/main/jte</code> is converted to Java
+before <code>compileJava</code>.</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
+	application
+	id(<span class="h-s">"io.jimble.jte"</span>)
+}
+</code></pre>
+<p><strong>A mistake in a template breaks the build.</strong> You never discover it by hitting a 404 at runtime.</p>
+<p>What you can configure is in <a href="./gradle">the Gradle plugins</a>.</p>
+<p>The compiler (<code>gg.jte:jte</code>) is used at build time only;
+the application's runtime classpath carries nothing but <code>gg.jte:jte-runtime</code>.</p>
+<h2 id="hot-reload">Hot reload<a class="anchor" href="#hot-reload">#</a></h2>
+<p>If you started with <code>./gradlew jimbleRun</code>, the moment you edit a <code>.jte</code>
+the conversion and the build run, and the next request serves it.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="errors">
+				<span>Previous</span>Error handling
+			</a>
+			<a class="next" href="assets">
+				<span>Next</span>Static files and SPA
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#the-template-side">The template side</a></li>
+			<li class="level-2"><a href="#building">Building</a></li>
+			<li class="level-2"><a href="#hot-reload">Hot reload</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

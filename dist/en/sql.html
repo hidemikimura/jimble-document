@@ -1,0 +1,507 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL DSL - jimble</title>
+<meta name="description" content="SQL.select / insert / update / delete">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="current">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="sql-dsl">SQL DSL<a class="anchor" href="#sql-dsl">#</a></h1>
+<p>You can write SQL as a string, but the DSL gives you types.</p>
+<h2 id="selecting">Selecting<a class="anchor" href="#selecting">#</a></h2>
+<pre class="code"><code class="lang-java">List&lt;Data&gt; posts = db.selectList(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.published.eq(<span class="h-k">true</span>))
+		.orderBy(Post.created_at.desc())
+		.limit(<span class="h-n">20</span>)
+);
+</code></pre>
+<p>There are <code>limit</code> and <code>offset</code>. Pass nothing to <code>select()</code> and you get every column.
+Pass columns to pick them.</p>
+<pre class="code"><code class="lang-java">SQL.select(Post.id, Post.title).from(Post.instance())
+</code></pre>
+<h2 id="conditions">Conditions<a class="anchor" href="#conditions">#</a></h2>
+<pre class="code"><code class="lang-java">.where(Post.id.eq(<span class="h-n">1L</span>))
+.where(Post.title.like(<span class="h-s">"%jimble%"</span>))
+.where(Post.created_at.ge(from).and(Post.created_at.lt(to)))
+.where(Post.id.<span class="h-k">in</span>(List.of(<span class="h-n">1L</span>, <span class="h-n">2L</span>, <span class="h-n">3L</span>)))
+</code></pre>
+<p>Call <code>where</code> more than once and the conditions are joined with AND.</p>
+<h2 id="joins">Joins<a class="anchor" href="#joins">#</a></h2>
+<pre class="code"><code class="lang-java">SQL.select()
+	.from(Post.instance())
+	.left(Comment.instance()).on(Comment.post_id.eq(Post.id))
+	.where(Post.id.eq(id))
+</code></pre>
+<p>Inner joins are <code>inner(...)</code>. An <code>on()</code> attaches to the join right before it.</p>
+<p>The result nests under the table name, so you get it with <code>row.getData(&quot;comment&quot;)</code>.</p>
+<h2 id="inserting-updating-deleting">Inserting, updating, deleting<a class="anchor" href="#inserting-updating-deleting">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(
+	SQL.insert(Post.instance())
+		.value(Post.title, title)
+		.value(Post.created_at, <span class="h-k">new</span> Date())
+);
+
+<span class="h-k">int</span> updated = db.update(
+	SQL.update(Post.instance())
+		.set(Post.published, <span class="h-k">true</span>)
+		.where(Post.id.eq(id))
+);
+
+<span class="h-k">int</span> deleted = db.delete(
+	SQL.delete(Post.instance()).where(Post.id.eq(id))
+);
+</code></pre>
+<p><code>insert</code> returns the generated key. When you do not need the ID,
+<code>insertNoReturnKey</code> is faster.</p>
+<p>Updating only the fields that were sent looks like this.</p>
+<pre class="code"><code class="lang-java">patch(<span class="h-s">"/posts/{id}"</span>, context -&gt; {
+
+	<span class="h-k">long</span> id = id(context);
+	BlogApp.findPost(id);
+
+	Data request = context.request().bodyAll();
+
+	UpdateBuilder builder = SQL.update(Post.instance());
+	<span class="h-k">boolean</span> hasChange = <span class="h-k">false</span>;
+
+	<span class="h-k">if</span> (request.containsKey(<span class="h-s">"title"</span>)) {
+		builder.set(Post.title, request.getString(<span class="h-s">"title"</span>));
+		hasChange = <span class="h-k">true</span>;
+	}
+
+	<span class="h-k">if</span> (request.containsKey(<span class="h-s">"body"</span>)) {
+		builder.set(Post.body, request.getString(<span class="h-s">"body"</span>));
+		hasChange = <span class="h-k">true</span>;
+	}
+
+	<span class="h-k">if</span> (request.containsKey(<span class="h-s">"published"</span>)) {
+		builder.set(Post.published, request.getBoolean(<span class="h-s">"published"</span>));
+		hasChange = <span class="h-k">true</span>;
+	}
+
+	<span class="h-k">if</span> (!hasChange) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">400</span>, <span class="h-s">"変える項目がありません（title / body / published）"</span>);
+	}
+
+	<span class="h-k">int</span> updated = BlogExample.db().update(builder.where(Post.id.eq(id)));
+
+	context.response().json(<span class="h-s">"updated"</span>, updated);
+
+});</code></pre>
+<h2 id="using-functions">Using functions<a class="anchor" href="#using-functions">#</a></h2>
+<p>The functions live on <code>Dsl</code>. <strong>Every one of them works on both MySQL and
+PostgreSQL.</strong></p>
+<pre class="code"><code class="lang-java">SQL.select(Dsl.count(), Dsl.max(Post.created_at)).from(Post.instance())
+</code></pre>
+<p>Things like <code>CASE WHEN</code> that <strong>can be either a value or a column</strong> cannot be
+passed to <code>select</code> directly. Wrap them in a <code>SelectQuery</code>.</p>
+<pre class="code"><code class="lang-java">SQL.select(<span class="h-k">new</span> SelectQuery().dsl(Dsl.caseWhen()...)).from(...)
+</code></pre>
+<p>Pass one unwrapped and it is treated as <strong>a bound value</strong>, not a column.</p>
+<h3 id="the-list">The list<a class="anchor" href="#the-list">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Functions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>String</td>
+<td><code>lower</code> / <code>upper</code> / <code>trim</code> / <code>ltrim</code> / <code>rtrim</code> / <code>length</code> / <code>byteLength</code> / <code>substring</code> / <code>replace</code> / <code>left</code> / <code>right</code> / <code>lpad</code> / <code>rpad</code> / <code>reverse</code> / <code>repeat</code> / <code>concat</code> / <code>concatWs</code> / <code>md5</code> / <code>locate</code></td>
+</tr>
+<tr>
+<td>Numeric</td>
+<td><code>abs</code> / <code>mod</code> / <code>power</code> / <code>sqrt</code> / <code>sign</code> / <code>exp</code> / <code>ln</code> / <code>log10</code> / <code>ceiling</code> / <code>floor</code> / <code>round</code> / <code>truncate</code> / <code>greatest</code> / <code>least</code></td>
+</tr>
+<tr>
+<td>Date</td>
+<td><code>now</code> / <code>curDate</code> / <code>curTime</code> / <code>date</code> / <code>year</code> / <code>month</code> / <code>day</code> / <code>hour</code> / <code>minute</code> / <code>second</code> / <code>quarter</code> / <code>dayOfWeek</code> / <code>dayOfYear</code> / <code>weekOfYear</code> / <code>dateAdd</code> / <code>dateSub</code> / <code>dateDiff</code> / <code>secondsBetween</code> / <code>unixTimestamp</code> / <code>fromUnixTime</code> / <code>secondsAgo</code> … <code>yearsAfter</code></td>
+</tr>
+<tr>
+<td>Conditional and casting</td>
+<td><code>caseWhen</code> / <code>ifThenElse</code> / <code>ifnull</code> / <code>coalesce</code> / <code>nullif</code> / <code>cast</code> / <code>castDecimal</code> / <code>regexp</code> / <code>regexpIgnoreCase</code></td>
+</tr>
+<tr>
+<td>Aggregate</td>
+<td><code>count</code> / <code>countDistinct</code> / <code>sum</code> / <code>sumDistinct</code> / <code>min</code> / <code>max</code> / <code>avg</code> / <code>stddev</code> / <code>variance</code> / <code>groupConcat</code> / <code>groupConcatDistinct</code></td>
+</tr>
+<tr>
+<td>Window</td>
+<td><code>rowNumber</code> / <code>rank</code> / <code>denseRank</code> / <code>nTile</code> / <code>lag</code> / <code>lead</code> / <code>firstValue</code> / <code>lastValue</code> / <code>over</code></td>
+</tr>
+<tr>
+<td>JSON and geospatial</td>
+<td><code>jsonExtract</code> / <code>jsonUnquote</code> / <code>stGeomFromText</code> / <code>stDistanceSphere</code> / <code>stWithin</code> / <code>match</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java"><span class="h-c">// Tidy up the name, and fall back to "(no name)" when it is empty</span>
+Dsl.coalesce(Dsl.trim(Post.title), <span class="h-s">"(no name)"</span>).as(<span class="h-s">"title"</span>)
+
+<span class="h-c">// Count per month</span>
+SQL.select(Dsl.year(Post.created_at).as(<span class="h-s">"y"</span>), Dsl.month(Post.created_at).as(<span class="h-s">"m"</span>), Dsl.count())
+    .from(Post.instance())
+    .groupBy(Dsl.year(Post.created_at), Dsl.month(Post.created_at))
+
+<span class="h-c">// 30 days from now</span>
+Dsl.dateAdd(Post.created_at, <span class="h-n">30</span>, DateUnit.DAY)
+
+<span class="h-c">// Roll the tags up into one string</span>
+Dsl.groupConcat(Tag.name, <span class="h-s">"/"</span>).as(<span class="h-s">"tags"</span>)
+</code></pre>
+<p>Units (<code>DateUnit</code>) and types (<code>CastType</code>) are enums. <strong>You cannot pass strings.</strong>
+They go straight into the SQL, so the API is built so that a string from outside
+cannot reach them.</p>
+<h2 id="window-functions">Window functions<a class="anchor" href="#window-functions">#</a></h2>
+<p><strong>They attach an aggregate to each row without collapsing rows.</strong> Unlike
+<code>GROUP BY</code>, you do not lose rows.</p>
+<pre class="code"><code class="lang-java">SQL.select(
+        Sale.shop_id
+        , Sale.amount
+        <span class="h-c">// Sales rank within each shop</span>
+        , Dsl.rank().partitionBy(Sale.shop_id).orderBy(Sale.amount.desc()).as(<span class="h-s">"rank"</span>)
+        <span class="h-c">// Running total</span>
+        , Dsl.over(Dsl.sum(Sale.amount))
+            .orderBy(Sale.sold_at.asc())
+            .rowsBetween(WindowFrame.unboundedPreceding(), WindowFrame.currentRow())
+            .as(<span class="h-s">"total"</span>))
+    .from(Sale.instance());
+</code></pre>
+<p>What you pass to <code>Dsl.over(...)</code> is an aggregate (<code>sum</code> / <code>count</code> / <code>avg</code> and so
+on). Put an alias or a calculation inside it and you get an exception (attach
+those after the <code>OVER</code>).</p>
+<h2 id="product-differences-to-watch">Product differences to watch<a class="anchor" href="#product-differences-to-watch">#</a></h2>
+<p><strong>Where the name is the same but the meaning is not</strong>, the DSL lines them up.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>How it is lined up</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>length</code></td>
+<td><strong>Characters</strong> (MySQL's <code>LENGTH</code> counts bytes). For bytes, use <code>byteLength</code></td>
+</tr>
+<tr>
+<td><code>dayOfWeek</code></td>
+<td><strong>Sunday is 1</strong> (PostgreSQL's <code>DOW</code> is 0, so we add 1)</td>
+</tr>
+<tr>
+<td><code>weekOfYear</code></td>
+<td><strong>ISO week</strong> (MySQL's <code>WEEK</code> does not default to ISO, so we use <code>WEEKOFYEAR</code>)</td>
+</tr>
+<tr>
+<td><code>second</code></td>
+<td>Fractional seconds are <strong>truncated</strong> (raw PostgreSQL rounds, and can hand you 60)</td>
+</tr>
+<tr>
+<td><code>unixTimestamp</code></td>
+<td>Read in <strong>the connection's time zone</strong> (a raw PostgreSQL <code>timestamp</code> is treated as UTC)</td>
+</tr>
+<tr>
+<td><code>stddev</code> / <code>variance</code></td>
+<td><strong>Sample</strong> (<code>STDDEV_SAMP</code> / <code>VAR_SAMP</code>)</td>
+</tr>
+<tr>
+<td><code>concat</code></td>
+<td>NULL if any argument is NULL (on PostgreSQL it becomes <code>||</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Some things we <strong>do not</strong> line up.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>The difference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>greatest</code> / <code>least</code></td>
+<td><strong>MySQL returns NULL if any argument is NULL; PostgreSQL ignores NULLs.</strong> If NULL is possible, fill it with <code>ifnull</code> before passing it in</td>
+</tr>
+<tr>
+<td><code>regexp</code></td>
+<td>The regex dialects differ (MySQL 8 is ICU, PostgreSQL is POSIX). <code>^</code> <code>$</code> <code>[]</code> <code>+</code> are the same, but <strong><code>\d</code> only works on one of them.</strong> Write <code>[0-9]</code></td>
+</tr>
+<tr>
+<td>Division by zero, negative lengths</td>
+<td>MySQL returns NULL, <strong>PostgreSQL blows up</strong> (<code>mod(x, 0)</code>, <code>left(x, -1)</code>, and so on)</td>
+</tr>
+<tr>
+<td>Passing a number to a string function</td>
+<td>MySQL converts implicitly, <strong>PostgreSQL blows up with &quot;no such function&quot;.</strong> Put a <code>cast</code> in between</td>
+</tr>
+<tr>
+<td><code>groupConcat</code></td>
+<td>MySQL <strong>silently truncates</strong> past <code>group_concat_max_len</code> (1024 bytes by default)</td>
+</tr>
+<tr>
+<td><code>cast</code> on a string that is not a number</td>
+<td>MySQL returns <strong>0</strong>, PostgreSQL blows up</td>
+</tr>
+</tbody>
+</table>
+<p><strong>What the product does not have raises an exception (<code>DialectException</code>) at the
+point where the SQL is built.</strong>
+The list is in <a href="./db">Using the DB</a>.</p>
+<h2 id="when-the-db-product-differs">When the DB product differs<a class="anchor" href="#when-the-db-product-differs">#</a></h2>
+<p><strong>The same code emits SQL that follows <code>db.xxx.product</code>.</strong>
+Identifier quoting (<code>`</code> and <code>&quot;</code>), <code>ON DUPLICATE KEY UPDATE</code> versus
+<code>ON CONFLICT</code>, <code>INSERT IGNORE</code> versus <code>ON CONFLICT DO NOTHING</code>, <code>RAND()</code> versus
+<code>RANDOM()</code> — the builder absorbs all of it.</p>
+<p><strong>What you cannot write for that product raises an exception
+(<code>DialectException</code>) at the point where the SQL is built.</strong>
+Which ones those are is listed in <a href="./db">Using the DB</a>.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// DialectException on PostgreSQL (to_char uses a different format language)</span>
+SQL.select(Dsl.dateFormat(Post.created_at, <span class="h-s">"%Y-%m-%d"</span>)).from(Post.instance());
+</code></pre>
+<h2 id="running-a-batch">Running a batch<a class="anchor" href="#running-a-batch">#</a></h2>
+<pre class="code"><code class="lang-java">db.insertBatch(builderList);
+db.executeBatch(builderList);
+</code></pre>
+<p>The return value is a list of row counts. <code>DB.isBatchSuccess(list)</code> tells you
+whether all of them went through.</p>
+<h2 id="large-results">Large results<a class="anchor" href="#large-results">#</a></h2>
+<p>When you do not want the whole thing in a list, take it one row at a time.</p>
+<pre class="code"><code class="lang-java">db.selectListWithFetcher(row -&gt; {
+	<span class="h-c">// arrives one row at a time</span>
+}, SQL.select().from(Post.instance()));
+</code></pre>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="db">
+				<span>Previous</span>Using the DB
+			</a>
+			<a class="next" href="transaction">
+				<span>Next</span>Transactions
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#selecting">Selecting</a></li>
+			<li class="level-2"><a href="#conditions">Conditions</a></li>
+			<li class="level-2"><a href="#joins">Joins</a></li>
+			<li class="level-2"><a href="#inserting-updating-deleting">Inserting, updating, deleting</a></li>
+			<li class="level-2"><a href="#using-functions">Using functions</a></li>
+			<li class="level-3"><a href="#the-list">The list</a></li>
+			<li class="level-2"><a href="#window-functions">Window functions</a></li>
+			<li class="level-2"><a href="#product-differences-to-watch">Product differences to watch</a></li>
+			<li class="level-2"><a href="#when-the-db-product-differs">When the DB product differs</a></li>
+			<li class="level-2"><a href="#running-a-batch">Running a batch</a></li>
+			<li class="level-2"><a href="#large-results">Large results</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

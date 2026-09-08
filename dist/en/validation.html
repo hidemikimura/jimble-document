@@ -1,0 +1,583 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation and paging - jimble</title>
+<meta name="description" content="ValidationRule / ValidationExecutor, and how page and per are read">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="current">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="validation-and-paging">Validation and paging<a class="anchor" href="#validation-and-paging">#</a></h1>
+<h2 id="validation-comes-in-three-levels">Validation comes in three levels<a class="anchor" href="#validation-comes-in-three-levels">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Class</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One field</td>
+<td><code>ValidationRule</code></td>
+<td>Stack up &quot;not empty&quot;, &quot;an integer from 1 to 120&quot;</td>
+</tr>
+<tr>
+<td>One request</td>
+<td><code>ValidationRules</code></td>
+<td>Bind rules to columns and run them in one pass</td>
+</tr>
+<tr>
+<td>One route</td>
+<td><code>ValidationExecutor</code></td>
+<td>On failure, <strong>stop everything downstream and return 422</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Use only the lower levels, or only the top one. Either works.</p>
+<h2 id="building-a-rule">Building a rule<a class="anchor" href="#building-a-rule">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRule rule = <span class="h-k">new</span> ValidationRule()
+	.empty()
+	.textLengthMax(<span class="h-n">100</span>);
+</code></pre>
+<p>They run in the order you stacked them and <strong>stop at the first failure</strong> (one error per field).</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Methods</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Required</td>
+<td><code>empty()</code> / <code>required()</code> (the same thing)</td>
+</tr>
+<tr>
+<td>Character count</td>
+<td><code>textLength(min, max)</code> / <code>textLengthMin(min)</code> / <code>textLengthMax(max)</code></td>
+</tr>
+<tr>
+<td>Byte length</td>
+<td><code>textByteLength(min, max[, charset])</code> / <code>textByteLengthMin</code> / <code>textByteLengthMax</code> (UTF-8 by default)</td>
+</tr>
+<tr>
+<td>Numbers</td>
+<td><code>integer()</code> / <code>integer(min, max)</code> / <code>integerMin</code> / <code>integerMax</code> / <code>number()</code> / <code>number(min, max)</code> / <code>numberMin</code> / <code>numberMax</code></td>
+</tr>
+<tr>
+<td>Format</td>
+<td><code>bool()</code> / <code>email()</code> / <code>url()</code> / <code>domain()</code> / <code>date()</code> / <code>date(format)</code> / <code>regex(regex)</code> / <code>enumType(Class)</code></td>
+</tr>
+<tr>
+<td>Character classes</td>
+<td><code>characterType(CharacterType[])</code> / <code>characterType(Character[])</code> / both</td>
+</tr>
+<tr>
+<td>Your own</td>
+<td><code>custom(IValidator)</code></td>
+</tr>
+<tr>
+<td>Conditional</td>
+<td><code>insertRequired()</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Everything other than <code>empty()</code> lets empty through.</strong>
+<code>textLengthMax(100)</code> means &quot;at most 100 characters, if there is a value&quot;;
+an empty string or <code>null</code> is not an error. <strong>Always write required as <code>empty()</code>.</strong></p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><code>regex(...)</code> uses <strong><code>find</code> (a partial match)</strong>, not <code>matches</code>.
+When you want it to cover the whole value, write <code>^</code> and <code>$</code> yourself.</p>
+</div>
+<h2 id="binding-rules-to-columns">Binding rules to columns<a class="anchor" href="#binding-rules-to-columns">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty())
+	.put(Item.age, <span class="h-k">new</span> ValidationRule().integer(<span class="h-n">1</span>, <span class="h-n">120</span>));
+
+Data request = <span class="h-k">new</span> Data();
+request.putData(Item.name, <span class="h-s">""</span>);
+request.putData(Item.age, <span class="h-s">"999"</span>);
+
+<span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
+Data errors = rules.validate(<span class="h-k">null</span>, request);
+
+Data messages = ValidationMessages.toMessages(errors);</code></pre>
+<ul>
+<li><strong>Errors across fields are all collected</strong> (being told about them one at a time is the worst possible experience for the person retyping the form)</li>
+<li><strong>Fields that were not sent are not validated</strong> (except through <code>insertRequired()</code>)</li>
+<li>When an array arrives for one column, every element is run through</li>
+<li><code>put(rule)</code> (with no column) lets you write cross-field checks that belong to no single field</li>
+</ul>
+<h3 id="the-raw-shape-of-an-error">The raw shape of an error<a class="anchor" href="#the-raw-shape-of-an-error">#</a></h3>
+<p>What <code>validate</code> returns is <strong>not wording.</strong> It is which kind of check failed, and the settings it failed against.</p>
+<pre class="code"><code class="lang-java">{ <span class="h-s">"validation_type"</span>: Empty, <span class="h-s">"validation_setting"</span>: {}, <span class="h-s">"input"</span>: <span class="h-s">""</span> }
+</code></pre>
+<p><code>ValidationMessages.toMessages(errors)</code> turns that into something a person can read:
+<strong>a map of field name to messages</strong>.</p>
+<pre class="code"><code class="lang-json">{ <span class="h-s">"title"</span>: [<span class="h-s">"入力してください"</span>], <span class="h-s">"age"</span>: [<span class="h-s">"1 以上 120 以下の整数で入力してください"</span>] }
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>Because the result carries a kind instead of wording, <strong>the same validation result can become Japanese, English, or an API code.</strong></p>
+</div>
+<h3 id="swapping-the-wording">Swapping the wording<a class="anchor" href="#swapping-the-wording">#</a></h3>
+<pre class="code"><code class="lang-java">ValidationMessages.put(ValidationErrorType.Empty, (type, settings) -&gt; <span class="h-s">"required"</span>);
+
+ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty());
+
+Data request = <span class="h-k">new</span> Data();
+request.putData(Item.name, <span class="h-s">""</span>);
+
+assertEquals(List.of(<span class="h-s">"required"</span>),
+	ValidationMessages.toMessages(rules.validate(<span class="h-k">null</span>, request)).get(<span class="h-s">"name"</span>));</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><code>ValidationMessages</code> is <strong>static and global</strong>. If you swap it in a test,
+call <code>ValidationMessages.reset()</code> in a <code>finally</code>.
+Forget, and <strong>the tests that run afterwards are the ones that fail.</strong></p>
+</div>
+<h2 id="required-only-on-insert">Required only on insert<a class="anchor" href="#required-only-on-insert">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().insertRequired().empty())
+	.insertRequestChecker(req -&gt; req.getBoolean(<span class="h-s">"is_insert"</span>));
+
+Data update = <span class="h-k">new</span> Data();
+update.put(<span class="h-s">"is_insert"</span>, <span class="h-k">false</span>);
+assertTrue(rules.validate(<span class="h-k">null</span>, update).isEmpty(), <span class="h-s">"更新なのに必須になっている"</span>);
+
+Data insert = <span class="h-k">new</span> Data();
+insert.put(<span class="h-s">"is_insert"</span>, <span class="h-k">true</span>);
+assertFalse(rules.validate(<span class="h-k">null</span>, insert).isEmpty(), <span class="h-s">"登録なのに必須になっていない"</span>);</code></pre>
+<p>You hand the &quot;is this an insert request?&quot; decision to <code>insertRequestChecker</code>.
+The same decision reaches each validator as <code>isInsertRequest</code>.</p>
+<h2 id="validating-multiple-rows">Validating multiple rows<a class="anchor" href="#validating-multiple-rows">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty());
+
+Data ok = <span class="h-k">new</span> Data();
+ok.putData(Item.name, <span class="h-s">"あ"</span>);
+
+Data ng = <span class="h-k">new</span> Data();
+ng.putData(Item.name, <span class="h-s">""</span>);
+
+List&lt;Data&gt; errors = rules.validate(<span class="h-k">null</span>, List.of(ok, ng, ok));
+
+assertEquals(<span class="h-n">1</span>, errors.size());
+assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h-s">"index"</span>), <span class="h-s">"行番号が違う"</span>);</code></pre>
+<p><strong>Only the rows with errors</strong> come back, and each one carries an <code>index</code> (<strong>1-based</strong>).</p>
+<h2 id="applying-it-to-a-route">Applying it to a route<a class="anchor" href="#applying-it-to-a-route">#</a></h2>
+<p>Extend <code>ValidationExecutor</code> and write nothing but <code>validate</code>.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">class</span> Failing <span class="h-k">extends</span> ValidationExecutor {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> <span class="h-k">void</span> validate (WebContext context) {
+
+		log.add(<span class="h-s">"validate"</span>);
+		addError(<span class="h-s">"title"</span>, <span class="h-s">"入力してください"</span>);
+
+	}
+
+}</code></pre>
+<p>On the route, <strong>stack it first.</strong></p>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+	{
+		post(<span class="h-s">"/items"</span>, context -&gt; {
+			context.addExecutor(<span class="h-k">new</span> Failing());
+			context.addExecutor(<span class="h-k">new</span> UseCase());
+		});
+	}
+};</code></pre>
+<p>When it fails, this is what you get.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Status</td>
+<td><strong>422</strong></td>
+</tr>
+<tr>
+<td>Body</td>
+<td><code>{&quot;validation&quot;: {&quot;field&quot;: [&quot;message&quot;]}}</code> <strong>plus the input that was sent</strong></td>
+</tr>
+<tr>
+<td>Executors after it</td>
+<td><strong>Not run</strong> (discarded)</td>
+</tr>
+<tr>
+<td>The <code>error(...)</code> hook</td>
+<td><strong>Not reached</strong> (nothing was thrown — see <a href="./errors">Error handling</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>You can also stack the result of <code>ValidationRules</code> directly.</p>
+<pre class="code"><code class="lang-java">addErrors(rules.validate(db, context.request().bodyAll()));
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><code>ValidationExecutor</code> <strong>does not hold <code>WebContext</code> in a field.</strong>
+It receives it as the argument to <code>validate(WebContext)</code>.
+That avoids the accident where a reused instance <strong>writes into the previous request's context.</strong></p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Rules are not generated from your column definitions.</strong>
+The generated table classes (<code>Post.title</code> and the rest) carry
+the type, nullability and primary key only — <strong>they do not carry the varchar length.</strong>
+There is nothing to derive <code>textLengthMax</code> from, so you write the rules by hand.</p>
+</div>
+<h2 id="paging">Paging<a class="anchor" href="#paging">#</a></h2>
+<h3 id="reading-it-from-the-request">Reading it from the request<a class="anchor" href="#reading-it-from-the-request">#</a></h3>
+<pre class="code"><code class="lang-java">Paging paging = context.request().paging();
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keys it reads</td>
+<td><code>page</code> / <code>per</code></td>
+</tr>
+<tr>
+<td>Defaults</td>
+<td><code>page = 1</code>, <code>per = 10</code></td>
+</tr>
+<tr>
+<td>Everything</td>
+<td><code>per=all</code> (no LIMIT is added)</td>
+</tr>
+<tr>
+<td>Renaming the keys</td>
+<td><code>paging.page</code> / <code>paging.per</code> (configuration)</td>
+</tr>
+<tr>
+<td>A non-numeric value</td>
+<td>Ignored; the default is used</td>
+</tr>
+</tbody>
+</table>
+<p>Write <code>context.request().paging(20)</code> to change the default used when no <code>per</code> arrives.</p>
+<h3 id="applying-it-to-a-select">Applying it to a SELECT<a class="anchor" href="#applying-it-to-a-select">#</a></h3>
+<pre class="code"><code class="lang-java">Paging paging = <span class="h-k">new</span> Paging();
+paging.load(request(<span class="h-s">"2"</span>, <span class="h-s">"10"</span>), <span class="h-n">0</span>);
+
+SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
+
+assertEquals(<span class="h-n">10</span>, response.list.size(), <span class="h-s">"1ページ分だけ取れていない"</span>);
+assertEquals(TOTAL, response.rowCount, <span class="h-s">"総件数が LIMIT に影響されている"</span>);
+
+assertEquals(TOTAL, paging.totalCount());
+assertEquals(<span class="h-n">3</span>, paging.maxPage(), <span class="h-s">"25 件を 10 件ずつなら 3 ページ"</span>);
+assertEquals(<span class="h-n">11</span>, paging.start());</code></pre>
+<p><code>selectListWithRowCount</code> <strong>also issues a COUNT for the total.</strong>
+The COUNT statement copies only FROM / WHERE / GROUP BY / HAVING,
+so the SELECT list, ORDER BY and LIMIT have no effect on it.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>selectListWithRowCount</code> is the only thing that counts the total.</strong>
+With an ordinary <code>selectList(builder)</code>, <code>paging.totalCount()</code> stays 0
+and <strong>your pager reads &quot;page 1 of 1&quot;.</strong></p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p>The raw-SQL version (<code>selectListWithRowCount(sql, params...)</code>) does not touch <code>Paging</code>.
+Call <code>paging.set(response.list.size(), response.rowCount)</code> yourself.</p>
+</div>
+<h3 id="what-you-can-read">What you can read<a class="anchor" href="#what-you-can-read">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page()</code></td>
+<td>The current page</td>
+</tr>
+<tr>
+<td><code>per()</code></td>
+<td>Rows per page</td>
+</tr>
+<tr>
+<td><code>perAll()</code></td>
+<td>Whether &quot;everything&quot; was requested</td>
+</tr>
+<tr>
+<td><code>totalCount()</code></td>
+<td>The total number of rows</td>
+</tr>
+<tr>
+<td><code>maxPage()</code></td>
+<td>The total number of pages (<strong>at least 1</strong>)</td>
+</tr>
+<tr>
+<td><code>start()</code></td>
+<td>The index of this page's first row (<strong>1-based</strong>)</td>
+</tr>
+<tr>
+<td><code>count()</code></td>
+<td>How many rows this page actually returned</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>There are no &quot;has next&quot; / &quot;has previous&quot; methods.</strong>
+Decide with <code>page() &gt; 1</code> and <code>page() &lt; maxPage()</code>.</p>
+</div>
+<h3 id="it-rides-on-the-response">It rides on the response<a class="anchor" href="#it-rides-on-the-response">#</a></h3>
+<p><strong>The moment you call</strong> <code>context.request().paging()</code>, it is on the response. You do not repack it yourself.</p>
+<pre class="code"><code class="lang-json">{
+  <span class="h-s">"rows"</span>: [ ... ],
+  <span class="h-s">"paging"</span>: { <span class="h-s">"page"</span>: <span class="h-n">2</span>, <span class="h-s">"per"</span>: <span class="h-n">10</span>, <span class="h-s">"perAll"</span>: <span class="h-k">false</span>,
+              <span class="h-s">"maxPage"</span>: <span class="h-n">3</span>, <span class="h-s">"totalCount"</span>: <span class="h-n">25</span>, <span class="h-s">"start"</span>: <span class="h-n">11</span>, <span class="h-s">"count"</span>: <span class="h-n">10</span> }
+}
+</code></pre>
+<p>Templates see the same thing (<code>${paging.page()}</code>).</p>
+<h3 id="what-to-watch-for">What to watch for<a class="anchor" href="#what-to-watch-for">#</a></h3>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>There is no upper bound on <code>per</code>.</strong> Send <code>?per=100000</code> and
+<code>LIMIT 100000</code> goes out exactly as written. On a listing you expose publicly,
+cap it yourself around the <code>paging(...)</code> call.</p>
+</div>
+<p>An out-of-range page (<code>?page=999</code>) is not an error; <strong>it returns zero rows.</strong></p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="upload">
+				<span>Previous</span>File upload
+			</a>
+			<a class="next" href="errors">
+				<span>Next</span>Error handling
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#validation-comes-in-three-levels">Validation comes in three levels</a></li>
+			<li class="level-2"><a href="#building-a-rule">Building a rule</a></li>
+			<li class="level-2"><a href="#binding-rules-to-columns">Binding rules to columns</a></li>
+			<li class="level-3"><a href="#the-raw-shape-of-an-error">The raw shape of an error</a></li>
+			<li class="level-3"><a href="#swapping-the-wording">Swapping the wording</a></li>
+			<li class="level-2"><a href="#required-only-on-insert">Required only on insert</a></li>
+			<li class="level-2"><a href="#validating-multiple-rows">Validating multiple rows</a></li>
+			<li class="level-2"><a href="#applying-it-to-a-route">Applying it to a route</a></li>
+			<li class="level-2"><a href="#paging">Paging</a></li>
+			<li class="level-3"><a href="#reading-it-from-the-request">Reading it from the request</a></li>
+			<li class="level-3"><a href="#applying-it-to-a-select">Applying it to a SELECT</a></li>
+			<li class="level-3"><a href="#what-you-can-read">What you can read</a></li>
+			<li class="level-3"><a href="#it-rides-on-the-response">It rides on the response</a></li>
+			<li class="level-3"><a href="#what-to-watch-for">What to watch for</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

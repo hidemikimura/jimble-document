@@ -1,0 +1,398 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration - jimble</title>
+<meta name="description" content="application.conf. Per-environment overrides, and how to pass secrets">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="current">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="configuration">Configuration<a class="anchor" href="#configuration">#</a></h1>
+<p>You write it in <code>conf/application.conf</code>. The format is HOCON.</p>
+<h2 id="where-it-lives">Where it lives<a class="anchor" href="#where-it-lives">#</a></h2>
+<p><strong>Configuration goes in <code>conf/</code>.</strong></p>
+<pre class="code"><code class="lang-text">conf/application.conf          configuration
+conf/application.local.conf    per environment
+conf/migration/&lt;schema name&gt;/  migrations
+</code></pre>
+<p>Add <code>conf</code> to your resources in <code>build.gradle.kts</code>.</p>
+<pre class="code"><code class="lang-kotlin">sourceSets {
+	main {
+		resources {
+			srcDir(<span class="h-s">"conf"</span>)
+		}
+	}
+}
+</code></pre>
+<p>Now <strong>everything under <code>conf/</code> goes into the jar as it is.</strong>
+<code>codegen</code>, <code>migrate</code>, <code>jimbleRun</code> and your tests all see the same files, from the
+classpath.</p>
+<p><strong>jimble reads the classpath and nothing else.</strong> It does not look outside the jar.
+Change the configuration and you rebuild. <strong>The running jar and its configuration
+are one to one.</strong></p>
+<p><strong>It reads exactly one file.</strong></p>
+<ol>
+<li><code>application.&lt;env&gt;.conf</code> if it exists — <strong>that one</strong></li>
+<li>Otherwise <code>application.conf</code></li>
+</ol>
+<p><strong>The startup log says which file it read.</strong></p>
+<pre class="code"><code class="lang-text">設定: jar:file:/opt/app/app.jar!/application.prod.conf
+</code></pre>
+<h2 id="switching-by-environment">Switching by environment<a class="anchor" href="#switching-by-environment">#</a></h2>
+<p>What pulls in the shared file is <strong>the <code>include</code> in the per-environment file.</strong></p>
+<pre class="code"><code class="lang-conf"><span class="h-c"># application.prod.conf</span>
+include <span class="h-s">"application.conf"</span>
+
+db {
+	main {
+		url = ${?DB_URL}
+	}
+}
+</code></pre>
+<pre class="code"><code class="lang-text">application.conf          shared
+application.prod.conf     production. line 1 reads the shared file, the rest overrides it
+</code></pre>
+<p>The environment comes from <code>-Djimble.env=prod</code>. The default is <code>local</code>.</p>
+<p><strong>jimble does not add the shared file behind your back.</strong> If it did, <strong>you could
+not tell from the file</strong> whether the <code>include</code> is doing the work or the framework
+is. One file is read, and what follows is what is written there.</p>
+<h3 id="if-you-forget-the-include">If you forget the include<a class="anchor" href="#if-you-forget-the-include">#</a></h3>
+<p>The entire shared configuration drops out. When it does, startup names what is
+missing.</p>
+<pre class="code"><code class="lang-text">設定: application.conf にしかないキーが読まれていません: cipher, session, server
+ / application.prod.conf の先頭に include "application.conf" を書いてください
+</code></pre>
+<blockquote>
+<p>In English: keys that exist only in application.conf are not being read — cipher,
+session, server. Put <code>include &quot;application.conf&quot;</code> at the top of application.prod.conf.</p>
+</blockquote>
+<h2 id="do-not-write-secrets-in-the-file">Do not write secrets in the file<a class="anchor" href="#do-not-write-secrets-in-the-file">#</a></h2>
+<pre class="code"><code class="lang-conf">db {
+	main_db {
+		url      = <span class="h-s">"jdbc:mariadb://127.0.0.1:3306/app"</span>
+		url      = ${?DB_URL}
+		password = <span class="h-s">""</span>
+		password = ${?DB_PASSWORD}
+	}
+}
+</code></pre>
+<p><code>${?ENV_NAME}</code> means &quot;override if the environment variable is there, otherwise
+leave the line above alone&quot;. Writing the same key twice is the correct way to do
+this.</p>
+<h2 id="comments-are--or-">Comments are # or //<a class="anchor" href="#comments-are--or-">#</a></h2>
+<p><strong>HOCON has no <code>/* */</code>.</strong> Write one and you get this.</p>
+<pre class="code"><code class="lang-text">Key '/' may not be followed by token: '*'
+</code></pre>
+<h2 id="the-main-keys">The main keys<a class="anchor" href="#the-main-keys">#</a></h2>
+<pre class="code"><code class="lang-conf">server {
+	host        = <span class="h-s">""</span>         <span class="h-c"># the address to listen on. empty means all of them</span>
+	port        = <span class="h-n">9000</span>
+	trust_proxy = <span class="h-k">false</span>      <span class="h-c"># false until it sits behind a load balancer</span>
+	max_request_size     = <span class="h-n">10485760</span>
+	max_header_size      = <span class="h-n">16384</span>
+	idle_timeout_seconds = <span class="h-n">60</span>
+	compression          = <span class="h-k">true</span>
+	bot_access_log       = <span class="h-k">true</span>
+
+	shutdown_grace_seconds   = <span class="h-n">0</span>    <span class="h-c"># from starting the stop until new requests are refused</span>
+	shutdown_timeout_seconds = <span class="h-n">15</span>   <span class="h-c"># how long to wait for work in flight</span>
+}
+
+cookie {
+	secure = <span class="h-k">true</span>            <span class="h-c"># false locally (see below)</span>
+	secret = ${?COOKIE_SECRET}
+}
+
+session {
+	store       = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	cookie_name = <span class="h-s">"sid"</span>
+}
+
+upload {
+	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># per file (10MB)</span>
+	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># per request in total (50MB)</span>
+	max_files      = <span class="h-n">20</span>
+	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># empty means java.io.tmpdir</span>
+}
+
+rate_limit {
+	store   = <span class="h-s">"memory"</span>       <span class="h-c"># memory | redis | db</span>
+	enabled = <span class="h-k">true</span>
+}
+
+cache {
+	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
+	temp_dir      = <span class="h-s">""</span>
+	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory only. seconds</span>
+}
+
+redis {
+	host = <span class="h-s">""</span>                <span class="h-c"># empty means no Redis</span>
+	port = <span class="h-n">6379</span>
+	ssl  = <span class="h-k">false</span>
+}
+
+sse {
+	max_duration_seconds = <span class="h-n">300</span>
+	max_events           = <span class="h-n">0</span>
+	retry_millis         = <span class="h-n">3000</span>
+}
+
+mcp {
+	path            = <span class="h-s">"/mcp"</span>
+	allowed_origins = []
+}
+
+migration {
+	on_startup   = <span class="h-k">false</span>
+	resource_dir = <span class="h-s">"migration"</span>
+}
+
+codegen {
+	<span class="h-k">package</span> = <span class="h-s">"db"</span>
+}
+</code></pre>
+<h2 id="trust_proxy-is-false-by-default">trust_proxy is false by default<a class="anchor" href="#trust_proxy-is-false-by-default">#</a></h2>
+<p>Set it to <code>true</code> and <code>X-Forwarded-For</code> is trusted.
+<strong>Leave it <code>false</code> until the application sits behind a load balancer.</strong>
+Turn it on while the application can still be reached directly and anyone can
+forge their source IP.</p>
+<h2 id="cookiesecure-is-true-by-default">cookie.secure is true by default<a class="anchor" href="#cookiesecure-is-true-by-default">#</a></h2>
+<p>The default is the safe side, but local development is http, so the browser never
+sends the cookie back. Session, CSRF and flash all stop working, and nothing
+raises an error.</p>
+<p>When <code>env=local</code> and <code>secure = true</code>, startup logs a WARN.
+Put <code>cookie { secure = false }</code> in your local <code>application.conf</code>, and
+<strong>take it out when you ship to production</strong>.</p>
+<h2 id="check-it-in-the-startup-log">Check it in the startup log<a class="anchor" href="#check-it-in-the-startup-log">#</a></h2>
+<pre class="code"><code class="lang-text">jimble 構成: env=local / session=none / cache=db / redis=なし / db=[blog_example]
+</code></pre>
+<p>The configuration that was loaded appears on the first line at startup.
+&quot;I thought I configured that&quot; gets caught right here.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="testing">
+				<span>Previous</span>Testing
+			</a>
+			<a class="next" href="server">
+				<span>Next</span>Server configuration
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#where-it-lives">Where it lives</a></li>
+			<li class="level-2"><a href="#switching-by-environment">Switching by environment</a></li>
+			<li class="level-3"><a href="#if-you-forget-the-include">If you forget the include</a></li>
+			<li class="level-2"><a href="#do-not-write-secrets-in-the-file">Do not write secrets in the file</a></li>
+			<li class="level-2"><a href="#comments-are--or-">Comments are # or //</a></li>
+			<li class="level-2"><a href="#the-main-keys">The main keys</a></li>
+			<li class="level-2"><a href="#trust_proxy-is-false-by-default">trust_proxy is false by default</a></li>
+			<li class="level-2"><a href="#cookiesecure-is-true-by-default">cookie.secure is true by default</a></li>
+			<li class="level-2"><a href="#check-it-in-the-startup-log">Check it in the startup log</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,367 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The jimble command - jimble</title>
+<meta name="description" content="Installing it, and new / migrate / codegen">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="current">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="the-jimble-command">The jimble command<a class="anchor" href="#the-jimble-command">#</a></h1>
+<pre class="code"><code class="lang-text">使い方: jimble &lt;コマンド&gt;
+
+  new &lt;name&gt;              プロジェクトの雛形を作る
+  migrate                 未適用のマイグレーションを適用する
+  codegen &lt;source root&gt;   テーブル定義のコードを生成する（例: src/main/java）
+  version                 版を表示する
+</code></pre>
+<p>The help text prints in Japanese. What each command does:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>new &lt;name&gt;</code></td>
+<td>Write a project skeleton</td>
+</tr>
+<tr>
+<td><code>migrate</code></td>
+<td>Apply the migrations that have not been applied yet</td>
+</tr>
+<tr>
+<td><code>codegen &lt;source root&gt;</code></td>
+<td>Generate the table definition code (<code>src/main/java</code>, say)</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>Print the version</td>
+</tr>
+</tbody>
+</table>
+<h2 id="installing-it">Installing it<a class="anchor" href="#installing-it">#</a></h2>
+<p><strong>Build it from the jimble repository and put it on your PATH.</strong></p>
+<pre class="code"><code class="lang-bash"><span class="h-k">cd</span> jimble
+<span class="h-k">./gradlew</span> :jimble-cli:installDist
+<span class="h-k">export</span> PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
+</code></pre>
+<pre class="code"><code class="lang-bash">$ jimble version
+<span class="h-k">jimble</span> 0.2.1-SNAPSHOT
+</code></pre>
+<p>If you would rather not type that every time, add the <code>export</code> above to your
+<code>~/.zshrc</code>, or make a link.</p>
+<pre class="code"><code class="lang-bash">ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>java</code> has to resolve to Java 25.</strong>
+The launch script uses <code>JAVA_HOME</code>, or <code>java</code> from your PATH, so an older Java
+gives you <code>UnsupportedClassVersionError</code>.
+Building the project it generates also needs <strong>Gradle 9 or later</strong>.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Change jimble and you have to run <code>installDist</code> again.</strong>
+What runs is the copy under <code>build/install/</code>, so
+<strong>editing the source alone changes nothing.</strong></p>
+</div>
+<h3 id="using-a-jimble-you-built-yourself">Using a jimble you built yourself<a class="anchor" href="#using-a-jimble-you-built-yourself">#</a></h3>
+<p>The <code>build.gradle.kts</code> that <code>jimble new</code> writes points at <strong>the version the CLI
+was built from</strong>. If that version is not published (<code>0.2.1-SNAPSHOT</code>, say),
+<strong>publish it locally first</strong>.</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> publishToMavenLocal
+<span class="h-k">./gradlew</span> -p gradle-plugin publishToMavenLocal
+</code></pre>
+<p>The skeleton's <code>settings.gradle.kts</code> already looks at <code>mavenLocal()</code> first.
+If you only ever use published versions, you do not need any of this.</p>
+<h2 id="jimble-new">jimble new<a class="anchor" href="#jimble-new">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> new my-blog
+</code></pre>
+<p>What you get:</p>
+<pre class="code"><code class="lang-text">my-blog/
+	settings.gradle.kts
+	build.gradle.kts
+	gradle.properties
+	.gitignore
+	README.md
+	src/main/java/myblog/App.java
+	src/main/jte/myblog/index.jte
+	conf/application.conf
+	conf/logback.xml
+	conf/migration/my_blog/001_create_note.sql.example
+</code></pre>
+<p><strong>It does not create empty directories.</strong> Create them when you need them.
+Anything ending in <code>.example</code> becomes live once you rename it.</p>
+<p>Rules for the name:</p>
+<ul>
+<li>Lowercase letters, digits, <code>-</code> and <code>_</code></li>
+<li>It starts with a letter</li>
+<li><strong>The package name is the name with only letters and digits kept</strong> (<code>my-blog</code> → <code>myblog</code>)</li>
+<li><strong>The DB name is the name with everything else turned into <code>_</code></strong> (<code>my-blog</code> → <code>my_blog</code>)</li>
+<li>Java reserved words, and names of directories that already exist, are refused</li>
+</ul>
+<p>The error message tells you why.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>What comes out needs neither a DB nor Redis.</strong> Build it and start it without
+touching anything.
+When you do want them, you uncomment the lines already sitting in
+<code>build.gradle.kts</code> and <code>application.conf</code>.</p>
+</div>
+<h2 id="what-to-do-next">What to do next<a class="anchor" href="#what-to-do-next">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">cd</span> my-blog
+<span class="h-k">gradle</span> wrapper          # set up the Gradle wrapper (once)
+<span class="h-k">./gradlew</span> run           # start it
+<span class="h-k">./gradlew</span> jimbleRun     # start it with hot reload
+</code></pre>
+<pre class="code"><code class="lang-text">$ curl http://localhost:9000/hello
+{"message":"hello, jimble"}
+</code></pre>
+<h2 id="migrate--codegen">migrate / codegen<a class="anchor" href="#migrate--codegen">#</a></h2>
+<p><strong>Inside a project, you call these through Gradle.</strong></p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate
+<span class="h-k">./gradlew</span> codegen
+</code></pre>
+<p>Add the <code>io.jimble.db</code> plugin and <code>migrate → codegen</code> is wired in front of
+<code>compileJava</code> for you.</p>
+<p>What they do is in <a href="./codegen">Migrations and code generation</a>; the tasks and
+their settings are in <a href="./gradle">the Gradle plugins</a>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Running <code>jimble migrate</code> / <code>jimble codegen</code> bare does not work.</strong>
+Both of them <strong>look up the configuration (<code>application.conf</code>) and the migration
+SQL on the classpath</strong>, so your application's resources have to be visible.
+Where Gradle is not available — CI, production — add the jar to the classpath
+and call it there.</p>
+<pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+</code></pre>
+</div>
+<h2 id="checking-the-version">Checking the version<a class="anchor" href="#checking-the-version">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> version
+</code></pre>
+<p>It reads <code>Implementation-Version</code> out of the jar.
+<strong>The jimble version the skeleton points at is this same one</strong> — nothing is
+written by hand.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="mcp">
+				<span>Previous</span>MCP
+			</a>
+			<a class="next" href="gradle">
+				<span>Next</span>Gradle plugins
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#installing-it">Installing it</a></li>
+			<li class="level-3"><a href="#using-a-jimble-you-built-yourself">Using a jimble you built yourself</a></li>
+			<li class="level-2"><a href="#jimble-new">jimble new</a></li>
+			<li class="level-2"><a href="#what-to-do-next">What to do next</a></li>
+			<li class="level-2"><a href="#migrate--codegen">migrate / codegen</a></li>
+			<li class="level-2"><a href="#checking-the-version">Checking the version</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

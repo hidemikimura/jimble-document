@@ -1,0 +1,342 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Running in production - jimble</title>
+<meta name="description" content="How to build the jar, and the command that starts it">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="current">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="running-in-production">Running in production<a class="anchor" href="#running-in-production">#</a></h1>
+<h2 id="build-the-jar">Build the jar<a class="anchor" href="#build-the-jar">#</a></h2>
+<p>A fat jar (everything, dependencies included) is the easiest way.</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
+	application
+	id(<span class="h-s">"com.gradleup.shadow"</span>) version <span class="h-s">"&lt;version&gt;"</span>
+}
+
+application {
+	mainClass = <span class="h-s">"my_blog.App"</span>
+}
+
+<span class="h-k">tasks</span>.shadowJar {
+	archiveFileName = <span class="h-s">"app.jar"</span>
+	mergeServiceFiles()   <span class="h-c">// so the META-INF/services entries (JDBC drivers and the like) survive</span>
+}
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> shadowJar     # build/libs/app.jar
+</code></pre>
+<h2 id="start-the-web-app">Start the web app<a class="anchor" href="#start-the-web-app">#</a></h2>
+<pre class="code"><code class="lang-bash">java \
+  -Djimble.env=prod \
+  -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+  -jar app.jar
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>What you pass</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-Djimble.env=prod</code></td>
+<td>Reads <code>application.prod.conf</code> and makes <code>isProduction()</code> true</td>
+</tr>
+<tr>
+<td><code>-Dstdout.encoding</code> / <code>-Dstderr.encoding</code></td>
+<td>Leave them off and <strong>Japanese log output is garbled</strong> in a container with no <code>LANG</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>-Djimble.env</code> is a JVM argument.</strong> As a program argument (<code>java -jar app.jar env=prod</code>)
+it does nothing.</p>
+<h2 id="where-the-configuration-is-read-from">Where the configuration is read from<a class="anchor" href="#where-the-configuration-is-read-from">#</a></h2>
+<p><strong>From inside the jar, and nowhere else.</strong> (<code>conf/</code> is added to the resources, so it is in the jar.
+See <a href="./config">Configuration</a>)</p>
+<pre class="code"><code class="lang-text">1. application.&lt;env&gt;.conf     ← if it exists, this one only
+2. application.conf           ← if it does not
+</code></pre>
+<p><strong>Exactly one file is read.</strong> What pulls the shared settings in is the
+<code>include &quot;application.conf&quot;</code> on the first line of the per-environment file.
+Forget to write it and the shared settings are gone, so <strong>jimble names it at startup.</strong></p>
+<p><strong>Configuration outside the jar is not read.</strong> Change the configuration and you rebuild.
+In exchange, the running jar and its configuration are one to one,
+and &quot;I fixed it but nothing changed&quot; does not happen.
+Values that differ per environment (the DB password, say) are passed as environment
+variables, as in the next section.</p>
+<p><strong>Which one it read is printed in the startup log</strong> (<a href="./config">Configuration</a>).</p>
+<h2 id="secrets-go-in-environment-variables">Secrets go in environment variables<a class="anchor" href="#secrets-go-in-environment-variables">#</a></h2>
+<p>Write only <code>${?ENV_NAME}</code> in the configuration file, and pass the value in the environment.</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">export</span> DB_PASSWORD='...'
+<span class="h-k">export</span> COOKIE_SECRET='...'
+<span class="h-k">export</span> CIPHER_KEY='...'
+java -Djimble.env=prod -jar app.jar
+</code></pre>
+<h2 id="run-a-batch-job">Run a batch job<a class="anchor" href="#run-a-batch-job">#</a></h2>
+<p>Call the fat jar with the entry class named.</p>
+<pre class="code"><code class="lang-bash">java \
+  -Djimble.env=prod \
+  -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+  -cp app.jar my_blog.batch.Batch \
+  class=my_blog.batch.PostCleanupBatch
+</code></pre>
+<p><code>class=</code> is the batch's class name. Any other <code>key=value</code> becomes an argument to the batch.</p>
+<p><strong>Passing <code>env=prod</code> as an argument does not change the environment.</strong>
+The configuration has already been read before control reaches the batch entry point.
+If the two disagree, it stops right there and says so.</p>
+<pre class="code"><code class="lang-text">env=prod と指定されていますが、いま動いているのは env=local です。
+  env= では環境は変わりません（設定はここに来る前に読み終わっています）。
+  JVM の引数で渡してください。
+    java -Djimble.env=prod -cp app.jar &lt;entry class&gt; ...
+</code></pre>
+<blockquote>
+<p>In English: &quot;You passed env=prod, but the running environment is env=local.
+env= does not change the environment — configuration is read before this point.
+Pass it as a JVM argument instead.&quot;</p>
+</blockquote>
+<h2 id="run-the-scheduler">Run the scheduler<a class="anchor" href="#run-the-scheduler">#</a></h2>
+<p>To drive batch jobs on cron, keep the scheduler resident.</p>
+<pre class="code"><code class="lang-bash">java -Djimble.env=prod -cp app.jar my_blog.batch.Batch \
+  class=my_blog.batch.SchedulerBatch
+</code></pre>
+<p>It runs until you stop it. Leave that to <code>systemd</code> or the like.
+<strong>You can also run it in the same process as the web app</strong>, but if you are going to
+put several machines side by side, settle how <code>batch.scheduler_id</code> is handled first.</p>
+<h2 id="shutting-down">Shutting down<a class="anchor" href="#shutting-down">#</a></h2>
+<p><code>SIGTERM</code> runs the shutdown path (server, scheduler, DB pool).
+Avoid <code>kill -9</code> — it leaves transactions half finished.</p>
+<h2 id="check-this-once-it-is-up">Check this once it is up<a class="anchor" href="#check-this-once-it-is-up">#</a></h2>
+<p>The configuration is printed around the first line of the startup log.
+Look at it and check <strong>that it is what you expected.</strong></p>
+<pre class="code"><code class="lang-text">jimble 構成: env=prod / session=db / cache=db / redis=あり / db=[main] / パスワード暗号化=あり
+設定: /opt/app/conf/application.prod.conf, /opt/app/conf/application.conf（クラスパスより優先）
+</code></pre>
+<p>If it says <code>env=local</code>, then <code>-Djimble.env</code> did not reach it.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="log">
+				<span>Previous</span>Logging
+			</a>
+			<a class="next" href="pitfalls">
+				<span>Next</span>Traps
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#build-the-jar">Build the jar</a></li>
+			<li class="level-2"><a href="#start-the-web-app">Start the web app</a></li>
+			<li class="level-2"><a href="#where-the-configuration-is-read-from">Where the configuration is read from</a></li>
+			<li class="level-2"><a href="#secrets-go-in-environment-variables">Secrets go in environment variables</a></li>
+			<li class="level-2"><a href="#run-a-batch-job">Run a batch job</a></li>
+			<li class="level-2"><a href="#run-the-scheduler">Run the scheduler</a></li>
+			<li class="level-2"><a href="#shutting-down">Shutting down</a></li>
+			<li class="level-2"><a href="#check-this-once-it-is-up">Check this once it is up</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

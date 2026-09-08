@@ -1,0 +1,357 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What jimble is - jimble</title>
+<meta name="description" content="A web framework on Java 25 and Helidon, with no annotations, no DI, and no reflection">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="current">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="what-jimble-is">What jimble is<a class="anchor" href="#what-jimble-is">#</a></h1>
+<p>jimble is a web framework for Java. It sits on Helidon's Níma (virtual threads) and
+gives you routing, DB, templates, batch, MQ, SSE, WebSocket, and MCP as one piece.</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/hello"</span>, context -&gt; context.response().send(<span class="h-s">"hello, jimble\n"</span>));</code></pre>
+<h2 id="what-makes-it-different">What makes it different<a class="anchor" href="#what-makes-it-different">#</a></h2>
+<p>Most frameworks aim to reduce how much you write.
+jimble aims to let <strong>the person reading the code follow it top to bottom</strong>.</p>
+<ul>
+<li><strong>No annotations.</strong> There is no <code>@Controller</code>, no <code>@Inject</code>, no <code>@Transactional</code>.
+A route exists only where <code>get(&quot;/hello&quot;, ...)</code> is written.</li>
+<li><strong>No DI container.</strong> You <code>new</code> your objects. Who creates whom is right there in the code.</li>
+<li><strong>No classpath scanning at startup.</strong> Startup is fast, and nothing fights with native images.
+In exchange, you <code>install()</code> what you use yourself.</li>
+</ul>
+<p>Hold to these three and the &quot;why does this even work?&quot; hours disappear.
+The price is a few extra lines. jimble thinks that is the cheaper side of the trade.</p>
+<p>Read <a href="./principles">Principles</a> for the details.</p>
+<h2 id="what-it-can-do-today">What it can do today<a class="anchor" href="#what-it-can-do-today">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>What you can do</th>
+<th>Where to look</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTP routing, path parameters, filters</td>
+<td><a href="./routing">Routing</a></td>
+</tr>
+<tr>
+<td>Reading and validating requests, building responses</td>
+<td><a href="./request-response">Request and response</a></td>
+</tr>
+<tr>
+<td>File upload and download</td>
+<td><a href="./upload">File upload</a></td>
+</tr>
+<tr>
+<td>Input validation, paging</td>
+<td><a href="./validation">Validation and paging</a></td>
+</tr>
+<tr>
+<td>Handling exceptions, unmatched routes, validation failures</td>
+<td><a href="./errors">Error handling</a></td>
+</tr>
+<tr>
+<td>jte templates (precompiled)</td>
+<td><a href="./view">Templates</a></td>
+</tr>
+<tr>
+<td>Serving static files, SPAs, MPAs</td>
+<td><a href="./assets">Static files and SPAs</a></td>
+</tr>
+<tr>
+<td>Session, CSRF, flash, signed cookies</td>
+<td><a href="./session-security">Session and safe defaults</a></td>
+</tr>
+<tr>
+<td>Rate limiting (per route, per IP)</td>
+<td><a href="./ratelimit">Rate limiting</a></td>
+</tr>
+<tr>
+<td>Virtual threads, what runs where, how to stop it</td>
+<td><a href="./execution">Execution model</a></td>
+</tr>
+<tr>
+<td>SQL DSL, generating table definitions</td>
+<td><a href="./db">Using the DB</a></td>
+</tr>
+<tr>
+<td>The migration and code generation flow</td>
+<td><a href="./codegen">Migrations and code generation</a></td>
+</tr>
+<tr>
+<td>Transactions</td>
+<td><a href="./transaction">Transactions</a></td>
+</tr>
+<tr>
+<td>Cache (DB / memory / Redis) and distributed locks</td>
+<td><a href="./cache">Cache and locks</a></td>
+</tr>
+<tr>
+<td>Batch jobs on cron, and the admin screen</td>
+<td><a href="./batch">Batch</a></td>
+</tr>
+<tr>
+<td>A queue backed by the DB</td>
+<td><a href="./mq">MQ</a></td>
+</tr>
+<tr>
+<td>Server-Sent Events</td>
+<td><a href="./sse">SSE</a></td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td><a href="./websocket">WebSocket</a></td>
+</tr>
+<tr>
+<td>A Model Context Protocol server</td>
+<td><a href="./mcp">MCP</a></td>
+</tr>
+<tr>
+<td>Installing the CLI, generating a skeleton, hot reload</td>
+<td><a href="./cli">The jimble command</a> / <a href="./hot-reload">Hot reload</a></td>
+</tr>
+<tr>
+<td>Gradle tasks and configuration</td>
+<td><a href="./gradle">the Gradle plugins</a></td>
+</tr>
+<tr>
+<td>How to write tests (including how to split off the ones that use the DB)</td>
+<td><a href="./testing">Testing</a></td>
+</tr>
+<tr>
+<td>Data, JSON, HTTP client, CSV, crypto</td>
+<td><a href="./util">Utilities</a></td>
+</tr>
+<tr>
+<td>Ports, limits, proxies, compression</td>
+<td><a href="./server">Server configuration</a></td>
+</tr>
+<tr>
+<td>Access logs, execution IDs, logback configuration</td>
+<td><a href="./log">Logging</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="get-it-running">Get it running<a class="anchor" href="#get-it-running">#</a></h2>
+<p>Go to <a href="./quickstart">Your first endpoint in 5 minutes</a>.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="next" href="quickstart">
+				<span>Next</span>Your first endpoint in 5 minutes
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#what-makes-it-different">What makes it different</a></li>
+			<li class="level-2"><a href="#what-it-can-do-today">What it can do today</a></li>
+			<li class="level-2"><a href="#get-it-running">Get it running</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

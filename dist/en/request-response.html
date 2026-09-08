@@ -1,0 +1,327 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Request and response - jimble</title>
+<meta name="description" content="Reading input, nested parameters, validation, and how to send a response">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="current">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="request-and-response">Request and response<a class="anchor" href="#request-and-response">#</a></h1>
+<h2 id="reading-input">Reading input<a class="anchor" href="#reading-input">#</a></h2>
+<p>You get it from <code>context.request()</code>. It is split by where the value came from.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>What is in it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bodyPath()</code></td>
+<td>Path parameters (<code>/users/{id}</code>)</td>
+</tr>
+<tr>
+<td><code>bodyQuery()</code></td>
+<td>The query string</td>
+</tr>
+<tr>
+<td><code>bodyForm()</code></td>
+<td><code>application/x-www-form-urlencoded</code> / <code>multipart</code></td>
+</tr>
+<tr>
+<td><code>bodyJson()</code></td>
+<td>The JSON body</td>
+</tr>
+<tr>
+<td><code>bodyFile()</code></td>
+<td>Uploaded files (<a href="./upload">File upload</a>)</td>
+</tr>
+<tr>
+<td><code>bodyAll()</code></td>
+<td>All of the above, layered together</td>
+</tr>
+</tbody>
+</table>
+<p><code>bodyAll()</code> layers in this order: <strong>path → query → form → json</strong>.
+Later ones overwrite earlier ones.</p>
+<p>Every one of them returns a <code>Data</code> (a subclass of <code>LinkedHashMap&lt;String,Object&gt;</code>).
+You pull values out with <code>getString</code> <code>getInt</code> <code>getLong</code> <code>getBoolean</code> <code>getData</code> <code>getDataList</code> and friends.
+<code>getStringOptional</code> gives you null when the value is missing; <code>getString</code> gives you an empty string.</p>
+<h2 id="nested-parameters">Nested parameters<a class="anchor" href="#nested-parameters">#</a></h2>
+<p>You can nest with either <code>.</code> or <code>[ ]</code>.</p>
+<pre class="code"><code class="lang-text">user.name=taro
+user[name]=taro          the same
+items[0].price=100
+items[].price=100        appends to the end
+</code></pre>
+<p>A number inside <code>[ ]</code> is an index, empty means append, anything else is a name.
+When form values and a JSON body collide, the form values overwrite the JSON.</p>
+<h2 id="validating">Validating<a class="anchor" href="#validating">#</a></h2>
+<pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
+	.put(Item.name, <span class="h-k">new</span> ValidationRule().empty())
+	.put(Item.age, <span class="h-k">new</span> ValidationRule().integer(<span class="h-n">1</span>, <span class="h-n">120</span>));
+
+Data request = <span class="h-k">new</span> Data();
+request.putData(Item.name, <span class="h-s">""</span>);
+request.putData(Item.age, <span class="h-s">"999"</span>);
+
+<span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
+Data errors = rules.validate(<span class="h-k">null</span>, request);
+
+Data messages = ValidationMessages.toMessages(errors);</code></pre>
+<p><strong>Validation does not stop at the first error.</strong> It collects them all, then returns.
+For the person retyping the form, being told one problem at a time is the worst outcome.</p>
+<p><code>ValidationMessages.toMessages(errors)</code> turns them into a <code>Data</code> of field name → message.
+Return that as JSON or hand it to a template.</p>
+<p>The list of rules, the <code>ValidationExecutor</code> you can apply per route, and paging
+are all in <a href="./validation">Validation and paging</a>.</p>
+<h2 id="sending-a-response">Sending a response<a class="anchor" href="#sending-a-response">#</a></h2>
+<pre class="code"><code class="lang-java">context.response().send(<span class="h-s">"text"</span>);                   <span class="h-c">// text/plain</span>
+context.response().json(<span class="h-s">"posts"</span>, list);            <span class="h-c">// JSON</span>
+context.response().view(<span class="h-s">"blog/posts.jte"</span>);         <span class="h-c">// template</span>
+context.response().redirect(<span class="h-s">"/"</span>);                  <span class="h-c">// 302</span>
+context.response().download(file, <span class="h-s">"report.xlsx"</span>);  <span class="h-c">// download</span>
+context.response().code(<span class="h-n">201</span>).send();               <span class="h-c">// no body</span>
+</code></pre>
+<p><code>json()</code> only builds; <code>send()</code> is what sends.
+Call <code>json()</code> several times and it keeps adding to the same JSON document.</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
+<h2 id="streaming-something-large">Streaming something large<a class="anchor" href="#streaming-something-large">#</a></h2>
+<p>When you do not want the whole thing in memory, use <code>outputStream()</code> directly.</p>
+<pre class="code"><code class="lang-java">context.response().setResponseHeader(<span class="h-s">"Content-Type"</span>, <span class="h-s">"text/csv; charset=UTF-8"</span>);
+
+<span class="h-k">try</span> (OutputStream out = context.response().outputStream()) {
+	<span class="h-c">// write it row by row; it flows out as you write</span>
+}
+</code></pre>
+<p>If all you want is to report progress, <a href="./sse">SSE</a> is easier.</p>
+<h2 id="sending-twice">Sending twice<a class="anchor" href="#sending-twice">#</a></h2>
+<p>Calling <code>send()</code> twice is an error.
+<code>isSent()</code> tells you whether the response has already gone out.
+Inside an <code>after</code> filter or an <code>error</code> handler, check that before you touch anything.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="routing">
+				<span>Previous</span>Routing
+			</a>
+			<a class="next" href="upload">
+				<span>Next</span>File upload
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#reading-input">Reading input</a></li>
+			<li class="level-2"><a href="#nested-parameters">Nested parameters</a></li>
+			<li class="level-2"><a href="#validating">Validating</a></li>
+			<li class="level-2"><a href="#sending-a-response">Sending a response</a></li>
+			<li class="level-2"><a href="#streaming-something-large">Streaming something large</a></li>
+			<li class="level-2"><a href="#sending-twice">Sending twice</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

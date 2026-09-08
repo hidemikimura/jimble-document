@@ -1,0 +1,451 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testing - jimble</title>
+<meta name="description" content="Start a real server and hit it. Keep the DB tests separate">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="current">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="testing">Testing<a class="anchor" href="#testing">#</a></h1>
+<p>jimble has <strong>no test-only module and no test annotations.</strong>
+You write tests with JUnit 5 and <code>java.net.http.HttpClient</code>, and nothing else.</p>
+<p>That is the whole toolbox.</p>
+<table>
+<thead>
+<tr>
+<th>What to do</th>
+<th>What to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Start a server</td>
+<td><code>JimbleServer.start(app, 0)</code> (<strong>port 0 takes whatever is free</strong>)</td>
+</tr>
+<tr>
+<td>Stop it</td>
+<td><code>server.stop()</code></td>
+</tr>
+<tr>
+<td>Send HTTP</td>
+<td>the JDK's <code>HttpClient</code></td>
+</tr>
+<tr>
+<td>Swap in configuration</td>
+<td><code>Conf.replace(config)</code> / <code>Conf.reload()</code></td>
+</tr>
+<tr>
+<td>Use the DB</td>
+<td><code>DBUtil.load(...)</code> / <code>Migration.install()</code> / <code>DBUtil.stop()</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="start-it-hit-it">Start it, hit it<a class="anchor" href="#start-it-hit-it">#</a></h2>
+<p><strong>This is the basic shape.</strong> Helidon really starts, so you check routing,
+filters, error handling and <code>Content-Type</code> end to end.</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@BeforeAll</span>
+<span class="h-k">static</span> <span class="h-k">void</span> startServer () {
+
+	server = JimbleServer.start(<span class="h-k">new</span> SampleApp(), <span class="h-n">0</span>);
+	client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(<span class="h-n">5</span>)).build();
+
+}
+
+<span class="h-a">@AfterAll</span>
+<span class="h-k">static</span> <span class="h-k">void</span> stopServer () {
+
+	<span class="h-k">if</span> (server != <span class="h-k">null</span>) {
+		server.stop();
+	}
+
+}
+
+<span class="h-c">/**
+ * リクエストを送る
+ */</span>
+<span class="h-k">private</span> <span class="h-k">static</span> HttpResponse&lt;String&gt; request (String method, String path) <span class="h-k">throws</span> Exception {
+
+	HttpRequest request = HttpRequest.newBuilder()
+		.uri(URI.create(<span class="h-s">"http://127.0.0.1:"</span> + server.port() + path))
+		.method(method, HttpRequest.BodyPublishers.noBody())
+		.timeout(Duration.ofSeconds(<span class="h-n">10</span>))
+		.build();
+
+	<span class="h-k">return</span> client.send(request, HttpResponse.BodyHandlers.ofString());
+
+}</code></pre>
+<p>Passing <code>0</code> for the port is the point. Fix the port and
+<strong>it fails only when another test happens to run at the same time.</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Test</span>
+<span class="h-k">void</span> hello () <span class="h-k">throws</span> Exception {
+	assertEquals(<span class="h-s">"hello"</span>, request(<span class="h-s">"GET"</span>, <span class="h-s">"/hello"</span>).body());
+}
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>Give the <code>HttpClient</code> a <code>CookieManager</code> and session, CSRF and flash all work.
+To assert on a redirect, set <code>followRedirects(HttpClient.Redirect.NEVER)</code>
+(the default follows it, and you never see the 302).</p>
+</div>
+<h2 id="hitting-the-router-without-http">Hitting the router without HTTP<a class="anchor" href="#hitting-the-router-without-http">#</a></h2>
+<p>You can call <code>Dispatcher</code> directly, without starting a server. It is faster, and
+in exchange you check nothing on the Helidon side (streamed sends, compression).</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> Fakes.FakeResponseSink dispatch (JimbleApp app, String method, String rawPath) {
+
+	Dispatcher dispatcher = <span class="h-k">new</span> Dispatcher(app);
+	Fakes.FakeRequestSource source = <span class="h-k">new</span> Fakes.FakeRequestSource(method, rawPath);
+	Fakes.FakeResponseSink sink = <span class="h-k">new</span> Fakes.FakeResponseSink();
+
+	<span class="h-k">try</span> (WebContext context = <span class="h-k">new</span> WebContext(source, sink)) {
+		dispatcher.dispatch(context);
+		<span class="h-k">return</span> sink;
+	}</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><code>Fakes</code> — <code>FakeRequestSource</code> / <code>FakeResponseSink</code> in the code above —
+<strong>lives inside jimble's own tests and is not published.</strong>
+To do the same from your application, implement <code>RequestSource</code> / <code>ResponseSink</code>
+yourself.
+That rarely pays for the effort, so <strong>start with &quot;Start it, hit it&quot; above.</strong></p>
+</div>
+<h2 id="tests-that-use-the-db">Tests that use the DB<a class="anchor" href="#tests-that-use-the-db">#</a></h2>
+<h3 id="keep-them-separate">Keep them separate<a class="anchor" href="#keep-them-separate">#</a></h3>
+<p>Tag the tests that need a DB and <strong>leave them out of the everyday build.</strong>
+That keeps the build from going red where there is nothing to connect to — CI,
+or a fresh clone.</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Tag</span>(<span class="h-s">"db"</span>)
+<span class="h-k">class</span> PostIntegrationTest { ... }
+</code></pre>
+<p>Add this to your application's <code>build.gradle.kts</code>.</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">tasks</span>.withType&lt;Test&gt;().configureEach {
+	useJUnitPlatform { excludeTags(<span class="h-s">"db"</span>) }
+}
+
+<span class="h-k">tasks</span>.register&lt;Test&gt;(<span class="h-s">"dbTest"</span>) {
+	group = <span class="h-s">"verification"</span>
+	testClassesDirs = sourceSets.test.get().output.classesDirs
+	classpath = sourceSets.test.get().runtimeClasspath
+	useJUnitPlatform { includeTags(<span class="h-s">"db"</span>) }
+
+	<span class="h-c">// switch the configuration over to dbtest</span>
+	systemProperty(<span class="h-s">"jimble.env"</span>, <span class="h-s">"dbtest"</span>)
+
+	<span class="h-c">// run every time, so it never sees what an earlier test TRUNCATEd</span>
+	outputs.upToDateWhen { <span class="h-k">false</span> }
+}
+</code></pre>
+<p>Put <code>conf/application.dbtest.conf</code> in place and write the connection there.
+<strong>The <code>include</code> on the first line is what reads the shared configuration</strong>
+(<a href="./config">Configuration</a>).</p>
+<pre class="code"><code class="lang-conf">include <span class="h-s">"application.conf"</span>
+
+db {
+	main {
+		url      = <span class="h-s">"jdbc:mariadb://127.0.0.1:3306/app_test"</span>
+		url      = ${?TEST_DB_URL}
+	}
+}
+</code></pre>
+<h3 id="bringing-it-up">Bringing it up<a class="anchor" href="#bringing-it-up">#</a></h3>
+<pre class="code"><code class="lang-java"><span class="h-a">@BeforeAll</span>
+<span class="h-k">static</span> <span class="h-k">void</span> startServer () {
+
+	Conf.reload();
+
+	Migration.install();
+	DBUtil.load(Conf.conf().config(), BlogAppIntegrationTest.<span class="h-k">class</span>);
+
+	<span class="h-c">// ポート 0 で空いているところを使う。他のテストと衝突しない</span>
+	server = JimbleServer.start(<span class="h-k">new</span> BlogApp(), <span class="h-n">0</span>);
+
+	client = HttpClient.newBuilder()
+		.connectTimeout(Duration.ofSeconds(<span class="h-n">5</span>))
+		.cookieHandler(<span class="h-k">new</span> CookieManager())
+		.followRedirects(HttpClient.Redirect.NEVER)
+		.build();
+
+}</code></pre>
+<p>The order is fixed.</p>
+<ol>
+<li><strong><code>Conf.reload()</code></strong> — the environment (<code>jimble.env</code>) is settled the first time
+the configuration is read, so read it again</li>
+<li><code>Migration.install()</code> — create the tables</li>
+<li><code>DBUtil.load(...)</code> — connect</li>
+<li><code>JimbleServer.start(app, 0)</code></li>
+</ol>
+<p>Cleanup is <code>DBUtil.stop()</code> in <code>@AfterAll</code>, and <code>TRUNCATE TABLE ...</code> before each
+test.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>There is no per-test automatic rollback.</strong>
+What you write stays written. Delete it in <code>@BeforeEach</code>.</p>
+</div>
+<h3 id="do-not-run-them-in-parallel">Do not run them in parallel<a class="anchor" href="#do-not-run-them-in-parallel">#</a></h3>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p>Run DB tests in parallel and <strong>one test's <code>TRUNCATE</code> deletes another test's rows.</strong>
+It only ever surfaces as &quot;it fails now and then&quot;, which costs you a long time
+to track down.
+A Gradle shared service (<code>maxParallelUsages = 1</code>) serializes them for certain.</p>
+</div>
+<h2 id="swapping-in-configuration">Swapping in configuration<a class="anchor" href="#swapping-in-configuration">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-c">// layer over the existing configuration (this is the usual one)</span>
+Conf.replace(ConfigFactory
+	.parseString(<span class="h-s">"upload.max_file_size = 10"</span>)
+	.withFallback(Conf.conf().config()));
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><code>Conf.replace</code> is <strong>global, and there is no way back.</strong>
+A test that swaps configuration in has to call <code>Conf.reload()</code> in <code>@AfterEach</code>.
+Forget it and <strong>only the tests that run after it fail</strong> — and which ones those
+are changes with the execution order.</p>
+</div>
+<h2 id="running-jimbles-own-tests">Running jimble's own tests<a class="anchor" href="#running-jimbles-own-tests">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> build                 # the ones that need no DB
+<span class="h-k">./gradlew</span> :jimble-db:dbTest     # the ones that use a real MySQL / MariaDB
+<span class="h-k">./gradlew</span> :jimble-db:pgTest     # the same tests against a real PostgreSQL
+</code></pre>
+<p><code>dbTest</code> and <code>pgTest</code> run <strong>exactly the same tests.</strong>
+The only difference is which configuration file they read
+(<code>application.dbtest.conf</code> / <code>application.pgtest.conf</code>), and the latter carries
+<code>product = &quot;postgresql&quot;</code>.
+<strong>Not one line of the test code changes.</strong></p>
+<p>You can point them somewhere else with environment variables.</p>
+<pre class="code"><code class="lang-bash">JIMBLE_TEST_DB_URL="jdbc:mariadb://127.0.0.1:3306/jimble_test" \
+JIMBLE_TEST_DB_USER=jimble \
+JIMBLE_TEST_DB_PASSWORD=jimble \
+  <span class="h-k">./gradlew</span> :jimble-db:dbTest
+
+JIMBLE_TEST_PG_URL="jdbc:postgresql://127.0.0.1:5432/jimble_test" \
+JIMBLE_TEST_PG_USER=jimble \
+JIMBLE_TEST_PG_PASSWORD=jimble \
+  <span class="h-k">./gradlew</span> :jimble-db:pgTest
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The skeleton <code>jimble new</code> creates does not carry the test scaffolding yet
+(the JUnit dependency and <code>dbTest</code>).
+Add it by hand, as above.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="hot-reload">
+				<span>Previous</span>Hot reload
+			</a>
+			<a class="next" href="config">
+				<span>Next</span>Configuration
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#start-it-hit-it">Start it, hit it</a></li>
+			<li class="level-2"><a href="#hitting-the-router-without-http">Hitting the router without HTTP</a></li>
+			<li class="level-2"><a href="#tests-that-use-the-db">Tests that use the DB</a></li>
+			<li class="level-3"><a href="#keep-them-separate">Keep them separate</a></li>
+			<li class="level-3"><a href="#bringing-it-up">Bringing it up</a></li>
+			<li class="level-3"><a href="#do-not-run-them-in-parallel">Do not run them in parallel</a></li>
+			<li class="level-2"><a href="#swapping-in-configuration">Swapping in configuration</a></li>
+			<li class="level-2"><a href="#running-jimbles-own-tests">Running jimble's own tests</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

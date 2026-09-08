@@ -1,0 +1,320 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Batch - jimble</title>
+<meta name="description" content="Jobs that run on cron. Cancel requests, double starts, the admin screen">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="current">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="batch">Batch<a class="anchor" href="#batch">#</a></h1>
+<h2 id="writing-one">Writing one<a class="anchor" href="#writing-one">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> PostCleanupBatch <span class="h-k">extends</span> AbstractBatch {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String batchName () { <span class="h-k">return</span> <span class="h-s">"記事の掃除"</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String cron () {
+
+		<span class="h-c">// 毎日 3:15</span>
+		<span class="h-k">return</span> <span class="h-s">"15 3 * * *"</span>;
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">void</span> execute (BatchArgs args) {
+
+		<span class="h-k">int</span> days = settings().getInt(<span class="h-s">"days"</span>);
+
+		<span class="h-k">while</span> (!isCancelOrder()) {
+			<span class="h-c">// 長い処理は中断指示を見る（要件 F-B-06）</span>
+		}
+
+	}
+
+}</code></pre>
+<ul>
+<li><code>batchName()</code> is the name that shows up on the admin screen</li>
+<li>Only the ones whose <code>isScheduler()</code> returns <code>true</code> are picked up by the scheduler</li>
+<li><code>cron()</code> is a five-field cron expression</li>
+<li><code>settings()</code> is the configuration held in the DB (<code>defaultBatchSettings()</code> supplies the initial values)</li>
+</ul>
+<h2 id="registering-it">Registering it<a class="anchor" href="#registering-it">#</a></h2>
+<p>Nothing is scanned, so you register it yourself.</p>
+<pre class="code"><code class="lang-java">BatchRegistry.add(PostCleanupBatch::<span class="h-k">new</span>);
+
+<span class="h-c">// Bring the list in the DB in line with what is registered right now</span>
+BatchRegistry.sync(DBUtil.getMainDB());
+</code></pre>
+<h2 id="making-it-cancellable">Making it cancellable<a class="anchor" href="#making-it-cancellable">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">while</span> (!isCancelOrder()) {
+	<span class="h-c">// handle one at a time</span>
+}
+</code></pre>
+<p>Press cancel on the admin screen and <code>isCancelOrder()</code> turns <code>true</code>.
+<strong>In anything long-running, always check it.</strong> A batch that never looks cannot be stopped.</p>
+<h2 id="double-starts">Double starts<a class="anchor" href="#double-starts">#</a></h2>
+<p>How many copies of the same batch may run at once is set by <code>allowConcurrentExecutionCount()</code>.
+The default is one. If the previous execution has not finished, the next one is skipped.</p>
+<p>Even across several servers, a table in the DB does the locking, so only one runs.</p>
+<h2 id="running-one-on-its-own">Running one on its own<a class="anchor" href="#running-one-on-its-own">#</a></h2>
+<p><strong>You write the batch entry point yourself.</strong> The whole startup order is right there in that one file.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogBatch {
+
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) {
+
+		DBUtil.load(Conf.conf().config(), BlogBatch.<span class="h-k">class</span>);   <span class="h-c">// 1. DB</span>
+		BatchTables.install(DBUtil.getMainDB());              <span class="h-c">// 2. the batch tables</span>
+
+		BatchRegistry.add(PostCleanupBatch::<span class="h-k">new</span>);             <span class="h-c">// 3. register</span>
+		BatchRegistry.sync(DBUtil.getMainDB());
+
+		BatchResult result = BatchExecutor.start(args);       <span class="h-c">// 4. run</span>
+
+		DBUtil.stop();
+		System.exit(result.isExecuted() ? <span class="h-n">0</span> : <span class="h-n">1</span>);
+
+	}
+
+}
+</code></pre>
+<pre class="code"><code class="lang-bash">java -cp app.jar blog.BlogBatch env=local class=blog.batch.PostCleanupBatch days=30
+</code></pre>
+<p>Anything you pass as <code>key=value</code> lands in <code>args.cliArgs</code>.</p>
+<p>To run on cron, stand up a separate resident process with <code>DbScheduler</code> as its entry point.</p>
+<h2 id="the-admin-screen">The admin screen<a class="anchor" href="#the-admin-screen">#</a></h2>
+<p>Add <code>jimble-batch-manager</code> and you get a web view that lists your batches and lets you run them, cancel them, and read their history.</p>
+<pre class="code"><code class="lang-kotlin">implementation(<span class="h-s">"io.jimble:jimble-batch-manager:&lt;version&gt;"</span>)
+</code></pre>
+<pre class="code"><code class="lang-java">install(BatchManagerController::<span class="h-k">new</span>);
+</code></pre>
+<p><strong>You have to add authentication yourself.</strong> Put it in a <code>before</code>; that is all it takes.
+With nothing there, anyone can start your batches.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="codegen">
+				<span>Previous</span>Migrations and code generation
+			</a>
+			<a class="next" href="mq">
+				<span>Next</span>MQ
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#writing-one">Writing one</a></li>
+			<li class="level-2"><a href="#registering-it">Registering it</a></li>
+			<li class="level-2"><a href="#making-it-cancellable">Making it cancellable</a></li>
+			<li class="level-2"><a href="#double-starts">Double starts</a></li>
+			<li class="level-2"><a href="#running-one-on-its-own">Running one on its own</a></li>
+			<li class="level-2"><a href="#the-admin-screen">The admin screen</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

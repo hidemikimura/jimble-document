@@ -1,0 +1,555 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migrations and code generation - jimble</title>
+<meta name="description" content="How SQL is applied, what classes are generated, and when each thing runs">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="current">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="migrations-and-code-generation">Migrations and code generation<a class="anchor" href="#migrations-and-code-generation">#</a></h1>
+<p><strong>The schema comes first, the code second.</strong> You write SQL and apply it, and the
+table definition classes are built from that.</p>
+<table>
+<thead>
+<tr>
+<th>When</th>
+<th>Locally</th>
+<th>Everywhere else (CI, staging, production)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At build time</td>
+<td><code>migrate</code> → <code>codegen</code> → <code>compileJava</code></td>
+<td><strong><code>compileJava</code> only</strong></td>
+</tr>
+<tr>
+<td>At startup</td>
+<td>nothing</td>
+<td><strong>apply any migration that has not been applied</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Commit the generated code to the repository.</strong> Otherwise you cannot build in
+an environment with no DB.
+<code>codegenCheck</code> in CI watches for drift.</p>
+</div>
+<h2 id="migrations">Migrations<a class="anchor" href="#migrations">#</a></h2>
+<p>Put your SQL in <code>conf/migration/&lt;schema name&gt;/</code>.</p>
+<pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
+
+CREATE TABLE `note` (
+	`id`         BIGINT UNSIGNED AUTO_INCREMENT COMMENT <span class="h-s">'ID'</span> PRIMARY KEY,
+	`title`      VARCHAR(<span class="h-n">200</span>) NOT NULL COMMENT <span class="h-s">'Title'</span>,
+	`created_at` DATETIME     NOT NULL COMMENT <span class="h-s">'Created at'</span>
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT=<span class="h-s">'Note'</span>;
+
+# <span class="h-c">--- !Downs</span>
+
+DROP TABLE `note`;
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate
+</code></pre>
+<ul>
+<li>File names are up to you. They are applied in <strong>the natural order of the names</strong>
+(a <code>001_</code> prefix makes it obvious)</li>
+<li><code>&lt;schema name&gt;</code> is <code>scheme</code> from the configuration (or the data source name if
+that is missing)</li>
+<li><strong>They are looked up from the classpath.</strong> Add <code>conf/</code> to your resources
+(<a href="./config">Configuration</a>)</li>
+</ul>
+<h3 id="the-record-and-failures">The record, and failures<a class="anchor" href="#the-record-and-failures">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>What is in it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>migration</code></td>
+<td>The SQL applied, its hash, and its state (<code>complete</code> / <code>up_error</code> / <code>down_error</code>)</td>
+</tr>
+<tr>
+<td><code>migration_history</code></td>
+<td><strong>A run record per statement</strong> (kind, SQL, success or failure, timestamp)</td>
+</tr>
+</tbody>
+</table>
+<p>A failure <strong>stops there, and the application does not start.</strong> That is so it
+never takes requests in a half-migrated state.
+The failure stays in <code>migration</code> as <code>up_error</code>, and the next run redoes
+down → up.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>DDL is not rolled back.</strong> MariaDB / MySQL commit implicitly on
+<code>CREATE TABLE</code> and friends.
+Put several DDL statements in one file and it stops <strong>with part of it applied.</strong></p>
+</div>
+<h3 id="do-not-rewrite-sql-that-has-already-been-applied">Do not rewrite SQL that has already been applied<a class="anchor" href="#do-not-rewrite-sql-that-has-already-been-applied">#</a></h3>
+<p>The hash is checked, so <strong>rewriting it after it has been applied fails.</strong></p>
+<pre class="code"><code class="lang-text">適用済みのマイグレーションが書き換えられています: 003_xxx.sql
+（down が無効なため巻き戻せません。新しい SQL ファイルを追加してください）
+</code></pre>
+<blockquote>
+<p>In English: &quot;a migration that has already been applied was rewritten: 003_xxx.sql
+(down is off, so it cannot be rolled back — add a new SQL file instead).&quot;</p>
+</blockquote>
+<p>Set <code>migration.down = true</code> (the default is <code>false</code>) and it redoes down → the
+new up.
+<strong>There is no command to roll back by hand.</strong> down runs in exactly two cases:
+the file is gone, or the hash changed.</p>
+<h3 id="when-several-servers-start-at-once">When several servers start at once<a class="anchor" href="#when-several-servers-start-at-once">#</a></h3>
+<p>The row in <code>db_lock</code> is taken with <code>FOR UPDATE</code> before anything is applied, so
+<strong>only one machine runs.</strong> The one that could not wait long enough fails to start
+(<code>migration.lock_timeout_seconds</code>, 60 seconds by default).</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The lock wait timeout is set <strong>for that session only</strong> (<code>SET SESSION</code>).
+The server-wide setting is left alone.</p>
+</div>
+<h3 id="migrations-written-in-java">Migrations written in Java<a class="anchor" href="#migrations-written-in-java">#</a></h3>
+<p>A migration you cannot express in SQL (repacking existing data, for instance)
+goes in a class.</p>
+<pre class="code"><code class="lang-java">CodeMigration.add(<span class="h-k">new</span> V20260901FillUserKana());
+Migration.install();
+</code></pre>
+<p>They run once each, in <code>versionYyyyMmDd()</code> order, and the result is kept in
+<code>migration_code</code>.
+<strong>The classpath is not scanned</strong> (principle 2). Write one, then <code>add</code> it.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The CLI's <code>migrate</code> does not run code migrations.</strong>
+The registration lives in your application code, so they only run <strong>when the
+application starts.</strong></p>
+</div>
+<h2 id="code-generation">Code generation<a class="anchor" href="#code-generation">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
+</code></pre>
+<p>From the DB schema, three kinds of file are generated per data source.</p>
+<table>
+<thead>
+<tr>
+<th>Generated</th>
+<th>Where it goes</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Schema class</td>
+<td><code>db/&lt;data source&gt;/BlogExample.java</code></td>
+<td><code>BlogExample.db()</code>, the table list</td>
+</tr>
+<tr>
+<td>Table class</td>
+<td><code>db/&lt;data source&gt;/table/post/Post.java</code></td>
+<td>The <code>Column</code>s, such as <code>Post.id</code></td>
+</tr>
+<tr>
+<td>Typed accessors</td>
+<td><code>db/&lt;data source&gt;/table_data/post/AbstractPostData.java</code></td>
+<td><code>data.title(&quot;...&quot;).published(true)</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> Post <span class="h-k">extends</span> Table {
+
+	<span class="h-c">/* Post ID */</span>
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">final</span> Column id = <span class="h-k">new</span> Column(instance(), <span class="h-s">"id"</span>, <span class="h-k">long</span>.<span class="h-k">class</span>, <span class="h-k">false</span>, <span class="h-k">null</span>, <span class="h-k">true</span>);
+
+	<span class="h-k">private</span> <span class="h-k">static</span> <span class="h-k">final</span> List&lt;Column&gt; COLUMNS = List.of(id, title, body, published, created_at);
+}
+</code></pre>
+<p>The column list is <strong>fixed at generation time</strong> (nothing is reflected on at
+runtime).</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>The output directory is rebuilt from scratch every time.</strong>
+Put a hand-written file under <code>db/&lt;data source&gt;/</code> and <strong>the next <code>codegen</code>
+deletes it.</strong>
+Generated files carry a marker at the top, too.</p>
+</div>
+<pre class="code"><code class="lang-java"><span class="h-c">/*
+ * このファイルは jimble が作りました（codegen）。手で直さないでください。
+ * 直しても次の codegen で消えます。
+ */</span>
+</code></pre>
+<blockquote>
+<p>In English: &quot;jimble wrote this file (codegen). Do not edit it by hand — an edit
+is gone at the next codegen.&quot;</p>
+</blockquote>
+<h3 id="type-mapping">Type mapping<a class="anchor" href="#type-mapping">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>DB type</th>
+<th>Java</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bigint</code></td>
+<td><code>long</code></td>
+</tr>
+<tr>
+<td><code>tinyint</code> / <code>bool</code></td>
+<td><strong><code>boolean</code></strong></td>
+</tr>
+<tr>
+<td><code>int</code> / <code>smallint</code> / <code>mediumint</code></td>
+<td><code>int</code></td>
+</tr>
+<tr>
+<td><code>decimal</code> / <code>float</code> / <code>double</code></td>
+<td><code>double</code></td>
+</tr>
+<tr>
+<td><code>datetime</code> / <code>date</code> / <code>timestamp</code></td>
+<td><code>java.util.Date</code></td>
+</tr>
+<tr>
+<td><code>varchar</code> / <code>text</code> and so on</td>
+<td><code>String</code></td>
+</tr>
+<tr>
+<td><code>json</code></td>
+<td><code>Data</code></td>
+</tr>
+<tr>
+<td>Everything else (<code>blob</code> / <code>enum</code> and so on)</td>
+<td><code>String</code></td>
+</tr>
+</tbody>
+</table>
+<p>On PostgreSQL these are treated the same way.</p>
+<table>
+<thead>
+<tr>
+<th>DB type</th>
+<th>Java</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bigserial</code></td>
+<td><code>long</code></td>
+</tr>
+<tr>
+<td><code>serial</code> / <code>smallserial</code></td>
+<td><code>int</code></td>
+</tr>
+<tr>
+<td><code>numeric</code> / <code>real</code> / <code>double precision</code></td>
+<td><code>double</code></td>
+</tr>
+<tr>
+<td><code>boolean</code></td>
+<td><code>boolean</code></td>
+</tr>
+<tr>
+<td><code>jsonb</code></td>
+<td><code>Data</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>tinyint</code> is <code>boolean</code> no matter what width you gave it.</strong> If you are storing
+something other than 0/1 in a <code>tinyint(4)</code>, make it a <code>smallint</code>.
+<strong><code>decimal</code> becomes <code>double</code></strong>, so it is a poor fit for money.</p>
+</div>
+<h3 id="on-postgresql">On PostgreSQL<a class="anchor" href="#on-postgresql">#</a></h3>
+<p>Write <code>db.xxx.product = postgresql</code> and <strong>the same <code>./gradlew codegen</code> works</strong>
+(<a href="./db">Using the DB</a>). Only the reading side changes; the shape of the
+generated classes is the same.</p>
+<p>There are a few places where it does not line up with MySQL.</p>
+<table>
+<thead>
+<tr>
+<th>What it is</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bigserial</code> / <code>serial</code></td>
+<td>Read as auto-increment columns (the <code>nextval(...)</code> default is not emitted)</td>
+</tr>
+<tr>
+<td><strong>Expression indexes</strong></td>
+<td>Something like <code>create unique index ... (lower(code))</code> <b>does not count as a unique key</b>. The column cannot be recovered, so this avoids mistaking the remaining columns for a unique set</td>
+</tr>
+<tr>
+<td><strong>Partial indexes</strong></td>
+<td>Ones with a <code>where</code> <b>do not count as a unique key</b> either. They are only unique among the rows that match the condition</td>
+</tr>
+<tr>
+<td>The generated <code>SchemaSQL</code></td>
+<td>Written in that product's DDL (comments come out separately, as <code>comment on ...</code>)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>If the catalog cannot be queried, we fail.</strong> Silently treating it as &quot;zero
+tables&quot; and deleting the generated code would hide the cause.</p>
+</div>
+<h3 id="tables-that-are-not-generated">Tables that are not generated<a class="anchor" href="#tables-that-are-not-generated">#</a></h3>
+<p>The tables jimble creates for itself (<code>migration</code> / <code>db_cache</code> / <code>session</code> /
+<code>batch_*</code> and so on) are excluded automatically.
+<strong>The application names its own MQ queue tables</strong>, so list those yourself.</p>
+<pre class="code"><code class="lang-conf">codegen {
+	<span class="h-k">package</span>        = <span class="h-s">"db"</span>
+	exclude_tables = [<span class="h-s">"mq_blog"</span>, <span class="h-s">"mq_scheduler"</span>]
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>Wildcards do not work (you cannot write <code>mq_*</code>). List them one by one.</p>
+</div>
+<h2 id="configuration">Configuration<a class="anchor" href="#configuration">#</a></h2>
+<pre class="code"><code class="lang-conf">migration {
+	on_startup            = <span class="h-s">"auto"</span>   <span class="h-c"># auto | true | false. auto applies them everywhere but locally</span>
+	down                  = <span class="h-k">false</span>    <span class="h-c"># whether to roll back</span>
+	lock_timeout_seconds  = <span class="h-n">60</span>
+	resource_dir          = <span class="h-s">"migration"</span>
+}
+
+codegen {
+	<span class="h-k">package</span>        = <span class="h-s">"db"</span>
+	exclude_tables = []
+}
+</code></pre>
+<h2 id="from-the-cli">From the CLI<a class="anchor" href="#from-the-cli">#</a></h2>
+<p>Where Gradle is not available (CI, production), the CLI does the same things.</p>
+<pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
+</code></pre>
+<p>Both the configuration and the SQL are looked up <strong>from the classpath</strong>.
+The Gradle tasks are listed in <a href="./gradle">the Gradle plugins</a>.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="cache">
+				<span>Previous</span>Cache and locks
+			</a>
+			<a class="next" href="batch">
+				<span>Next</span>Batch
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#migrations">Migrations</a></li>
+			<li class="level-3"><a href="#the-record-and-failures">The record, and failures</a></li>
+			<li class="level-3"><a href="#do-not-rewrite-sql-that-has-already-been-applied">Do not rewrite SQL that has already been applied</a></li>
+			<li class="level-3"><a href="#when-several-servers-start-at-once">When several servers start at once</a></li>
+			<li class="level-3"><a href="#migrations-written-in-java">Migrations written in Java</a></li>
+			<li class="level-2"><a href="#code-generation">Code generation</a></li>
+			<li class="level-3"><a href="#type-mapping">Type mapping</a></li>
+			<li class="level-3"><a href="#on-postgresql">On PostgreSQL</a></li>
+			<li class="level-3"><a href="#tables-that-are-not-generated">Tables that are not generated</a></li>
+			<li class="level-2"><a href="#configuration">Configuration</a></li>
+			<li class="level-2"><a href="#from-the-cli">From the CLI</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

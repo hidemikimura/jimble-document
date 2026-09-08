@@ -1,0 +1,476 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP - jimble</title>
+<meta name="description" content="Stand up a Model Context Protocol server (2026-07-28 / Streamable HTTP)">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="current">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="mcp">MCP<a class="anchor" href="#mcp">#</a></h1>
+<p>Expose your application's features in a form an AI can call.
+What jimble implements is the <strong>2026-07-28</strong> revision of Streamable HTTP.</p>
+<h2 id="listing-what-you-expose">Listing what you expose<a class="anchor" href="#listing-what-you-expose">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
+
+	{
+</code></pre>
+<pre class="code"><code class="lang-java">tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
+tool(<span class="h-s">"create_post"</span>, CreatePostTool::<span class="h-k">new</span>);
+
+resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span class="h-k">new</span>);</code></pre>
+<pre class="code"><code class="lang-java">	}
+
+}
+</code></pre>
+<pre class="code"><code class="lang-java">install(BlogMcp::<span class="h-k">new</span>);
+</code></pre>
+<p><strong>Read it top to bottom and you know everything this server exposes.</strong>
+No annotations, no classpath scanning. Java MCP implementations usually declare things with
+annotations and scan at startup, and then you cannot tell which classes were picked up until you run it.</p>
+<h2 id="writing-a-tool">Writing a tool<a class="anchor" href="#writing-a-tool">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> GetWeatherTool <span class="h-k">implements</span> McpTool {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String description () {
+
+		<span class="h-c">// ここはモデルが読む。いつ使うか・何ができないかを書く</span>
+		<span class="h-k">return</span> <span class="h-s">"都市名から現在の天気を返す。過去や予報は返せない"</span>;
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> JsonSchema inputSchema () {
+
+		<span class="h-k">return</span> JsonSchema.<span class="h-k">object</span>()
+			.string(<span class="h-s">"city"</span>, <span class="h-s">"都市名"</span>).required();
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> ToolResult call (WebContext context, Data arguments) {
+
+		String city = arguments.getString(<span class="h-s">"city"</span>);
+
+		<span class="h-k">if</span> (!isKnown(city)) {
+			<span class="h-c">// モデルが読んで直せる失敗は、例外ではなく isError で返す</span>
+			<span class="h-k">return</span> ToolResult.error(<span class="h-s">"その都市は扱えません: %s"</span>.formatted(city));
+		}
+
+		<span class="h-k">return</span> ToolResult.text(weatherOf(city));
+
+	}
+
+}</code></pre>
+<p><code>description()</code> is <strong>read by the model</strong>. It is not a comment for humans.
+Write when to use it, and <strong>what it cannot do</strong>.
+One sentence saying it cannot return history or forecasts cuts out a lot of pointless calls.</p>
+<p>You declare the shape of the input as JSON Schema.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> JsonSchema inputSchema () {
+
+	<span class="h-k">return</span> JsonSchema.<span class="h-k">object</span>()
+		.string(<span class="h-s">"title"</span>, <span class="h-s">"タイトル（%d 文字まで）"</span>.formatted(MAX_TITLE)).required()
+		.string(<span class="h-s">"body"</span>, <span class="h-s">"本文"</span>)
+		.bool(<span class="h-s">"published"</span>, <span class="h-s">"すぐ公開するか（既定は非公開）"</span>);
+
+}</code></pre>
+<h2 id="returning-a-failure">Returning a failure<a class="anchor" href="#returning-a-failure">#</a></h2>
+<p>There are two kinds of failure.</p>
+<table>
+<thead>
+<tr>
+<th>Which one</th>
+<th>How to return it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The model can read it and fix it (bad argument, no such target)</td>
+<td><code>ToolResult.error(&quot;...&quot;)</code></td>
+</tr>
+<tr>
+<td>It cannot be fixed (the DB is down, the configuration is missing)</td>
+<td>Throw an exception</td>
+</tr>
+</tbody>
+</table>
+<p><code>ToolResult.error()</code> sets <code>isError</code> and returns it <strong>as a normal response</strong>.
+The model reads that, changes the arguments, and calls again.
+Turn it into an exception and all the model sees is &quot;it broke&quot;.</p>
+<h2 id="exposing-an-api-you-already-have">Exposing an API you already have<a class="anchor" href="#exposing-an-api-you-already-have">#</a></h2>
+<p>Often the API comes first and MCP comes later.
+Write the same logic a second time inside the tool and <strong>one of the two will go stale.</strong> Guaranteed.</p>
+<p><code>RouteTool</code> <strong>turns a route you have already registered into a tool, as it is</strong>.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
+
+	{
+		tool(<span class="h-s">"list_posts"</span>, RouteTool.of(<span class="h-s">"GET"</span>, <span class="h-s">"/api/posts"</span>)
+			.description(<span class="h-s">"Return the list of posts. page picks the page"</span>)
+			.input(JsonSchema.<span class="h-k">object</span>()
+				.integer(<span class="h-s">"page"</span>, <span class="h-s">"Page number, starting at 1"</span>).min(<span class="h-n">1</span>)));
+
+		tool(<span class="h-s">"get_post"</span>, RouteTool.of(<span class="h-s">"GET"</span>, <span class="h-s">"/api/posts/{id}"</span>)
+			.description(<span class="h-s">"Return one post"</span>)
+			.input(JsonSchema.<span class="h-k">object</span>()
+				.string(<span class="h-s">"id"</span>, <span class="h-s">"Post ID"</span>).required()));
+
+		tool(<span class="h-s">"create_post"</span>, RouteTool.of(<span class="h-s">"POST"</span>, <span class="h-s">"/api/posts"</span>)
+			.description(<span class="h-s">"Create one post"</span>)
+			.input(JsonSchema.<span class="h-k">object</span>()
+				.string(<span class="h-s">"title"</span>, <span class="h-s">"Title"</span>).required()
+				.string(<span class="h-s">"body"</span>, <span class="h-s">"Body"</span>).required()));
+	}
+
+}
+</code></pre>
+<p>No HTTP is involved. The dispatcher <strong>calls that route directly</strong>.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong><code>before</code> and <code>after</code> both apply.</strong>
+An API with its authentication in a <code>before</code> is still authenticated when it is called through MCP
+(the headers and cookies of the MCP request carry straight through).
+There is no separate internal-only path, so <strong>you cannot add authentication and forget one side</strong>.</p>
+</div>
+<h3 id="where-each-argument-goes">Where each argument goes<a class="anchor" href="#where-each-argument-goes">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Where it goes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Same name as a <code>{name}</code> in the path</td>
+<td>Into the path</td>
+</tr>
+<tr>
+<td>The rest (<code>GET</code> / <code>DELETE</code> / <code>HEAD</code>)</td>
+<td>The query string</td>
+</tr>
+<tr>
+<td>The rest (anything else)</td>
+<td>The JSON body</td>
+</tr>
+</tbody>
+</table>
+<p>Put the <code>{name}</code>s from the path into <code>input(...)</code> and mark them <code>required()</code>.
+Leave them out and the model has no idea what to pass.</p>
+<p>A route containing a wildcard (<code>/files/*</code>) <strong>is refused at registration time</strong>.
+Letting it through with no way to fill it in would give you a silent 404 on every call.</p>
+<h3 id="what-comes-back">What comes back<a class="anchor" href="#what-comes-back">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>What the API returned</th>
+<th>The tool result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2xx with a JSON object</td>
+<td>Both <code>structuredContent</code> and the body as text</td>
+</tr>
+<tr>
+<td>2xx with anything else</td>
+<td>The body as text</td>
+</tr>
+<tr>
+<td>4xx</td>
+<td><code>isError</code> (<strong>the body is passed through untouched</strong>)</td>
+</tr>
+<tr>
+<td>5xx</td>
+<td><code>isError</code> (<strong>the body is not passed</strong>)</td>
+</tr>
+</tbody>
+</table>
+<p>A 4xx body was written for a client to read, so handing it to the model as-is lets the model
+fix things (&quot;no such post: 999&quot;).</p>
+<p>A 5xx body was never written for anyone to read. Depending on the error handler it can carry
+a stack trace, so <strong>we do not pass it</strong> (it still goes to the log).</p>
+<h3 id="things-to-watch-for">Things to watch for<a class="anchor" href="#things-to-watch-for">#</a></h3>
+<ul>
+<li>An API that takes an upload cannot be called (ownership of the temp file gets murky, so the file is empty)</li>
+<li>An API that returns a large file puts all of it in memory</li>
+<li>An API that returns bytes still compressed (<code>response().cache(...)</code>) becomes an <code>isError</code>, because it cannot be read</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>If you can share the domain layer, do that first.</strong>
+<code>RouteTool</code> is the tool for &quot;I want to expose the thing that is <strong>already assembled as an API</strong> —
+validation, formatting, permissions and all — exactly as it is.&quot;
+The inside is <strong>a different transaction from the outside</strong>, so you cannot use it to call
+several APIs from one tool and commit them together.</p>
+</div>
+<h3 id="calling-it-without-a-tool">Calling it without a tool<a class="anchor" href="#calling-it-without-a-tool">#</a></h3>
+<p>The same machinery works from an ordinary handler.</p>
+<pre class="code"><code class="lang-java">CallResponse response = context.dispatcher().call(context
+	, CallRequest.of(<span class="h-s">"GET"</span>, <span class="h-s">"/api/posts"</span>).query(<span class="h-s">"page"</span>, <span class="h-s">"2"</span>));
+
+Data json = response.json();
+</code></pre>
+<p>Nesting has a limit (8).
+A route that calls itself would go down forever, so it stops there and throws.</p>
+<h2 id="resources-and-prompts">Resources and prompts<a class="anchor" href="#resources-and-prompts">#</a></h2>
+<pre class="code"><code class="lang-java">resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span class="h-k">new</span>);
+prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">new</span>);
+</code></pre>
+<p>A resource is read-only data. A prompt is a canned instruction.</p>
+<h2 id="one-way-in">One way in<a class="anchor" href="#one-way-in">#</a></h2>
+<p>The only thing exposed is <code>POST /mcp</code>.</p>
+<ul>
+<li><strong>GET and DELETE are both refused with a 405.</strong> Both left the spec in 2026-07-28</li>
+<li><strong>There are no sessions.</strong> <code>Mcp-Session-Id</code> is not used</li>
+<li><strong>The server never sends a request.</strong> It only sends responses</li>
+</ul>
+<p>To change the path, configure it.</p>
+<pre class="code"><code class="lang-conf">mcp {
+	path            = <span class="h-s">"/mcp"</span>
+	name            = <span class="h-s">"blog"</span>
+	version         = <span class="h-s">"1.0.0"</span>
+	allowed_origins = [<span class="h-s">"https://example.com"</span>]
+}
+</code></pre>
+<h2 id="always-configure-origin">Always configure Origin<a class="anchor" href="#always-configure-origin">#</a></h2>
+<p>Without <code>allowed_origins</code> there is nothing to check the <code>Origin</code> header against.
+An MCP server a browser can reach is <strong>a target for DNS rebinding</strong>.
+The more local the server, the more dangerous it is (<code>localhost</code> exists on everybody's machine).</p>
+<h2 id="connecting-to-it">Connecting to it<a class="anchor" href="#connecting-to-it">#</a></h2>
+<pre class="code"><code class="lang-json">{
+	<span class="h-s">"mcpServers"</span>: {
+		<span class="h-s">"blog"</span>: {
+			<span class="h-s">"type"</span>: <span class="h-s">"http"</span>,
+			<span class="h-s">"url"</span>: <span class="h-s">"http://localhost:9000/mcp"</span>
+		}
+	}
+}
+</code></pre>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="websocket">
+				<span>Previous</span>WebSocket
+			</a>
+			<a class="next" href="cli">
+				<span>Next</span>The jimble command
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#listing-what-you-expose">Listing what you expose</a></li>
+			<li class="level-2"><a href="#writing-a-tool">Writing a tool</a></li>
+			<li class="level-2"><a href="#returning-a-failure">Returning a failure</a></li>
+			<li class="level-2"><a href="#exposing-an-api-you-already-have">Exposing an API you already have</a></li>
+			<li class="level-3"><a href="#where-each-argument-goes">Where each argument goes</a></li>
+			<li class="level-3"><a href="#what-comes-back">What comes back</a></li>
+			<li class="level-3"><a href="#things-to-watch-for">Things to watch for</a></li>
+			<li class="level-3"><a href="#calling-it-without-a-tool">Calling it without a tool</a></li>
+			<li class="level-2"><a href="#resources-and-prompts">Resources and prompts</a></li>
+			<li class="level-2"><a href="#one-way-in">One way in</a></li>
+			<li class="level-2"><a href="#always-configure-origin">Always configure Origin</a></li>
+			<li class="level-2"><a href="#connecting-to-it">Connecting to it</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

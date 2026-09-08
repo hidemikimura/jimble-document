@@ -1,0 +1,494 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Utilities - jimble</title>
+<meta name="description" content="Data, JSON, HTTP client, CSV, crypto. Where to find what">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="current">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="utilities">Utilities<a class="anchor" href="#utilities">#</a></h1>
+<p><code>jimble-util</code> holds <strong>around 28,000 lines</strong> of tools brought over from the code this was ported from.
+This page is <strong>a map</strong>. Not an exhaustive list — what you use often, and where you get caught.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Tidying this up into a public API is Phase 2.</strong>
+Both the package layout and the names are still as the code this was ported from left them, in places.</p>
+</div>
+<h2 id="data">Data<a class="anchor" href="#data">#</a></h2>
+<p><code>io.jimble.util.data.Data</code> is <strong>a subclass of <code>LinkedHashMap&lt;String, Object&gt;</code></strong>.
+Requests, SELECT results, and JSON are all handled with it (<a href="./request-response">Request and response</a>).</p>
+<pre class="code"><code class="lang-java">Data data = <span class="h-k">new</span> Data();
+data.putData(SITE_ID, <span class="h-n">1L</span>);
+data.putData(SITE_NAME, <span class="h-s">"俺的まとめ"</span>);
+
+Data site = data.getData(<span class="h-s">"site"</span>);
+
+assertEquals(<span class="h-n">1L</span>, site.getLong(<span class="h-s">"id"</span>));
+assertEquals(<span class="h-s">"俺的まとめ"</span>, site.getString(<span class="h-s">"name"</span>));</code></pre>
+<p>DB values are <strong>read and written by column (<code>Column</code>)</strong>. The column versions <strong>follow the table-name nesting.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>putData(Column, value)</code></td>
+<td><strong>Always builds the nesting</strong></td>
+</tr>
+<tr>
+<td><code>putDataTakeCare(Column, value)</code></td>
+<td>Matches the shape already there (flat if there is no nesting)</td>
+</tr>
+<tr>
+<td><code>flattenTable(Table)</code> / <code>extractTableData(Table)</code></td>
+<td>Flatten / pull out. <strong><code>null</code> if it is not there</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The Optional variants — <code>getStringOptional</code> and the rest — write to the Data.</strong>
+When the key is missing they <strong><code>put</code> an empty string first</strong> and then return it,
+so reading alone adds keys. Call one just before serialising to JSON, or inside a loop,
+and the output changes.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>You cannot tell &quot;missing&quot; from &quot;0&quot;.</strong> <code>getString</code> returns <code>null</code>,
+<code>getInt</code> returns <code>0</code>, <code>getBoolean</code> returns <code>false</code>.
+When you need to tell them apart, use the <strong>Object versions</strong> — <code>getIntObject</code> and friends — or <code>isNull(key)</code>.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong><code>toString()</code> is a summary</strong> (keys and types only).
+That is to stop a single log line from spilling the whole contents, or from pulling an <code>Async</code> in.
+Call <code>getJsonString()</code> when you want the JSON.</p>
+</div>
+<h2 id="json">JSON<a class="anchor" href="#json">#</a></h2>
+<p>It is our own implementation (neither Jackson nor Gson).</p>
+<pre class="code"><code class="lang-java">Data nested = <span class="h-k">new</span> Data();
+nested.put(<span class="h-s">"title"</span>, <span class="h-s">"記事タイトル"</span>);
+
+Data data = <span class="h-k">new</span> Data();
+data.put(<span class="h-s">"name"</span>, <span class="h-s">"俺的まとめ"</span>);
+data.put(<span class="h-s">"count"</span>, <span class="h-n">3</span>);
+data.put(<span class="h-s">"feed"</span>, nested);
+data.put(<span class="h-s">"tags"</span>, List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</span>));
+
+String json = data.getJsonString();
+Data restored = Data.fromJsonString(json);
+
+assertEquals(<span class="h-s">"俺的まとめ"</span>, restored.getString(<span class="h-s">"name"</span>));
+assertEquals(<span class="h-n">3</span>, restored.getInt(<span class="h-s">"count"</span>));
+assertEquals(<span class="h-s">"記事タイトル"</span>, restored.getData(<span class="h-s">"feed"</span>).getString(<span class="h-s">"title"</span>));
+assertEquals(List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</span>), restored.getStringList(<span class="h-s">"tags"</span>));</code></pre>
+<table>
+<thead>
+<tr>
+<th>What you want</th>
+<th>How to write it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Data → string</td>
+<td><code>data.getJsonString()</code> / <code>getJsonString(true)</code> (pretty)</td>
+</tr>
+<tr>
+<td>String → Data</td>
+<td><code>Data.fromJsonString(json)</code></td>
+</tr>
+<tr>
+<td>Any object</td>
+<td><code>Dson.encodes(obj)</code> / <code>Dson.decodes(json, Xxx.class)</code></td>
+</tr>
+<tr>
+<td>Straight to a stream</td>
+<td><code>data.outputJsonString(outputStream)</code></td>
+</tr>
+<tr>
+<td>Write it out piece by piece, without building it</td>
+<td><code>JsonHashWriter</code> / <code>JsonArrayWriter</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>The static <code>Dson.encodes</code> / <code>decodes</code> do nothing on failure but return <code>null</code>.</strong>
+If you need the reason, create a <code>new Dson()</code> and check <code>isError()</code> /
+<code>getErrorException()</code> after <code>decode(...)</code>.</p>
+</div>
+<h2 id="type-conversion">Type conversion<a class="anchor" href="#type-conversion">#</a></h2>
+<p><code>Convertor.convert(conf, src, Target.class)</code> is the way in.
+Bean ↔ <code>Data</code> ↔ Map ↔ List ↔ primitives all go down the same single path.
+<code>data.convert(new MyBean())</code> is the same machinery underneath.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not reuse a <code>Configration</code>.</strong> Its depth counter and its record of circular
+references are rewritten as the conversion runs. Make <strong>one per conversion.</strong></p>
+</div>
+<h2 id="http-client">HTTP client<a class="anchor" href="#http-client">#</a></h2>
+<p>A thin wrapper over the JDK's <code>HttpClient</code>, with a class per method.</p>
+<pre class="code"><code class="lang-java">HttpGetExecutor res = <span class="h-k">new</span> HttpGetExecutor()
+	.setUrl(<span class="h-s">"https://example.com/api"</span>)
+	.addHeader(<span class="h-s">"Accept"</span>, <span class="h-s">"application/json"</span>)
+	.setTimeout(<span class="h-n">5000</span>)
+	.execute();
+
+<span class="h-k">if</span> (res.isError) {
+	Log.error(res.errorException, <span class="h-s">"could not fetch"</span>);
+	<span class="h-k">return</span>;
+}
+
+Data json = res.getContentJson();
+</code></pre>
+<ul>
+<li>POST is <code>HttpPostExecutor</code>. <code>addBodyForm(name, value)</code> / <code>setBodyJson(data)</code></li>
+<li><strong>Add even one file and it becomes multipart</strong> (<code>addBodyForm(name, file, contentType)</code>)</li>
+<li>The proxy is <code>setProxy(new HttpProxy(host, port, id, pass))</code></li>
+<li><strong>It does not throw.</strong> Check <code>isError</code> (the same style as the DB)</li>
+</ul>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>The default timeout is 30 seconds</strong>, and <strong>the same value goes to both</strong> connect and response. You cannot set them separately.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>setIgnoreSslError(true)</code> takes effect across the whole JVM.</strong>
+It raises a system property that turns certificate validation off, so
+<strong>every other connection in the same process stops validating too, and it never goes back.</strong></p>
+</div>
+<h2 id="csv">CSV<a class="anchor" href="#csv">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (CsvReader reader = <span class="h-k">new</span> CsvReader(<span class="h-k">new</span> File(<span class="h-s">"in.csv"</span>))) {
+	<span class="h-k">while</span> (reader.next()) {
+		String name = reader.getString(<span class="h-s">"name"</span>);
+	}
+}
+</code></pre>
+<p><strong>It reads a line at a time</strong> (it does not put the whole file in memory). For writing, <code>CsvWriter#writeLine(Object...)</code>.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Leave the character encoding out and, when detection fails, you get Shift_JIS.</strong>
+If you know it is UTF-8, write <code>new CsvReader(file, &quot;UTF-8&quot;)</code>.</p>
+</div>
+<h2 id="xml">XML<a class="anchor" href="#xml">#</a></h2>
+<p><code>XmlParser.parse(file)</code> turns it into a tree of <code>XmlData</code> (<strong>all of it goes in memory</strong>).
+To build one, <code>XmlBuilder.build(xmlData)</code>.</p>
+<h2 id="hashing-and-encryption">Hashing and encryption<a class="anchor" href="#hashing-and-encryption">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>What you want</th>
+<th>What to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Passwords</td>
+<td><code>PasswordUtil.createHash</code> / <code>check</code> (<a href="./session-security">Sessions and safe defaults</a>)</td>
+</tr>
+<tr>
+<td>Signatures (tamper detection)</td>
+<td><code>Signer.sign</code> / <code>unsign</code> (HMAC-SHA256)</td>
+</tr>
+<tr>
+<td>Encryption</td>
+<td><strong><code>Aead.encrypt</code> / <code>decrypt</code></strong> (AES-256-GCM)</td>
+</tr>
+<tr>
+<td>Short IDs</td>
+<td><code>Hashids</code></td>
+</tr>
+<tr>
+<td>Hash values</td>
+<td><code>Hash.md5</code> / <code>sha256</code> / <code>sipHash</code> / <code>xxHash64</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>CipherUtil</code> (AES/CBC) takes its IV from the configuration, so it is fixed.</strong> The same plaintext
+always gives the same ciphertext, and tampering cannot be detected. It is kept for compatibility
+with the code this was ported from.
+<strong>Use <code>Aead</code> for anything you write new.</strong></p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The default <code>Hashids</code> instance has an empty salt.</strong> The sequence can be guessed, so
+<strong>it cannot hide an ID you do not want seen.</strong> Build your own with a salt if you need that.</p>
+</div>
+<h2 id="key-value-stored-in-the-db">Key-value stored in the DB<a class="anchor" href="#key-value-stored-in-the-db">#</a></h2>
+<pre class="code"><code class="lang-java">DBValue.set(db, <span class="h-s">"last_imported_at"</span>, <span class="h-s">"2026-09-07"</span>);
+String value = DBValue.getString(db, <span class="h-s">"last_imported_at"</span>, <span class="h-s">""</span>);
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>When there is no value, <code>get</code> writes the default in</strong> (you meant to read, and an INSERT goes out).
+Values are <strong>up to 250 characters</strong>, and there is no API to delete one.
+The cache is per process, so <strong>a <code>set</code> on another machine never reaches you.</strong></p>
+</div>
+<h2 id="the-rest">The rest<a class="anchor" href="#the-rest">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Classes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Strings</td>
+<td><code>StringUtil</code> (replace, full-width/half-width, Base62, password generation) / <code>IcuUtil</code> (kana, full-width/half-width)</td>
+</tr>
+<tr>
+<td>Date and time</td>
+<td><code>DateUtil</code> (built on <code>java.util.Date</code>. <code>getFrom</code> / <code>getTo</code> mean &quot;00:00:00 / 23:59:59 on that day&quot;)</td>
+</tr>
+<tr>
+<td>URLs</td>
+<td><code>UrlUtil</code> / <code>UrlBuilder</code> (domain extraction, punycode, encoding)</td>
+</tr>
+<tr>
+<td>Numbers and parsing</td>
+<td><code>Parse.parseInt</code> and friends (<strong>they do not throw on failure</strong>)</td>
+</tr>
+<tr>
+<td>Regular expressions</td>
+<td><code>Patterns</code> (email, URL, domain, phone)</td>
+</tr>
+<tr>
+<td>Files</td>
+<td><code>FileUtil</code> / <code>IOUtil</code> / <code>FileCharDetecter</code> (character encoding detection)</td>
+</tr>
+<tr>
+<td>Threads</td>
+<td><code>VirtualThreadManager</code> / <code>ThreadManager</code> (<a href="./execution">Execution model</a>)</td>
+</tr>
+<tr>
+<td>Measurement</td>
+<td><code>StopWatch</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><code>Patterns</code>' TLD list is <strong>a hard-coded string</strong>. New TLDs do not match.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="pitfalls">
+				<span>Previous</span>Traps
+			</a>
+			<a class="next" href="migration-jooby">
+				<span>Next</span>Migrating from jooby
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#data">Data</a></li>
+			<li class="level-2"><a href="#json">JSON</a></li>
+			<li class="level-2"><a href="#type-conversion">Type conversion</a></li>
+			<li class="level-2"><a href="#http-client">HTTP client</a></li>
+			<li class="level-2"><a href="#csv">CSV</a></li>
+			<li class="level-2"><a href="#xml">XML</a></li>
+			<li class="level-2"><a href="#hashing-and-encryption">Hashing and encryption</a></li>
+			<li class="level-2"><a href="#key-value-stored-in-the-db">Key-value stored in the DB</a></li>
+			<li class="level-2"><a href="#the-rest">The rest</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

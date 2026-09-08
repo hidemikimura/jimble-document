@@ -1,0 +1,466 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lazy loading and prefetch - jimble</title>
+<meta name="description" content="Fetched at the moment it is referenced. When you walk the whole tree, roll it into one IN clause">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="current">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="lazy-loading-and-prefetch">Lazy loading and prefetch<a class="anchor" href="#lazy-loading-and-prefetch">#</a></h1>
+<p>A list often has something you want to be able to return in detail, but frequently do not.
+<code>AsyncData</code> / <code>AsyncList</code> <strong>issue the SQL only at the moment the value is referenced</strong>.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">protected</span> List&lt;Data&gt; load () {
+
+	<span class="h-k">return</span> BlogExample.db().selectList(
+		SQL.select()
+			.from(Comment.instance())
+			.where(Comment.post_id.eq(postId))
+			.orderBy(Comment.created_at)
+	);
+
+}</code></pre>
+<pre class="code"><code class="lang-java">Data post = ...;
+post.put(<span class="h-s">"comments"</span>, <span class="h-k">new</span> CommentList(post.getLong(Post.id)));
+
+<span class="h-c">// no SQL up to here</span>
+post.getJsonString();   <span class="h-c">// ← here it fires</span>
+</code></pre>
+<h2 id="what-you-implement">What you implement<a class="anchor" href="#what-you-implement">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>load()</code></td>
+<td>Fetches one record's worth</td>
+</tr>
+<tr>
+<td><code>setData(Data)</code></td>
+<td>Applies what was fetched to yourself</td>
+</tr>
+<tr>
+<td><code>setRelationData(...)</code></td>
+<td>Once, after every <code>setData</code> has finished. Leave it out if you do not need it</td>
+</tr>
+<tr>
+<td><code>hashKey()</code></td>
+<td>The key that decides whether two of these are the same thing</td>
+</tr>
+</tbody>
+</table>
+<p><code>AsyncData</code> behaves as a <code>Data</code> and <code>AsyncList</code> as a <code>List</code>, so once loaded they are
+ordinary data.</p>
+<h2 id="what-you-can-look-at-without-triggering-a-load">What you can look at without triggering a load<a class="anchor" href="#what-you-can-look-at-without-triggering-a-load">#</a></h2>
+<pre class="code"><code class="lang-java">list.isLoaded()       <span class="h-c">// already loaded?</span>
+list.isLoadFailed()   <span class="h-c">// did it fail?</span>
+list.loadedValues()   <span class="h-c">// only the values already held</span>
+list.loadedSize()     <span class="h-c">// only the count already held</span>
+</code></pre>
+<p><code>toString()</code> does not trigger a load either. <strong>One log line must not fire SQL down
+every branch of the tree</strong>, and it does not.</p>
+<p><code>hashCode()</code> / <code>equals()</code> look at nothing but <code>hashKey()</code>. <strong>Comparing two of them
+fires no SQL.</strong></p>
+<h2 id="when-a-load-fails">When a load fails<a class="anchor" href="#when-a-load-fails">#</a></h2>
+<p>No exception is thrown. It logs and moves on.</p>
+<p><strong>A failure still counts as &quot;loaded&quot;.</strong> Otherwise every reference would keep re-issuing
+a query that is going to fail. You can tell it failed from <code>isLoadFailed()</code>.</p>
+<h2 id="when-it-becomes-n1">When it becomes N+1<a class="anchor" href="#when-it-becomes-n1">#</a></h2>
+<p>Hang one off every row of a list, turn the whole thing into JSON, and <strong>1 + N</strong> queries fly.</p>
+<pre class="code"><code class="lang-text">fetch 20 posts             1 query
+  comments for post 1      1 query
+  comments for post 2      1 query
+  ...                      ×20
+</code></pre>
+<p><strong>Prefetch</strong> is what turns this into two.</p>
+<h2 id="prefetch">Prefetch<a class="anchor" href="#prefetch">#</a></h2>
+<p>Write what <code>load()</code> does, with an <code>IN</code> clause.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">protected</span> Map&lt;Object, List&lt;Data&gt;&gt; loadBatch (List&lt;Object&gt; ids) {
+
+	List&lt;Data&gt; rows = BlogExample.db().selectList(
+		SQL.select()
+			.from(Comment.instance())
+			.where(Comment.post_id.<span class="h-k">in</span>(ids))
+			.orderBy(Comment.post_id, Comment.created_at)
+	);
+
+	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
+		<span class="h-c">// 引けなかった。1つも読み込み済みにしないよう、例外にして個別読みへ落とす</span>
+		<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"コメントを引けませんでした: "</span> + BlogExample.db().getError());
+	}
+
+	Map&lt;Object, List&lt;Data&gt;&gt; byPost = <span class="h-k">new</span> LinkedHashMap&lt;&gt;();
+
+	<span class="h-k">for</span> (Data row : rows) {
+		byPost
+			.computeIfAbsent(row.getLong(Comment.post_id), key -&gt; <span class="h-k">new</span> ArrayList&lt;&gt;())
+			.add(row);
+	}
+
+	<span class="h-k">return</span> byPost;
+
+}</code></pre>
+<p>Along with it, declare the unit you group by.</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">public</span> String batchKey () { <span class="h-k">return</span> <span class="h-s">"CommentList"</span>; }
+
+<span class="h-a">@Override</span>
+<span class="h-k">public</span> Object batchId () { <span class="h-k">return</span> postId; }
+</code></pre>
+<p><strong>Unloaded branches that share a <code>batchKey</code> are rolled into one <code>loadBatch</code> call.</strong>
+<code>ids</code> arrives holding the <code>batchId</code> of the other branches too.</p>
+<p><strong>Keep <code>load()</code> and <code>loadBatch()</code> side by side in the same file.</strong>
+Fix one and not the other and the results diverge. That is the reason they are not
+kept apart.</p>
+<h2 id="running-it">Running it<a class="anchor" href="#running-it">#</a></h2>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts/with-comments"</span>, context -&gt; {
+
+	List&lt;Data&gt; posts = <span class="h-k">new</span> ArrayList&lt;&gt;();
+
+	<span class="h-k">for</span> (Data row : BlogApp.listPosts()) {
+		posts.add(BlogApp.withComments(row));
+	}
+
+	context.response().json(<span class="h-s">"posts"</span>, posts);
+
+	<span class="h-c">/*
+	 * ここまでで飛んだ SQL は記事の1本だけ。
+	 * これを呼ばずに JSON にすると、記事の数だけコメントの SQL が飛ぶ。
+	 */</span>
+	AsyncPrefetch.run(context.response());
+
+});</code></pre>
+<p><code>AsyncPrefetch.run(...)</code> walks the tree, collects the unloaded branches that have a
+<code>batchKey</code>, and fills them. <strong>The walk itself fires no SQL</strong> (it does not look inside
+an unloaded branch).</p>
+<p>You can also have it run automatically, right before the response is sent.</p>
+<pre class="code"><code class="lang-conf">async {
+	prefetch {
+		on_response = <span class="h-k">true</span>
+		max_depth   = <span class="h-n">5</span>
+	}
+}
+</code></pre>
+<p><strong>The default is <code>false</code></strong>, so that no hidden I/O is created and so that turning
+it on does not change behaviour.</p>
+<h2 id="prefetch-or-no-prefetch-the-result-is-the-same">Prefetch or no prefetch, the result is the same<a class="anchor" href="#prefetch-or-no-prefetch-the-result-is-the-same">#</a></h2>
+<p>The only thing that changes is the number of queries.</p>
+<ul>
+<li>A <code>batchId</code> that <code>loadBatch</code> did not return is treated <strong>exactly as if fetching it
+individually had returned no rows</strong></li>
+<li>If <code>loadBatch</code> throws, <strong>not one member of that group is marked loaded</strong>.
+Each is then loaded individually with <code>load()</code>, so the result is unchanged
+(only the speed goes back)</li>
+<li>A class with no <code>loadBatch</code> is loaded individually, as before</li>
+</ul>
+<h2 id="how-it-terminates">How it terminates<a class="anchor" href="#how-it-terminates">#</a></h2>
+<p>Filling branches grows new ones, so it repeats until no more grow.
+Three things stop it from spinning forever.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A <code>(batchKey, batchId)</code> is expanded once</td>
+<td>A holding B and B holding A stops on the second pass</td>
+</tr>
+<tr>
+<td>A cap on passes</td>
+<td><code>async.prefetch.max_depth</code> (default 5)</td>
+</tr>
+<tr>
+<td>The same object is never walked twice</td>
+<td>Decided by reference identity</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-table-nesting-on-or-off-per-json">Choosing table nesting on or off, per JSON<a class="anchor" href="#choosing-table-nesting-on-or-off-per-json">#</a></h2>
+<p>SELECT results are <strong>nested under the table name</strong>.</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"post"</span>: {<span class="h-s">"id"</span>: <span class="h-n">1</span>, <span class="h-s">"title"</span>: <span class="h-s">"hello"</span>}}
+</code></pre>
+<p>Whether <code>setData</code> flattens that (<code>flattenTable</code>) or keeps it as-is (<code>extractTableData</code>)
+used to be <strong>fixed the moment you wrote the class</strong>.
+One <code>AsyncData</code> could emit one shape, and only one.</p>
+<p>Want the admin API nested and the shop API flat, and you end up <strong>writing two classes
+with the same content</strong>. Fix one and you will not notice the other.</p>
+<p><strong>The shape is chosen when you produce the JSON.</strong></p>
+<pre class="code"><code class="lang-java">data.getJsonString(TableNest.ON);    <span class="h-c">// {"post": {"id": 1}, "comments": [...]}</span>
+data.getJsonString(TableNest.OFF);   <span class="h-c">// {"id": 1, "comments": [...]}</span>
+</code></pre>
+<p>You can set it per response, too.</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/admin"</span>, () -&gt; {
+	before(context -&gt; context.response().tableNest(TableNest.ON));
+	get(<span class="h-s">"/posts/{id}"</span>, context -&gt; context.response().json(<span class="h-s">"post"</span>, <span class="h-k">new</span> PostData(id)));
+});
+
+path(<span class="h-s">"/shop"</span>, () -&gt; {
+	before(context -&gt; context.response().tableNest(TableNest.OFF));
+	get(<span class="h-s">"/posts/{id}"</span>, context -&gt; context.response().json(<span class="h-s">"post"</span>, <span class="h-k">new</span> PostData(id)));
+});
+</code></pre>
+<p><strong>Both are returning the same class.</strong></p>
+<h3 id="how-does-it-know-the-shape">How does it know the shape?<a class="anchor" href="#how-does-it-know-the-shape">#</a></h3>
+<p><code>AsyncData</code> / <code>AsyncList</code> <strong>hold on to the raw data</strong> that <code>load()</code> returned.
+That raw data knows which key belongs to which column of which table.</p>
+<pre class="code"><code class="lang-text">{"post": {"id": 1, "title": "..."}}
+  ↑ table name   ↑ column name
+</code></pre>
+<p>So whether you wrote <code>setData</code> with <code>flattenTable</code> or with <code>extractTableData</code>,
+<strong>it can be reassembled into either shape</strong>. There is nothing to add on the
+implementation side.</p>
+<h3 id="anything-that-is-not-a-column-does-not-move">Anything that is not a column does not move<a class="anchor" href="#anything-that-is-not-a-column-does-not-move">#</a></h3>
+<p>Children added in <code>setRelationData</code> (<code>AsyncData</code> / <code>AsyncList</code>) and computed values
+are not columns of the raw data, so <strong>they always stay at the top level</strong>.</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"post"</span>: {<span class="h-s">"id"</span>: <span class="h-n">1</span>, <span class="h-s">"title"</span>: <span class="h-s">"..."</span>}, <span class="h-s">"comments"</span>: [...]}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>The default is <code>TableNest.AS_IS</code>.</strong> Say nothing and the shape <code>setData</code> built
+comes out unchanged. The output of your existing app does not move by a single byte.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Some things cannot be reassembled.</strong>
+A result that is not table-nested — free-form SQL, an aggregate such as <code>{&quot;total&quot;: 12}</code> —
+carries no table name, so <strong>it comes out as it is.</strong>
+The same goes for a node handed <code>putData(null)</code>.</p>
+<p>When you JOIN and <strong>the same column name exists in two tables</strong> (<code>post.id</code> and
+<code>comment.id</code>), one has already overwritten the other by the time it is held flat,
+and there is no telling which value it is.
+On the way back to nested, it lands in <strong>whichever table came first</strong>.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="transaction">
+				<span>Previous</span>Transactions
+			</a>
+			<a class="next" href="cache">
+				<span>Next</span>Cache and locks
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#what-you-implement">What you implement</a></li>
+			<li class="level-2"><a href="#what-you-can-look-at-without-triggering-a-load">What you can look at without triggering a load</a></li>
+			<li class="level-2"><a href="#when-a-load-fails">When a load fails</a></li>
+			<li class="level-2"><a href="#when-it-becomes-n1">When it becomes N+1</a></li>
+			<li class="level-2"><a href="#prefetch">Prefetch</a></li>
+			<li class="level-2"><a href="#running-it">Running it</a></li>
+			<li class="level-2"><a href="#prefetch-or-no-prefetch-the-result-is-the-same">Prefetch or no prefetch, the result is the same</a></li>
+			<li class="level-2"><a href="#how-it-terminates">How it terminates</a></li>
+			<li class="level-2"><a href="#choosing-table-nesting-on-or-off-per-json">Choosing table nesting on or off, per JSON</a></li>
+			<li class="level-3"><a href="#how-does-it-know-the-shape">How does it know the shape?</a></li>
+			<li class="level-3"><a href="#anything-that-is-not-a-column-does-not-move">Anything that is not a column does not move</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

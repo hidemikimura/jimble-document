@@ -1,0 +1,348 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSE - jimble</title>
+<meta name="description" content="Stream progress. You cannot detect a disconnect, so bound it by lifetime">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="current">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="sse-server-sent-events">SSE (Server-Sent Events)<a class="anchor" href="#sse-server-sent-events">#</a></h1>
+<p>Events flow one way, out of the server. Unlike WebSocket, this is plain HTTP.
+Proxies and browsers pass it through untouched.</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/events"</span>, context -&gt; {
+
+	<span class="h-k">try</span> (SseStream sse = context.response().sse()) {
+
+		sse.send(<span class="h-s">"progress"</span>, <span class="h-k">new</span> Data().putData(<span class="h-s">"percent"</span>, <span class="h-n">10</span>));
+		sse.send(<span class="h-s">"done"</span>, <span class="h-k">new</span> Data().putData(<span class="h-s">"ok"</span>, <span class="h-k">true</span>));
+
+	}
+
+});</code></pre>
+<p>On the client side it is <code>EventSource</code>.</p>
+<pre class="code"><code class="lang-javascript">const es = new EventSource("/events");
+es.addEventListener("progress", e =&gt; console.log(JSON.parse(e.data)));
+es.addEventListener("done", () =&gt; es.close());
+</code></pre>
+<h2 id="sending-progress">Sending progress<a class="anchor" href="#sending-progress">#</a></h2>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts/reindex"</span>, context -&gt; {
+
+	List&lt;Data&gt; posts = BlogApp.listPosts();
+
+	<span class="h-k">try</span> (SseStream sse = context.response().sse()) {
+
+		sse.send(<span class="h-s">"start"</span>, <span class="h-k">new</span> Data().putData(<span class="h-s">"total"</span>, posts.size()));
+
+		<span class="h-k">int</span> done = <span class="h-n">0</span>;
+
+		<span class="h-k">for</span> (Data row : posts) {
+
+			<span class="h-k">if</span> (!sse.isOpen()) {
+				<span class="h-k">break</span>;
+			}
+
+			Data post = row.extractTableData(Post.instance());
+			done++;
+
+			sse.send(<span class="h-s">"progress"</span>, <span class="h-k">new</span> Data()
+				.putData(<span class="h-s">"done"</span>, done)
+				.putData(<span class="h-s">"total"</span>, posts.size())
+				.putData(<span class="h-s">"title"</span>, post.getString(Post.title)));
+
+		}
+
+		sse.send(<span class="h-s">"done"</span>, <span class="h-k">new</span> Data().putData(<span class="h-s">"done"</span>, done));
+
+	}
+
+});</code></pre>
+<p>The moment you call <code>sse()</code>, these headers go on.</p>
+<pre class="code"><code class="lang-text">Content-Type: text/event-stream
+Cache-Control: no-store
+X-Accel-Buffering: no
+</code></pre>
+<p><code>X-Accel-Buffering: no</code> is there for nginx. Without it, nginx holds the stream back
+and you get &quot;nothing, nothing, nothing, then everything at once when it is over&quot;.</p>
+<h2 id="you-cannot-tell-when-the-client-goes-away">You cannot tell when the client goes away<a class="anchor" href="#you-cannot-tell-when-the-client-goes-away">#</a></h2>
+<p><strong>This is the most important thing about SSE.</strong></p>
+<p>Close the browser and helidon does not tell you. Writes either keep succeeding, or
+<strong>block forever</strong> (Java has no socket write timeout). We tried it: sometimes we wrote
+4.8MB over 30 seconds into nothing, sometimes it locked up solid after 8 seconds.</p>
+<p>So jimble's <code>SseStream</code> <strong>does not wait for a disconnect. It bounds the stream by lifetime.</strong></p>
+<pre class="code"><code class="lang-conf">sse {
+	max_duration_seconds = <span class="h-n">300</span>   <span class="h-c"># default 5 minutes</span>
+	max_events           = <span class="h-n">0</span>     <span class="h-c"># 0 = unlimited</span>
+	retry_millis         = <span class="h-n">3000</span>  <span class="h-c"># how long the client waits before reconnecting</span>
+}
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// change it for this route only</span>
+<span class="h-k">try</span> (SseStream sse = context.response().sse(Duration.ofSeconds(<span class="h-n">30</span>), <span class="h-n">100</span>)) {
+</code></pre>
+<p><code>sse.isOpen()</code> tells you whether there is any lifetime left.
+<strong>It does not tell you whether the client is still connected.</strong> Check it inside your loop, always.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">for</span> (Data row : rows) {
+
+	<span class="h-k">if</span> (!sse.isOpen()) {
+		<span class="h-k">break</span>;
+	}
+
+	sse.send(<span class="h-s">"progress"</span>, ...);
+
+}
+</code></pre>
+<h2 id="reconnecting">Reconnecting<a class="anchor" href="#reconnecting">#</a></h2>
+<p><code>EventSource</code> reconnects on its own when the stream breaks. <code>retry_millis</code> is the interval.</p>
+<p><strong>Which means the client comes straight back when you cut it at the end of its lifetime.</strong>
+Do not build a stream that runs forever. &quot;Stream for five minutes, cut, get reconnected&quot; is fine.</p>
+<p>To tell the client where to pick up again, put an <code>id</code> on your events.
+It comes back in the <code>Last-Event-ID</code> header on the reconnect.</p>
+<h2 id="where-to-use-it">Where to use it<a class="anchor" href="#where-to-use-it">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Use</th>
+<th>Good fit?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Progress bars, streaming logs out</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Pushing notifications</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Two-way exchange</td>
+<td>Go to <a href="./websocket">WebSocket</a></td>
+</tr>
+<tr>
+<td>Many connections at once, held for a long time</td>
+<td>One thread per connection. Virtual threads make that cheap, but keep the lifetime short</td>
+</tr>
+</tbody>
+</table>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="mq">
+				<span>Previous</span>MQ
+			</a>
+			<a class="next" href="websocket">
+				<span>Next</span>WebSocket
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#sending-progress">Sending progress</a></li>
+			<li class="level-2"><a href="#you-cannot-tell-when-the-client-goes-away">You cannot tell when the client goes away</a></li>
+			<li class="level-2"><a href="#reconnecting">Reconnecting</a></li>
+			<li class="level-2"><a href="#where-to-use-it">Where to use it</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

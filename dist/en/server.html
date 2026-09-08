@@ -1,0 +1,412 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Server configuration - jimble</title>
+<meta name="description" content="Port, listen address, limits, proxies, compression">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="current">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="server-configuration">Server configuration<a class="anchor" href="#server-configuration">#</a></h1>
+<pre class="code"><code class="lang-conf">server {
+	host                 = <span class="h-s">""</span>         <span class="h-c"># Address to listen on. Empty means all of them</span>
+	port                 = <span class="h-n">9000</span>
+	max_request_size     = <span class="h-n">10485760</span>   <span class="h-c"># Limit on the request body (10MB)</span>
+	max_header_size      = <span class="h-n">16384</span>      <span class="h-c"># Limit on the headers as a whole (16KB)</span>
+	idle_timeout_seconds = <span class="h-n">60</span>
+	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># Whether to believe X-Forwarded-*</span>
+	compression          = <span class="h-k">true</span>       <span class="h-c"># Whether to gzip responses</span>
+	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># Whether to split out the bot access log</span>
+
+	shutdown_grace_seconds   = <span class="h-n">0</span>      <span class="h-c"># From "start stopping" to refusing new requests (seconds)</span>
+	shutdown_timeout_seconds = <span class="h-n">15</span>     <span class="h-c"># How long to wait for in-flight work (seconds)</span>
+}
+</code></pre>
+<p><strong>Write nothing and you get the defaults above.</strong> What is actually in effect is printed in the startup log.</p>
+<pre class="code"><code class="lang-text">jimble を起動しました: http://localhost:9000
+サーバー設定: 待受=全部 / 本文上限=10485760byte / ヘッダ上限=16384byte / アイドル=60秒 / 圧縮=true / プロキシ信頼=false
+</code></pre>
+<h2 id="port">Port<a class="anchor" href="#port">#</a></h2>
+<p><strong>The port, and only the port, can also be given as a system property.</strong> That is so a container can change the port without touching the configuration file.</p>
+<pre class="code"><code class="lang-bash">java -Djimble.server.port=8080 -jar app.jar
+</code></pre>
+<p>The order of precedence is <code>-Djimble.server.port</code> &gt; <code>server.port</code> &gt; 9000.</p>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p><code>JimbleServer.start(app, 0)</code> <strong>takes a free port automatically.</strong>
+Use this in tests (pin the port and they fail only when you run them side by side).
+The port it actually took comes back from <code>server.port()</code>.</p>
+</div>
+<h2 id="the-listen-address">The listen address<a class="anchor" href="#the-listen-address">#</a></h2>
+<p><strong>Empty means it listens on every address.</strong> Narrow it down for anything that must not be visible from outside.</p>
+<pre class="code"><code class="lang-conf">server { host = <span class="h-s">"127.0.0.1"</span> }
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>An MCP server you run on your own machine needs this (<a href="./mcp">MCP</a>).
+<strong>Lean on the firewall instead, and the day someone forgets to configure it you are silently public.</strong></p>
+</div>
+<h2 id="limits">Limits<a class="anchor" href="#limits">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Limit</th>
+<th>When it is exceeded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Request body</td>
+<td><code>server.max_request_size</code> (10MB)</td>
+<td><strong>413</strong></td>
+</tr>
+<tr>
+<td>Headers as a whole</td>
+<td><code>server.max_header_size</code> (16KB)</td>
+<td>the connection is cut</td>
+</tr>
+<tr>
+<td>A connection doing nothing</td>
+<td><code>server.idle_timeout_seconds</code> (60 seconds)</td>
+<td>closed</td>
+</tr>
+</tbody>
+</table>
+<p>Uploads have a separate limit of their own (<a href="./upload">File upload</a>).</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>The body limit (10MB by default) is smaller than the total upload limit (50MB by default)</strong>,
+so raise both if you are going to accept large things.</p>
+</div>
+<p>There are no read or write timeouts.</p>
+<h2 id="behind-a-proxy">Behind a proxy<a class="anchor" href="#behind-a-proxy">#</a></h2>
+<p><strong>By default <code>X-Forwarded-*</code> is not believed.</strong> You start believing it once you know for certain that every request comes through the proxy in front.</p>
+<pre class="code"><code class="lang-conf">server { trust_proxy = <span class="h-k">true</span> }
+</code></pre>
+<p>With <code>true</code>, <code>proxyAddress()</code> returns the source in this order.</p>
+<ol>
+<li><code>CF-Connecting-IP</code></li>
+<li><code>X-Real-IP</code></li>
+<li>the <strong>first</strong> entry in <code>X-Forwarded-For</code></li>
+<li>the connection source, if none of those are there</li>
+</ol>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Setting <code>trust_proxy</code> to true does not change <code>address()</code>.</strong>
+<code>address()</code> is always the <strong>TCP connection source</strong> (= the load balancer).
+Use <code>proxyAddress()</code> anywhere you decide something from the source address.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Bot detection (<code>isBotAccess()</code>) looks at <code>address()</code>.</strong>
+Behind a proxy, the IP it judges on is the load balancer's.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>scheme()</code> does not look at <code>X-Forwarded-Proto</code> either.</strong>
+Terminate TLS in front and the app sees <code>http</code>.
+Watch for that when you build a redirect target.</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Do not set <code>true</code> while the server can still be reached directly.</strong>
+Anyone can attach those headers, so <strong>the source address can be forged at will.</strong>
+There is no mechanism for restricting trusted upstreams by IP (it is a single boolean).</p>
+</div>
+<h2 id="compression">Compression<a class="anchor" href="#compression">#</a></h2>
+<p><code>server.compression</code> (default <code>true</code>) turns it <strong>on / off</strong>.
+What gets compressed is the server's (Helidon's) decision, from <code>Accept-Encoding</code>.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>There is no compression level and no per-type exclusion.</strong> Do the fine-grained control in front of jimble.</p>
+</div>
+<h2 id="blocking-bots">Blocking bots<a class="anchor" href="#blocking-bots">#</a></h2>
+<p>If you only need to tell them apart, splitting the access log is enough (<a href="./log">Logging</a>). To <strong>block</strong> them, declare it.</p>
+<pre class="code"><code class="lang-java">before(BotBlocker.forbidden());                          <span class="h-c">// return 403</span>
+before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s">"/"</span>)));   <span class="h-c">// return whatever you like</span>
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>There is no default &quot;block&quot; behaviour.</strong> Blocking the search engines too would hurt,
+so what to return is left to the app.</p>
+</div>
+<h2 id="what-is-not-here">What is not here<a class="anchor" href="#what-is-not-here">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TLS / HTTPS</strong></td>
+<td>Terminate it in front (load balancer, nginx)</td>
+</tr>
+<tr>
+<td><strong>HTTP/2</strong></td>
+<td>Not in the dependencies</td>
+</tr>
+<tr>
+<td><strong>A health check route</strong></td>
+<td>jimble does not provide one (see &quot;Stopping&quot; below)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="stopping">Stopping<a class="anchor" href="#stopping">#</a></h2>
+<p><strong>It does not stop dead.</strong> <code>stop()</code> goes in this order.</p>
+<ol>
+<li><strong>Mark itself as stopping</strong> — <code>Shutdown.isStopping()</code> becomes true. <strong>Ordinary requests are still served</strong></li>
+<li>Wait <code>server.shutdown_grace_seconds</code> (default 0)</li>
+<li><strong>Refuse new requests</strong> (503)</li>
+<li>Wait for the in-flight ones to finish, up to <code>server.shutdown_timeout_seconds</code> (default 15 seconds)</li>
+<li>Stop the server</li>
+</ol>
+<p><strong>On SIGTERM this runs by itself</strong> (that is what a container sends, and then it waits).</p>
+<h3 id="take-the-health-check-down-first">Take the health check down first<a class="anchor" href="#take-the-health-check-down-first">#</a></h3>
+<p>jimble does not provide a health check route. <strong>Write it like this.</strong></p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/health_check"</span>, context -&gt;
+	context.response().send(Shutdown.isStopping() ? <span class="h-n">503</span> : <span class="h-n">200</span>));
+</code></pre>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>It takes the load balancer a while to pull this machine out of rotation.
+Answer 503 to the requests that arrive in the meantime and <strong>from the outside that is an error.</strong>
+That is why there is room to wait between step 1 and step 3.
+Put in the health check interval × the failure count (2 seconds × 3, say → <code>shutdown_grace_seconds = 10</code>).</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>If the wait runs out, it stops with work still in flight.</strong>
+When that happens, <code>処理中のリクエストが N 件残ったまま停止します</code> goes out at warn.
+Not stopping at all is the worse outcome (the container kills it).</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>To have threads you started yourself stop along with it, hand them to <code>Shutdown.add(...)</code>
+(<a href="./execution">Execution model</a>).</p>
+</div>
+<h2 id="making-jimble-the-proxy">Making jimble the proxy<a class="anchor" href="#making-jimble-the-proxy">#</a></h2>
+<p>The other way round: jimble can forward on to another server.</p>
+<pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/api"</span>, <span class="h-s">"http://backend:8080"</span>));
+</code></pre>
+<p><code>X-Forwarded-For</code> is <strong>appended to the existing value</strong> (not overwritten).
+The timeouts are <code>proxy.connect_timeout_ms</code> (5 seconds) and <code>proxy.request_timeout_ms</code> (30 seconds),
+and a forward that fails returns <strong>502</strong>.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="config">
+				<span>Previous</span>Configuration
+			</a>
+			<a class="next" href="log">
+				<span>Next</span>Logging
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#port">Port</a></li>
+			<li class="level-2"><a href="#the-listen-address">The listen address</a></li>
+			<li class="level-2"><a href="#limits">Limits</a></li>
+			<li class="level-2"><a href="#behind-a-proxy">Behind a proxy</a></li>
+			<li class="level-2"><a href="#compression">Compression</a></li>
+			<li class="level-2"><a href="#blocking-bots">Blocking bots</a></li>
+			<li class="level-2"><a href="#what-is-not-here">What is not here</a></li>
+			<li class="level-2"><a href="#stopping">Stopping</a></li>
+			<li class="level-3"><a href="#take-the-health-check-down-first">Take the health check down first</a></li>
+			<li class="level-2"><a href="#making-jimble-the-proxy">Making jimble the proxy</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,343 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rate limiting - jimble</title>
+<meta name="description" content="Declared on the route. Token bucket, memory / Redis / DB">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="current">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="rate-limiting">Rate limiting<a class="anchor" href="#rate-limiting">#</a></h1>
+<p><strong>You declare it on the route.</strong> It applies where you wrote it, and nowhere else.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// a single route</span>
+post(<span class="h-s">"/api/login"</span>, handler)
+	.attribute(RateLimit.KEY, RateLimit.perIp(<span class="h-n">5</span>, Duration.ofMinutes(<span class="h-n">1</span>)));
+
+<span class="h-c">// the whole block</span>
+path(<span class="h-s">"/api"</span>, () -&gt; {
+	rateLimit(RateLimit.perIp(<span class="h-n">60</span>, Duration.ofMinutes(<span class="h-n">1</span>)));
+
+	get(<span class="h-s">"/items"</span>, handler);
+	get(<span class="h-s">"/items/{id}"</span>, handler);
+});
+</code></pre>
+<p>Like <code>before</code>, <strong>it attaches to the block you wrote it in</strong> (not to a node in the path).
+Write another one further in and the inner one wins; if the route carries one as an
+attribute, that wins.</p>
+<h2 id="how-it-counts">How it counts<a class="anchor" href="#how-it-counts">#</a></h2>
+<p>It is a <strong>token bucket</strong>. It refills up to <code>limit</code> over <code>duration</code>.
+<strong>A short burst gets through; hammer it and you are stopped.</strong></p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>We did not use a fixed window (&quot;N per minute&quot;) because at the window boundary
+<strong>2N requests get through in an instant</strong>.</p>
+</div>
+<h2 id="what-it-counts-by">What it counts by<a class="anchor" href="#what-it-counts-by">#</a></h2>
+<pre class="code"><code class="lang-java">RateLimit.perIp(<span class="h-n">60</span>, Duration.ofMinutes(<span class="h-n">1</span>));                       <span class="h-c">// per source address</span>
+RateLimit.of(context -&gt; context.session().id(), <span class="h-n">10</span>, Duration.ofMinutes(<span class="h-n">1</span>));   <span class="h-c">// per login</span>
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>perIp</code> looks at <code>server.trust_proxy</code>.</strong> Sit behind a proxy with it left at
+<code>false</code> and <strong>everyone is counted as one client — the load balancer's IP</strong>
+(<a href="./server">Server configuration</a>).</p>
+</div>
+<p>Things you do not want counted, such as access from inside the office, can be excluded.</p>
+<pre class="code"><code class="lang-java">RateLimit.perIp(<span class="h-n">60</span>, Duration.ofMinutes(<span class="h-n">1</span>))
+	.exclude(context -&gt; context.request().proxyAddress().startsWith(<span class="h-s">"10."</span>));
+</code></pre>
+<h2 id="what-comes-back-when-it-stops-you">What comes back when it stops you<a class="anchor" href="#what-comes-back-when-it-stops-you">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Status</td>
+<td><strong>429</strong></td>
+</tr>
+<tr>
+<td><code>Retry-After</code></td>
+<td>Seconds to wait (rounded up, minimum 1)</td>
+</tr>
+<tr>
+<td><code>X-RateLimit-Limit</code> / <code>X-RateLimit-Remaining</code></td>
+<td>The limit and what is left</td>
+</tr>
+</tbody>
+</table>
+<p><strong>It stops the request before <code>before</code> runs.</strong> So it never reaches your authentication
+or your DB.</p>
+<h2 id="where-the-counters-live">Where the counters live<a class="anchor" href="#where-the-counters-live">#</a></h2>
+<pre class="code"><code class="lang-conf">rate_limit {
+	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
+	enabled = <span class="h-k">true</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Shared across machines</th>
+<th>Fits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memory</code> (the default)</td>
+<td><strong>No</strong></td>
+<td>A single machine</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>Yes</td>
+<td>Several machines side by side</td>
+</tr>
+<tr>
+<td><code>db</code></td>
+<td>Yes</td>
+<td>No Redis available, and <strong>the counts are low</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Leave it on <code>memory</code> and run several machines, and the total that gets through
+is multiplied by the machine count.</strong> Three machines, three times the limit.
+If you are running more than one, use <code>redis</code>.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><code>redis</code> counts in Lua, because &quot;what is left&quot; and &quot;when it was last topped up&quot;
+<strong>have to be read and written together or the count slips</strong>.
+<code>db</code> uses <code>SELECT ... FOR UPDATE</code>, so <strong>it is not for high frequency</strong>
+(it is for things like counting login attempts). The table is created the first
+time it is used.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>When it cannot count, it lets the request through.</strong> Redis being down is not
+a good reason for the whole site to return 429.
+It does not <strong>let it through silently</strong>, though — <code>流量制限を数えられませんでした（通します）</code>
+goes to the log.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="session-security">
+				<span>Previous</span>Sessions and safe defaults
+			</a>
+			<a class="next" href="execution">
+				<span>Next</span>Execution model
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#how-it-counts">How it counts</a></li>
+			<li class="level-2"><a href="#what-it-counts-by">What it counts by</a></li>
+			<li class="level-2"><a href="#what-comes-back-when-it-stops-you">What comes back when it stops you</a></li>
+			<li class="level-2"><a href="#where-the-counters-live">Where the counters live</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,609 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cache and locks - jimble</title>
+<meta name="description" content="Swapping between DB / memory / Redis, automatic invalidation of SQL results, and distributed locks">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="current">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="cache-and-locks">Cache and locks<a class="anchor" href="#cache-and-locks">#</a></h1>
+<h2 id="pick-one-of-three-implementations">Pick one of three implementations<a class="anchor" href="#pick-one-of-three-implementations">#</a></h2>
+<pre class="code"><code class="lang-conf">cache {
+	type = <span class="h-s">"db"</span>        <span class="h-c"># db | memory | redis</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Where it lives</th>
+<th>Crosses processes</th>
+<th>Expiry</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db</code> (<strong>default</strong>)</td>
+<td>The <code>db_cache</code> table</td>
+<td><strong>yes</strong></td>
+<td><strong>none</strong></td>
+</tr>
+<tr>
+<td><code>memory</code></td>
+<td>JVM memory</td>
+<td>no</td>
+<td><code>cache.memory.expire</code> (seconds)</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>Redis</td>
+<td><strong>yes</strong></td>
+<td><strong>none</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Write a value it does not know and it does not fail.
+<strong>It warns and falls back to <code>db</code>.</strong>
+What you are actually running on shows up in the startup log (<code>cache=db</code>).</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>db</code> and <code>redis</code> have no expiry.</strong> There is no mechanism to sweep old entries
+either.
+Keep putting things in and <code>db_cache</code> keeps growing.
+<strong>Removing them is the job of whoever put them there</strong> (<code>remove</code> / <code>removeGroup</code>).</p>
+</div>
+<h2 id="reading-and-writing">Reading and writing<a class="anchor" href="#reading-and-writing">#</a></h2>
+<pre class="code"><code class="lang-java">ICache cache = Cache.instance(db);
+
+cache.set(<span class="h-s">"top:posts"</span>, json, <span class="h-s">"application/json"</span>);
+String json = cache.getString(<span class="h-s">"top:posts"</span>);
+
+cache.remove(<span class="h-s">"top:posts"</span>);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>What comes back</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getString(key)</code></td>
+<td>A string, or <code>null</code> when there is nothing (<code>&quot;&quot;</code> on the memory implementation only)</td>
+</tr>
+<tr>
+<td><code>get(key)</code></td>
+<td>A <code>CacheData</code> (with creation time and kind). <strong>Check <code>isError()</code></strong></td>
+</tr>
+<tr>
+<td><code>set(key, value, contentType[, group])</code></td>
+<td><code>true</code> when it went in</td>
+</tr>
+<tr>
+<td><code>has(key, group)</code> / <code>remove(key)</code> / <code>removeGroup(group)</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Values over 256KB are spilled to a file</strong> (gzipped, <code>cache.temp_dir</code>).
+<code>CacheData#hasContentFile()</code> becomes true, and you can hand it straight to
+<code>context.response().cache(data)</code> to return it as <code>Content-Encoding: gzip</code>.
+There is no mechanism to delete older generations of those files, so keep an
+eye on that directory.</p>
+</div>
+<h2 id="dropping-a-whole-group-at-once">Dropping a whole group at once<a class="anchor" href="#dropping-a-whole-group-at-once">#</a></h2>
+<p>Use this when you want &quot;edit one article and throw away every cache entry that
+touches it&quot;.</p>
+<pre class="code"><code class="lang-java">cache.set(<span class="h-s">"key-4"</span>, <span class="h-s">"値"</span>, <span class="h-s">"text/plain"</span>, <span class="h-s">"group"</span>);
+cache.set(<span class="h-s">"key-5"</span>, <span class="h-s">"値"</span>, <span class="h-s">"text/plain"</span>, <span class="h-s">"group"</span>);
+cache.set(<span class="h-s">"key-6"</span>, <span class="h-s">"値"</span>, <span class="h-s">"text/plain"</span>, <span class="h-s">"keep"</span>);
+
+cache.removeGroup(<span class="h-s">"group"</span>);</code></pre>
+<p>jimble uses this itself. The scheduler puts each machine's liveness information
+in the same group and <strong>reads every machine's worth back at once</strong> with
+<code>getStringGroup(group)</code>.</p>
+<h2 id="caching-sql-results">Caching SQL results<a class="anchor" href="#caching-sql-results">#</a></h2>
+<p><code>ICache</code> is the kind where whoever put it in takes it out.
+<strong>The SQL result cache watches your updates and evicts itself.</strong></p>
+<p><strong>It is off by default.</strong> Write one line in the applications that use it.</p>
+<pre class="code"><code class="lang-conf">sql_cache.enabled = <span class="h-k">true</span>
+</code></pre>
+<pre class="code"><code class="lang-java">Data customer = db.selectCached(
+	SQL.select()
+		.from(Customer.instance())
+		.inner(Shop.instance()).on(Customer.shop_id.eq(Shop.id))
+		.where(Customer.id.eq(<span class="h-n">1</span>)));
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// Write the update exactly as before. Only the related cache entries are evicted</span>
+db.update(SQL.update(Customer.instance()).set(Customer.name, <span class="h-s">"name1"</span>).where(Customer.id.eq(<span class="h-n">1</span>)));
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>The update</th>
+<th>The cache entry above</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UPDATE customer SET name = 'name1' WHERE id = 1</code></td>
+<td><strong>evicted</strong></td>
+</tr>
+<tr>
+<td><code>UPDATE customer SET name = 'name2' WHERE id = 2</code></td>
+<td>not evicted</td>
+</tr>
+<tr>
+<td><code>UPDATE shop SET name = 'shop1' WHERE id = 1</code></td>
+<td><strong>evicted</strong> (the joined table)</td>
+</tr>
+<tr>
+<td><code>UPDATE shop SET name = 'shop2' WHERE id = 2</code></td>
+<td>not evicted</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reading is explicit, evicting is automatic.</strong>
+The other way round, a forgotten eviction quietly turns into stale data.</p>
+<h3 id="how-it-decides">How it decides<a class="anchor" href="#how-it-decides">#</a></h3>
+<p>Each cache entry carries <strong>dependency tags</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>What it means</th>
+<th>What evicts it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>customer#id#1</code></td>
+<td>It depends on that row</td>
+<td>Writing that row</td>
+</tr>
+<tr>
+<td><code>customer#*</code></td>
+<td>It depends on a set of rows (a listing)</td>
+<td>INSERT / DELETE / an UPDATE that cannot be narrowed</td>
+</tr>
+<tr>
+<td><code>customer#@</code></td>
+<td>It reads that table</td>
+<td>An update where <strong>which rows it hits cannot be read</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The tags are built from two sources.</p>
+<ul>
+<li><strong>The rows the SELECT returned</strong>, from which the <strong>primary key and unique key</strong>
+values are picked up per table. The result nests under the table name
+(<a href="./db">Data nesting</a>), so <strong>the keys of joined tables come along too</strong></li>
+<li><strong>The WHERE of the UPDATE / DELETE</strong>, from which equality and <code>IN</code> on primary
+and unique keys are read. If it can be read, only that row tag is evicted; if
+not, the whole table goes</li>
+</ul>
+<p>Unique keys are picked up from <code>SHOW INDEX</code> by codegen and generated into the
+code. Run <code>codegen</code> again.</p>
+<h3 id="caching-a-listing">Caching a listing<a class="anchor" href="#caching-a-listing">#</a></h3>
+<p>A SELECT that has not pinned down a single row also gets <code>customer#*</code>.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// A listing narrowed by shop_id. Add a customer and the result changes</span>
+db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_id.eq(<span class="h-n">1</span>)));
+</code></pre>
+<p>These are the cases that count as &quot;pinned down&quot;.</p>
+<ul>
+<li>The WHERE constrains every column of a primary or unique key <strong>by value</strong>
+(<code>WHERE id = 1</code>, <code>WHERE id IN (1, 2)</code>)</li>
+<li>The join condition constrains every column of a key against <strong>columns of a
+table that is already pinned down</strong>
+(with <code>ON (customer.shop_id = shop.id)</code>, if customer is pinned down then shop
+resolves to one row as well)</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A SELECT with a <code>LIMIT</code> never counts as &quot;pinned down&quot;.</strong>
+With <code>ORDER BY name LIMIT 1</code>, changing the name of some other row swaps out the
+row you get back.
+<code>IN (subquery)</code> and <code>= a column of another table</code> are treated the same way.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>If you do not SELECT the key columns, it falls back to the table tag.</strong>
+Narrow the columns like <code>SELECT id, name</code> and it would miss an update narrowed
+by the unique key <code>code</code>, so it errs on the safe side (any update to that table
+evicts everything). With <code>SELECT *</code> this does not happen.</p>
+</div>
+<h3 id="transactions">Transactions<a class="anchor" href="#transactions">#</a></h3>
+<p><strong>Inside a transaction it neither reads nor writes.</strong>
+That is so nothing uncommitted ends up in the cache.
+Evictions are held and applied <strong>together at commit</strong>. On rollback nothing is
+evicted.</p>
+<h3 id="where-it-does-not-work">Where it does not work<a class="anchor" href="#where-it-does-not-work">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Raw SQL updates (<code>db.execute(&quot;UPDATE ...&quot;)</code>)</td>
+<td>Where they land cannot be read, so <strong>everything is evicted</strong></td>
+</tr>
+<tr>
+<td><code>ON DUPLICATE KEY UPDATE</code> / <code>INSERT ... SELECT</code></td>
+<td>Existing rows may change, so everything touching that table is evicted</td>
+</tr>
+<tr>
+<td>The DB written directly by another process</td>
+<td>Cannot be followed. <code>sql_cache.ttl</code> (300 seconds by default) is your safety net</td>
+</tr>
+<tr>
+<td><code>sql_cache.store = &quot;memory&quot;</code></td>
+<td><strong>That machine only.</strong> With more than one machine, use <code>redis</code> or <code>db</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="configuration">Configuration<a class="anchor" href="#configuration">#</a></h3>
+<pre class="code"><code class="lang-conf">sql_cache {
+	enabled = <span class="h-k">true</span>       <span class="h-c"># false by default</span>
+	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
+	ttl     = <span class="h-n">300</span>        <span class="h-c"># seconds. 0 means no expiry</span>
+	max     = <span class="h-n">10000</span>      <span class="h-c"># memory only. The cap on how many entries to hold</span>
+}
+</code></pre>
+<p><strong>The default is <code>false</code> so that applications that do not use it do not pay for
+it.</strong> When it is on, then even if you never call <code>selectCached</code> once, every
+<code>insert</code> / <code>update</code> / <code>delete</code> builds up &quot;which rows does this hit&quot; (reading the
+WHERE and looking up the table's keys).
+While it is <code>false</code>, <strong>not one line of that runs</strong>.</p>
+<p>It is built so you notice when you forgot to turn it on.</p>
+<ul>
+<li>The configuration log at startup says <code>sql_cache=off</code></li>
+<li>Call <code>selectCached</code> while it is off and you get a warning <strong>the first time
+only</strong> (not every time)</li>
+</ul>
+<pre class="code"><code class="lang-text">jimble 構成: env=local / session=none / cache=db / sql_cache=off / redis=なし / ...
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>With it off, <code>selectCached</code> <strong>behaves as a plain <code>selectList</code></strong>.
+It does not raise. Turning the cache off to investigate something in production
+and having the whole application stop would be going too far.</p>
+</div>
+<h2 id="loading-cache">Loading cache<a class="anchor" href="#loading-cache">#</a></h2>
+<p>The form where &quot;make it if it is not there&quot; is written in one place.</p>
+<pre class="code"><code class="lang-java">LoadingCache&lt;List&lt;Data&gt;&gt; cache = Cache.loadingCache(
+	<span class="h-s">"top:posts"</span>, db, Duration.ofMinutes(<span class="h-n">5</span>), loaderDb -&gt; loaderDb.selectList(...));
+
+List&lt;Data&gt; posts = cache.get();
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where the value lives</td>
+<td><strong>In that JVM's memory</strong> (only a &quot;made it&quot; marker goes in the shared cache)</td>
+</tr>
+<tr>
+<td>Expiry</td>
+<td><strong>None</strong> unless you pass a <code>Duration</code></td>
+</tr>
+<tr>
+<td>When another machine calls <code>clear()</code></td>
+<td>It checks the shared cache <strong>once a minute</strong> and throws its copy away</td>
+</tr>
+<tr>
+<td>The <code>DB</code> handed to the loader</td>
+<td>A new connection (separate from the caller's transaction)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A loader that returns <code>null</code> still counts as loaded.</strong>
+It keeps returning <code>null</code> until the expiry comes round, so if you do not want
+&quot;it happened to be missing&quot; memorized, <strong>express it with a value</strong> — an empty
+list, for instance.</p>
+</div>
+<h2 id="distributed-locks">Distributed locks<a class="anchor" href="#distributed-locks">#</a></h2>
+<p><strong>These use Redis.</strong> They are for &quot;I want exactly one of several machines to do
+this&quot;.</p>
+<pre class="code"><code class="lang-java">RedisLockResult result = RedisLock.lock(key);
+
+assertEquals(RedisLockStatus.Success, result.status());
+
+closeQuietly(result);</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// Wait 100ms, give up if it is not free. Hold it for 30 seconds once taken</span>
+<span class="h-k">try</span> (RedisLockResult lock = RedisLock.tryLock(<span class="h-s">"batch:daily"</span>, <span class="h-n">100</span>, <span class="h-n">30000</span>)) {
+
+	<span class="h-k">if</span> (lock.status() != RedisLockStatus.Success) {
+		<span class="h-k">return</span>;   <span class="h-c">// someone else is running it</span>
+	}
+
+	<span class="h-c">// only one machine gets in here</span>
+
+} <span class="h-k">catch</span> (IOException ignore) {
+}
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Failing to take the lock does not throw.</strong> You must check <code>status()</code>.
+If you do not, you get &quot;the work proceeds without holding the lock&quot;.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The same thread can take the same key again</strong> (the lock is reentrant).
+Check &quot;surely someone else already holds this&quot; from the same thread and you
+pass straight through.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>tryLock</code>'s hold time is not extended.</strong> Write 30 seconds and let the work
+take 40, and <strong>it is released partway through and a second machine walks in.</strong>
+The no-argument <code>RedisLock.lock(key)</code> keeps extending for as long as you hold it
+(at the cost of waiting indefinitely).</p>
+</div>
+<p>When Redis is not configured, it <strong>raises rather than silently succeeding</strong>
+(requirement F-U-10).
+That is so you never create &quot;it went ahead even though there was no lock&quot;.</p>
+<h3 id="locking-with-the-db-alone">Locking with the DB alone<a class="anchor" href="#locking-with-the-db-alone">#</a></h3>
+<p>Where there is no Redis you can use <code>DBLock</code>. <strong>Inside a transaction</strong>, create
+the row first, then take it.</p>
+<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// once only</span>
+...
+<span class="h-k">if</span> (DBLock.lock(db, <span class="h-s">"daily"</span>)) {       <span class="h-c">// SELECT ... FOR UPDATE</span>
+	<span class="h-c">// one at a time until the transaction ends</span>
+}
+</code></pre>
+<p>If the row is not there you get <code>false</code>. It is released <strong>at the end of the
+transaction</strong>; there is no way to release it explicitly.</p>
+<h2 id="configuration-keys">Configuration keys<a class="anchor" href="#configuration-keys">#</a></h2>
+<pre class="code"><code class="lang-conf">cache {
+	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
+	temp_dir      = <span class="h-s">""</span>       <span class="h-c"># where large values are spilled. Empty means the temp directory</span>
+	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory only. Seconds. 0 means no expiry</span>
+}
+
+redis {
+	host = <span class="h-s">""</span>                <span class="h-c"># empty means no Redis</span>
+	port = <span class="h-n">6379</span>
+	ssl  = <span class="h-k">false</span>
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>If <code>redis.host</code> is empty, <strong>there is no Redis</strong>. The application still starts.
+With <code>cache.type = redis</code> set you get a warning at startup, and it fails the
+moment you use it.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="async">
+				<span>Previous</span>Lazy loading and prefetch
+			</a>
+			<a class="next" href="codegen">
+				<span>Next</span>Migrations and code generation
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#pick-one-of-three-implementations">Pick one of three implementations</a></li>
+			<li class="level-2"><a href="#reading-and-writing">Reading and writing</a></li>
+			<li class="level-2"><a href="#dropping-a-whole-group-at-once">Dropping a whole group at once</a></li>
+			<li class="level-2"><a href="#caching-sql-results">Caching SQL results</a></li>
+			<li class="level-3"><a href="#how-it-decides">How it decides</a></li>
+			<li class="level-3"><a href="#caching-a-listing">Caching a listing</a></li>
+			<li class="level-3"><a href="#transactions">Transactions</a></li>
+			<li class="level-3"><a href="#where-it-does-not-work">Where it does not work</a></li>
+			<li class="level-3"><a href="#configuration">Configuration</a></li>
+			<li class="level-2"><a href="#loading-cache">Loading cache</a></li>
+			<li class="level-2"><a href="#distributed-locks">Distributed locks</a></li>
+			<li class="level-3"><a href="#locking-with-the-db-alone">Locking with the DB alone</a></li>
+			<li class="level-2"><a href="#configuration-keys">Configuration keys</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

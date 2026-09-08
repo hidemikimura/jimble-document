@@ -1,0 +1,332 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transactions - jimble</title>
+<meta name="description" content="Wrap it in try-with-resources. A missed close is caught at the end of the execution">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="current">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="transactions">Transactions<a class="anchor" href="#transactions">#</a></h1>
+<p>There are no annotations. <strong>What you wrapped is the transaction.</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
+
+	transaction.beginTransaction();
+
+	<span class="h-k">long</span> id = db.insert(
+		SQL.insert(Post.instance())
+			.value(Post.title, request.getString(<span class="h-s">"title"</span>))
+			.value(Post.body, request.getString(<span class="h-s">"body"</span>))
+			.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
+			.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
+			.value(Post.created_at, <span class="h-k">new</span> Date())
+	);
+
+	<span class="h-k">if</span> (id &lt;= <span class="h-n">0</span>) {
+		transaction.rollbackEndTransaction();
+		<span class="h-k">return</span> -<span class="h-n">1</span>;
+	}
+
+	<span class="h-k">new</span> NoticeExecutor().put(db, <span class="h-k">new</span> Data()
+		.putData(<span class="h-s">"post_id"</span>, id)
+		.putData(<span class="h-s">"title"</span>, request.getString(<span class="h-s">"title"</span>)));
+
+	transaction.commitEndTransaction();
+
+	<span class="h-c">/*
+	 * コミットしてから流す。
+	 * 先に流すと、ロールバックしたときに
+	 * 「入っていない記事のお知らせ」だけが届く。
+	 */</span>
+	PostFeedHandler.notifyNewPost(request.getStringOptional(<span class="h-s">"title"</span>));
+
+	<span class="h-k">return</span> id;
+
+}</code></pre>
+<h2 id="which-one-to-call">Which one to call<a class="anchor" href="#which-one-to-call">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>beginTransaction()</code></td>
+<td>Starts one. Does nothing if one is already open</td>
+</tr>
+<tr>
+<td><code>commit()</code></td>
+<td>Commits. <strong>The transaction continues</strong></td>
+</tr>
+<tr>
+<td><code>commitEndTransaction()</code></td>
+<td>Commits and ends</td>
+</tr>
+<tr>
+<td><code>rollback()</code></td>
+<td>Rolls back. The transaction continues</td>
+</tr>
+<tr>
+<td><code>rollbackEndTransaction()</code></td>
+<td>Rolls back and ends</td>
+</tr>
+<tr>
+<td><code>close()</code></td>
+<td>Rolls back if still open</td>
+</tr>
+</tbody>
+</table>
+<p>Watch the difference between <code>commit()</code> and <code>commitEndTransaction()</code>.
+<code>commit()</code> means &quot;settle what has happened so far, and carry on&quot;.
+In the code this was ported from, <code>commit()</code> ended the transaction internally, which
+left a hole: <strong>everything after it silently became auto-commit.</strong> jimble fixes that.</p>
+<h2 id="forgetting-to-close">Forgetting to close<a class="anchor" href="#forgetting-to-close">#</a></h2>
+<p>Call <code>beginTransaction()</code> without try-with-resources and <code>return</code> partway through, and
+nothing is rolled back and the connection never goes back to the pool.</p>
+<p>jimble <strong>catches it at the end of the execution (<code>Context</code>)</strong>.</p>
+<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+</code></pre>
+<p>Rolling back silently would leave you with &quot;I thought I saved it and it is not there&quot;,
+so it logs an ERROR first and then rolls back.
+If you see this line, you forgot to wrap something.</p>
+<h2 id="the-short-form">The short form<a class="anchor" href="#the-short-form">#</a></h2>
+<pre class="code"><code class="lang-java">DBTransaction.transaction(db, transaction -&gt; {
+	db.insert(...);
+	db.update(...);
+});
+</code></pre>
+<p>It starts one, runs the work you passed in, and sees it through <code>commitEndTransaction()</code>.
+If an exception is thrown, <code>close()</code> rolls back.</p>
+<h2 id="mixing-in-mq">Mixing in MQ<a class="anchor" href="#mixing-in-mq">#</a></h2>
+<p>You push onto the queue <strong>after the commit</strong>.</p>
+<pre class="code"><code class="lang-java">transaction.commitEndTransaction();
+
+PostFeedHandler.notifyNewPost(title);
+</code></pre>
+<p>Publish first and a rollback leaves you delivering &quot;a notice about an article that is not there&quot;.
+The other way round: pushing onto a DB-backed queue (<a href="./mq">MQ</a>) belongs <strong>inside the transaction</strong>.
+It is the same DB, so a rollback removes what you pushed along with everything else.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="sql">
+				<span>Previous</span>SQL DSL
+			</a>
+			<a class="next" href="async">
+				<span>Next</span>Lazy loading and prefetch
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#which-one-to-call">Which one to call</a></li>
+			<li class="level-2"><a href="#forgetting-to-close">Forgetting to close</a></li>
+			<li class="level-2"><a href="#the-short-form">The short form</a></li>
+			<li class="level-2"><a href="#mixing-in-mq">Mixing in MQ</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

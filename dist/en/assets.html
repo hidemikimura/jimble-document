@@ -1,0 +1,400 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Static files and SPA - jimble</title>
+<meta name="description" content="assets / SPA / MPA. Serving from inside the jar, ETag, rewriting">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="current">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="static-files-and-spa">Static files and SPA<a class="anchor" href="#static-files-and-spa">#</a></h1>
+<p>There are three ways to serve. <strong>Every one of them is a handler separate from routing proper</strong> (requirement F-W-20).</p>
+<table>
+<thead>
+<tr>
+<th>What you want</th>
+<th>What to use</th>
+<th>On a miss</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Serve CSS, JS and images as-is</td>
+<td><code>AssetHandler</code></td>
+<td>404</td>
+</tr>
+<tr>
+<td>SPA (the same index.html on every path)</td>
+<td><code>SpaHandler</code></td>
+<td>The nearest <code>index.html</code></td>
+</tr>
+<tr>
+<td>MPA (an index.html per directory)</td>
+<td><code>MpaHandler</code></td>
+<td><code>&lt;path&gt;/index.html</code>, when there is no extension</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Content is read from the classpath.</strong> You can serve it while it stays inside the jar, and
+during development it is read from <code>build/resources/main</code>. <strong>The behaviour is the same either way</strong> (requirement F-W-18).</p>
+<h2 id="static-files">Static files<a class="anchor" href="#static-files">#</a></h2>
+<pre class="code"><code class="lang-java">install(() -&gt; AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"test-assets"</span>));</code></pre>
+<p><code>src/main/resources/test-assets/app.css</code> comes out at <code>/assets/app.css</code>.
+Two routes are registered: <code>GET</code> and <code>HEAD</code>.</p>
+<h3 id="caching">Caching<a class="anchor" href="#caching">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Extension</th>
+<th><code>Cache-Control</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.js</code> <code>.css</code> <code>.woff</code> <code>.woff2</code></td>
+<td><code>public,max-age=31536000,immutable</code></td>
+</tr>
+<tr>
+<td>Everything else</td>
+<td><code>public,max-age=&lt;assets.max_age&gt;,must-revalidate</code></td>
+</tr>
+</tbody>
+</table>
+<p>The default for dynamic responses is <code>no-store</code> (requirement F-X-07). <strong>Static serving is the only thing that overrides it.</strong></p>
+<pre class="code"><code class="lang-conf">assets {
+	max_age            = <span class="h-n">0</span>        <span class="h-c"># ordinary files</span>
+	immutable_max_age  = <span class="h-n">31536000</span> <span class="h-c"># for files with a content hash in the name (one year)</span>
+	etag               = <span class="h-k">true</span>
+	if_modified_since  = <span class="h-k">true</span>
+}
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p>Whether <code>immutable</code> gets attached is decided <strong>by the extension alone.</strong>
+Replace <code>app.js</code> with new content and <strong>the browser will not come back for a year.</strong>
+Put a hash in the file name (<code>app.9f3a1c.js</code>), or lower <code>assets.immutable_max_age</code>.</p>
+</div>
+<h3 id="conditional-get">Conditional GET<a class="anchor" href="#conditional-get">#</a></h3>
+<ul>
+<li><code>ETag</code> is a weak ETag (md5 of path, modification time and size)</li>
+<li><code>Last-Modified</code> is <code>URLConnection</code>'s modification time</li>
+<li><strong><code>If-None-Match</code> is checked first</strong>; <code>If-Modified-Since</code> only when it is absent</li>
+<li>On a match, <strong>a 304 without reading the body</strong></li>
+</ul>
+<h3 id="what-is-not-there">What is not there<a class="anchor" href="#what-is-not-there">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Range (partial requests)</td>
+<td><strong>Not supported.</strong> No <code>206</code> is returned</td>
+</tr>
+<tr>
+<td>Per-file compression</td>
+<td><strong>Not supported.</strong> We leave it to the server-wide <code>server.compression</code> (helidon)</td>
+</tr>
+<tr>
+<td>Directory listings</td>
+<td>Not served</td>
+</tr>
+</tbody>
+</table>
+<h2 id="spa">SPA<a class="anchor" href="#spa">#</a></h2>
+<pre class="code"><code class="lang-java">install(() -&gt; SpaHandler.mount(<span class="h-s">"/app"</span>, <span class="h-s">"test-spa"</span>));</code></pre>
+<p>When a request hits <code>/app/...</code>, this is how it looks.</p>
+<ol>
+<li>If a real file exists, <strong>return that</strong> (same headers as <code>AssetHandler</code>)</li>
+<li>Otherwise walk up from that path looking for <code>index.html</code></li>
+<li>Finally, the <code>index.html</code> directly under the base</li>
+<li>If that is missing too, 404</li>
+</ol>
+<p><strong>It coexists with ordinary routes.</strong> Declare <code>/api/items</code> and the SPA will not swallow it.
+The tree's precedence (fixed segment &gt; path parameter &gt; wildcard) applies unchanged.</p>
+<h3 id="rewriting-indexhtml-per-path">Rewriting index.html per path<a class="anchor" href="#rewriting-indexhtml-per-path">#</a></h3>
+<p>Use this when you want to swap out <code>&lt;title&gt;</code> or <code>&lt;meta&gt;</code> for crawlers or OGP.</p>
+<pre class="code"><code class="lang-java">install(() -&gt; SpaHandler.mount(<span class="h-s">"/app"</span>, <span class="h-s">"test-spa"</span>, spa -&gt; spa
+	.route(<span class="h-s">"/app/items/{id}"</span>, (context, html) -&gt;
+		html.replace(<span class="h-s">"&lt;!--title--&gt;"</span>, <span class="h-s">"&lt;title&gt;item "</span> + context.request().bodyPath().getString(<span class="h-s">"id"</span>) + <span class="h-s">"&lt;/title&gt;"</span>))
+));</code></pre>
+<p>Paths are written the same way as real routes (<code>{id}</code>, a trailing <code>/*</code>).
+<strong>Matching is done by the same route tree the real routes use</strong> (requirement D-75).</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Precedence</td>
+<td>Fixed &gt; variable &gt; wildcard. <strong>It does not depend on the order you wrote them</strong></td>
+</tr>
+<tr>
+<td>Path parameters</td>
+<td><code>context.request().bodyPath().getString(&quot;id&quot;)</code></td>
+</tr>
+<tr>
+<td>A duplicate path</td>
+<td>Fails at registration</td>
+</tr>
+<tr>
+<td>Your real route list</td>
+<td><strong>Stays separate</strong> (a different instance — requirement F-W-20)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>When a rewrite happens — and only then — <code>ETag</code> and <code>Last-Modified</code> are not attached (the content changes per request).
+<code>Cache-Control</code> becomes <code>public,max-age=&lt;assets.max_age&gt;,must-revalidate</code>.</p>
+</div>
+<h2 id="mpa">MPA<a class="anchor" href="#mpa">#</a></h2>
+<pre class="code"><code class="lang-java">install(() -&gt; MpaHandler.mount(<span class="h-s">"/docs"</span>, <span class="h-s">"test-mpa"</span>));</code></pre>
+<p>With an extension it returns the file; without one, <code>&lt;path&gt;/index.html</code>.
+<code>/docs/guide</code> → <code>docs/guide/index.html</code>.</p>
+<h2 id="defaults-on-the-safe-side">Defaults on the safe side<a class="anchor" href="#defaults-on-the-safe-side">#</a></h2>
+<p>Every path is inspected before anything is served. <strong>Anything dangerous gets a 404</strong> (so we do not reveal what exists).</p>
+<p>Rejected: NUL characters, backslashes, empty segments (<code>//</code>), and <code>.</code> and <code>..</code> segments.</p>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>Percent-encoded forms like <code>%2e%2e</code> are rejected too.
+Each segment is decoded before it is inspected, so a <code>..</code> is caught the moment it is reconstructed.</p>
+</div>
+<h2 id="when-you-edit-during-development">When you edit during development<a class="anchor" href="#when-you-edit-during-development">#</a></h2>
+<p><code>jimbleRun</code> watches <code>.html</code> / <code>.js</code> / <code>.css</code>.
+Save and the resources are rebuilt, and the next request serves them (<a href="./hot-reload">Hot reload</a>).</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Swap files in without stopping the app and you can be left looking at the old content.</strong>
+Whether a file exists, and the contents of <code>index.html</code>, are remembered in memory,
+and the only way to clear that is <code>Resources.clearCache()</code>. With <code>jimbleRun</code> it is rebuilt on every swap.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="view">
+				<span>Previous</span>Templates
+			</a>
+			<a class="next" href="session-security">
+				<span>Next</span>Sessions and safe defaults
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#static-files">Static files</a></li>
+			<li class="level-3"><a href="#caching">Caching</a></li>
+			<li class="level-3"><a href="#conditional-get">Conditional GET</a></li>
+			<li class="level-3"><a href="#what-is-not-there">What is not there</a></li>
+			<li class="level-2"><a href="#spa">SPA</a></li>
+			<li class="level-3"><a href="#rewriting-indexhtml-per-path">Rewriting index.html per path</a></li>
+			<li class="level-2"><a href="#mpa">MPA</a></li>
+			<li class="level-2"><a href="#defaults-on-the-safe-side">Defaults on the safe side</a></li>
+			<li class="level-2"><a href="#when-you-edit-during-development">When you edit during development</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

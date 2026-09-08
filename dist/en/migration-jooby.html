@@ -1,0 +1,391 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migrating from jooby - jimble</title>
+<meta name="description" content="What works as it is, and what you have to rewrite">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="current">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="migrating-from-jooby">Migrating from jooby<a class="anchor" href="#migrating-from-jooby">#</a></h1>
+<p>jimble's routing DSL is modelled on jooby's.
+<strong>Most route definitions work as they are.</strong> What needs rewriting is everything around them.</p>
+<h2 id="what-works-as-it-is">What works as it is<a class="anchor" href="#what-works-as-it-is">#</a></h2>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, ctx -&gt; ...);
+post(<span class="h-s">"/posts"</span>, ctx -&gt; ...);
+path(<span class="h-s">"/admin"</span>, () -&gt; { ... });
+before(...);
+after(...);
+</code></pre>
+<p>The method names are lowercase, the same as jooby's. Nesting <code>path()</code> works the same way.</p>
+<p><strong>How far <code>before</code> / <code>after</code> / <code>error</code> reach is different, though.</strong>
+jooby attaches them to a path; jimble applies them <strong>only inside the block you wrote them in</strong>.
+Same <code>/admin</code> or not, a route registered in a different block is not covered
+(<a href="./routing">How far a filter reaches</a>).
+If you are relying on &quot;everything under <code>/admin</code> requires auth&quot;, check that the
+<code>/admin</code> routes really are all in one place.</p>
+<h2 id="what-you-rewrite">What you rewrite<a class="anchor" href="#what-you-rewrite">#</a></h2>
+<h3 id="context">Context<a class="anchor" href="#context">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>jooby</th>
+<th>jimble</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ctx.path(&quot;id&quot;).value()</code></td>
+<td><code>context.route().variables().get(&quot;id&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.query(&quot;q&quot;).value()</code></td>
+<td><code>context.request().bodyQuery().getString(&quot;q&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.form(&quot;name&quot;).value()</code></td>
+<td><code>context.request().bodyForm().getString(&quot;name&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.body(Foo.class)</code></td>
+<td><code>context.request().bodyJson()</code> → <code>Data</code></td>
+</tr>
+<tr>
+<td><code>ctx.send(&quot;text&quot;)</code></td>
+<td><code>context.response().send(&quot;text&quot;)</code></td>
+</tr>
+<tr>
+<td><code>ctx.render(obj)</code></td>
+<td><code>context.response().json(...)</code> / <code>.view(...)</code></td>
+</tr>
+<tr>
+<td><code>ctx.setResponseCode(201)</code></td>
+<td><code>context.response().code(201)</code></td>
+</tr>
+<tr>
+<td><code>ctx.sessionOrNull()</code></td>
+<td><code>context.session()</code></td>
+</tr>
+</tbody>
+</table>
+<p>jimble <strong>does not repack the input into a typed class</strong>. It stays a <code>Data</code>.
+That is because binding by reflection is gone. Validate the values with
+<a href="./validation">ValidationRules</a>.</p>
+<h3 id="drop-the-di">Drop the DI<a class="anchor" href="#drop-the-di">#</a></h3>
+<pre class="code"><code class="lang-java"><span class="h-c">// jooby</span>
+<span class="h-a">@Inject</span>
+<span class="h-k">public</span> PostController (PostService service) { ... }
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// jimble</span>
+install(PostController::<span class="h-k">new</span>);
+</code></pre>
+<p>You <code>new</code> your dependencies, or call a <code>static</code> method.
+When you want to swap one out, pass it through the constructor.</p>
+<pre class="code"><code class="lang-java">install(() -&gt; <span class="h-k">new</span> PostController(<span class="h-k">new</span> PostService(db)));
+</code></pre>
+<h3 id="drop-the-annotations">Drop the annotations<a class="anchor" href="#drop-the-annotations">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>jooby</th>
+<th>jimble</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@GET @Path(&quot;/x&quot;)</code></td>
+<td><code>get(&quot;/x&quot;, ...)</code></td>
+</tr>
+<tr>
+<td><code>@Transactional</code></td>
+<td><code>try (DBTransaction transaction = ...)</code></td>
+</tr>
+<tr>
+<td><code>@Inject</code></td>
+<td>pass it through the constructor</td>
+</tr>
+</tbody>
+</table>
+<h3 id="startup">Startup<a class="anchor" href="#startup">#</a></h3>
+<pre class="code"><code class="lang-java"><span class="h-c">// jooby</span>
+<span class="h-k">public</span> <span class="h-k">class</span> App <span class="h-k">extends</span> Jooby {
+	{ get(<span class="h-s">"/"</span>, ctx -&gt; <span class="h-s">"hello"</span>); }
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) { runApp(args, App::<span class="h-k">new</span>); }
+}
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// jimble</span>
+<span class="h-k">public</span> <span class="h-k">class</span> App <span class="h-k">extends</span> JimbleApp {
+	{ get(<span class="h-s">"/"</span>, context -&gt; context.response().send(<span class="h-s">"hello"</span>)); }
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) { JimbleServer.start(<span class="h-k">new</span> App()); }
+}
+</code></pre>
+<p><strong>Handlers do not return a value.</strong> You build the response on <code>context.response()</code> and send it.
+Branch the rendering on a return value and what actually comes back stops being readable
+from the code.</p>
+<h3 id="configuration">Configuration<a class="anchor" href="#configuration">#</a></h3>
+<p>The <code>application.conf</code> format is the same HOCON. <strong>The key names change.</strong></p>
+<table>
+<thead>
+<tr>
+<th>jooby</th>
+<th>jimble</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>server.port</code></td>
+<td><code>server.port</code> (the same)</td>
+</tr>
+<tr>
+<td><code>application.env</code></td>
+<td><code>-Djimble.env=&lt;env&gt;</code></td>
+</tr>
+<tr>
+<td><code>jooby.*</code></td>
+<td>Gone</td>
+</tr>
+</tbody>
+</table>
+<p><code>jooby.*</code> keys are <strong>not read. And there is no error, either.</strong>
+When you bring a configuration file over, always check the configuration line in the startup log.</p>
+<h3 id="templates">Templates<a class="anchor" href="#templates">#</a></h3>
+<p>If you were on jooby's jte module, the templates themselves carry over.
+Replace it with the <code>io.jimble.jte</code> plugin.</p>
+<p>The model you pass becomes a <code>Data</code>. Receive it with <code>@param Data data</code>.</p>
+<h2 id="the-order-to-migrate-in">The order to migrate in<a class="anchor" href="#the-order-to-migrate-in">#</a></h2>
+<ol>
+<li>Swap in the <code>build.gradle.kts</code> (<code>io.jimble.jte</code> / <code>io.jimble.run</code>)</li>
+<li>Make <code>App.java</code> extend <code>JimbleApp</code>. The route definitions are a straight paste</li>
+<li>Rewrite the insides of the handlers to <code>context.request()</code> / <code>context.response()</code></li>
+<li>Replace <code>@Inject</code> with <code>install()</code> and a constructor</li>
+<li>Replace <code>@Transactional</code> with <code>try (DBTransaction ...)</code></li>
+<li>Start it up and <strong>check the route list and the configuration line</strong></li>
+</ol>
+<h2 id="what-you-do-not-have-to-migrate">What you do not have to migrate<a class="anchor" href="#what-you-do-not-have-to-migrate">#</a></h2>
+<p>The DB layer carries over. How you use <code>SQL</code> / <code>Column</code> / <code>Table</code> / <code>Data</code> / <code>DB</code> does not change.
+The generated table definition classes work as they are, too.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="util">
+				<span>Previous</span>Utilities
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#what-works-as-it-is">What works as it is</a></li>
+			<li class="level-2"><a href="#what-you-rewrite">What you rewrite</a></li>
+			<li class="level-3"><a href="#context">Context</a></li>
+			<li class="level-3"><a href="#drop-the-di">Drop the DI</a></li>
+			<li class="level-3"><a href="#drop-the-annotations">Drop the annotations</a></li>
+			<li class="level-3"><a href="#startup">Startup</a></li>
+			<li class="level-3"><a href="#configuration">Configuration</a></li>
+			<li class="level-3"><a href="#templates">Templates</a></li>
+			<li class="level-2"><a href="#the-order-to-migrate-in">The order to migrate in</a></li>
+			<li class="level-2"><a href="#what-you-do-not-have-to-migrate">What you do not have to migrate</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

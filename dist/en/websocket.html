@@ -1,0 +1,360 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebSocket - jimble</title>
+<meta name="description" content="Two-way. One Context per message">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="current">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="websocket">WebSocket<a class="anchor" href="#websocket">#</a></h1>
+<h2 id="writing-one">Writing one<a class="anchor" href="#writing-one">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> ChatHandler <span class="h-k">implements</span> WsHandler {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">boolean</span> onUpgrade (WsSession session) {
+
+		<span class="h-c">// 認証はここで通す。Cookie が読めるのはこの時点だけ。断ると 403</span>
+		<span class="h-k">return</span> <span class="h-s">"secret"</span>.equals(session.cookie(<span class="h-s">"token"</span>));
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">void</span> onMessage (WsContext context, String message) {
+
+		context.session().send(<span class="h-s">"echo: "</span> + message);
+
+	}
+
+}</code></pre>
+<h2 id="registering-it">Registering it<a class="anchor" href="#registering-it">#</a></h2>
+<pre class="code"><code class="lang-java">ws(<span class="h-s">"/ws/posts"</span>, PostFeedHandler::<span class="h-k">new</span>);
+</code></pre>
+<p>You write it in the same place as your HTTP routes. It shows up in the startup log too, as <code>WS /ws/posts</code>.</p>
+<p>What you pass is <strong>a constructor reference, not an instance</strong>.
+One handler is created per connection.</p>
+<h2 id="the-order-they-are-called-in">The order they are called in<a class="anchor" href="#the-order-they-are-called-in">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>onUpgrade(WsSession)</code></td>
+<td>Before the upgrade from HTTP. Return <code>false</code> and you get a 403</td>
+</tr>
+<tr>
+<td><code>onOpen(WsContext)</code></td>
+<td>Once the connection is up</td>
+</tr>
+<tr>
+<td><code>onMessage(WsContext, String)</code></td>
+<td>Text arrived</td>
+</tr>
+<tr>
+<td><code>onBinary(WsContext, byte[])</code></td>
+<td>Binary arrived</td>
+</tr>
+<tr>
+<td><code>onClose(WsContext, int, String)</code></td>
+<td>It closed</td>
+</tr>
+<tr>
+<td><code>onError(WsContext, Throwable)</code></td>
+<td>Something threw</td>
+</tr>
+</tbody>
+</table>
+<p>Every one of them has a <code>default</code> implementation, so you write only the ones you need.</p>
+<h2 id="authenticate-in-onupgrade">Authenticate in onUpgrade<a class="anchor" href="#authenticate-in-onupgrade">#</a></h2>
+<p><strong><code>onUpgrade</code> is the only point at which you can read a cookie.</strong>
+After the upgrade there are no HTTP headers any more.</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">public</span> <span class="h-k">boolean</span> onUpgrade (WsSession session) {
+
+	<span class="h-k">return</span> <span class="h-s">"secret"</span>.equals(session.cookie(<span class="h-s">"token"</span>));
+
+}
+</code></pre>
+<p>Return <code>false</code> and it is turned away with a 403.</p>
+<h2 id="a-context-per-message">A Context per message<a class="anchor" href="#a-context-per-message">#</a></h2>
+<p><strong>One <code>Context</code> is created for each message.</strong>
+It is treated exactly like a request, or like a single batch execution.</p>
+<p>So inside <code>onMessage</code> you use the DB and the session as normal.
+When the message is done, the DB connection goes back, even though the connection stays up.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">void</span> onMessage (WsContext context, String message) {
+
+	Data request = Data.fromJsonString(message);
+
+	<span class="h-k">switch</span> (request.getStringOptional(<span class="h-s">"command"</span>)) {
+
+		<span class="h-k">case</span> <span class="h-s">"latest"</span> -&gt; context.session().send(<span class="h-k">new</span> Data()
+			.putData(<span class="h-s">"type"</span>, <span class="h-s">"latest"</span>)
+			.putData(<span class="h-s">"posts"</span>, titles()));
+
+		<span class="h-k">case</span> <span class="h-s">"subscribe"</span> -&gt; {
+			SUBSCRIBERS.add(context.session());
+			context.session().send(<span class="h-k">new</span> Data().putData(<span class="h-s">"type"</span>, <span class="h-s">"subscribed"</span>));
+		}
+
+		<span class="h-c">/*
+		 * 何が使えるのかを返す。
+		 * 黙って無視すると、クライアント側は
+		 * 「届いていないのか、コマンドが違うのか」が分からない。
+		 */</span>
+		<span class="h-k">default</span> -&gt; context.session().send(<span class="h-k">new</span> Data()
+			.putData(<span class="h-s">"type"</span>, <span class="h-s">"error"</span>)
+			.putData(<span class="h-s">"message"</span>, <span class="h-s">"知らないコマンドです"</span>)
+			.putData(<span class="h-s">"commands"</span>, List.of(<span class="h-s">"latest"</span>, <span class="h-s">"subscribe"</span>)));
+
+	}
+
+}</code></pre>
+<p>Do not silently drop a command you do not recognise.
+From the client side there is no way to tell &quot;did it not arrive, or was the command wrong&quot;.</p>
+<h2 id="sending-to-other-connections">Sending to other connections<a class="anchor" href="#sending-to-other-connections">#</a></h2>
+<p>You keep the connected sessions yourself.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">static</span> <span class="h-k">final</span> Set&lt;WsSession&gt; SUBSCRIBERS = ConcurrentHashMap.newKeySet();
+
+<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> notifyNewPost (String title) {
+
+	Data event = <span class="h-k">new</span> Data().putData(<span class="h-s">"type"</span>, <span class="h-s">"new_post"</span>).putData(<span class="h-s">"title"</span>, title);
+
+	<span class="h-c">// send() returning false means that connection is already gone. Drop it</span>
+	SUBSCRIBERS.removeIf(session -&gt; !session.send(event));
+
+}
+</code></pre>
+<p>If you run more than one server, fanning out this way will not reach anyone connected
+to a different one. Put something like Redis pub/sub in between. jimble does not go that far.</p>
+<h2 id="sse-or-websocket">SSE or WebSocket<a class="anchor" href="#sse-or-websocket">#</a></h2>
+<p>If the client has nothing to send, <a href="./sse">SSE</a> is the easier one.
+No proxy configuration, and the browser handles the reconnecting for you.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="sse">
+				<span>Previous</span>SSE
+			</a>
+			<a class="next" href="mcp">
+				<span>Next</span>MCP
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#writing-one">Writing one</a></li>
+			<li class="level-2"><a href="#registering-it">Registering it</a></li>
+			<li class="level-2"><a href="#the-order-they-are-called-in">The order they are called in</a></li>
+			<li class="level-2"><a href="#authenticate-in-onupgrade">Authenticate in onUpgrade</a></li>
+			<li class="level-2"><a href="#a-context-per-message">A Context per message</a></li>
+			<li class="level-2"><a href="#sending-to-other-connections">Sending to other connections</a></li>
+			<li class="level-2"><a href="#sse-or-websocket">SSE or WebSocket</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,361 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sessions and safe defaults - jimble</title>
+<meta name="description" content="Sessions, CSRF, flash, and signed cookies">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="current">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="sessions-and-safe-defaults">Sessions and safe defaults<a class="anchor" href="#sessions-and-safe-defaults">#</a></h1>
+<h2 id="sessions">Sessions<a class="anchor" href="#sessions">#</a></h2>
+<pre class="code"><code class="lang-java">context.session().put(<span class="h-s">"user_id"</span>, <span class="h-n">42</span>);
+
+<span class="h-c">// 明示的に保存する（要件 F-S-02）。自動保存はしない</span>
+context.session().save();</code></pre>
+<p><strong>Nothing is saved automatically.</strong> Nothing is written unless you call <code>save()</code>.
+That is to avoid writing on every request that only ever read.</p>
+<p>Choose where it is stored in <code>application.conf</code>.</p>
+<pre class="code"><code class="lang-conf">session {
+	store       = <span class="h-s">"db"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	cookie_name = <span class="h-s">"sid"</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>store</th>
+<th>Where it fits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>none</code></td>
+<td>You do not use sessions (the default)</td>
+</tr>
+<tr>
+<td><code>db</code></td>
+<td>Several servers. You have a DB</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>Several servers. You need the speed</td>
+</tr>
+<tr>
+<td><code>cookie</code></td>
+<td>You want to keep nothing on the server. The contents are signed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="csrf">CSRF<a class="anchor" href="#csrf">#</a></h2>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
+
+	<span class="h-c">/*
+	 * 状態を変えるものだけ検証する。
+	 * GET / HEAD / OPTIONS / TRACE は素通しする（Csrf.SAFE_METHODS）。
+	 */</span>
+	before(Csrf::verify);
+
+	get(<span class="h-s">""</span>, FormController::show);
+	post(<span class="h-s">""</span>, FormController::submit);
+
+});</code></pre>
+<p>Put <code>Csrf::verify</code> in a <code>before</code> and the routes below it are protected.
+<code>GET</code> <code>HEAD</code> <code>OPTIONS</code> <code>TRACE</code> pass through untouched (<code>Csrf.SAFE_METHODS</code>).</p>
+<p>Take the token with <code>context.request().csrfToken()</code> and put it in a hidden form field.</p>
+<h2 id="flash">Flash<a class="anchor" href="#flash">#</a></h2>
+<p>Something you hand to the redirect target exactly once.</p>
+<pre class="code"><code class="lang-java">context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"Saved"</span>);
+context.response().redirect(<span class="h-s">"/"</span>);
+</code></pre>
+<p>It disappears the moment you read it. It travels signed, inside a cookie.</p>
+<h2 id="cookies-default-to-secure--true">Cookies default to secure = true<a class="anchor" href="#cookies-default-to-secure--true">#</a></h2>
+<p>jimble's cookies carry <code>Secure</code> by default. They are only sent over HTTPS.</p>
+<p><strong>Local runs on http, so with that default the browser never sends the cookie back.</strong>
+Sessions, CSRF, and flash all stop working — without an error.</p>
+<p>This is the textbook silent failure, so jimble <strong>logs a WARN at startup</strong> when
+<code>env=local</code> and <code>cookie.secure = true</code>.</p>
+<pre class="code"><code class="lang-text">cookie.secure = true のままです（env=local）。
+ローカルは http なので、ブラウザは Cookie を送り返しません。
+application.conf に次を足してください。
+  cookie { secure = false }
+</code></pre>
+<blockquote>
+<p>In English: &quot;cookie.secure is still true (env=local). Local runs on http, so the
+browser will not send the cookie back. Add this to application.conf.&quot;</p>
+</blockquote>
+<p>The <code>jimble new</code> skeleton ships with that stanza already in it.
+<strong>Delete it before you go to production.</strong></p>
+<h2 id="cookies">Cookies<a class="anchor" href="#cookies">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-c">// 30 days</span>
+context.cookies().put(<span class="h-s">"last_post"</span>, String.valueOf(id), <span class="h-n">30L</span> * <span class="h-n">24</span> * <span class="h-n">60</span> * <span class="h-n">60</span>);
+
+String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
+</code></pre>
+<p><strong>A value you write is readable again inside the same request.</strong> If only received cookies
+were visible, every re-read of a CSRF token you had issued a moment ago would hand you
+a different one.</p>
+<p>To sign a value, sign it with <code>Cookies.sign(value)</code> and put it in with <code>put(Cookie, plaintext)</code>.
+Read it back with <code>context.request().unsignCookie(&quot;a name&quot;)</code>. If it has been tampered with, you get <code>null</code>.
+The key is <code>cookie.secret</code> in <code>application.conf</code> (<code>session.secret</code> for cookie sessions);
+in production, pass it in from an environment variable.</p>
+<pre class="code"><code class="lang-conf">cookie {
+	secret = ${?COOKIE_SECRET}
+}
+</code></pre>
+<h2 id="passwords">Passwords<a class="anchor" href="#passwords">#</a></h2>
+<p><code>PasswordUtil</code> hashes with BCrypt. <strong>Whether it then encrypts is yours to choose.</strong></p>
+<pre class="code"><code class="lang-java">String hash = PasswordUtil.createHash(password);
+
+<span class="h-k">if</span> (PasswordUtil.check(input, user.getString(<span class="h-s">"password"</span>))) {
+	<span class="h-c">// it matched</span>
+}
+</code></pre>
+<pre class="code"><code class="lang-conf">hash {
+	password {
+		<span class="h-c"># Default: true when cipher.key is set, false when it is not</span>
+		encrypt = <span class="h-k">true</span>
+		pepper  = ${?PASSWORD_PEPPER}
+	}
+}
+
+cipher {
+	key = ${?CIPHER_KEY}   <span class="h-c"># 16 / 24 / 32 bytes</span>
+	iv  = ${?CIPHER_IV}    <span class="h-c"># 16 bytes</span>
+}
+</code></pre>
+<p><strong>The default is &quot;encrypt if a key is there.&quot;</strong> Pin it to a hard <code>false</code> and an existing app
+that stores encrypted hashes will compare them as plaintext even though the key is
+configured — and <strong>nobody can log in any more.</strong> Which mode you are running in shows up
+in the startup log (<code>パスワード暗号化=あり</code>). Write <code>encrypt</code> when you want it stated.</p>
+<p>Turning encryption on or off later means rebuilding the hashes you already stored.
+<code>createHash(password, encrypt)</code> and <code>check(input, hash, encrypted)</code> let you pin each side
+on its own.</p>
+<p><code>CipherUtil</code> is <strong>AES/CBC with a fixed IV.</strong> It is kept so that ciphertext already in your
+database can still be read. <strong>Do not use it for anything you encrypt from now on.</strong> The same
+plaintext always produces the same ciphertext, and there is no tamper detection.
+For anything new, use <code>Aead</code> (AES-256-GCM).</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="assets">
+				<span>Previous</span>Static files and SPA
+			</a>
+			<a class="next" href="ratelimit">
+				<span>Next</span>Rate limiting
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#sessions">Sessions</a></li>
+			<li class="level-2"><a href="#csrf">CSRF</a></li>
+			<li class="level-2"><a href="#flash">Flash</a></li>
+			<li class="level-2"><a href="#cookies-default-to-secure--true">Cookies default to secure = true</a></li>
+			<li class="level-2"><a href="#cookies">Cookies</a></li>
+			<li class="level-2"><a href="#passwords">Passwords</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

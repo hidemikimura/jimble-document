@@ -1,0 +1,438 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using the DB - jimble</title>
+<meta name="description" content="Configuring a data source, choosing a DB product, generating table definitions, and the shape of a select result">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="current">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="using-the-db">Using the DB<a class="anchor" href="#using-the-db">#</a></h1>
+<h2 id="configure-it">Configure it<a class="anchor" href="#configure-it">#</a></h2>
+<p>Write your data source in <code>application.conf</code>.</p>
+<pre class="code"><code class="lang-conf">db {
+	blog_example {
+		main     = <span class="h-k">true</span>
+		driver   = <span class="h-s">"org.mariadb.jdbc.Driver"</span>
+		url      = <span class="h-s">"jdbc:mariadb://127.0.0.1:3306/blog_example?useUnicode=true&amp;characterEncoding=UTF-8"</span>
+		url      = ${?DB_URL}
+		username = <span class="h-s">"blog"</span>
+		username = ${?DB_USER}
+		password = <span class="h-s">""</span>
+		password = ${?DB_PASSWORD}
+
+		maximumPoolSize      = <span class="h-n">10</span>
+		connection_pool_type = <span class="h-s">"hikari"</span>
+	}
+}
+
+codegen {
+	<span class="h-k">package</span> = <span class="h-s">"db"</span>
+}
+</code></pre>
+<p><strong>Do not put secrets in the file.</strong> Write them as <code>${?ENV_NAME}</code> and the
+environment variable wins when it is set. When it is not, the value from the
+line above stays.</p>
+<p><code>jimble-db</code> ships drivers for both MySQL / MariaDB and PostgreSQL, so you
+normally do not have to add one.</p>
+<h2 id="choose-a-db-product">Choose a DB product<a class="anchor" href="#choose-a-db-product">#</a></h2>
+<p>Set <code>product</code> and <strong>the SQL builder emits SQL for that product.</strong></p>
+<pre class="code"><code class="lang-conf">db {
+	blog_example {
+		main     = <span class="h-k">true</span>
+		product  = <span class="h-s">"postgresql"</span>
+		driver   = <span class="h-s">"org.postgresql.Driver"</span>
+		url      = <span class="h-s">"jdbc:postgresql://127.0.0.1:5432/blog_example"</span>
+		username = <span class="h-s">"blog"</span>
+		password = ${?DB_PASSWORD}
+	}
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Value you can write</th>
+<th>Product</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mysql</code> (default) / <code>mariadb</code></td>
+<td>MySQL 8.x / MariaDB</td>
+</tr>
+<tr>
+<td><code>postgresql</code> / <code>postgres</code> / <code>pgsql</code></td>
+<td>PostgreSQL 16 and later</td>
+</tr>
+</tbody>
+</table>
+<p>Leave it out and you get <code>mysql</code>. Write a value it does not know and
+<strong>startup fails</strong>.</p>
+<p><strong>Not one line of your application code changes.</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-c">// This one line becomes</span>
+<span class="h-c">//   MySQL      SELECT `post`.`id` AS `post__id` ... LIMIT ? OFFSET ?</span>
+<span class="h-c">//   PostgreSQL SELECT "post"."id" AS "post__id" ... LIMIT ? OFFSET ?</span>
+<span class="h-c">// depending on product</span>
+SQL.select().from(Post.instance()).where(Post.id.eq(<span class="h-n">1L</span>));
+</code></pre>
+<p>Each data source can name a different product (MySQL for the main one,
+PostgreSQL for reporting, and so on).</p>
+<h3 id="what-you-cannot-write-for-a-given-product">What you cannot write for a given product<a class="anchor" href="#what-you-cannot-write-for-a-given-product">#</a></h3>
+<p><strong>What you cannot write raises <code>DialectException</code> at the point where the SQL is
+built.</strong> You never get as far as running it and failing on the product's syntax
+error.</p>
+<table>
+<thead>
+<tr>
+<th>Builder</th>
+<th>PostgreSQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Dsl.match(...)</code> (full-text search)</td>
+<td>Not available. <code>to_tsvector</code> tokenizes differently and scores differently, so we do not silently substitute it</td>
+</tr>
+<tr>
+<td><code>Dsl.dateFormat(col, &quot;%Y-%m-%d&quot;)</code></td>
+<td>Not available. <code>to_char</code> uses a different format language, so substituting it would return <strong>a different string instead of raising</strong>. Format it on the Java side</td>
+</tr>
+<tr>
+<td><code>Dsl.jsonExtract(col, &quot;$.a[0]&quot;)</code></td>
+<td>Arrays, wildcards and quoted keys are not available. Only the <code>$.a.b</code> form</td>
+</tr>
+</tbody>
+</table>
+<p>The other way round, <strong>things that differ only in name we do line up silently</strong>
+(<code>RAND</code> / <code>RANDOM</code>, <code>IFNULL</code> / <code>COALESCE</code>, <code>TRUNCATE</code> / <code>TRUNC</code>, and so on).
+<code>Dsl.concat(...)</code> becomes <code>||</code> on PostgreSQL (PostgreSQL's <code>concat()</code> swallows
+NULL as an empty string, so swapping the name alone would change the result
+compared with MySQL).</p>
+<p>When you really do want the product's own syntax, <code>Dsl.freeSql(...)</code> is the way out.</p>
+<h3 id="things-to-watch">Things to watch<a class="anchor" href="#things-to-watch">#</a></h3>
+<ul>
+<li><strong>Spatial functions take their coordinates in a different order.</strong> SRID 4326 on
+MySQL 8 is latitude then longitude; PostGIS is longitude then latitude. jimble
+does not absorb this, so line it up yourself if you use both</li>
+<li>Migration SQL (<code>conf/migration/...</code>) <strong>runs exactly as you wrote it.</strong>
+If you change products, rewrite the DDL too</li>
+</ul>
+<h2 id="when-there-is-more-than-one-data-source">When there is more than one data source<a class="anchor" href="#when-there-is-more-than-one-data-source">#</a></h2>
+<pre class="code"><code class="lang-conf">db {
+	main_db { main = <span class="h-k">true</span>, ... }
+	log_db  { ... }
+}
+</code></pre>
+<p><code>DBUtil.getDB(&quot;log_db&quot;)</code> gets you a different data source.
+The one with <code>main = true</code> is the default for <code>DBUtil.getDB()</code>.</p>
+<p>If all you want is <strong>another schema on the same server</strong>, use <code>subs</code>.</p>
+<pre class="code"><code class="lang-conf">db {
+	main_db {
+		main = <span class="h-k">true</span>
+		...
+		subs {
+			archive_db { }
+		}
+	}
+}
+</code></pre>
+<p>This one shares the connection. Get it with <code>db.newSubDB(&quot;archive_db&quot;)</code>.
+The transaction is shared too.</p>
+<h2 id="generate-table-definitions">Generate table definitions<a class="anchor" href="#generate-table-definitions">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
+</code></pre>
+<p>This generates one class per table from the DB schema.</p>
+<pre class="code"><code class="lang-java">Post.id       <span class="h-c">// Column</span>
+Post.title
+Post.instance()   <span class="h-c">// Table</span>
+</code></pre>
+<p>Add the <code>io.jimble.db</code> plugin and <code>migrate → codegen → compileJava</code> are wired
+together. Write DDL, start up, and the code catches up on its own.</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
+	id(<span class="h-s">"io.jimble.db"</span>)
+}
+</code></pre>
+<p><strong>Commit the generated classes to the repository.</strong>
+If you do not commit them, you cannot build in an environment with no DB.</p>
+<h2 id="selecting">Selecting<a class="anchor" href="#selecting">#</a></h2>
+<pre class="code"><code class="lang-java">Data row = db.select(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.id.eq(<span class="h-n">1L</span>))
+);
+
+<span class="h-c">// SELECT の結果はテーブル名でネストする（要件 F-D-02）</span>
+String title = row.getData(<span class="h-s">"post"</span>).getString(<span class="h-s">"title"</span>);
+
+<span class="h-c">// Column で引けば、途中の文字列が出てこない</span>
+String same = row.getString(Post.title);</code></pre>
+<p><strong>A SELECT result nests under the table name.</strong>
+Join <code>post</code> and <code>comment</code> and the <code>id</code> on each side does not collide.</p>
+<p>Query with <code>Column</code> and no string keys show up in your code.
+<code>row.extractTableData(Post.instance())</code> pulls out one table's worth.</p>
+<h2 id="reading-errors">Reading errors<a class="anchor" href="#reading-errors">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
+
+	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
+
+	<span class="h-c">/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */</span>
+	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
+		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
+		<span class="h-k">return</span>;
+	}
+
+}</code></pre>
+<p>DB errors come back as return values, not exceptions.
+<code>select</code> returns <code>null</code>, <code>insert</code> returns <code>-1</code>, <code>update</code> / <code>delete</code> return <code>-1</code>.
+The reason is in <code>db.getError()</code>.</p>
+<h2 id="migrations">Migrations<a class="anchor" href="#migrations">#</a></h2>
+<p>Put them in <code>conf/migration/&lt;schema name&gt;/001_xxx.sql</code>.</p>
+<pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
+
+CREATE TABLE `note` (
+	`id`         BIGINT UNSIGNED AUTO_INCREMENT COMMENT <span class="h-s">'ID'</span> PRIMARY KEY,
+	`title`      VARCHAR(<span class="h-n">200</span>)  NOT NULL COMMENT <span class="h-s">'Title'</span>,
+	`created_at` DATETIME      NOT NULL COMMENT <span class="h-s">'Created at'</span>
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT=<span class="h-s">'Note'</span>;
+
+# <span class="h-c">--- !Downs</span>
+
+DROP TABLE `note`;
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate
+</code></pre>
+<p>What has already been applied is recorded, so it never runs twice.
+When several servers start at once, a lock is taken and only one of them runs.</p>
+<p>When each thing runs, what happens when one fails, and the type mapping that
+gets generated are all in
+<a href="./codegen">Migrations and code generation</a>.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="execution">
+				<span>Previous</span>Execution model
+			</a>
+			<a class="next" href="sql">
+				<span>Next</span>SQL DSL
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#configure-it">Configure it</a></li>
+			<li class="level-2"><a href="#choose-a-db-product">Choose a DB product</a></li>
+			<li class="level-3"><a href="#what-you-cannot-write-for-a-given-product">What you cannot write for a given product</a></li>
+			<li class="level-3"><a href="#things-to-watch">Things to watch</a></li>
+			<li class="level-2"><a href="#when-there-is-more-than-one-data-source">When there is more than one data source</a></li>
+			<li class="level-2"><a href="#generate-table-definitions">Generate table definitions</a></li>
+			<li class="level-2"><a href="#selecting">Selecting</a></li>
+			<li class="level-2"><a href="#reading-errors">Reading errors</a></li>
+			<li class="level-2"><a href="#migrations">Migrations</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

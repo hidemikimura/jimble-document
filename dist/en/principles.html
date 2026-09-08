@@ -1,0 +1,299 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Principles - jimble</title>
+<meta name="description" content="No annotations, no DI, no startup scanning — and why">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="current">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="principles">Principles<a class="anchor" href="#principles">#</a></h1>
+<p>jimble holds to a handful of rules.
+Whether a feature gets added is usually decided right here.</p>
+<h2 id="1-you-can-follow-it-top-to-bottom">1. You can follow it top to bottom<a class="anchor" href="#1-you-can-follow-it-top-to-bottom">#</a></h2>
+<p>The highest priority is that a reader can <strong>trace with a finger</strong> from <code>main</code>
+to the code they are looking for.</p>
+<p>What we gave up to get that:</p>
+<ul>
+<li><strong>Routes declared with annotations</strong> (<code>@GET @Path(&quot;/x&quot;)</code>).
+Which class gets read never appears in the code</li>
+<li><strong>A DI container.</strong>
+Which implementation <code>@Inject</code> lands on is unknowable until you run it</li>
+<li><strong>Transactions declared with annotations</strong> (<code>@Transactional</code>).
+Where one begins and ends lives outside the method</li>
+</ul>
+<p>Instead you write <code>new</code>. You write <code>install(AdminController::new)</code>.
+You write <code>try (DBTransaction transaction = ...)</code>. A few more lines.</p>
+<h2 id="2-no-classpath-scanning-at-startup">2. No classpath scanning at startup<a class="anchor" href="#2-no-classpath-scanning-at-startup">#</a></h2>
+<p>Controllers, batch jobs, MCP tools — <strong>you register them yourself</strong>.</p>
+<pre class="code"><code class="lang-java">tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
+tool(<span class="h-s">"create_post"</span>, CreatePostTool::<span class="h-k">new</span>);
+
+resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span class="h-k">new</span>);</code></pre>
+<p>Because nothing is scanned, startup is fast, the startup log tells the whole story
+of what got registered, and nothing fights with native images or jlink.
+Forget to register something and the route list in the startup log shows you.</p>
+<h2 id="3-never-fail-silently">3. Never fail silently<a class="anchor" href="#3-never-fail-silently">#</a></h2>
+<p>The most expensive bug is the one that does not crash.
+jimble spends its effort on killing the &quot;quietly stopped working&quot; states.</p>
+<p>For example:</p>
+<ul>
+<li>If <code>env=local</code> but <code>cookie.secure = true</code>, jimble <strong>logs a WARN</strong> at startup.
+Left alone, the browser never sends the cookie back, and session, CSRF, and flash
+all stop working with no error</li>
+<li>If an execution ends with a transaction still open, jimble <strong>logs an ERROR and rolls back</strong>.
+Silently returning the connection to the pool leaves you with
+&quot;I thought I inserted that&quot;</li>
+<li>The code snippets in these docs are extracted from the real code.
+Delete a marked region and <strong>the site build fails</strong></li>
+</ul>
+<h2 id="4-where-exceptions-are-not-used">4. Where exceptions are not used<a class="anchor" href="#4-where-exceptions-are-not-used">#</a></h2>
+<p>DB errors come back as return values, not exceptions.
+<code>select</code> calls return <code>null</code>; update calls return <code>-1</code>.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
+
+	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
+
+	<span class="h-c">/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */</span>
+	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
+		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
+		<span class="h-k">return</span>;
+	}
+
+}</code></pre>
+<p>The reason: most DB errors are ones the caller wants to branch on.
+Make them exceptions and your only choices are wrapping in <code>try</code> or forgetting to
+and letting it fly to the top.</p>
+<h2 id="5-one-execution--one-context">5. One execution = one Context<a class="anchor" href="#5-one-execution--one-context">#</a></h2>
+<p>A web request, a batch execution, one MQ message, one WebSocket message —
+each gets exactly one <code>Context</code>.
+The DB connection and the session hang off it, and it is folded up at the end.</p>
+<p><code>Context</code> is passed through a <code>ScopedValue</code>, not a <code>ThreadLocal</code>.
+On virtual threads <code>ScopedValue</code> is cheaper, and because it
+<strong>cannot be rewritten</strong>, nothing can swap it out from under you mid-execution.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="quickstart">
+				<span>Previous</span>Your first endpoint in 5 minutes
+			</a>
+			<a class="next" href="routing">
+				<span>Next</span>Routing
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#1-you-can-follow-it-top-to-bottom">1. You can follow it top to bottom</a></li>
+			<li class="level-2"><a href="#2-no-classpath-scanning-at-startup">2. No classpath scanning at startup</a></li>
+			<li class="level-2"><a href="#3-never-fail-silently">3. Never fail silently</a></li>
+			<li class="level-2"><a href="#4-where-exceptions-are-not-used">4. Where exceptions are not used</a></li>
+			<li class="level-2"><a href="#5-one-execution--one-context">5. One execution = one Context</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

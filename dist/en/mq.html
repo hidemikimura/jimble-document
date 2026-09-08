@@ -1,0 +1,325 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MQ - jimble</title>
+<meta name="description" content="The DB is the queue. Write for a message that will run twice">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="current">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="mq">MQ<a class="anchor" href="#mq">#</a></h1>
+<p>jimble's MQ <strong>makes a DB table the queue</strong>.
+No separate middleware. The big thing you get is that it shares your transaction.</p>
+<h2 id="writing-one">Writing one<a class="anchor" href="#writing-one">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> NoticeExecutor <span class="h-k">extends</span> MqExecutor {
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String queueName () { <span class="h-k">return</span> <span class="h-s">"mq_blog"</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> String key () { <span class="h-k">return</span> <span class="h-s">"notice"</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> MqExecuteType executeType () { <span class="h-k">return</span> MqExecuteType.short_time; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> MqStatus execute (DB db, Data row) {
+
+		Data data = row.getDataOptional(<span class="h-s">"data"</span>);
+
+		<span class="h-c">// ... do the work</span>
+
+		<span class="h-k">return</span> MqStatus.completed;
+
+	}
+
+}
+</code></pre>
+<ul>
+<li><code>queueName()</code> is the table name. One table per queue</li>
+<li><code>key()</code> is the kind. You can mix several kinds in one table</li>
+<li><code>executeType()</code> is <code>short_time</code> or <code>long_time</code>. It changes how messages are pulled off</li>
+<li>Return anything other than <code>MqStatus.completed</code> and it runs again, up to <code>maxRetry()</code></li>
+</ul>
+<h2 id="enqueueing">Enqueueing<a class="anchor" href="#enqueueing">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
+
+	transaction.beginTransaction();
+
+	<span class="h-k">long</span> id = db.insert(
+		SQL.insert(Post.instance())
+			.value(Post.title, request.getString(<span class="h-s">"title"</span>))
+			.value(Post.body, request.getString(<span class="h-s">"body"</span>))
+			.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
+			.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
+			.value(Post.created_at, <span class="h-k">new</span> Date())
+	);
+
+	<span class="h-k">if</span> (id &lt;= <span class="h-n">0</span>) {
+		transaction.rollbackEndTransaction();
+		<span class="h-k">return</span> -<span class="h-n">1</span>;
+	}
+
+	<span class="h-k">new</span> NoticeExecutor().put(db, <span class="h-k">new</span> Data()
+		.putData(<span class="h-s">"post_id"</span>, id)
+		.putData(<span class="h-s">"title"</span>, request.getString(<span class="h-s">"title"</span>)));
+
+	transaction.commitEndTransaction();
+
+	<span class="h-c">/*
+	 * コミットしてから流す。
+	 * 先に流すと、ロールバックしたときに
+	 * 「入っていない記事のお知らせ」だけが届く。
+	 */</span>
+	PostFeedHandler.notifyNewPost(request.getStringOptional(<span class="h-s">"title"</span>));
+
+	<span class="h-k">return</span> id;
+
+}</code></pre>
+<p>Call <code>put()</code> <strong>inside the transaction</strong>.
+It is the same DB, so rolling back throws away what you queued along with everything else.
+&quot;The mail went out but the order was never created&quot; cannot happen.</p>
+<p>You can also queue for a later time.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">new</span> NoticeExecutor().put(db, data, scheduledAt);
+</code></pre>
+<h2 id="it-will-run-twice">It will run twice<a class="anchor" href="#it-will-run-twice">#</a></h2>
+<p><strong>The same message can be executed twice.</strong>
+The process dying partway through the work is the usual reason.</p>
+<p>So <strong>write it so that running it again lands in the same place</strong>.</p>
+<ul>
+<li>For mail, look at the sent record before you send</li>
+<li>For a total, write the value in rather than adding to it</li>
+<li>For an external API, attach an idempotency key</li>
+</ul>
+<p>&quot;Exactly once&quot; is not something a distributed system can give you. jimble does not pretend it can.</p>
+<h2 id="registering-it-and-running-it">Registering it and running it<a class="anchor" href="#registering-it-and-running-it">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-c">// create the table</span>
+<span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
+
+<span class="h-c">// register the Executor (no classpath scanning)</span>
+MqRegistry.add(NoticeExecutor::<span class="h-k">new</span>);
+</code></pre>
+<p>Pulling messages off and running them is a batch's job. Write one batch — something like
+<code>MqWorkerBatch</code> — register it the same way as any other <a href="./batch">batch</a>, and run it on cron.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="batch">
+				<span>Previous</span>Batch
+			</a>
+			<a class="next" href="sse">
+				<span>Next</span>SSE
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#writing-one">Writing one</a></li>
+			<li class="level-2"><a href="#enqueueing">Enqueueing</a></li>
+			<li class="level-2"><a href="#it-will-run-twice">It will run twice</a></li>
+			<li class="level-2"><a href="#registering-it-and-running-it">Registering it and running it</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

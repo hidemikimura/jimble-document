@@ -35,4 +35,39 @@
 	<url><loc>https://jimble.io/ja/validation</loc></url>
 	<url><loc>https://jimble.io/ja/view</loc></url>
 	<url><loc>https://jimble.io/ja/websocket</loc></url>
+	<url><loc>https://jimble.io/en/assets</loc></url>
+	<url><loc>https://jimble.io/en/async</loc></url>
+	<url><loc>https://jimble.io/en/batch</loc></url>
+	<url><loc>https://jimble.io/en/cache</loc></url>
+	<url><loc>https://jimble.io/en/cli</loc></url>
+	<url><loc>https://jimble.io/en/codegen</loc></url>
+	<url><loc>https://jimble.io/en/config</loc></url>
+	<url><loc>https://jimble.io/en/db</loc></url>
+	<url><loc>https://jimble.io/en/deploy</loc></url>
+	<url><loc>https://jimble.io/en/errors</loc></url>
+	<url><loc>https://jimble.io/en/execution</loc></url>
+	<url><loc>https://jimble.io/en/gradle</loc></url>
+	<url><loc>https://jimble.io/en/hot-reload</loc></url>
+	<url><loc>https://jimble.io/en/index</loc></url>
+	<url><loc>https://jimble.io/en/log</loc></url>
+	<url><loc>https://jimble.io/en/mcp</loc></url>
+	<url><loc>https://jimble.io/en/migration-jooby</loc></url>
+	<url><loc>https://jimble.io/en/mq</loc></url>
+	<url><loc>https://jimble.io/en/pitfalls</loc></url>
+	<url><loc>https://jimble.io/en/principles</loc></url>
+	<url><loc>https://jimble.io/en/quickstart</loc></url>
+	<url><loc>https://jimble.io/en/ratelimit</loc></url>
+	<url><loc>https://jimble.io/en/request-response</loc></url>
+	<url><loc>https://jimble.io/en/routing</loc></url>
+	<url><loc>https://jimble.io/en/server</loc></url>
+	<url><loc>https://jimble.io/en/session-security</loc></url>
+	<url><loc>https://jimble.io/en/sql</loc></url>
+	<url><loc>https://jimble.io/en/sse</loc></url>
+	<url><loc>https://jimble.io/en/testing</loc></url>
+	<url><loc>https://jimble.io/en/transaction</loc></url>
+	<url><loc>https://jimble.io/en/upload</loc></url>
+	<url><loc>https://jimble.io/en/util</loc></url>
+	<url><loc>https://jimble.io/en/validation</loc></url>
+	<url><loc>https://jimble.io/en/view</loc></url>
+	<url><loc>https://jimble.io/en/websocket</loc></url>
 </urlset>

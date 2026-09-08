@@ -1,0 +1,399 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Execution model - jimble</title>
+<meta name="description" content="One virtual thread per request. What runs on which thread">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="current">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="execution-model">Execution model<a class="anchor" href="#execution-model">#</a></h1>
+<p><strong>One request, one virtual thread.</strong> On top of it, everything runs <strong>synchronously</strong>
+from start to finish.</p>
+<ul>
+<li>There is no thread pool to configure (Helidon handles it)</li>
+<li>No API returns a <code>CompletableFuture</code></li>
+<li><strong>Blocking is fine.</strong> You call JDBC directly</li>
+</ul>
+<h2 id="the-path-of-one-request">The path of one request<a class="anchor" href="#the-path-of-one-request">#</a></h2>
+<pre class="code"><code class="lang-text">onRequest
+  ↓
+before (outermost → innermost)
+  ↓
+the route's work / the Executors, in order
+  ↓
+send
+  ↓
+(on exception) error (innermost → outermost)
+  ↓
+after (innermost → outermost) — always runs
+  ↓
+onComplete — always runs
+</code></pre>
+<p><code>onRequest</code> is called <strong>even when no route matched</strong>.
+<code>after</code> and <code>onComplete</code> sit in a <code>finally</code>, so they run even when an exception is thrown.</p>
+<h3 id="once-it-is-sent-it-stops-is-decided-in-one-place">&quot;Once it is sent, it stops&quot; is decided in one place<a class="anchor" href="#once-it-is-sent-it-stops-is-decided-in-one-place">#</a></h3>
+<p>Return the login page from a <code>before</code> and neither the route below it nor <code>after</code> runs.
+That decision is closed up in one place (<code>Stage</code>).</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The code this was ported from (jooby_base) had the same check copied into
+seven places. Collecting it into one is what stops <strong>the check being forgotten
+in exactly the spot someone adds next</strong> (requirement F-C-13).</p>
+</div>
+<h3 id="executor">Executor<a class="anchor" href="#executor">#</a></h3>
+<p>Instead of writing the work inline, a route can <strong>push Executors onto a queue</strong>.</p>
+<pre class="code"><code class="lang-java">post(<span class="h-s">"/save"</span>, () -&gt; <span class="h-k">new</span> SaveExecutor());
+</code></pre>
+<ul>
+<li>You can add to the queue while it is running (<code>context.addExecutor(...)</code>)</li>
+<li>Calling <code>cancel()</code> <strong>does not stop anything on the spot</strong>. Once <code>execute</code> returns, the rest is thrown away and <code>onCancel</code> is called</li>
+<li><code>OPTIONS</code> is for preflight only, so <strong>the queue is not run</strong> (requirement F-W-19)</li>
+</ul>
+<h2 id="what-runs-on-which-thread">What runs on which thread<a class="anchor" href="#what-runs-on-which-thread">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Thread</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTP request</td>
+<td>Helidon's <strong>virtual thread</strong> (one per request)</td>
+</tr>
+<tr>
+<td><code>AsyncData</code> / <code>AsyncList</code> loading and prefetch</td>
+<td><strong>The calling thread itself.</strong> Despite the name, no separate thread is used</td>
+</tr>
+<tr>
+<td>SSE</td>
+<td><strong>Holds on to that request's virtual thread</strong></td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>A Helidon listener thread (one per connection)</td>
+</tr>
+<tr>
+<td>MQ workers</td>
+<td>Virtual threads. <code>mq.thread_count.&lt;type&gt;</code> of them per type</td>
+</tr>
+<tr>
+<td>The scheduler's clock</td>
+<td>One platform thread (<code>jimble-scheduler</code>)</td>
+</tr>
+<tr>
+<td>Batches the scheduler starts</td>
+<td>Virtual threads. <code>scheduler.execute_threads</code> of them (<code>0</code> for unlimited)</td>
+</tr>
+<tr>
+<td>Batch heartbeat</td>
+<td>One virtual thread (<code>jimble-batch-heartbeat</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Where you want to cap the number, use <code>VirtualThreadManager</code>.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The <code>n</code> in <code>VirtualThreadManager(n)</code> is how many <strong>run at once</strong>.
+The semaphore is acquired after the virtual thread has been started, so the
+waiting threads do exist. Virtual threads are cheap, so this does no real harm —
+but it is not &quot;only n threads are created&quot;.</p>
+</div>
+<h2 id="what-runs-out-is-not-threads-it-is-the-connection-pool">What runs out is not threads, it is the connection pool<a class="anchor" href="#what-runs-out-is-not-threads-it-is-the-connection-pool">#</a></h2>
+<p>Virtual threads grow without limit. <strong>What runs out first is DB connections.</strong></p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p>Inside a transaction, or partway through <code>selectListWithFetcher</code>, the connection
+has not gone back to the pool.
+Hold something open in that state for a long time — SSE, say — and <strong>you eat one
+pool slot per person.</strong>
+With <code>maximumPoolSize = 10</code>, ten people exhaust it, and the eleventh gets neither
+&quot;slow&quot; nor &quot;an error&quot; but <strong>a wait for a connection that just sits there.</strong></p>
+</div>
+<p>This is why you do not write an infinite loop in an SSE handler.
+Send a finite amount, close, and let the client reconnect (<a href="./sse">SSE</a>).</p>
+<h2 id="things-to-watch-with-virtual-threads">Things to watch with virtual threads<a class="anchor" href="#things-to-watch-with-virtual-threads">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Do not use <code>synchronized</code></strong></td>
+<td>It pins the virtual thread to its carrier. Use <code>ReentrantLock</code> (jimble itself does)</td>
+</tr>
+<tr>
+<td><strong>Guard shared mutable state</strong></td>
+<td>A <code>static</code> <code>HashMap</code> breaks under concurrent access. Virtual threads leave far less room for it to happen to work, so it <strong>actually breaks</strong></td>
+</tr>
+<tr>
+<td><strong>Do not lean on <code>ThreadLocal</code></strong></td>
+<td>jimble passes the request around with <code>ScopedValue</code> (<code>Context.current()</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shutting-down">Shutting down<a class="anchor" href="#shutting-down">#</a></h2>
+<p>You hand your shutdown to one place (<code>Shutdown</code>).</p>
+<pre class="code"><code class="lang-java">Shutdown.add(<span class="h-s">"my worker"</span>, worker::stop);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Order</td>
+<td><strong>Last registered, first stopped</strong> (the reverse of start-up order). Close the DB first and whatever is still shutting down cannot use it</td>
+</tr>
+<tr>
+<td>On failure</td>
+<td><strong>The rest are still stopped.</strong> You get back the names of the ones that could not be</td>
+</tr>
+<tr>
+<td>What jimble registers</td>
+<td>The DB pool / the server / the scheduler</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>On SIGTERM, everything registered is stopped in reverse order</strong>
+(<a href="./server">Server configuration</a>).
+A container sends SIGTERM and waits, so a process that dies without catching it
+cuts off requests mid-flight.</p>
+<p>For an ordinary run you do not need any of this. <strong>When the process ends, everything stops.</strong>
+Where you do need it is <b>when the app is swapped out without the process ending</b> —
+that is, <code>jimbleRun</code>. Anything you forgot to stop keeps running alongside its replacement,
+and shows up as &quot;the same job ran twice&quot; (<a href="./hot-reload">Hot reload</a>).</p>
+</div>
+<p>Cleanup for a single request is not <code>Shutdown</code> but <code>context.onClose(...)</code>.
+It is called in reverse registration order, and one failure still folds up the rest.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="ratelimit">
+				<span>Previous</span>Rate limiting
+			</a>
+			<a class="next" href="db">
+				<span>Next</span>Using the DB
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#the-path-of-one-request">The path of one request</a></li>
+			<li class="level-3"><a href="#once-it-is-sent-it-stops-is-decided-in-one-place">"Once it is sent, it stops" is decided in one place</a></li>
+			<li class="level-3"><a href="#executor">Executor</a></li>
+			<li class="level-2"><a href="#what-runs-on-which-thread">What runs on which thread</a></li>
+			<li class="level-2"><a href="#what-runs-out-is-not-threads-it-is-the-connection-pool">What runs out is not threads, it is the connection pool</a></li>
+			<li class="level-2"><a href="#things-to-watch-with-virtual-threads">Things to watch with virtual threads</a></li>
+			<li class="level-2"><a href="#shutting-down">Shutting down</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

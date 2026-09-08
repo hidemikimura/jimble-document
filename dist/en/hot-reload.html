@@ -1,0 +1,332 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hot reload - jimble</title>
+<meta name="description" content="./gradlew jimbleRun. Make a change and the next request picks it up">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="current">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="hot-reload">Hot reload<a class="anchor" href="#hot-reload">#</a></h1>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleRun
+</code></pre>
+<h2 id="what-is-going-on">What is going on<a class="anchor" href="#what-is-going-on">#</a></h2>
+<pre class="code"><code class="lang-text">browser ──▶ proxy (9000) ──▶ application (9100, same JVM as Gradle)
+</code></pre>
+<ol>
+<li><code>jimbleRun</code> puts a proxy on port 9000</li>
+<li>Behind it, it starts the application on port 9100 (<code>port + 100</code>)</li>
+<li>When it sees a source file change, it marks it</li>
+<li><strong>On the next request</strong>, it builds and swaps the application</li>
+<li>Once the swap is done, the request goes through</li>
+</ol>
+<p><strong>It does not build the moment you save.</strong> It waits for a request.
+That is so a run of quick saves does not kick off build after build.</p>
+<h2 id="it-runs-in-the-same-jvm-as-gradle">It runs in the same JVM as Gradle<a class="anchor" href="#it-runs-in-the-same-jvm-as-gradle">#</a></h2>
+<p><strong>The application runs inside the same process as Gradle.</strong>
+Debug <code>jimbleRun</code> from your IDE and <strong>you stop on breakpoints inside the
+application itself.</strong> There is no separate remote debugger to attach.
+Change only a method body and IntelliJ's HotSwap swaps it in as it is.</p>
+<p>To swap the application, <strong>it builds a new class loader and calls <code>main</code> again.</strong>
+The old one is stopped first, then dropped.</p>
+<h3 id="gradles-jvm-has-to-be-java-25">Gradle's JVM has to be Java 25<a class="anchor" href="#gradles-jvm-has-to-be-java-25">#</a></h3>
+<p>Because everything runs in one JVM, <strong>the Gradle daemon's JVM runs your
+application — not the toolchain.</strong> An old one cannot start it.
+It checks at startup and, if the JVM is too old, stops and tells you what to fix.</p>
+<ul>
+<li>IntelliJ: Settings &gt; Build, Execution, Deployment &gt; Build Tools &gt; Gradle &gt; <strong>Gradle JVM</strong></li>
+<li><code>gradle.properties</code>: <code>org.gradle.java.home=&lt;path to Java 25&gt;</code></li>
+</ul>
+<h3 id="hand-over-how-to-stop-things">Hand over how to stop things<a class="anchor" href="#hand-over-how-to-stop-things">#</a></h3>
+<p>The process is never killed, so <strong>whatever the application started stays running
+unless you stop it.</strong> A leftover scheduler or MQ worker then <strong>runs twice over</strong>
+alongside the new one after the swap (the same job fires twice).</p>
+<p>What jimble starts — the server, the scheduler, the DB pool — is already handed
+over. Anything you start yourself, you write down.</p>
+<pre class="code"><code class="lang-java">Shutdown.add(<span class="h-s">"my worker"</span>, worker::stop);
+</code></pre>
+<p>If a thread did not stop, it names it (once per name).</p>
+<pre class="code"><code class="lang-text">[jimbleRun] 止まらなかったスレッドがあります: my-worker
+  同じ JVM で動かしているので、止めないものは残ります。
+  ...
+</code></pre>
+<blockquote>
+<p>In English: &quot;there are threads that did not stop: my-worker — it runs in the
+same JVM, so anything you do not stop stays running.&quot;</p>
+</blockquote>
+<h3 id="do-not-call-systemexit">Do not call <code>System.exit()</code><a class="anchor" href="#do-not-call-systemexit">#</a></h3>
+<p>If your application's <code>main</code> calls <code>System.exit()</code>, <strong>Gradle goes down with it.</strong>
+Same process, nothing to stop it (there is no <code>SecurityManager</code> from Java 24 on).
+A class that uses <code>System.exit()</code> — a batch entry point, say — must not be the
+<code>mainClass</code> for <code>jimbleRun</code>.</p>
+<h3 id="this-is-not-production">This is not production<a class="anchor" href="#this-is-not-production">#</a></h3>
+<p>The swap happens inside one JVM, so <code>static</code> state sometimes survives and
+sometimes does not.
+<strong>You can get &quot;it only fails after a reload&quot; and &quot;it only passes after a reload&quot;.</strong>
+When something looks wrong, stop <code>jimbleRun</code> and start it again.</p>
+<h2 id="when-the-build-fails">When the build fails<a class="anchor" href="#when-the-build-fails">#</a></h2>
+<p>The error comes out in the browser as it is. You do not have to go look at the
+terminal. Fix it, reload, and the build runs again.</p>
+<p><strong>The proxy stays up even while the application is down.</strong> The port does not change.</p>
+<h2 id="settings">Settings<a class="anchor" href="#settings">#</a></h2>
+<pre class="code"><code class="lang-kotlin">jimbleRun {
+	<span class="h-c">// this is the only one you need. everything else has a default</span>
+	mainClass = <span class="h-s">"my_blog.App"</span>
+
+	port    = <span class="h-n">9000</span>              <span class="h-c">// the proxy (the one the browser talks to)</span>
+	appPort = <span class="h-n">9100</span>              <span class="h-c">// the application. defaults to port + 100</span>
+	env     = <span class="h-s">"local"</span>
+
+	buildTasks      = listOf(<span class="h-s">":my-blog:classes"</span>)
+	watchExtensions = listOf(<span class="h-s">".java"</span>, <span class="h-s">".jte"</span>, <span class="h-s">".conf"</span>)
+	excludeDirs     = listOf(<span class="h-s">"build"</span>)
+
+	restartMode         = <span class="h-s">"on_request"</span>   <span class="h-c">// on_request | immediate</span>
+	quietMillis         = <span class="h-n">300</span>
+	startTimeoutSeconds = <span class="h-n">60</span>
+
+	args = listOf()
+}
+</code></pre>
+<p>Set <code>restartMode = &quot;immediate&quot;</code> and the build and the swap start the moment you
+save. You wait less, but it runs on every save.</p>
+<p>To watch more directories, use <code>watchDirs</code> (paths relative to the root).
+The full property list is in <a href="./gradle">the Gradle plugins</a>.</p>
+<h2 id="things-to-watch-out-for">Things to watch out for<a class="anchor" href="#things-to-watch-out-for">#</a></h2>
+<ul>
+<li><strong><code>jimbleRun</code> is for development.</strong> In production you use <code>./gradlew run</code>, or
+run the jar you built directly</li>
+<li><strong>It runs in the Gradle daemon's JVM.</strong> To change the heap, use
+<code>org.gradle.jvmargs</code> in <code>gradle.properties</code> (there is no <code>jimbleRun { jvmArgs }</code>)</li>
+<li>Every swap leaves behind the memory of each thread that did not stop.
+Leave it up all day and it gets heavy — restart it</li>
+<li>If <code>gradlew</code> is there but <code>gradle/wrapper/gradle-wrapper.properties</code> is not,
+the wrapper is judged broken and the system <code>gradle</code> is used</li>
+</ul>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="gradle">
+				<span>Previous</span>Gradle plugins
+			</a>
+			<a class="next" href="testing">
+				<span>Next</span>Testing
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#what-is-going-on">What is going on</a></li>
+			<li class="level-2"><a href="#it-runs-in-the-same-jvm-as-gradle">It runs in the same JVM as Gradle</a></li>
+			<li class="level-3"><a href="#gradles-jvm-has-to-be-java-25">Gradle's JVM has to be Java 25</a></li>
+			<li class="level-3"><a href="#hand-over-how-to-stop-things">Hand over how to stop things</a></li>
+			<li class="level-3"><a href="#do-not-call-systemexit">Do not call System.exit()</a></li>
+			<li class="level-3"><a href="#this-is-not-production">This is not production</a></li>
+			<li class="level-2"><a href="#when-the-build-fails">When the build fails</a></li>
+			<li class="level-2"><a href="#settings">Settings</a></li>
+			<li class="level-2"><a href="#things-to-watch-out-for">Things to watch out for</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

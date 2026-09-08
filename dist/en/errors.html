@@ -1,0 +1,451 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Error handling - jimble</title>
+<meta name="description" content="Exceptions, misses, validation failures. Where each is caught and what comes back">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="current">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="error-handling">Error handling<a class="anchor" href="#error-handling">#</a></h1>
+<p>There are three paths by which an error reaches the surface. <strong>They go through different places.</strong></p>
+<table>
+<thead>
+<tr>
+<th>What happened</th>
+<th>Who catches it</th>
+<th>What comes back by default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Something threw</td>
+<td>The <code>error(...)</code> hook</td>
+<td>The status depends on the exception. The app builds the body</td>
+</tr>
+<tr>
+<td>No route matched</td>
+<td><strong>The outermost</strong> <code>error(...)</code></td>
+<td>404</td>
+</tr>
+<tr>
+<td>Validation failed</td>
+<td><code>ValidationExecutor</code> (<code>error</code> is not reached)</td>
+<td>422 and a <code>validation</code> JSON body</td>
+</tr>
+</tbody>
+</table>
+<h2 id="writing-an-error-handler">Writing an error handler<a class="anchor" href="#writing-an-error-handler">#</a></h2>
+<pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
+	context.response().code(statusCode).send(<span class="h-s">"error: "</span> + statusCode);
+});
+</code></pre>
+<p>It takes three arguments. <strong>You get the status code, not only the exception.</strong>
+That way you do not re-derive the code from <code>cause</code> every single time.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">void</span> handle (WebContext context, Throwable cause, <span class="h-k">int</span> statusCode) <span class="h-k">throws</span> Exception;
+</code></pre>
+<h2 id="how-far-it-reaches">How far it reaches<a class="anchor" href="#how-far-it-reaches">#</a></h2>
+<p>Same as <code>before</code> / <code>after</code>: <strong>it attaches to the block you wrote it in</strong> (not to a node in the path).
+Execution runs <b>from the inside outward</b>. See <a href="./routing">Routing</a> for the details.</p>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+	{
+		error((context, cause, statusCode) -&gt; log.add(<span class="h-s">"outer"</span>));
+
+		path(<span class="h-s">"/admin"</span>, () -&gt; {
+			error((context, cause, statusCode) -&gt; {
+				log.add(<span class="h-s">"inner"</span>);
+				<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"error handler failed"</span>);
+			});
+			get(<span class="h-s">"/x"</span>, context -&gt; {
+				<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">400</span>, <span class="h-s">"bad"</span>);
+			});
+		});
+	}
+};</code></pre>
+<p>A request to <code>/admin/x</code> calls them inner first, then outer.
+<strong>Even when the inner one throws, execution moves on to the outer one</strong> (see &quot;When the handler itself fails&quot; below).</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>A miss (404) is the one case that works differently. <strong>Only an <code>error</code> written directly in the outermost scope</strong> is called.
+No route matched, so there is no &quot;inner&quot; to pick.
+An <code>error</code> written inside <code>path(&quot;/admin&quot;, ...)</code> is not called, not even for <code>/admin/nope</code>.</p>
+</div>
+<h2 id="how-the-status-code-is-decided">How the status code is decided<a class="anchor" href="#how-the-status-code-is-decided">#</a></h2>
+<p><code>JimbleApp#resolveStatusCode(Throwable)</code> decides it. The default is only this.</p>
+<table>
+<thead>
+<tr>
+<th>Exception</th>
+<th>Code</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HttpException</code></td>
+<td>Whatever <code>statusCode()</code> says</td>
+</tr>
+<tr>
+<td><code>NotFoundException</code> (a subclass of <code>HttpException</code>)</td>
+<td>404</td>
+</tr>
+<tr>
+<td>Everything else</td>
+<td><strong>500</strong></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+	{
+		error((context, cause, statusCode) -&gt; {
+			log.add(<span class="h-s">"error:"</span> + statusCode);
+			context.response().code(statusCode).send();
+		});
+		get(<span class="h-s">"/forbidden"</span>, context -&gt; {
+			<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">403</span>, <span class="h-s">"だめ"</span>);
+		});
+	}
+};</code></pre>
+<p>Override it to assign codes to your own exceptions.</p>
+<pre class="code"><code class="lang-java">JimbleApp app = <span class="h-k">new</span> JimbleApp() {
+
+	{
+		error((context, cause, statusCode) -&gt; log.add(<span class="h-s">"error:"</span> + statusCode));
+		get(<span class="h-s">"/x"</span>, context -&gt; {
+			<span class="h-k">throw</span> <span class="h-k">new</span> MyException();
+		});
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> <span class="h-k">int</span> resolveStatusCode (Throwable cause) {
+		<span class="h-k">if</span> (cause <span class="h-k">instanceof</span> MyException) {
+			<span class="h-k">return</span> <span class="h-n">409</span>;
+		}
+		<span class="h-k">return</span> <span class="h-k">super</span>.resolveStatusCode(cause);
+	}
+
+};</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><code>CodeException</code> (<code>io.jimble.util.exception.CodeException</code>) <strong>has no effect on the HTTP status.</strong>
+It is the checked exception used for DB errors (<code>db.getError()</code>) and inside validators; throw it and you get a 500.</p>
+</div>
+<h2 id="who-builds-the-body">Who builds the body<a class="anchor" href="#who-builds-the-body">#</a></h2>
+<p><strong>The framework has no default error page.</strong> The order is this.</p>
+<ol>
+<li><code>context.response().code(statusCode)</code> goes in <strong>first</strong> (so a handler can override it)</li>
+<li><code>error(...)</code> handlers are called from the inside out. <strong>It stops the moment one of them sends</strong></li>
+<li>If nobody sends, <code>response().send()</code> is called</li>
+</ol>
+<p>The point of step 3 is that it is <code>send()</code>, not <code>send(statusCode)</code>.
+Whatever a handler built up with <code>json(...)</code> or the like is <strong>sent, not thrown away.</strong></p>
+<p>So if you set <code>code(...)</code> and never build a body, only the status comes back.</p>
+<pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
+
+	<span class="h-c">// JSON for an API, HTML for a screen</span>
+	<span class="h-k">if</span> (context.request().acceptJson()) {
+		context.response().json(<span class="h-s">"error"</span>, cause.getMessage());
+		<span class="h-k">return</span>;
+	}
+
+	context.response().send(<span class="h-s">"error: %d %s"</span>.formatted(statusCode, cause.getMessage()));
+
+});
+</code></pre>
+<p><code>acceptJson()</code> checks whether <code>Accept</code> carries <code>application/json</code> or <code>text/javascript</code>.</p>
+<h2 id="when-the-handler-itself-fails">When the handler itself fails<a class="anchor" href="#when-the-handler-itself-fails">#</a></h2>
+<p><strong>We swallow it and move on to the next one, outward.</strong> Being left unable to return anything
+because error handling failed is the worse outcome.
+The failure is logged as <code>エラーハンドラで例外が発生しました</code>.</p>
+<h2 id="how-it-is-logged">How it is logged<a class="anchor" href="#how-it-is-logged">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Log</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5xx</td>
+<td><code>Log.error</code> (with a stack trace)</td>
+</tr>
+<tr>
+<td>Everything else (404 included)</td>
+<td><code>Log.debug</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>Keeping 404 out of the error log is deliberate.
+Mix in the thousands a day that crawlers and stale links produce, and
+<strong>the real 500s are buried.</strong></p>
+</div>
+<p>An exception thrown inside <code>after</code> or <code>onComplete</code> is swallowed and logged the same way (the response still goes out).</p>
+<h2 id="validation-failures-do-not-go-through-error">Validation failures do not go through error<a class="anchor" href="#validation-failures-do-not-go-through-error">#</a></h2>
+<p><code>ValidationExecutor</code> <strong>does not throw.</strong>
+It cancels itself, discards the executors behind it, and returns as-is.</p>
+<pre class="code"><code class="lang-java">context.response().putForm(context.request().bodyAll());
+context.response().json(<span class="h-s">"validation"</span>, errors);
+context.response().code(<span class="h-n">422</span>);
+</code></pre>
+<p>This is the shape you get back. The input comes back with it, so you can rebuild the form.</p>
+<pre class="code"><code class="lang-json">{
+  <span class="h-s">"validation"</span>: { <span class="h-s">"title"</span>: [<span class="h-s">"入力してください"</span>] },
+  <span class="h-s">"title"</span>: <span class="h-s">""</span>,
+  <span class="h-s">"body"</span>: <span class="h-s">"..."</span>
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Put your validation-error formatting in <code>error(...)</code> and it is never called.</strong>
+To change how a 422 looks, work on the <code>ValidationExecutor</code> side (<code>onCancel</code>).</p>
+</div>
+<h2 id="what-you-can-replace-application-wide">What you can replace application-wide<a class="anchor" href="#what-you-can-replace-application-wide">#</a></h2>
+<p>There are exactly three things you can override on <code>JimbleApp</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>When it is called</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>protected void onRequest (WebContext context) throws Exception</code></td>
+<td>First thing on every request. <strong>Called even on a miss.</strong> Send from here and nothing after it runs</td>
+</tr>
+<tr>
+<td><code>protected void onComplete (WebContext context)</code></td>
+<td>Last thing on every request. Always called, exception or not</td>
+</tr>
+<tr>
+<td><code>protected int resolveStatusCode (Throwable cause)</code></td>
+<td>Exception to status code</td>
+</tr>
+</tbody>
+</table>
+<p>The dispatcher itself cannot be replaced (it is <code>final</code>).
+There is meant to be exactly one path through.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="validation">
+				<span>Previous</span>Validation and paging
+			</a>
+			<a class="next" href="view">
+				<span>Next</span>Templates
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#writing-an-error-handler">Writing an error handler</a></li>
+			<li class="level-2"><a href="#how-far-it-reaches">How far it reaches</a></li>
+			<li class="level-2"><a href="#how-the-status-code-is-decided">How the status code is decided</a></li>
+			<li class="level-2"><a href="#who-builds-the-body">Who builds the body</a></li>
+			<li class="level-2"><a href="#when-the-handler-itself-fails">When the handler itself fails</a></li>
+			<li class="level-2"><a href="#how-it-is-logged">How it is logged</a></li>
+			<li class="level-2"><a href="#validation-failures-do-not-go-through-error">Validation failures do not go through error</a></li>
+			<li class="level-2"><a href="#what-you-can-replace-application-wide">What you can replace application-wide</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,510 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradle plugins - jimble</title>
+<meta name="description" content="Tasks and settings for io.jimble.db / jte / run">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="current">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="gradle-plugins">Gradle plugins<a class="anchor" href="#gradle-plugins">#</a></h1>
+<p>There are three. <strong>Add only the ones you need.</strong></p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>What it does</th>
+<th>Main tasks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>io.jimble.db</code></td>
+<td>Runs migrations and code generation in front of <code>compileJava</code></td>
+<td><code>migrate</code> / <code>codegen</code> / <code>codegenCheck</code></td>
+</tr>
+<tr>
+<td><code>io.jimble.jte</code></td>
+<td>Turns <code>src/main/jte</code> into Java in front of <code>compileJava</code></td>
+<td><code>generateJte</code></td>
+</tr>
+<tr>
+<td><code>io.jimble.run</code></td>
+<td>Hot reload for development</td>
+<td><code>jimbleRun</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
+	application
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.2.0"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.2.0"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.2.0"</span>
+}
+</code></pre>
+<p><strong>They are not on the Plugin Portal.</strong> They come from Maven Central, so write the
+repository into <code>settings.gradle.kts</code> (the <code>jimble new</code> skeleton already has it).</p>
+<pre class="code"><code class="lang-kotlin">pluginManagement {
+	repositories {
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The plugins run <strong>inside the Gradle daemon</strong>, so their bytecode targets Java 17.
+That is separate from your application, which is Java 25.
+<strong>Gradle 9 or later</strong> is required.</p>
+</div>
+<h2 id="iojimbledb">io.jimble.db<a class="anchor" href="#iojimbledb">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate       # apply the SQL that has not been applied
+<span class="h-k">./gradlew</span> codegen       # build the table definition classes (after migrate)
+<span class="h-k">./gradlew</span> codegenCheck  # check the committed generated code against the schema
+</code></pre>
+<p>What they do is in <a href="./codegen">Migrations and code generation</a>.</p>
+<pre class="code"><code class="lang-kotlin">jimble {
+	sourceRoot   = <span class="h-s">"src/main/java"</span>   <span class="h-c">// where generated code goes</span>
+	env          = <span class="h-s">"local"</span>           <span class="h-c">// passed to the CLI as -Denv=...</span>
+	autoGenerate = <span class="h-k">true</span>              <span class="h-c">// wire it in front of compileJava?</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sourceRoot</code></td>
+<td><code>src/main/java</code></td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td><code>-Pjimble.env</code> → environment variable <code>ENV</code> → <code>local</code></td>
+</tr>
+<tr>
+<td><code>autoGenerate</code></td>
+<td><code>-Pjimble.autoGenerate</code> → <strong>true when <code>env == &quot;local&quot;</code></strong></td>
+</tr>
+</tbody>
+</table>
+<p>So <code>migrate → codegen → compileJava</code> is wired <strong>only locally</strong>.
+It is not wired in CI, which compiles straight from the committed generated code.</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> build -Pjimble.autoGenerate=true    # when you want it wired in CI too
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><code>migrate</code> and <code>codegen</code> <strong>run every time</strong> (they never go up-to-date).
+Gradle cannot see the state of the DB.</p>
+</div>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>Both of them are nothing but a call into the CLI (<code>io.jimble.db.cli.JimbleDbCli</code>).
+<strong>No logic lives on the Gradle side</strong>, so in CI or production you can do the
+same thing with the CLI directly.</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>This project's own classes are not on that classpath</strong> (resources and
+dependencies only). Put them there and you get a
+<code>compileJava → codegen → compileJava</code> cycle.
+The SQL and the configuration are both resources, so this is enough.</p>
+</div>
+<p>When <code>codegenCheck</code> finds drift, it fails and says this.</p>
+<pre class="code"><code class="lang-text">コミットされている生成物がスキーマと一致しません（2 件）。codegen を実行してコミットしてください。
+  生成物が古いです: db/blog_example/table/post/Post.java
+  生成物が足りません: db/blog_example/table/tag/Tag.java
+</code></pre>
+<blockquote>
+<p>In English: &quot;The committed generated code does not match the schema (2 files).
+Run codegen and commit the result.&quot; — then, per file, &quot;generated code is stale&quot;
+and &quot;generated code is missing&quot;.</p>
+</blockquote>
+<h2 id="iojimblejte">io.jimble.jte<a class="anchor" href="#iojimblejte">#</a></h2>
+<p>The <code>.jte</code> files under <code>src/main/jte</code> are <strong>turned into Java</strong>. <code>compileJava</code>
+compiles them, so <strong>a type error in a template fails the build</strong>
+(<a href="./view">Templates</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Input</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>generateJte</code></td>
+<td><code>src/main/jte</code></td>
+<td><code>build/generated/sources/jte/main/java</code></td>
+</tr>
+<tr>
+<td><code>generateTestJte</code></td>
+<td><code>src/test/jte</code> (<strong>not configurable</strong>)</td>
+<td><code>build/generated/sources/jte/test/java</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-kotlin">jte {
+	sourceDirectory       = <span class="h-s">"src/main/jte"</span>
+	packageName           = <span class="h-s">"gg.jte.generated.precompiled"</span>
+	contentType           = <span class="h-s">"Html"</span>    <span class="h-c">// Html | Plain</span>
+	trimControlStructures = <span class="h-k">true</span>
+	htmlCommentsPreserved = <span class="h-k">false</span>
+}
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Do not change <code>packageName</code>.</strong> It is lined up with jte's own default.
+Move it and the templates are not found at runtime.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The output directory is <strong>wiped completely before every run.</strong>
+Leave the generated code for a deleted template behind and <strong>something you
+thought you deleted compiles and ships in the jar.</strong></p>
+</div>
+<p>Only the plugin carries the compiler (<code>gg.jte:jte</code>).
+The application's runtime classpath gets <code>jte-runtime</code> and nothing else
+(requirement D-27).</p>
+<h2 id="iojimblerun">io.jimble.run<a class="anchor" href="#iojimblerun">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleRun
+</code></pre>
+<p>How it works and what to watch out for is in <a href="./hot-reload">Hot reload</a>.
+This page is the list of settings.</p>
+<pre class="code"><code class="lang-kotlin">jimbleRun {
+	mainClass = <span class="h-s">"my_blog.App"</span>        <span class="h-c">// required</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Default</th>
+<th>What it decides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mainClass</code></td>
+<td><strong>none (required)</strong></td>
+<td>The class that has <code>main</code></td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td><code>9000</code></td>
+<td>The proxy port the browser talks to</td>
+</tr>
+<tr>
+<td><code>appPort</code></td>
+<td><code>port + 100</code></td>
+<td>The port the application listens on</td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td><code>&quot;local&quot;</code></td>
+<td>Passed through as <code>jimble.env</code></td>
+</tr>
+<tr>
+<td><code>buildTasks</code></td>
+<td><code>[&quot;:classes&quot;]</code></td>
+<td>Tasks to run on a change</td>
+</tr>
+<tr>
+<td><code>watchDirs</code></td>
+<td>none</td>
+<td>Extra directories to watch (relative to the root)</td>
+</tr>
+<tr>
+<td><code>excludeDirs</code></td>
+<td>none</td>
+<td>Directories not to watch</td>
+</tr>
+<tr>
+<td><code>watchExtensions</code></td>
+<td><code>.java .jte .html .js .css .conf .xml .properties .yml .sql</code></td>
+<td>Extensions to watch</td>
+</tr>
+<tr>
+<td><code>restartMode</code></td>
+<td><code>&quot;on_request&quot;</code></td>
+<td><code>on_request</code> (on the next request) / <code>immediate</code> (on save)</td>
+</tr>
+<tr>
+<td><code>quietMillis</code></td>
+<td><code>300</code></td>
+<td>How long before the changes count as settled</td>
+</tr>
+<tr>
+<td><code>startTimeoutSeconds</code></td>
+<td><code>60</code></td>
+<td>How long to wait for startup</td>
+</tr>
+<tr>
+<td><code>args</code></td>
+<td>none</td>
+<td>Arguments passed to <code>main</code></td>
+</tr>
+</tbody>
+</table>
+<p>What gets watched is <code>src</code>, <code>conf</code> (if it exists), and <code>watchDirs</code>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A value <code>restartMode</code> does not accept fails the build.</strong>
+Before, it silently fell back to <code>on_request</code>, so a typo left you with nothing
+but &quot;I configured it and it does nothing&quot;.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>There is <strong>no <code>debug</code> property and no <code>jvmArgs</code> property.</strong>
+The application runs in <strong>the same JVM as Gradle</strong>, so your IDE's debugger
+works as it is.
+To change the heap, use <code>org.gradle.jvmargs</code> in <code>gradle.properties</code>.</p>
+</div>
+<h3 id="when-the-build-fails">When the build fails<a class="anchor" href="#when-the-build-fails">#</a></h3>
+<p>Nothing stops. <strong>The failure comes out in the browser.</strong></p>
+<table>
+<thead>
+<tr>
+<th>What happened</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The rebuild failed</td>
+<td><strong>503</strong> (Gradle's output, verbatim)</td>
+</tr>
+<tr>
+<td>The application cannot be reached</td>
+<td><strong>502</strong></td>
+</tr>
+<tr>
+<td>An exception inside <code>jimbleRun</code></td>
+<td><strong>500</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Fix it, save, reload, and you carry on.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The build calls <code>gradlew</code> <strong>in a child process</strong> (a running build cannot invoke
+a task of the same project from inside itself).
+If <code>gradlew</code> is broken, it says why and falls back to <code>gradle</code> from your PATH.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="cli">
+				<span>Previous</span>The jimble command
+			</a>
+			<a class="next" href="hot-reload">
+				<span>Next</span>Hot reload
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#iojimbledb">io.jimble.db</a></li>
+			<li class="level-2"><a href="#iojimblejte">io.jimble.jte</a></li>
+			<li class="level-2"><a href="#iojimblerun">io.jimble.run</a></li>
+			<li class="level-3"><a href="#when-the-build-fails">When the build fails</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>
