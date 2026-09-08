@@ -339,8 +339,11 @@ db {
 
 	Conf.reload();
 
-	Migration.install();
-	DBUtil.load(Conf.conf().config(), BlogAppIntegrationTest.<span class="h-k">class</span>);
+	<span class="h-c">/*
+	 * &lt;b&gt;本番の入口と同じものを呼ぶ。&lt;/b&gt;
+	 * ここでテストだけの用意を書くと、入口が変わったときに&lt;b&gt;テストだけ通る&lt;/b&gt;。
+	 */</span>
+	Bootstrap.load();
 
 	<span class="h-c">// ポート 0 で空いているところを使う。他のテストと衝突しない</span>
 	server = JimbleServer.start(<span class="h-k">new</span> BlogApp(), <span class="h-n">0</span>);

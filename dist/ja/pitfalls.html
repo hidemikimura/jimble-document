@@ -279,6 +279,35 @@ jimble では <code>commit()</code> は終わらせません。終わらせる�
 <p><strong>原因</strong>: try-with-resources で囲まずに <code>beginTransaction()</code> して、途中で <code>return</code> しています。</p>
 <p><strong>対処</strong>: 囲んでください。jimble は実行の終わりに拾ってロールバックしますが、
 それは事故の後始末であって、正しい書き方ではありません。</p>
+<h2 id="入口によって用意されるテーブルが違う">入口によって用意されるテーブルが違う<a class="anchor" href="#入口によって用意されるテーブルが違う">#</a></h2>
+<pre class="code"><code class="lang-text">{"error":"トランザクションのコミットに失敗しました。"}
+</code></pre>
+<p><strong>原因</strong>: <code>MqQueue#install()</code> や <code>BatchTables.install()</code> を、<strong>一部の入口でしか呼んでいない</strong>。</p>
+<p>Web・バッチ・スケジューラで入口が分かれていると、それぞれが自分の分だけ用意しがちです。
+たとえば MQ のテーブルをバッチの入口でしか作っていないのに、
+<strong>キューに積むのは Web</strong> ということが起こります。</p>
+<p>やっかいなのは、<strong>いちどでもバッチを動かしたマシンでは動いてしまう</strong>ことです。
+手元では気づけず、まっさらな DB（CI や新しい環境）で初めて出ます。</p>
+<p><strong>対処</strong>: <strong>起動時に用意するものは1か所にまとめ、どの入口もそれを呼んでください。</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">final</span> <span class="h-k">class</span> Bootstrap {
+
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> load () {
+
+		Migration.install();                                  <span class="h-c">// DBUtil.load より前</span>
+		DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>);
+		BatchTables.install(DBUtil.getMainDB());
+		<span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
+
+	}
+
+}
+</code></pre>
+<p>**テストからも同じものを呼んでください。**テストだけ別に用意すると、
+入口が変わったときに<b>テストだけ通る</b>状態になります。</p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><strong>まっさらな DB で1回流してみる</strong>のがいちばん早い確認です。
+<code>examples/blog</code> はこれで壊れているのが分かりました。</p>
+</div>
 <h2 id="sse-が届かない全部まとめて届く">SSE が届かない・全部まとめて届く<a class="anchor" href="#sse-が届かない全部まとめて届く">#</a></h2>
 <p><strong>原因</strong>: 間にいる nginx が溜め込んでいます。</p>
 <p><strong>対処</strong>: jimble は <code>X-Accel-Buffering: no</code> を付けています。
@@ -383,6 +412,7 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 			<li class="level-2"><a href="#db-のエラーに気づかない">DB のエラーに気づかない</a></li>
 			<li class="level-2"><a href="#トランザクションが続いていない">トランザクションが続いていない</a></li>
 			<li class="level-2"><a href="#コミットもロールバックもされていないが出る">「コミットもロールバックもされていない」が出る</a></li>
+			<li class="level-2"><a href="#入口によって用意されるテーブルが違う">入口によって用意されるテーブルが違う</a></li>
 			<li class="level-2"><a href="#sse-が届かない全部まとめて届く">SSE が届かない・全部まとめて届く</a></li>
 			<li class="level-2"><a href="#sse-のループが終わらない">SSE のループが終わらない</a></li>
 			<li class="level-2"><a href="#websocket-で-cookie-が読めない">WebSocket で Cookie が読めない</a></li>

@@ -282,6 +282,37 @@ In jimble, <code>commit()</code> does not end it. <code>commitEndTransaction()</
 and then returned partway through.</p>
 <p><strong>Fix</strong>: wrap it. jimble picks it up at the end of the execution and rolls it back,
 but that is cleaning up after an accident, not the right way to write it.</p>
+<h2 id="which-tables-exist-depends-on-which-entry-point-you-started">Which tables exist depends on which entry point you started<a class="anchor" href="#which-tables-exist-depends-on-which-entry-point-you-started">#</a></h2>
+<pre class="code"><code class="lang-text">{"error":"トランザクションのコミットに失敗しました。"}
+</code></pre>
+<p><strong>Cause</strong>: <code>MqQueue#install()</code> or <code>BatchTables.install()</code> is only called from <strong>some</strong> of
+your entry points.</p>
+<p>When the web app, the batch and the scheduler each have their own <code>main</code>, it is easy for
+each one to set up only what it thinks it needs. You end up creating the MQ table in the
+batch entry point while it is <strong>the web app that pushes onto the queue</strong>.</p>
+<p>The nasty part: <strong>on a machine where the batch has been run even once, it works.</strong> You
+will not see it locally. It shows up the first time you point at an empty database — CI,
+or a new environment.</p>
+<p><strong>Fix</strong>: <strong>Put the startup setup in one place and have every entry point call it.</strong></p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">final</span> <span class="h-k">class</span> Bootstrap {
+
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> load () {
+
+		Migration.install();                                  <span class="h-c">// before DBUtil.load</span>
+		DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>);
+		BatchTables.install(DBUtil.getMainDB());
+		<span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
+
+	}
+
+}
+</code></pre>
+<p><strong>Call the same thing from your tests.</strong> Set the tests up separately and you get the state
+where <strong>only the tests pass</strong> once an entry point changes.</p>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p><strong>Run it once against an empty database</strong> — that is the quickest way to check.
+It is how we found <code>examples/blog</code> was broken.</p>
+</div>
 <h2 id="sse-does-not-arrive-or-arrives-all-at-once">SSE does not arrive, or arrives all at once<a class="anchor" href="#sse-does-not-arrive-or-arrives-all-at-once">#</a></h2>
 <p><strong>Cause</strong>: an nginx in between is buffering it up.</p>
 <p><strong>Fix</strong>: jimble attaches <code>X-Accel-Buffering: no</code>. If that is not enough,
@@ -385,6 +416,7 @@ It drags <code>jimble-docs/src/main/jte/docs/</code> in with it.</p>
 			<li class="level-2"><a href="#you-do-not-notice-the-db-error">You do not notice the DB error</a></li>
 			<li class="level-2"><a href="#the-transaction-did-not-carry-on">The transaction did not carry on</a></li>
 			<li class="level-2"><a href="#a-transaction-was-left-neither-committed-nor-rolled-back">"A transaction was left neither committed nor rolled back"</a></li>
+			<li class="level-2"><a href="#which-tables-exist-depends-on-which-entry-point-you-started">Which tables exist depends on which entry point you started</a></li>
 			<li class="level-2"><a href="#sse-does-not-arrive-or-arrives-all-at-once">SSE does not arrive, or arrives all at once</a></li>
 			<li class="level-2"><a href="#the-sse-loop-never-ends">The SSE loop never ends</a></li>
 			<li class="level-2"><a href="#you-cannot-read-cookies-in-a-websocket">You cannot read cookies in a WebSocket</a></li>
