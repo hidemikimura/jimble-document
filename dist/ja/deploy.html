@@ -292,7 +292,7 @@ java -Djimble.env=prod -jar app.jar
 <h2 id="起動したら確認すること">起動したら確認すること<a class="anchor" href="#起動したら確認すること">#</a></h2>
 <p>起動ログの1行目あたりに構成が出ます。<strong>思っていたものと合っているか</strong>を見てください。</p>
 <pre class="code"><code class="lang-text">jimble 構成: env=prod / session=db / cache=db / redis=あり / db=[main] / パスワード暗号化=あり
-設定: /opt/app/conf/application.prod.conf, /opt/app/conf/application.conf（クラスパスより優先）
+設定: jar:file:/opt/app/app.jar!/application.prod.conf, jar:file:/opt/app/app.jar!/application.conf
 </code></pre>
 <p><code>env=local</code> になっていたら、<code>-Djimble.env</code> が渡っていません。</p>
 

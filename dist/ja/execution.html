@@ -220,8 +220,11 @@ onComplete ※必ず通る
 <p><code>onRequest</code> は<strong>ルートに当たらなくても呼ばれます</strong>。
 <code>after</code> と <code>onComplete</code> は <code>finally</code> にあるので、例外が出ても必ず通ります。</p>
 <h3 id="送ったら止まるは1か所で見ている">「送ったら止まる」は1か所で見ている<a class="anchor" href="#送ったら止まるは1か所で見ている">#</a></h3>
-<p><code>before</code> でログイン画面を返したら、その先のルートも <code>after</code> も走りません。
+<p><code>before</code> でログイン画面を返したら、<strong>その先の <code>before</code>・ルート・Executor は走りません。</strong>
 この判定は1か所（<code>Stage</code>）に閉じています。</p>
+<p><strong><code>after</code> と <code>onComplete</code> は走ります。<strong>この2つは <code>finally</code> にあるので、
+送信済みでも例外が出ても必ず通ります（上の図のとおりです）。
+「送ったら止まる」のは</strong>送信までの段だけ</strong>です。</p>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p>移送元（jooby_base）は同じ判定を7か所にコピーしていました。
 1か所に集めたのは、<strong>書き足したところだけ判定を忘れる</strong>のを防ぐためです（要件 F-C-13）。</p>

@@ -238,6 +238,17 @@
 <span class="h-c">// DB の一覧を、いま登録されているものに合わせる</span>
 BatchRegistry.sync(DBUtil.getMainDB());
 </code></pre>
+<p><code>sync</code> は、<strong>コードから消えたバッチの行を <code>status = nothing</code> にします</strong>（行は残すので履歴からたどれます）。</p>
+<blockquote>
+<p>[!WARNING]
+<strong><code>sync</code> は登録を済ませてから呼んでください。</strong>
+「1つも登録されていない」は「全部消えた」として扱うので、
+登録し忘れたまま呼ぶと<strong>全部の行が <code>nothing</code> になります</strong>（スケジューラが何も回さなくなります）。
+バッチを持たないアプリは呼ばないでください。</p>
+<p><strong><code>batch_master</code> を別のアプリと共有しないでください。</strong>
+消えた判定はクラス名で行うので、同じテーブルを見るアプリが2つあると
+<strong>お互いの行を <code>nothing</code> にし合います。</strong></p>
+</blockquote>
 <h2 id="中断できるようにする">中断できるようにする<a class="anchor" href="#中断できるようにする">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">while</span> (!isCancelOrder()) {
 	<span class="h-c">// 1件ずつ処理する</span>

@@ -358,6 +358,26 @@ SQL にそのまま入るところなので、外から来た文字列を通せ�
 </code></pre>
 <p><code>Dsl.over(...)</code> には集約（<code>sum</code> / <code>count</code> / <code>avg</code> など）を渡します。
 別名や計算を中に入れると例外になります（<code>OVER</code> のあとに付けてください）。</p>
+<blockquote>
+<p>[!WARNING]
+<strong>ウィンドウ関数は <code>where</code> にも <code>having</code> にも書けません。</strong>
+SQL の決まりで、評価されるのがどちらより後だからです。
+<code>Dsl.rowNumber().over(...).eq(1)</code> と書くと<strong>組み立てた時点で例外</strong>になります。
+順位で絞るなら、いったん副問い合わせで出してから外側で絞ってください。</p>
+</blockquote>
+<h2 id="in-に空の一覧は渡せません"><code>in</code> に空の一覧は渡せません<a class="anchor" href="#in-に空の一覧は渡せません">#</a></h2>
+<pre class="code"><code class="lang-java">where(Site.id.<span class="h-k">in</span>(List.of()))   <span class="h-c">// ← 組み立てた時点で例外</span>
+</code></pre>
+<p><code>IN ()</code> は構文エラーです。<strong>黙って DB に投げると、
+エラーメッセージからどこで空を渡したのか辿れません</strong>（要件 F-D-07）。</p>
+<p><strong>「空なら条件を外す」ことはしません。</strong>
+<code>in(空)</code> は「どれにも当たらない」で、条件を外すと<strong>全件</strong>です。
+どちらの意味かは呼び出し側にしか分からないので、呼び出し側で分けてください。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">if</span> (ids.isEmpty()) {
+	<span class="h-k">return</span> List.of();          <span class="h-c">// 「どれにも当たらない」</span>
+}
+where(Site.id.<span class="h-k">in</span>(ids));
+</code></pre>
 <h2 id="製品の違いで気をつけること">製品の違いで気をつけること<a class="anchor" href="#製品の違いで気をつけること">#</a></h2>
 <p><strong>名前が同じでも意味が違う</strong>ものは DSL が揃えます。</p>
 <table>
@@ -479,6 +499,7 @@ db.executeBatch(builderList);
 			<li class="level-2"><a href="#関数を使う">関数を使う</a></li>
 			<li class="level-3"><a href="#一覧">一覧</a></li>
 			<li class="level-2"><a href="#ウィンドウ関数">ウィンドウ関数</a></li>
+			<li class="level-2"><a href="#in-に空の一覧は渡せません">in に空の一覧は渡せません</a></li>
 			<li class="level-2"><a href="#製品の違いで気をつけること">製品の違いで気をつけること</a></li>
 			<li class="level-2"><a href="#db-製品が違うとき">DB 製品が違うとき</a></li>
 			<li class="level-2"><a href="#まとめて流す">まとめて流す</a></li>

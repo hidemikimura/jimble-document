@@ -363,6 +363,27 @@ cannot reach them.</p>
 <p>What you pass to <code>Dsl.over(...)</code> is an aggregate (<code>sum</code> / <code>count</code> / <code>avg</code> and so
 on). Put an alias or a calculation inside it and you get an exception (attach
 those after the <code>OVER</code>).</p>
+<blockquote>
+<p>[!WARNING]
+<strong>A window function cannot go in <code>where</code> or in <code>having</code>.</strong>
+SQL forbids it, because a window function is evaluated after both of them.
+Write <code>Dsl.rowNumber().over(...).eq(1)</code> and you get an exception <strong>the moment
+the SQL is built.</strong> To filter on a rank, select it in a subquery first and
+filter on the outside.</p>
+</blockquote>
+<h2 id="in-will-not-take-an-empty-list"><code>in</code> will not take an empty list<a class="anchor" href="#in-will-not-take-an-empty-list">#</a></h2>
+<pre class="code"><code class="lang-java">where(Site.id.<span class="h-k">in</span>(List.of()))   <span class="h-c">// ← throws the moment the SQL is built</span>
+</code></pre>
+<p><code>IN ()</code> is a syntax error. <strong>Send it to the database quietly and the error
+message tells you nothing about where the empty list came from</strong> (F-D-07).</p>
+<p><strong>We do not &quot;drop the condition when the list is empty.&quot;</strong>
+<code>in(empty)</code> means &quot;matches nothing&quot;; dropping the condition means <strong>everything</strong>.
+Only the caller knows which one was meant, so the caller decides.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">if</span> (ids.isEmpty()) {
+	<span class="h-k">return</span> List.of();          <span class="h-c">// "matches nothing"</span>
+}
+where(Site.id.<span class="h-k">in</span>(ids));
+</code></pre>
 <h2 id="product-differences-to-watch">Product differences to watch<a class="anchor" href="#product-differences-to-watch">#</a></h2>
 <p><strong>Where the name is the same but the meaning is not</strong>, the DSL lines them up.</p>
 <table>
@@ -487,6 +508,7 @@ whether all of them went through.</p>
 			<li class="level-2"><a href="#using-functions">Using functions</a></li>
 			<li class="level-3"><a href="#the-list">The list</a></li>
 			<li class="level-2"><a href="#window-functions">Window functions</a></li>
+			<li class="level-2"><a href="#in-will-not-take-an-empty-list">in will not take an empty list</a></li>
 			<li class="level-2"><a href="#product-differences-to-watch">Product differences to watch</a></li>
 			<li class="level-2"><a href="#when-the-db-product-differs">When the DB product differs</a></li>
 			<li class="level-2"><a href="#running-a-batch">Running a batch</a></li>

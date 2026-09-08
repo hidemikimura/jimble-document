@@ -332,7 +332,8 @@ mcp {
 }
 
 migration {
-	on_startup   = <span class="h-k">false</span>
+	<span class="h-c"># auto | true | false. auto applies them everywhere but locally</span>
+	on_startup   = <span class="h-s">"auto"</span>
 	resource_dir = <span class="h-s">"migration"</span>
 }
 

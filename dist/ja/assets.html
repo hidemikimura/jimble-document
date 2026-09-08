@@ -229,6 +229,14 @@
 <pre class="code"><code class="lang-java">install(() -&gt; AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"test-assets"</span>));</code></pre>
 <p><code>src/main/resources/test-assets/app.css</code> が <code>/assets/app.css</code> で出ます。
 <code>GET</code> と <code>HEAD</code> の2本が登録されます。</p>
+<p>登録されたルートは <code>routes()</code> で受け取れます。<strong>属性を付けられます。</strong></p>
+<pre class="code"><code class="lang-java">AssetController assets = AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"assets"</span>);
+<span class="h-k">for</span> (Route route : assets.routes()) {
+	route.attribute(NO_AUTH, <span class="h-k">true</span>);
+}
+install(() -&gt; assets);
+</code></pre>
+<p><code>SpaHandler.mount(...)</code> / <code>MpaHandler.mount(...)</code> も同じです。</p>
 <h3 id="キャッシュ">キャッシュ<a class="anchor" href="#キャッシュ">#</a></h3>
 <table>
 <thead>

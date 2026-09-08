@@ -238,6 +238,18 @@
 <span class="h-c">// Bring the list in the DB in line with what is registered right now</span>
 BatchRegistry.sync(DBUtil.getMainDB());
 </code></pre>
+<p><code>sync</code> sets <code>status = nothing</code> on the rows for <strong>batches that are gone from the
+code</strong> (the row stays, so the history is still reachable).</p>
+<blockquote>
+<p>[!WARNING]
+<strong>Register everything before you call <code>sync</code>.</strong>
+&quot;Nothing is registered&quot; is treated as &quot;everything is gone,&quot; so calling it
+before you register will set <strong>every row to <code>nothing</code></strong> (and the scheduler
+then runs nothing at all). An app with no batches should not call it.</p>
+<p><strong>Do not share <code>batch_master</code> between apps.</strong>
+Whether a batch is gone is decided by class name, so two apps looking at the
+same table will <strong>set each other's rows to <code>nothing</code>.</strong></p>
+</blockquote>
 <h2 id="making-it-cancellable">Making it cancellable<a class="anchor" href="#making-it-cancellable">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">while</span> (!isCancelOrder()) {
 	<span class="h-c">// handle one at a time</span>

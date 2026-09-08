@@ -221,8 +221,12 @@ onComplete — always runs
 <p><code>onRequest</code> is called <strong>even when no route matched</strong>.
 <code>after</code> and <code>onComplete</code> sit in a <code>finally</code>, so they run even when an exception is thrown.</p>
 <h3 id="once-it-is-sent-it-stops-is-decided-in-one-place">&quot;Once it is sent, it stops&quot; is decided in one place<a class="anchor" href="#once-it-is-sent-it-stops-is-decided-in-one-place">#</a></h3>
-<p>Return the login page from a <code>before</code> and neither the route below it nor <code>after</code> runs.
-That decision is closed up in one place (<code>Stage</code>).</p>
+<p>Return the login page from a <code>before</code> and <strong>the remaining <code>before</code> hooks, the
+route and the Executors do not run.</strong> That decision is closed up in one place (<code>Stage</code>).</p>
+<p><strong><code>after</code> and <code>onComplete</code> still run.</strong> Those two sit in a <code>finally</code>, so they are
+reached whether or not the response has been sent and whether or not something
+threw — exactly as the diagram above says. &quot;Once it is sent, it stops&quot; applies
+only to the stages up to sending.</p>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p>The code this was ported from (jooby_base) had the same check copied into
 seven places. Collecting it into one is what stops <strong>the check being forgotten

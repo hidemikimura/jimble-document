@@ -299,7 +299,7 @@ Avoid <code>kill -9</code> — it leaves transactions half finished.</p>
 <p>The configuration is printed around the first line of the startup log.
 Look at it and check <strong>that it is what you expected.</strong></p>
 <pre class="code"><code class="lang-text">jimble 構成: env=prod / session=db / cache=db / redis=あり / db=[main] / パスワード暗号化=あり
-設定: /opt/app/conf/application.prod.conf, /opt/app/conf/application.conf（クラスパスより優先）
+設定: jar:file:/opt/app/app.jar!/application.prod.conf, jar:file:/opt/app/app.jar!/application.conf
 </code></pre>
 <p>If it says <code>env=local</code>, then <code>-Djimble.env</code> did not reach it.</p>
 

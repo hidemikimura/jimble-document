@@ -229,6 +229,14 @@ during development it is read from <code>build/resources/main</code>. <strong>Th
 <pre class="code"><code class="lang-java">install(() -&gt; AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"test-assets"</span>));</code></pre>
 <p><code>src/main/resources/test-assets/app.css</code> comes out at <code>/assets/app.css</code>.
 Two routes are registered: <code>GET</code> and <code>HEAD</code>.</p>
+<p><code>routes()</code> hands those routes back, so <strong>you can attach attributes to them.</strong></p>
+<pre class="code"><code class="lang-java">AssetController assets = AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"assets"</span>);
+<span class="h-k">for</span> (Route route : assets.routes()) {
+	route.attribute(NO_AUTH, <span class="h-k">true</span>);
+}
+install(() -&gt; assets);
+</code></pre>
+<p><code>SpaHandler.mount(...)</code> and <code>MpaHandler.mount(...)</code> work the same way.</p>
 <h3 id="caching">Caching<a class="anchor" href="#caching">#</a></h3>
 <table>
 <thead>
