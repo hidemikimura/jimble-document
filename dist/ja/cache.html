@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>キャッシュとロック - jimble</title>
-<meta name="description" content="DB / メモリ / Redis の差し替え、グループ無効化、分散ロック">
+<meta name="description" content="DB / メモリ / Redis の差し替え、SQL 結果の自動無効化、分散ロック">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -281,6 +281,162 @@ cache.set(<span class="h-s">"key-6"</span>, <span class="h-s">"値"</span>, <spa
 cache.removeGroup(<span class="h-s">"group"</span>);</code></pre>
 <p>jimble 自身もこれを使っています。スケジューラは台ごとの生存情報を同じグループに入れ、
 <code>getStringGroup(group)</code> で<strong>全台ぶんをまとめて読み出します。</strong></p>
+<h2 id="sql-の結果をキャッシュする">SQL の結果をキャッシュする<a class="anchor" href="#sql-の結果をキャッシュする">#</a></h2>
+<p><code>ICache</code> は「入れた側が消す」ものでした。
+<strong>SQL 結果キャッシュは、更新を見て自分で消えます。</strong></p>
+<p><strong>既定では無効です。</strong> 使うアプリだけ 1 行書いてください。</p>
+<pre class="code"><code class="lang-conf">sql_cache.enabled = <span class="h-k">true</span>
+</code></pre>
+<pre class="code"><code class="lang-java">Data customer = db.selectCached(
+	SQL.select()
+		.from(Customer.instance())
+		.inner(Shop.instance()).on(Customer.shop_id.eq(Shop.id))
+		.where(Customer.id.eq(<span class="h-n">1</span>)));
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// 更新は今までどおり書くだけ。関係するキャッシュだけが消えます</span>
+db.update(SQL.update(Customer.instance()).set(Customer.name, <span class="h-s">"name1"</span>).where(Customer.id.eq(<span class="h-n">1</span>)));
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>更新</th>
+<th>上のキャッシュは</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UPDATE customer SET name = 'name1' WHERE id = 1</code></td>
+<td><strong>消える</strong></td>
+</tr>
+<tr>
+<td><code>UPDATE customer SET name = 'name2' WHERE id = 2</code></td>
+<td>消えない</td>
+</tr>
+<tr>
+<td><code>UPDATE shop SET name = 'shop1' WHERE id = 1</code></td>
+<td><strong>消える</strong>（結合先）</td>
+</tr>
+<tr>
+<td><code>UPDATE shop SET name = 'shop2' WHERE id = 2</code></td>
+<td>消えない</td>
+</tr>
+</tbody>
+</table>
+<p><strong>読むほうは明示、消すほうは自動です。</strong>
+逆にすると、消し忘れが黙って古いデータになります。</p>
+<h3 id="どう判断しているか">どう判断しているか<a class="anchor" href="#どう判断しているか">#</a></h3>
+<p>キャッシュ 1 件に<strong>依存タグ</strong>を付けます。</p>
+<table>
+<thead>
+<tr>
+<th>タグ</th>
+<th>意味</th>
+<th>何で消えるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>customer#id#1</code></td>
+<td>その行に依存している</td>
+<td>その行を書き換えたとき</td>
+</tr>
+<tr>
+<td><code>customer#*</code></td>
+<td>行の集合に依存している（一覧）</td>
+<td>INSERT / DELETE / 絞れない UPDATE</td>
+</tr>
+<tr>
+<td><code>customer#@</code></td>
+<td>そのテーブルを読んでいる</td>
+<td><strong>どの行に当たるか読めない</strong>更新</td>
+</tr>
+</tbody>
+</table>
+<p>タグは 2 つの材料から作ります。</p>
+<ul>
+<li><strong>SELECT の結果行</strong>から、テーブルごとに<strong>主キーと一意キー</strong>の値を拾う。
+結果はテーブル名でネストしている（<a href="./db">Data のネスト</a>）ので、<strong>結合先のキーもそのまま拾えます</strong></li>
+<li><strong>UPDATE / DELETE の WHERE</strong> から、主キー・一意キーの等値と <code>IN</code> を読む。
+読めたらその行タグだけ、読めなければテーブルごと消します</li>
+</ul>
+<p>一意キーは codegen が <code>SHOW INDEX</code> から拾って生成します。<code>codegen</code> を流し直してください。</p>
+<h3 id="一覧のキャッシュ">一覧のキャッシュ<a class="anchor" href="#一覧のキャッシュ">#</a></h3>
+<p>行を 1 つに特定していない SELECT には、<code>customer#*</code> も付きます。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// shop_id で絞った一覧。顧客が増えたら結果が変わる</span>
+db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_id.eq(<span class="h-n">1</span>)));
+</code></pre>
+<p>「特定している」と見なすのは次の場合です。</p>
+<ul>
+<li>WHERE が主キー・一意キーの全列を<strong>値で</strong>縛っている（<code>WHERE id = 1</code>、<code>WHERE id IN (1, 2)</code>）</li>
+<li>結合条件が、<strong>すでに特定できているテーブルの列</strong>とキーの全列を縛っている
+（<code>ON (customer.shop_id = shop.id)</code> で customer が特定できていれば、shop も 1 行に決まる）</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>LIMIT</code> を付けた SELECT は「特定している」になりません。</strong>
+<code>ORDER BY name LIMIT 1</code> は、別の行の名前が変わるだけで返る行が入れ替わります。
+<code>IN (サブクエリ)</code> や <code>= 他テーブルの列</code> も同じ扱いです。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>キーの列を SELECT していないとテーブルタグに倒れます。</strong>
+<code>SELECT id, name</code> のように列を絞ると、一意キーの <code>code</code> で絞った更新を取りこぼすので、
+安全側（そのテーブルの更新で全部消す）にします。<code>SELECT *</code> なら起きません。</p>
+</div>
+<h3 id="トランザクション">トランザクション<a class="anchor" href="#トランザクション">#</a></h3>
+<p><strong>トランザクションの中では読みも書きもしません。</strong>
+まだ確定していない値をキャッシュに残さないためです。
+消すほうは溜めておいて、<strong>コミットでまとめて</strong>消します。ロールバックしたら消しません。</p>
+<h3 id="効かないところ">効かないところ<a class="anchor" href="#効かないところ">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>どうなるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>生 SQL の更新（<code>db.execute(&quot;UPDATE ...&quot;)</code>）</td>
+<td>どこに当たるか読めないので<strong>全部消します</strong></td>
+</tr>
+<tr>
+<td><code>ON DUPLICATE KEY UPDATE</code> / <code>INSERT ... SELECT</code></td>
+<td>既存の行が変わりうるので、そのテーブルに触るものを全部消します</td>
+</tr>
+<tr>
+<td>別のプロセスから DB を直接書き換えた</td>
+<td>追えません。<code>sql_cache.ttl</code>（既定 300 秒）が保険です</td>
+</tr>
+<tr>
+<td><code>sql_cache.store = &quot;memory&quot;</code></td>
+<td><strong>その台の中だけ</strong>です。複数台なら <code>redis</code> か <code>db</code> にしてください</td>
+</tr>
+</tbody>
+</table>
+<h3 id="設定">設定<a class="anchor" href="#設定">#</a></h3>
+<pre class="code"><code class="lang-conf">sql_cache {
+	enabled = <span class="h-k">true</span>       <span class="h-c"># 既定は false</span>
+	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
+	ttl     = <span class="h-n">300</span>        <span class="h-c"># 秒。0 で無期限</span>
+	max     = <span class="h-n">10000</span>      <span class="h-c"># memory のときだけ。持つ件数の上限</span>
+}
+</code></pre>
+<p><strong>既定が <code>false</code> なのは、使っていないアプリに代金を払わせないため</strong>です。
+有効だと、<code>selectCached</code> を 1 度も呼んでいなくても、
+すべての <code>insert</code> / <code>update</code> / <code>delete</code> で「どの行に当たるか」を組み立てます
+（WHERE を読み、テーブルのキーを引く）。
+<code>false</code> のあいだは<strong>その処理が 1 行も走りません</strong>。</p>
+<p>書き忘れても気づけるようにしてあります。</p>
+<ul>
+<li>起動時の構成ログに <code>sql_cache=off</code> と出ます</li>
+<li>切ったまま <code>selectCached</code> を呼ぶと、<strong>初回だけ</strong>警告が出ます（毎回は出しません）</li>
+</ul>
+<pre class="code"><code class="lang-text">jimble 構成: env=local / session=none / cache=db / sql_cache=off / redis=なし / ...
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>切っているときの <code>selectCached</code> は、<strong>ただの <code>selectList</code> として動きます</strong>。
+例外にはしません。本番で調べるためにキャッシュを切ったらアプリごと止まる、
+というのは行きすぎだからです。</p>
+</div>
 <h2 id="ローディングキャッシュ">ローディングキャッシュ<a class="anchor" href="#ローディングキャッシュ">#</a></h2>
 <p>「無ければ作る」を1か所に書く形です。</p>
 <pre class="code"><code class="lang-java">LoadingCache&lt;List&lt;Data&gt;&gt; cache = Cache.loadingCache(
@@ -399,6 +555,12 @@ redis {
 			<li class="level-2"><a href="#3つの実装から選ぶ">3つの実装から選ぶ</a></li>
 			<li class="level-2"><a href="#読み書き">読み書き</a></li>
 			<li class="level-2"><a href="#グループでまとめて消す">グループでまとめて消す</a></li>
+			<li class="level-2"><a href="#sql-の結果をキャッシュする">SQL の結果をキャッシュする</a></li>
+			<li class="level-3"><a href="#どう判断しているか">どう判断しているか</a></li>
+			<li class="level-3"><a href="#一覧のキャッシュ">一覧のキャッシュ</a></li>
+			<li class="level-3"><a href="#トランザクション">トランザクション</a></li>
+			<li class="level-3"><a href="#効かないところ">効かないところ</a></li>
+			<li class="level-3"><a href="#設定">設定</a></li>
 			<li class="level-2"><a href="#ローディングキャッシュ">ローディングキャッシュ</a></li>
 			<li class="level-2"><a href="#分散ロック">分散ロック</a></li>
 			<li class="level-3"><a href="#db-だけでロックする">DB だけでロックする</a></li>

@@ -325,6 +325,29 @@ get(<span class="h-s">"/health_check"</span>, context -&gt; context.response().s
 どれかがレスポンスを送ったら、そこで止まります。</p>
 <p>ステータスコードの決まり方、未マッチ（404）の扱い、検証失敗との違いは
 <a href="./errors">エラー処理</a> にまとめてあります。</p>
+<h2 id="実装済みのルートを内側から呼ぶ">実装済みのルートを内側から呼ぶ<a class="anchor" href="#実装済みのルートを内側から呼ぶ">#</a></h2>
+<p>登録済みのルートは、HTTP を通さずに呼べます。</p>
+<pre class="code"><code class="lang-java">CallResponse response = context.dispatcher().call(context
+	, CallRequest.of(<span class="h-s">"GET"</span>, <span class="h-s">"/api/posts"</span>).query(<span class="h-s">"page"</span>, <span class="h-s">"2"</span>));
+
+Data json = response.json();
+</code></pre>
+<p><strong>通常のリクエストとまったく同じ道を通ります。</strong>
+<code>before</code> / <code>after</code> / エラーハンドラ / <a href="./ratelimit">レートリミット</a> が効き、
+違うのは送り先だけです（ネットワークに出す代わりに <code>CallResponse</code> で受け取ります）。</p>
+<p><strong>内側は外側のリクエストの続きとして走ります。</strong>
+ヘッダ・Cookie・セッション・Flash は外側のものをそのまま使い、
+実行 ID も引き継ぐのでログは 1 本に繋がります。
+個別に変えたいヘッダは <code>.header(&quot;X-Token&quot;, &quot;...&quot;)</code> で上書きしてください。</p>
+<p>内側で発行した Cookie も、外側のレスポンスに載って相手に届きます。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>内側は外側とは別のトランザクションです。</strong>
+DB 接続もコンテキストごとに持つので、
+外側で開けたトランザクションの中には入りません。
+まとめてコミットしたい処理は、ドメイン層で共有してください。</p>
+</div>
+<p>いちばんの用途は、<a href="./mcp">MCP</a> から API をそのまま公開することです。
+<code>RouteTool</code> を使うと、ルート 1 本がそのままツールになります。</p>
 
 		</article>
 
@@ -349,6 +372,7 @@ get(<span class="h-s">"/health_check"</span>, context -&gt; context.response().s
 			<li class="level-2"><a href="#ルートごとの印">ルートごとの印</a></li>
 			<li class="level-2"><a href="#コントローラに分ける">コントローラに分ける</a></li>
 			<li class="level-2"><a href="#エラーの扱い">エラーの扱い</a></li>
+			<li class="level-2"><a href="#実装済みのルートを内側から呼ぶ">実装済みのルートを内側から呼ぶ</a></li>
 		</ul>
 	</nav>
 </div>

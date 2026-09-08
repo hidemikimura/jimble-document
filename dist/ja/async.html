@@ -360,6 +360,57 @@ SQL が飛びません。</strong></p>
 </tr>
 </tbody>
 </table>
+<h2 id="テーブルネストあり--なしを選んで-json-にする">テーブルネストあり / なしを選んで JSON にする<a class="anchor" href="#テーブルネストあり--なしを選んで-json-にする">#</a></h2>
+<p>SELECT の結果は<strong>テーブル名でネスト</strong>しています。</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"post"</span>: {<span class="h-s">"id"</span>: <span class="h-n">1</span>, <span class="h-s">"title"</span>: <span class="h-s">"こんにちは"</span>}}
+</code></pre>
+<p>これを <code>setData</code> で平らにするか（<code>flattenTable</code>）、そのまま持つか（<code>extractTableData</code>）は、
+これまで<strong>クラスを書いた時点で決まって</strong>いました。
+つまり 1 つの <code>AsyncData</code> は 1 つの形しか出せません。</p>
+<p>管理画面 API はネスト、ショップ API はフラットで返したい、となると
+<strong>同じ内容のクラスを 2 つ書く</strong>ことになります。片方だけ直したときに気づけません。</p>
+<p><strong>形は JSON にするときに選べます。</strong></p>
+<pre class="code"><code class="lang-java">data.getJsonString(TableNest.ON);    <span class="h-c">// {"post": {"id": 1}, "comments": [...]}</span>
+data.getJsonString(TableNest.OFF);   <span class="h-c">// {"id": 1, "comments": [...]}</span>
+</code></pre>
+<p>レスポンス単位でも指定できます。</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/admin"</span>, () -&gt; {
+	before(context -&gt; context.response().tableNest(TableNest.ON));
+	get(<span class="h-s">"/posts/{id}"</span>, context -&gt; context.response().json(<span class="h-s">"post"</span>, <span class="h-k">new</span> PostData(id)));
+});
+
+path(<span class="h-s">"/shop"</span>, () -&gt; {
+	before(context -&gt; context.response().tableNest(TableNest.OFF));
+	get(<span class="h-s">"/posts/{id}"</span>, context -&gt; context.response().json(<span class="h-s">"post"</span>, <span class="h-k">new</span> PostData(id)));
+});
+</code></pre>
+<p><strong>返しているのは同じクラスです。</strong></p>
+<h3 id="どうやって形が分かるのか">どうやって形が分かるのか<a class="anchor" href="#どうやって形が分かるのか">#</a></h3>
+<p><code>AsyncData</code> / <code>AsyncList</code> は <code>load()</code> が返した<strong>生のデータを持ったまま</strong>です。
+その生データが「どのキーがどのテーブルの、どの列か」を知っています。</p>
+<pre class="code"><code class="lang-text">{"post": {"id": 1, "title": "..."}}
+  ↑ テーブル名   ↑ 列名
+</code></pre>
+<p>だから、<code>setData</code> を <code>flattenTable</code> で書いても <code>extractTableData</code> で書いても、
+<strong>どちらの形にも組み直せます</strong>。実装側に書き足すものはありません。</p>
+<h3 id="列でないものは動きません">列でないものは動きません<a class="anchor" href="#列でないものは動きません">#</a></h3>
+<p><code>setRelationData</code> で足した子（<code>AsyncData</code> / <code>AsyncList</code>）や計算値は、
+生データの列に無いので<strong>常に最上位に残ります</strong>。</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"post"</span>: {<span class="h-s">"id"</span>: <span class="h-n">1</span>, <span class="h-s">"title"</span>: <span class="h-s">"..."</span>}, <span class="h-s">"comments"</span>: [...]}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>既定は <code>TableNest.AS_IS</code></strong> です。指定しなければ <code>setData</code> が作った形がそのまま出ます。
+いまあるアプリの出力は 1 バイトも変わりません。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>組み直せないものがあります。</strong>
+自由 SQL や集約でテーブルネストしていない結果（<code>{&quot;total&quot;: 12}</code> など）は、
+テーブル名が分からないので<strong>そのまま出ます</strong>。
+<code>putData(null)</code> を受けたノードも同じです。</p>
+<p>JOIN していて<strong>同じ列名が 2 つのテーブルにある</strong>とき（<code>post.id</code> と <code>comment.id</code>）は、
+平らに持っている時点ですでに片方で上書きされていて、どちらの値かは分かりません。
+ネストに戻すときは<strong>先に出てきたテーブル</strong>に入ります。</p>
+</div>
 
 		</article>
 
@@ -384,6 +435,9 @@ SQL が飛びません。</strong></p>
 			<li class="level-2"><a href="#走らせる">走らせる</a></li>
 			<li class="level-2"><a href="#先読みしてもしなくても結果は同じ">先読みしてもしなくても、結果は同じ</a></li>
 			<li class="level-2"><a href="#止まること">止まること</a></li>
+			<li class="level-2"><a href="#テーブルネストあり--なしを選んで-json-にする">テーブルネストあり / なしを選んで JSON にする</a></li>
+			<li class="level-3"><a href="#どうやって形が分かるのか">どうやって形が分かるのか</a></li>
+			<li class="level-3"><a href="#列でないものは動きません">列でないものは動きません</a></li>
 		</ul>
 	</nav>
 </div>

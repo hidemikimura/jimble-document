@@ -279,6 +279,119 @@ resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span cl
 <p><code>ToolResult.error()</code> は <code>isError</code> を立てて<strong>正常な応答として</strong>返します。
 モデルはそれを読んで、引数を変えてもう一度呼べます。
 例外にしてしまうと、モデルには「壊れた」としか見えません。</p>
+<h2 id="すでにある-api-をそのまま出す">すでにある API をそのまま出す<a class="anchor" href="#すでにある-api-をそのまま出す">#</a></h2>
+<p>API を先に作って、あとから MCP でも提供することがあります。
+そのときツールの中に同じ処理をもう一度書くと、<strong>必ずどちらかが古くなります</strong>。</p>
+<p><code>RouteTool</code> は、<strong>登録済みのルートをそのままツールにします</strong>。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
+
+	{
+		tool(<span class="h-s">"list_posts"</span>, RouteTool.of(<span class="h-s">"GET"</span>, <span class="h-s">"/api/posts"</span>)
+			.description(<span class="h-s">"記事の一覧を返す。page で頁を指定する"</span>)
+			.input(JsonSchema.<span class="h-k">object</span>()
+				.integer(<span class="h-s">"page"</span>, <span class="h-s">"ページ番号（1から）"</span>).min(<span class="h-n">1</span>)));
+
+		tool(<span class="h-s">"get_post"</span>, RouteTool.of(<span class="h-s">"GET"</span>, <span class="h-s">"/api/posts/{id}"</span>)
+			.description(<span class="h-s">"記事を1件返す"</span>)
+			.input(JsonSchema.<span class="h-k">object</span>()
+				.string(<span class="h-s">"id"</span>, <span class="h-s">"記事ID"</span>).required()));
+
+		tool(<span class="h-s">"create_post"</span>, RouteTool.of(<span class="h-s">"POST"</span>, <span class="h-s">"/api/posts"</span>)
+			.description(<span class="h-s">"記事を1件登録する"</span>)
+			.input(JsonSchema.<span class="h-k">object</span>()
+				.string(<span class="h-s">"title"</span>, <span class="h-s">"題名"</span>).required()
+				.string(<span class="h-s">"body"</span>, <span class="h-s">"本文"</span>).required()));
+	}
+
+}
+</code></pre>
+<p>HTTP は通りません。ディスパッチャが<strong>そのルートを直接呼びます</strong>。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>before</code> も <code>after</code> も効きます。</strong>
+認証を <code>before</code> に置いている API は、MCP から呼んでも認証を通ります
+（MCP リクエストのヘッダと Cookie をそのまま引き継ぎます）。
+内部専用の別経路を作らないので、<strong>認証を足したときに片方だけ忘れる</strong>ことがありません。</p>
+</div>
+<h3 id="引数がどこへ行くか">引数がどこへ行くか<a class="anchor" href="#引数がどこへ行くか">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>引数</th>
+<th>行き先</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>パスの <code>{name}</code> と同じ名前</td>
+<td>パスに埋まる</td>
+</tr>
+<tr>
+<td>残り（<code>GET</code> / <code>DELETE</code> / <code>HEAD</code>）</td>
+<td>クエリ文字列</td>
+</tr>
+<tr>
+<td>残り（それ以外）</td>
+<td>JSON の本文</td>
+</tr>
+</tbody>
+</table>
+<p>パスの <code>{name}</code> は <code>input(...)</code> に書いて <code>required()</code> を付けてください。
+書かないと、モデルは何を渡せばいいか分かりません。</p>
+<p>ワイルドカード（<code>/files/*</code>）を含むルートは<strong>登録した時点で断ります</strong>。
+埋める手立てが無いまま通すと、エラーも出ずに毎回 404 になるためです。</p>
+<h3 id="結果がどうなるか">結果がどうなるか<a class="anchor" href="#結果がどうなるか">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>API が返したもの</th>
+<th>ツールの結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2xx で JSON のオブジェクト</td>
+<td><code>structuredContent</code> と本文テキストの両方</td>
+</tr>
+<tr>
+<td>2xx でそれ以外</td>
+<td>本文テキスト</td>
+</tr>
+<tr>
+<td>4xx</td>
+<td><code>isError</code>（<strong>本文をそのまま渡す</strong>）</td>
+</tr>
+<tr>
+<td>5xx</td>
+<td><code>isError</code>（<strong>本文は渡さない</strong>）</td>
+</tr>
+</tbody>
+</table>
+<p>4xx の本文は API がクライアントに読ませるために書いたものなので、
+そのままモデルに渡せば直せます（「その記事はありません: 999」）。</p>
+<p>5xx の本文は誰にも読ませるつもりで書かれていません。
+エラーハンドラ次第でスタックトレースが入るので、<strong>渡しません</strong>（ログには残ります）。</p>
+<h3 id="気をつけること">気をつけること<a class="anchor" href="#気をつけること">#</a></h3>
+<ul>
+<li>アップロードを受ける API は呼べません（一時ファイルの持ち主が曖昧になるため、ファイルは空です）</li>
+<li>大きなファイルを返す API は、そのぶんメモリに載ります</li>
+<li>圧縮したまま返す API（<code>response().cache(...)</code>）は、読めないので <code>isError</code> になります</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>ドメイン層を共有できるなら、そちらが先です。</strong>
+<code>RouteTool</code> は「検証・整形・権限まで含めて <strong>API として組み上がったもの</strong>を
+そのまま出したい」ときの道具です。
+内側は<strong>外側とは別のトランザクション</strong>になるので、
+1つのツールで複数の API を呼んでまとめてコミットしたいときは使えません。</p>
+</div>
+<h3 id="ツールを通さずに呼ぶ">ツールを通さずに呼ぶ<a class="anchor" href="#ツールを通さずに呼ぶ">#</a></h3>
+<p>同じ仕組みは、ふつうのハンドラからも使えます。</p>
+<pre class="code"><code class="lang-java">CallResponse response = context.dispatcher().call(context
+	, CallRequest.of(<span class="h-s">"GET"</span>, <span class="h-s">"/api/posts"</span>).query(<span class="h-s">"page"</span>, <span class="h-s">"2"</span>));
+
+Data json = response.json();
+</code></pre>
+<p>入れ子には上限（8）があります。
+自分を呼ぶルートを作ると無限に潜るので、そこで止めて例外にします。</p>
 <h2 id="リソースとプロンプト">リソースとプロンプト<a class="anchor" href="#リソースとプロンプト">#</a></h2>
 <pre class="code"><code class="lang-java">resource(<span class="h-s">"blog://latest"</span>, LatestPostsResource::<span class="h-k">new</span>);
 prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">new</span>);
@@ -332,6 +445,11 @@ prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">
 			<li class="level-2"><a href="#公開するものを並べる">公開するものを並べる</a></li>
 			<li class="level-2"><a href="#ツールを書く">ツールを書く</a></li>
 			<li class="level-2"><a href="#失敗の返し方">失敗の返し方</a></li>
+			<li class="level-2"><a href="#すでにある-api-をそのまま出す">すでにある API をそのまま出す</a></li>
+			<li class="level-3"><a href="#引数がどこへ行くか">引数がどこへ行くか</a></li>
+			<li class="level-3"><a href="#結果がどうなるか">結果がどうなるか</a></li>
+			<li class="level-3"><a href="#気をつけること">気をつけること</a></li>
+			<li class="level-3"><a href="#ツールを通さずに呼ぶ">ツールを通さずに呼ぶ</a></li>
 			<li class="level-2"><a href="#リソースとプロンプト">リソースとプロンプト</a></li>
 			<li class="level-2"><a href="#口は1本">口は1本</a></li>
 			<li class="level-2"><a href="#origin-を必ず設定してください">Origin を必ず設定してください</a></li>
