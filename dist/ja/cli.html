@@ -204,7 +204,7 @@
 <span class="h-k">export</span> PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 </code></pre>
 <pre class="code"><code class="lang-bash">$ jimble version
-<span class="h-k">jimble</span> 0.1.1-SNAPSHOT
+<span class="h-k">jimble</span> 0.2.1-SNAPSHOT
 </code></pre>
 <p>毎回書きたくなければ、<code>~/.zshrc</code> に上の <code>export</code> を足すか、リンクを張ってください。</p>
 <pre class="code"><code class="lang-bash">ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
@@ -222,7 +222,7 @@
 </div>
 <h3 id="手元でビルドした-jimble-を使うとき">手元でビルドした jimble を使うとき<a class="anchor" href="#手元でビルドした-jimble-を使うとき">#</a></h3>
 <p><code>jimble new</code> が作る <code>build.gradle.kts</code> は、<strong>CLI をビルドした版</strong>を参照します。
-公開していない版（<code>0.1.1-SNAPSHOT</code> など）なら、<strong>先にローカルへ publish</strong>してください。</p>
+公開していない版（<code>0.2.1-SNAPSHOT</code> など）なら、<strong>先にローカルへ publish</strong>してください。</p>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> publishToMavenLocal
 <span class="h-k">./gradlew</span> -p gradle-plugin publishToMavenLocal
 </code></pre>
