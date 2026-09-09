@@ -248,6 +248,66 @@ that is missing)</li>
 <li><strong>They are looked up from the classpath.</strong> Add <code>conf/</code> to your resources
 (<a href="./config">Configuration</a>)</li>
 </ul>
+<h3 id="splitting-into-single-statements">Splitting into single statements<a class="anchor" href="#splitting-into-single-statements">#</a></h3>
+<p>One file can hold several statements. They are split on <code>;</code>, but <strong>never on a
+<code>;</code> inside a string, an identifier or a comment.</strong></p>
+<p>Where those start and end <strong>differs by product</strong>, so they are read with the
+rules of the product you are connected to.</p>
+<table>
+<thead>
+<tr>
+<th>Written</th>
+<th>MySQL</th>
+<th>PostgreSQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the <code>\</code> in <code>'a\'b'</code></td>
+<td>an escape</td>
+<td><strong>an ordinary character</strong> (an escape only in <code>E'a\'b'</code>)</td>
+</tr>
+<tr>
+<td><code># ...</code></td>
+<td>a line comment</td>
+<td>not a comment</td>
+</tr>
+<tr>
+<td><code>1--2</code></td>
+<td>not a comment (<code>--</code> needs a space after it)</td>
+<td>a line comment</td>
+</tr>
+<tr>
+<td><code>`a`</code></td>
+<td>quotes an identifier</td>
+<td>not a quote</td>
+</tr>
+<tr>
+<td><code>$$ ... $$</code></td>
+<td>ordinary characters</td>
+<td>a string (function bodies, <code>DO</code> blocks)</td>
+</tr>
+<tr>
+<td><code>/* /* */ */</code></td>
+<td>closes at the first <code>*/</code></td>
+<td>can nest</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Get the product's rules wrong and the split changes silently.</strong>
+Read <code>insert into t values ('c:\');</code> with MySQL's rules and the <code>\'</code> looks
+like an escape, so <strong>the string never closes</strong> — every statement after it is
+glued onto this one.</p>
+</div>
+<p>A fragment that is nothing but a comment is dropped (MySQL fails it with &quot;Query
+was empty&quot;). MySQL's and MariaDB's <code>/*!40101 ... */</code> and <code>/*M!100301 ... */</code> are
+executable comments, so they are kept.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>If not one statement can be taken out of it, that is a failure.</strong> Letting
+&quot;it was all comments&quot; pass as success means a down that leaves <strong>the tables in
+place and deletes only the history</strong>.</p>
+</div>
 <h3 id="the-record-and-failures">The record, and failures<a class="anchor" href="#the-record-and-failures">#</a></h3>
 <table>
 <thead>
@@ -289,6 +349,68 @@ Put several DDL statements in one file and it stops <strong>with part of it appl
 new up.
 <strong>There is no command to roll back by hand.</strong> down runs in exactly two cases:
 the file is gone, or the hash changed.</p>
+<h3 id="splitting-sql-per-product">Splitting SQL per product<a class="anchor" href="#splitting-sql-per-product">#</a></h3>
+<p>The same DDL will not do for both MySQL and PostgreSQL (<code>AUTO_INCREMENT</code> versus
+<code>bigserial</code>, <code>ENGINE=InnoDB</code>, how column comments are written).
+Split them <strong>by filename suffix.</strong></p>
+<pre class="code"><code class="lang-text">conf/migration/blog_example/
+	001_create_post.mysql.sql        &lt;- mysql / mariadb only
+	001_create_post.postgresql.sql   &lt;- postgresql only
+	002_add_status.sql               &lt;- no suffix = both
+</code></pre>
+<ul>
+<li>The suffix is the same name you can write in <code>db.&lt;name&gt;.product</code>
+(<code>mariadb</code> counts as <code>mysql</code>)</li>
+<li><strong>A file with no suffix is applied on every product.</strong> SQL that works on both
+does not need splitting</li>
+<li>Files that were skipped are named in the startup log</li>
+</ul>
+<pre class="code"><code class="lang-text">マイグレーション: 他の製品向けを飛ばしました（いまは postgresql）: 001_create_post.mysql.sql
+</code></pre>
+<blockquote>
+<p>In English: &quot;migration: skipped files for other products (currently postgresql): ...&quot;.</p>
+</blockquote>
+<p>What has been applied is remembered <strong>by filename</strong>, so
+<code>001_create_post.mysql.sql</code> and <code>001_create_post.postgresql.sql</code> are separate
+records. <strong>A file that is present is never treated as &quot;gone&quot;</strong>, not even a file
+for the other product, so it is never downed.</p>
+<p>Two files for the same version that both run on the current product is an error
+(<code>001_x.mariadb.sql</code> and <code>001_x.mysql.sql</code> both run on MySQL).</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Renaming a file that has already been applied makes it a different file.</strong>
+Rename <code>001_create_post.sql</code> to <code>001_create_post.mysql.sql</code> and the same SQL
+runs a second time, giving you <code>Table 'post' already exists</code>.</p>
+<p>That is detected by name and stopped, with the fix printed. The comparison is
+on the <strong>name with the product suffix removed</strong>, so it is still found when the
+split halves have different contents.</p>
+<pre class="code"><code class="lang-text">マイグレーション SQL の名前が変わったようです（いまは mysql）:
+  001_create_post.sql → 001_create_post.mysql.sql
+履歴の名前も変えてください。
+  UPDATE migration SET name = '001_create_post.mysql.sql' WHERE name = '001_create_post.sql';
+  UPDATE migration_history SET name = '001_create_post.mysql.sql' WHERE name = '001_create_post.sql';
+</code></pre>
+<blockquote>
+<p>In English: &quot;the migration SQL looks renamed — rename it in the history too.&quot;</p>
+</blockquote>
+<p><strong>When the contents changed as well, <code>hash</code> is included in the <code>UPDATE</code></strong> (that
+version is already applied, so the record is corrected rather than re-applied).
+The printed SQL belongs to <strong>that database's product</strong>; on the other product's
+database, read it as that product's filename.</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>It stops when no file is left for the current product.</strong>
+Rename <code>001_create_post.sql</code> to <code>001_create_post.postgresql.sql</code> only, and on a
+MySQL database that file will never be read again. Rather than downing it
+silently, jimble makes you choose: add the <code>mysql</code> file, or delete the history row.</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Where an <code>ALTER TABLE</code> puts a new column differs by product.</strong>
+MySQL takes <code>AFTER body</code>; PostgreSQL always appends.
+The column order in the generated classes is the <strong>physical order</strong>, so the
+same schema can produce a different order on a different product (the types,
+nullability and comments are the same).
+<strong>Generate on the product you lead with</strong>, and run <code>codegenCheck</code> there too.</p>
+</div>
 <h3 id="when-several-servers-start-at-once">When several servers start at once<a class="anchor" href="#when-several-servers-start-at-once">#</a></h3>
 <p>The row in <code>db_lock</code> is taken with <code>FOR UPDATE</code> before anything is applied, so
 <strong>only one machine runs.</strong> The one that could not wait long enough fails to start
@@ -529,8 +651,10 @@ The Gradle tasks are listed in <a href="./gradle">the Gradle plugins</a>.</p>
 		<p class="section">On this page</p>
 		<ul>
 			<li class="level-2"><a href="#migrations">Migrations</a></li>
+			<li class="level-3"><a href="#splitting-into-single-statements">Splitting into single statements</a></li>
 			<li class="level-3"><a href="#the-record-and-failures">The record, and failures</a></li>
 			<li class="level-3"><a href="#do-not-rewrite-sql-that-has-already-been-applied">Do not rewrite SQL that has already been applied</a></li>
+			<li class="level-3"><a href="#splitting-sql-per-product">Splitting SQL per product</a></li>
 			<li class="level-3"><a href="#when-several-servers-start-at-once">When several servers start at once</a></li>
 			<li class="level-3"><a href="#migrations-written-in-java">Migrations written in Java</a></li>
 			<li class="level-2"><a href="#code-generation">Code generation</a></li>

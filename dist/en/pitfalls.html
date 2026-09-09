@@ -313,6 +313,16 @@ where <strong>only the tests pass</strong> once an entry point changes.</p>
 <p><strong>Run it once against an empty database</strong> — that is the quickest way to check.
 It is how we found <code>examples/blog</code> was broken.</p>
 </div>
+<h2 id="the-generated-column-order-changes-when-you-change-products">The generated column order changes when you change products<a class="anchor" href="#the-generated-column-order-changes-when-you-change-products">#</a></h2>
+<p><strong>Symptom</strong>: <code>codegen</code> produces a diff although nothing was changed. Only the
+column order differs.</p>
+<p><strong>Cause</strong>: the generated column order is the <strong>physical order</strong>. Where
+<code>ALTER TABLE ... ADD COLUMN</code> puts the column differs between MySQL (which takes
+<code>AFTER body</code>) and PostgreSQL (which always appends), so the same schema can come
+out in a different order.</p>
+<p><strong>What to do</strong>: <strong>generate on the product you lead with</strong>, and run
+<code>codegenCheck</code> there too. Types, nullability and comments all match, so nothing
+but the order changes.</p>
 <h2 id="sse-does-not-arrive-or-arrives-all-at-once">SSE does not arrive, or arrives all at once<a class="anchor" href="#sse-does-not-arrive-or-arrives-all-at-once">#</a></h2>
 <p><strong>Cause</strong>: an nginx in between is buffering it up.</p>
 <p><strong>Fix</strong>: jimble attaches <code>X-Accel-Buffering: no</code>. If that is not enough,
@@ -417,6 +427,7 @@ It drags <code>jimble-docs/src/main/jte/docs/</code> in with it.</p>
 			<li class="level-2"><a href="#the-transaction-did-not-carry-on">The transaction did not carry on</a></li>
 			<li class="level-2"><a href="#a-transaction-was-left-neither-committed-nor-rolled-back">"A transaction was left neither committed nor rolled back"</a></li>
 			<li class="level-2"><a href="#which-tables-exist-depends-on-which-entry-point-you-started">Which tables exist depends on which entry point you started</a></li>
+			<li class="level-2"><a href="#the-generated-column-order-changes-when-you-change-products">The generated column order changes when you change products</a></li>
 			<li class="level-2"><a href="#sse-does-not-arrive-or-arrives-all-at-once">SSE does not arrive, or arrives all at once</a></li>
 			<li class="level-2"><a href="#the-sse-loop-never-ends">The SSE loop never ends</a></li>
 			<li class="level-2"><a href="#you-cannot-read-cookies-in-a-websocket">You cannot read cookies in a WebSocket</a></li>

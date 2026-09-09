@@ -243,6 +243,64 @@ DROP TABLE `note`;
 <li><code>&lt;スキーマ名&gt;</code> は設定の <code>scheme</code>（無ければデータソース名）</li>
 <li><strong>クラスパスから探します</strong>。<code>conf/</code> をリソースに足しておいてください（<a href="./config">設定</a>）</li>
 </ul>
+<h3 id="1文ずつの切り分け">1文ずつの切り分け<a class="anchor" href="#1文ずつの切り分け">#</a></h3>
+<p>1つのファイルに複数の文を書けます。「;」で切りますが、
+<strong>文字列・識別子・コメントの中の「;」では切りません。</strong></p>
+<p>どこからどこまでがそれなのかは<strong>製品で違う</strong>ので、繋いでいる製品の決まりで読みます。</p>
+<table>
+<thead>
+<tr>
+<th>書き方</th>
+<th>MySQL</th>
+<th>PostgreSQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>'a\'b'</code> の <code>\</code></td>
+<td>エスケープ</td>
+<td><strong>ただの文字</strong>（<code>E'a\'b'</code> のときだけエスケープ）</td>
+</tr>
+<tr>
+<td><code># ...</code></td>
+<td>行コメント</td>
+<td>コメントではない</td>
+</tr>
+<tr>
+<td><code>1--2</code></td>
+<td>コメントではない（<code>--</code> のあとに空白が要る）</td>
+<td>行コメント</td>
+</tr>
+<tr>
+<td><code>`a`</code></td>
+<td>識別子の囲み</td>
+<td>囲みではない</td>
+</tr>
+<tr>
+<td><code>$$ ... $$</code></td>
+<td>ただの文字</td>
+<td>文字列（関数の本体や <code>DO</code> ブロック）</td>
+</tr>
+<tr>
+<td><code>/* /* */ */</code></td>
+<td>最初の <code>*/</code> で閉じる</td>
+<td>入れ子にできる</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>製品の決まりを取り違えると、切り分けが黙って変わります。</strong>
+<code>insert into t values ('c:\');</code> を MySQL の読み方で読むと、
+<code>\'</code> がエスケープに見えて<strong>文字列が閉じません</strong>。
+そこから先の SQL が全部この1文にくっつきます。</p>
+</div>
+<p>コメントだけになった断片は捨てます（MySQL では「Query was empty」で落ちるためです）。
+ただし MySQL / MariaDB の <code>/*!40101 ... */</code> <code>/*M!100301 ... */</code> は
+<strong>実行されるコメント</strong>なので捨てません。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>1文も取り出せなかったら失敗にします。</strong>「全部コメントだった」を成功として通すと、
+down のときに<b>テーブルは残ったまま履歴だけ消える</b>ことになります。</p>
+</div>
 <h3 id="記録と失敗">記録と失敗<a class="anchor" href="#記録と失敗">#</a></h3>
 <table>
 <thead>
@@ -275,6 +333,56 @@ DROP TABLE `note`;
 </code></pre>
 <p><code>migration.down = true</code>（既定は <code>false</code>）にすると、down → 新しい up でやり直します。
 **手で戻すコマンドはありません。**down が動くのは「ファイルが消えた」「ハッシュが変わった」の2つだけです。</p>
+<h3 id="製品ごとに-sql-を分ける">製品ごとに SQL を分ける<a class="anchor" href="#製品ごとに-sql-を分ける">#</a></h3>
+<p>MySQL と PostgreSQL で同じ DDL は書けません（<code>AUTO_INCREMENT</code> と <code>bigserial</code>、
+<code>ENGINE=InnoDB</code>、列コメントの書き方）。<strong>ファイル名の接尾辞</strong>で分けます。</p>
+<pre class="code"><code class="lang-text">conf/migration/blog_example/
+	001_create_post.mysql.sql        ← mysql / mariadb のときだけ
+	001_create_post.postgresql.sql   ← postgresql のときだけ
+	002_add_status.sql               ← 接尾辞なし = どちらでも
+</code></pre>
+<ul>
+<li>接尾辞は <code>db.&lt;名前&gt;.product</code> に書ける名前と同じものです（<code>mariadb</code> は <code>mysql</code> と同じ扱い）</li>
+<li>**接尾辞の無いファイルはどの製品でも当たります。**両方で通る SQL は分けなくていいです</li>
+<li>飛ばしたファイルは起動ログに出ます</li>
+</ul>
+<pre class="code"><code class="lang-text">マイグレーション: 他の製品向けを飛ばしました（いまは postgresql）: 001_create_post.mysql.sql
+</code></pre>
+<p>適用済みは<strong>ファイル名で</strong>覚えているので、<code>001_create_post.mysql.sql</code> と
+<code>001_create_post.postgresql.sql</code> は別の記録になります。
+<strong>置いてあるファイルは、他の製品向けでも「消えた」とは見ません</strong>（down しません）。</p>
+<p>同じ版に、いまの製品で流れるファイルを2つ置くと落ちます
+（<code>001_x.mariadb.sql</code> と <code>001_x.mysql.sql</code> はどちらも MySQL で流れます）。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>すでに当てたファイルの名前を変えると、別のファイルになります。</strong>
+<code>001_create_post.sql</code> を <code>001_create_post.mysql.sql</code> に変えると、
+同じ SQL がもう一度流れて <code>Table 'post' already exists</code> になります。</p>
+<p>名前でそれを見分けて止め、直し方を出します（<strong>製品の接尾辞を落とした名前</strong>で見るので、
+分けた先で中身が変わっていても分かります）。</p>
+<pre class="code"><code class="lang-text">マイグレーション SQL の名前が変わったようです（いまは mysql）:
+  001_create_post.sql → 001_create_post.mysql.sql
+履歴の名前も変えてください。
+  UPDATE migration SET name = '001_create_post.mysql.sql' WHERE name = '001_create_post.sql';
+  UPDATE migration_history SET name = '001_create_post.mysql.sql' WHERE name = '001_create_post.sql';
+</code></pre>
+<p><strong>中身も変わっているときは <code>hash</code> も一緒に出ます</strong>（その版はすでに当たっているので、
+当て直すのではなく記録を合わせます）。
+出てくる SQL は<strong>その DB の製品のもの</strong>です。もう片方の製品の DB では、
+その製品向けのファイル名に読み替えてください。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>いまの製品向けのファイルが無くなると止まります。</strong>
+<code>001_create_post.sql</code> を <code>001_create_post.postgresql.sql</code> にだけ変えると、
+MySQL の DB では二度と読まれないファイルになります。
+黙って down せず、<code>mysql</code> 向けを置くか履歴を消すかを選ばせます。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>ALTER TABLE</code> で足した列の位置は製品で変わります。</strong>
+MySQL は <code>AFTER body</code> と書けますが、PostgreSQL は必ず末尾です。
+生成されるクラスの列の並びは<strong>物理順</strong>なので、
+同じスキーマでも製品によって並びが変わります（型も NULL 可否もコメントも同じです）。
+<strong>生成は主にする製品で行ってください。</strong><code>codegenCheck</code> も同じ製品で回します。</p>
+</div>
 <h3 id="複数のサーバーが同時に起動しても">複数のサーバーが同時に起動しても<a class="anchor" href="#複数のサーバーが同時に起動しても">#</a></h3>
 <p><code>db_lock</code> の行を <code>FOR UPDATE</code> で取ってから当てるので、<strong>1台しか流れません。</strong>
 待ちきれなかった側は起動に失敗します（<code>migration.lock_timeout_seconds</code>、既定 60 秒）。</p>
@@ -503,8 +611,10 @@ Gradle のタスクは <a href="./gradle">Gradle プラグイン</a> にまと�
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#マイグレーション">マイグレーション</a></li>
+			<li class="level-3"><a href="#1文ずつの切り分け">1文ずつの切り分け</a></li>
 			<li class="level-3"><a href="#記録と失敗">記録と失敗</a></li>
 			<li class="level-3"><a href="#当て終わった-sql-を書き換えない">当て終わった SQL を書き換えない</a></li>
+			<li class="level-3"><a href="#製品ごとに-sql-を分ける">製品ごとに SQL を分ける</a></li>
 			<li class="level-3"><a href="#複数のサーバーが同時に起動しても">複数のサーバーが同時に起動しても</a></li>
 			<li class="level-3"><a href="#java-で書くマイグレーション">Java で書くマイグレーション</a></li>
 			<li class="level-2"><a href="#コード生成">コード生成</a></li>

@@ -303,7 +303,9 @@ compared with MySQL).</p>
 MySQL 8 is latitude then longitude; PostGIS is longitude then latitude. jimble
 does not absorb this, so line it up yourself if you use both</li>
 <li>Migration SQL (<code>conf/migration/...</code>) <strong>runs exactly as you wrote it.</strong>
-If you change products, rewrite the DDL too</li>
+To run on both products, split it <strong>by filename suffix</strong> —
+<code>001_xxx.mysql.sql</code> / <code>001_xxx.postgresql.sql</code> (no suffix is applied on both).
+See <a href="./codegen">Splitting SQL per product</a></li>
 </ul>
 <h2 id="when-there-is-more-than-one-data-source">When there is more than one data source<a class="anchor" href="#when-there-is-more-than-one-data-source">#</a></h2>
 <pre class="code"><code class="lang-conf">db {

@@ -297,7 +297,9 @@ SQL.select().from(Post.instance()).where(Post.id.eq(<span class="h-n">1L</span>)
 <li>**空間関数の座標の順が違います。**MySQL 8 の SRID 4326 は緯度・経度、
 PostGIS は経度・緯度です。jimble は吸収しないので、両方で使うなら自分で合わせてください</li>
 <li>マイグレーションの SQL（<code>conf/migration/...</code>）は<strong>自分で書いたものがそのまま流れます。</strong>
-製品を変えるなら DDL も書き換えてください</li>
+両方の製品で動かすなら、<code>001_xxx.mysql.sql</code> / <code>001_xxx.postgresql.sql</code> と
+<strong>ファイル名の接尾辞</strong>で分けます（接尾辞なしはどちらでも当たります）。
+詳しくは <a href="./codegen">製品ごとに SQL を分ける</a></li>
 </ul>
 <h2 id="データソースが複数あるとき">データソースが複数あるとき<a class="anchor" href="#データソースが複数あるとき">#</a></h2>
 <pre class="code"><code class="lang-conf">db {

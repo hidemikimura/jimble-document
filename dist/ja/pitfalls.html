@@ -308,6 +308,13 @@ jimble では <code>commit()</code> は終わらせません。終わらせる�
 <p><strong>まっさらな DB で1回流してみる</strong>のがいちばん早い確認です。
 <code>examples/blog</code> はこれで壊れているのが分かりました。</p>
 </div>
+<h2 id="製品を変えたら生成物の列順が変わる">製品を変えたら生成物の列順が変わる<a class="anchor" href="#製品を変えたら生成物の列順が変わる">#</a></h2>
+<p><strong>症状</strong>: 何も直していないのに <code>codegen</code> の差分が出る。列の並びだけが違う。</p>
+<p><strong>原因</strong>: 生成される列の並びは<strong>物理順</strong>です。
+<code>ALTER TABLE ... ADD COLUMN</code> の位置が MySQL（<code>AFTER body</code> が書ける）と
+PostgreSQL（必ず末尾）で違うので、同じスキーマでも並びが変わります。</p>
+<p><strong>対処</strong>: <strong>生成は主にする製品で行ってください。</strong><code>codegenCheck</code> も同じ製品で回します。
+型も NULL 可否もコメントも一致するので、並び以外は変わりません。</p>
 <h2 id="sse-が届かない全部まとめて届く">SSE が届かない・全部まとめて届く<a class="anchor" href="#sse-が届かない全部まとめて届く">#</a></h2>
 <p><strong>原因</strong>: 間にいる nginx が溜め込んでいます。</p>
 <p><strong>対処</strong>: jimble は <code>X-Accel-Buffering: no</code> を付けています。
@@ -413,6 +420,7 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 			<li class="level-2"><a href="#トランザクションが続いていない">トランザクションが続いていない</a></li>
 			<li class="level-2"><a href="#コミットもロールバックもされていないが出る">「コミットもロールバックもされていない」が出る</a></li>
 			<li class="level-2"><a href="#入口によって用意されるテーブルが違う">入口によって用意されるテーブルが違う</a></li>
+			<li class="level-2"><a href="#製品を変えたら生成物の列順が変わる">製品を変えたら生成物の列順が変わる</a></li>
 			<li class="level-2"><a href="#sse-が届かない全部まとめて届く">SSE が届かない・全部まとめて届く</a></li>
 			<li class="level-2"><a href="#sse-のループが終わらない">SSE のループが終わらない</a></li>
 			<li class="level-2"><a href="#websocket-で-cookie-が読めない">WebSocket で Cookie が読めない</a></li>
