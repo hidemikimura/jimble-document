@@ -371,13 +371,7 @@ Write <code>Dsl.rowNumber().over(...).eq(1)</code> and you get an exception <str
 the SQL is built.</strong> To filter on a rank, select it in a subquery first and
 filter on the outside.</p>
 </blockquote>
-<div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>This section is not in 0.2.0</strong> — it lands in the next release.</p>
-</div>
 <h2 id="in-will-not-take-an-empty-list"><code>in</code> will not take an empty list<a class="anchor" href="#in-will-not-take-an-empty-list">#</a></h2>
-<div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>This section is not in 0.2.0</strong> — it lands in the next release.</p>
-</div>
 <pre class="code"><code class="lang-java">where(Site.id.<span class="h-k">in</span>(List.of()))   <span class="h-c">// ← throws the moment the SQL is built</span>
 </code></pre>
 <p><code>IN ()</code> is a syntax error. <strong>Send it to the database quietly and the error

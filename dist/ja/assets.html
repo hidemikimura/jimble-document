@@ -230,9 +230,6 @@
 <p><code>src/main/resources/test-assets/app.css</code> が <code>/assets/app.css</code> で出ます。
 <code>GET</code> と <code>HEAD</code> の2本が登録されます。</p>
 <p>登録されたルートは <code>routes()</code> で受け取れます。<strong>属性を付けられます。</strong></p>
-<div class="callout callout-note"><p class="callout-title">補足</p>
-<p><strong>この節は 0.2.0 には入っていません</strong>（次の版から）。</p>
-</div>
 <pre class="code"><code class="lang-java">AssetController assets = AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"assets"</span>);
 <span class="h-k">for</span> (Route route : assets.routes()) {
 	route.attribute(NO_AUTH, <span class="h-k">true</span>);
