@@ -236,7 +236,21 @@
 あとのものが前を上書きします。</p>
 <p>戻り値はどれも <code>Data</code>（<code>LinkedHashMap&lt;String,Object&gt;</code> の派生）です。
 <code>getString</code> <code>getInt</code> <code>getLong</code> <code>getBoolean</code> <code>getData</code> <code>getDataList</code> などで取り出します。
-<code>getStringOptional</code> は「無ければ null」、<code>getString</code> は「無ければ空文字」です。</p>
+<strong>無いキーは <code>getString</code> なら <code>null</code>、<code>getInt</code> なら <code>0</code>、<code>getBoolean</code> なら <code>false</code></strong> です
+（「無い」と「0」は区別できません。区別したいときは <code>getIntObject</code> などの Object 版か <code>isNull(key)</code>。
+詳しくは <a href="./util">ユーティリティ</a>）。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>context.request()</code> から直接は読めません。</strong>
+<code>Request</code> も <code>Data</code> なので <code>context.request().getString(&quot;title&quot;)</code> は<b>コンパイルが通り</b>ますが、
+本文もクエリも入っていないので <strong><code>null</code> が返ります。</strong>
+上の表のどれか（ふつうは <code>bodyAll()</code>）を通してください。</p>
+<pre class="code"><code class="lang-java">Data input = context.request().bodyAll();
+String title = input.getString(<span class="h-s">"title"</span>);
+</code></pre>
+<p><strong><code>getStringOptional</code> は「無ければ空文字」ですが、その空文字を <code>Data</code> に入れます。</strong>
+読んだだけでキーが増えるので、JSON にして返す直前やループの中では使わないでください
+（<a href="./util">ユーティリティ</a>）。</p>
+</div>
 <h2 id="入れ子のパラメータ">入れ子のパラメータ<a class="anchor" href="#入れ子のパラメータ">#</a></h2>
 <p><code>.</code> と <code>[ ]</code> のどちらでも入れ子にできます。</p>
 <pre class="code"><code class="lang-text">user.name=taro

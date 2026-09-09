@@ -229,6 +229,19 @@ screen under <code>/admin</code> was caught by the auth filter.</p>
 <p>Also, <strong>adding a <code>before</code> after the routes are settled throws.</strong>
 That is so &quot;I added it and it does nothing&quot; never gets through in silence.
 Keep route definitions entirely inside the controller's initializer block.</p>
+<h2 id="reading-straight-off-request-silently-gives-you-nothing">Reading straight off request() silently gives you nothing<a class="anchor" href="#reading-straight-off-request-silently-gives-you-nothing">#</a></h2>
+<p><strong>Symptom</strong>: you are posting a form or JSON, but no value comes back. No exception.</p>
+<p><strong>Cause</strong>: <code>Request</code> is a <code>Data</code> too, so this is writable:</p>
+<pre class="code"><code class="lang-java">context.request().getString(<span class="h-s">"title"</span>)   <span class="h-c">// compiles. returns null</span>
+</code></pre>
+<p>The <code>Request</code> object itself holds neither the body nor the query string.</p>
+<p><strong>What to do</strong>: go through <code>bodyAll()</code> (or <code>bodyJson()</code> and friends when you want to
+pin down where the value came from).</p>
+<pre class="code"><code class="lang-java">Data input = context.request().bodyAll();
+String title = input.getString(<span class="h-s">"title"</span>);
+</code></pre>
+<p><code>getString</code> on a missing key is <code>null</code>. <strong>Put that into a NOT NULL column and you get
+<code>Column 'title' cannot be null</code>.</strong></p>
 <h2 id="the-session-was-not-saved">The session was not saved<a class="anchor" href="#the-session-was-not-saved">#</a></h2>
 <p><strong>Symptom</strong>: you called <code>put()</code>, and on the next request it is gone.</p>
 <p><strong>Cause</strong>: you did not call <code>save()</code>. Nothing is saved automatically.</p>
@@ -421,6 +434,7 @@ It drags <code>jimble-docs/src/main/jte/docs/</code> in with it.</p>
 			<li class="level-2"><a href="#cookies-do-not-work-locally">Cookies do not work locally</a></li>
 			<li class="level-2"><a href="#the-route-is-not-registered">The route is not registered</a></li>
 			<li class="level-2"><a href="#before-is-not-applying-and-it-is-the-same-path">before is not applying (and it is the same path)</a></li>
+			<li class="level-2"><a href="#reading-straight-off-request-silently-gives-you-nothing">Reading straight off request() silently gives you nothing</a></li>
 			<li class="level-2"><a href="#the-session-was-not-saved">The session was not saved</a></li>
 			<li class="level-2"><a href="#you-cannot-get-at-the-select-result">You cannot get at the select result</a></li>
 			<li class="level-2"><a href="#you-do-not-notice-the-db-error">You do not notice the DB error</a></li>

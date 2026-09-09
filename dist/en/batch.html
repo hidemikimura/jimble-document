@@ -250,6 +250,9 @@ then runs nothing at all). An app with no batches should not call it.</p>
 Whether a batch is gone is decided by class name, so two apps looking at the
 same table will <strong>set each other's rows to <code>nothing</code>.</strong></p>
 </blockquote>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>This section is not in 0.2.0</strong> — it lands in the next release.</p>
+</div>
 <h2 id="making-it-cancellable">Making it cancellable<a class="anchor" href="#making-it-cancellable">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">while</span> (!isCancelOrder()) {
 	<span class="h-c">// handle one at a time</span>

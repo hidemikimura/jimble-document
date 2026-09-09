@@ -301,6 +301,26 @@ PostGIS は経度・緯度です。jimble は吸収しないので、両方で�
 <strong>ファイル名の接尾辞</strong>で分けます（接尾辞なしはどちらでも当たります）。
 詳しくは <a href="./codegen">製品ごとに SQL を分ける</a></li>
 </ul>
+<h2 id="起動時に繋ぐ">起動時に繋ぐ<a class="anchor" href="#起動時に繋ぐ">#</a></h2>
+<p>**設定を書いただけでは繋がりません。**アプリの <code>main</code> で明示的に呼びます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) {
+
+	Migration.install();                                <span class="h-c">// 起動時マイグレーション（要るなら。DBUtil.load より前）</span>
+	DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>);       <span class="h-c">// 設定を読んで接続する</span>
+
+	JimbleServer.start(<span class="h-k">new</span> App());
+
+}
+</code></pre>
+<p><code>DBUtil.load</code> の2つ目は<strong>クラスパスの起点</strong>です（マイグレーション SQL をここから探します）。
+自分のアプリのクラスを渡してください。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>入口が複数あるなら、この並びを1か所にまとめてください。</strong>
+Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだけ古くなります</b>。
+テストからも同じものを呼びます（<a href="./pitfalls">落とし穴</a> / <a href="./testing">テスト</a>）。</p>
+</div>
+<p>終わるときは <code>DBUtil.stop()</code> です（Web は<a href="./server">グレースフルシャットダウン</a>が呼びます。
+バッチやテストでは自分で呼びます）。</p>
 <h2 id="データソースが複数あるとき">データソースが複数あるとき<a class="anchor" href="#データソースが複数あるとき">#</a></h2>
 <pre class="code"><code class="lang-conf">db {
 	main_db { main = <span class="h-k">true</span>, ... }
@@ -412,6 +432,7 @@ DROP TABLE `note`;
 			<li class="level-2"><a href="#db-製品を選ぶ">DB 製品を選ぶ</a></li>
 			<li class="level-3"><a href="#その製品で書けないもの">その製品で書けないもの</a></li>
 			<li class="level-3"><a href="#気をつけること">気をつけること</a></li>
+			<li class="level-2"><a href="#起動時に繋ぐ">起動時に繋ぐ</a></li>
 			<li class="level-2"><a href="#データソースが複数あるとき">データソースが複数あるとき</a></li>
 			<li class="level-2"><a href="#テーブル定義を生成する">テーブル定義を生成する</a></li>
 			<li class="level-2"><a href="#引く">引く</a></li>

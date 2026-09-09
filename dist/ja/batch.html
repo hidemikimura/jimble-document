@@ -249,6 +249,9 @@ BatchRegistry.sync(DBUtil.getMainDB());
 消えた判定はクラス名で行うので、同じテーブルを見るアプリが2つあると
 <strong>お互いの行を <code>nothing</code> にし合います。</strong></p>
 </blockquote>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>この節は 0.2.0 には入っていません</strong>（次の版から）。</p>
+</div>
 <h2 id="中断できるようにする">中断できるようにする<a class="anchor" href="#中断できるようにする">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">while</span> (!isCancelOrder()) {
 	<span class="h-c">// 1件ずつ処理する</span>

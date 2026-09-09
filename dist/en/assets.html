@@ -230,6 +230,9 @@ during development it is read from <code>build/resources/main</code>. <strong>Th
 <p><code>src/main/resources/test-assets/app.css</code> comes out at <code>/assets/app.css</code>.
 Two routes are registered: <code>GET</code> and <code>HEAD</code>.</p>
 <p><code>routes()</code> hands those routes back, so <strong>you can attach attributes to them.</strong></p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>This section is not in 0.2.0</strong> — it lands in the next release.</p>
+</div>
 <pre class="code"><code class="lang-java">AssetController assets = AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"assets"</span>);
 <span class="h-k">for</span> (Route route : assets.routes()) {
 	route.attribute(NO_AUTH, <span class="h-k">true</span>);

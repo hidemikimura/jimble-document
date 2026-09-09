@@ -249,6 +249,9 @@ that is missing)</li>
 (<a href="./config">Configuration</a>)</li>
 </ul>
 <h3 id="splitting-into-single-statements">Splitting into single statements<a class="anchor" href="#splitting-into-single-statements">#</a></h3>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>This section is not in 0.2.0</strong> — it lands in the next release.</p>
+</div>
 <p>One file can hold several statements. They are split on <code>;</code>, but <strong>never on a
 <code>;</code> inside a string, an identifier or a comment.</strong></p>
 <p>Where those start and end <strong>differs by product</strong>, so they are read with the
@@ -350,6 +353,9 @@ new up.
 <strong>There is no command to roll back by hand.</strong> down runs in exactly two cases:
 the file is gone, or the hash changed.</p>
 <h3 id="splitting-sql-per-product">Splitting SQL per product<a class="anchor" href="#splitting-sql-per-product">#</a></h3>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>This section is not in 0.2.0</strong> — it lands in the next release.</p>
+</div>
 <p>The same DDL will not do for both MySQL and PostgreSQL (<code>AUTO_INCREMENT</code> versus
 <code>bigserial</code>, <code>ENGINE=InnoDB</code>, how column comments are written).
 Split them <strong>by filename suffix.</strong></p>

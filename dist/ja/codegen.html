@@ -244,6 +244,9 @@ DROP TABLE `note`;
 <li><strong>クラスパスから探します</strong>。<code>conf/</code> をリソースに足しておいてください（<a href="./config">設定</a>）</li>
 </ul>
 <h3 id="1文ずつの切り分け">1文ずつの切り分け<a class="anchor" href="#1文ずつの切り分け">#</a></h3>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>この節は 0.2.0 には入っていません</strong>（次の版から）。</p>
+</div>
 <p>1つのファイルに複数の文を書けます。「;」で切りますが、
 <strong>文字列・識別子・コメントの中の「;」では切りません。</strong></p>
 <p>どこからどこまでがそれなのかは<strong>製品で違う</strong>ので、繋いでいる製品の決まりで読みます。</p>
@@ -334,6 +337,9 @@ down のときに<b>テーブルは残ったまま履歴だけ消える</b>こ�
 <p><code>migration.down = true</code>（既定は <code>false</code>）にすると、down → 新しい up でやり直します。
 **手で戻すコマンドはありません。**down が動くのは「ファイルが消えた」「ハッシュが変わった」の2つだけです。</p>
 <h3 id="製品ごとに-sql-を分ける">製品ごとに SQL を分ける<a class="anchor" href="#製品ごとに-sql-を分ける">#</a></h3>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>この節は 0.2.0 には入っていません</strong>（次の版から）。</p>
+</div>
 <p>MySQL と PostgreSQL で同じ DDL は書けません（<code>AUTO_INCREMENT</code> と <code>bigserial</code>、
 <code>ENGINE=InnoDB</code>、列コメントの書き方）。<strong>ファイル名の接尾辞</strong>で分けます。</p>
 <pre class="code"><code class="lang-text">conf/migration/blog_example/

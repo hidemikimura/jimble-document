@@ -365,7 +365,13 @@ SQL の決まりで、評価されるのがどちらより後だからです。
 <code>Dsl.rowNumber().over(...).eq(1)</code> と書くと<strong>組み立てた時点で例外</strong>になります。
 順位で絞るなら、いったん副問い合わせで出してから外側で絞ってください。</p>
 </blockquote>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>この節は 0.2.0 には入っていません</strong>（次の版から）。</p>
+</div>
 <h2 id="in-に空の一覧は渡せません"><code>in</code> に空の一覧は渡せません<a class="anchor" href="#in-に空の一覧は渡せません">#</a></h2>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>この節は 0.2.0 には入っていません</strong>（次の版から）。</p>
+</div>
 <pre class="code"><code class="lang-java">where(Site.id.<span class="h-k">in</span>(List.of()))   <span class="h-c">// ← 組み立てた時点で例外</span>
 </code></pre>
 <p><code>IN ()</code> は構文エラーです。<strong>黙って DB に投げると、

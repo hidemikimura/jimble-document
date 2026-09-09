@@ -204,12 +204,18 @@
 </ul>
 <p>DB はまだ要りません。あとから足せます。</p>
 <p><code>jimble</code> コマンドの入れ方は <a href="./cli">jimble コマンド</a> にあります
-（リポジトリで <code>./gradlew :jimble-cli:installDist</code> して PATH に通すだけです）。</p>
+（<a href="https://github.com/hidemikimura/jimble">リポジトリ</a>で <code>./gradlew :jimble-cli:installDist</code> して PATH に通すだけです）。</p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><strong>コマンドを入れなくても始められます。</strong><code>jimble new</code> が作るビルドファイルは
+<a href="./gradle">Gradle プラグイン</a> の「まっさらから書く」に全文があります。
+2つのファイルを貼れば、ここから先は同じです。</p>
+</div>
 <h2 id="1-雛形を作る">1. 雛形を作る<a class="anchor" href="#1-雛形を作る">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> new my-blog
 <span class="h-k">cd</span> my-blog
-<span class="h-k">gradle</span> wrapper
+<span class="h-k">gradle</span> wrapper --gradle-version 9.7.1
 </code></pre>
+<p><code>gradle wrapper</code> に版を付けるのは、<strong>手元の Gradle が 8 だと 8 のラッパーができてしまう</strong>ためです。</p>
 <p><code>jimble new</code> が作るのは、ビルドファイル・<code>application.conf</code>・<code>App.java</code>・
 <code>index.jte</code>・<code>.gitignore</code> だけです。空のディレクトリは作りません。</p>
 <h2 id="2-起動する">2. 起動する<a class="anchor" href="#2-起動する">#</a></h2>
@@ -232,6 +238,9 @@ jimble を起動しました: http://localhost:9000
 <pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
 <p><code>json()</code> は <code>Data</code>（<code>LinkedHashMap&lt;String,Object&gt;</code> の派生）を組み立てて、
 <code>send()</code> の時点で JSON にします。</p>
+<p>上のコード片はサンプルアプリ（<code>examples/blog</code>）から抜いたものなので、
+<code>listPosts()</code> のような<strong>そのアプリのメソッド</strong>が出てきます。
+自分のアプリでは、そこを自分の処理に置き換えてください。</p>
 <h2 id="4-直したら反映されるようにする">4. 直したら反映されるようにする<a class="anchor" href="#4-直したら反映されるようにする">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleRun
 </code></pre>
@@ -244,6 +253,54 @@ jimble を起動しました: http://localhost:9000
 	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, cause.getMessage())));</code></pre>
 <p><code>error()</code> に渡したものが、投げられた例外にも、どのルートにも当たらなかった 404 にも使われます。
 何も登録しないと jimble の既定の形で返ります。</p>
+<h2 id="クラスの置き場所">クラスの置き場所<a class="anchor" href="#クラスの置き場所">#</a></h2>
+<p>コード片には <code>import</code> を書いていません。よく使うものはここにあります。</p>
+<table>
+<thead>
+<tr>
+<th>クラス</th>
+<th>パッケージ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JimbleApp</code> / <code>JimbleServer</code></td>
+<td><code>io.jimble.web.server</code></td>
+</tr>
+<tr>
+<td><code>Context</code> / <code>WebContext</code></td>
+<td><code>io.jimble.core.context</code> / <code>io.jimble.web.context</code></td>
+</tr>
+<tr>
+<td><code>Data</code></td>
+<td><code>io.jimble.util.data</code></td>
+</tr>
+<tr>
+<td><code>Conf</code></td>
+<td><code>io.jimble.util.conf</code></td>
+</tr>
+<tr>
+<td><code>Log</code></td>
+<td><code>io.jimble.util.log</code></td>
+</tr>
+<tr>
+<td><code>DB</code> / <code>DBUtil</code></td>
+<td><code>io.jimble.db</code></td>
+</tr>
+<tr>
+<td><code>SQL</code> / <code>Dsl</code></td>
+<td><code>io.jimble.db.sql</code> / <code>io.jimble.db.sql.query.dsl</code></td>
+</tr>
+<tr>
+<td><code>Migration</code></td>
+<td><code>io.jimble.db.migration</code></td>
+</tr>
+<tr>
+<td>生成されたテーブル定義</td>
+<td><code>&lt;codegen.package&gt;.&lt;スキーマ名&gt;.table.&lt;テーブル名&gt;</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="次に読むもの">次に読むもの<a class="anchor" href="#次に読むもの">#</a></h2>
 <ul>
 <li><a href="./routing">ルーティング</a> — パスパラメータ、フィルタ、まとめ方</li>
@@ -272,6 +329,7 @@ jimble を起動しました: http://localhost:9000
 			<li class="level-2"><a href="#3-エンドポイントを足す">3. エンドポイントを足す</a></li>
 			<li class="level-2"><a href="#4-直したら反映されるようにする">4. 直したら反映されるようにする</a></li>
 			<li class="level-2"><a href="#5-エラーの出し方を決める">5. エラーの出し方を決める</a></li>
+			<li class="level-2"><a href="#クラスの置き場所">クラスの置き場所</a></li>
 			<li class="level-2"><a href="#次に読むもの">次に読むもの</a></li>
 		</ul>
 	</nav>

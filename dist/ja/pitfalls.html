@@ -228,6 +228,18 @@ install(() -&gt; <span class="h-k">new</span> SpaController(<span class="h-s">"/
 <p>なお、<strong>ルートが確定した後に <code>before</code> を足すと落ちます。</strong>
 「足したのに効かない」を黙って通さないためです。
 ルート定義はコントローラの初期化ブロックの中で完結させてください。</p>
+<h2 id="request-から直接読むと黙って空になる">request() から直接読むと、黙って空になる<a class="anchor" href="#request-から直接読むと黙って空になる">#</a></h2>
+<p><strong>症状</strong>: フォームも JSON も送っているのに、値が取れない。例外は出ない。</p>
+<p><strong>原因</strong>: <code>Request</code> も <code>Data</code> なので、こう書けてしまいます。</p>
+<pre class="code"><code class="lang-java">context.request().getString(<span class="h-s">"title"</span>)   <span class="h-c">// コンパイルは通る。null が返る</span>
+</code></pre>
+<p><code>Request</code> そのものには本文もクエリも入っていません。</p>
+<p><strong>対処</strong>: <code>bodyAll()</code>（またはどこから来た値か決め打ちで <code>bodyJson()</code> など）を通します。</p>
+<pre class="code"><code class="lang-java">Data input = context.request().bodyAll();
+String title = input.getString(<span class="h-s">"title"</span>);
+</code></pre>
+<p>無いキーの <code>getString</code> は <code>null</code> です。<strong>そのまま NOT NULL の列に入れると
+<code>Column 'title' cannot be null</code> になります。</strong></p>
 <h2 id="セッションが保存されていない">セッションが保存されていない<a class="anchor" href="#セッションが保存されていない">#</a></h2>
 <p><strong>症状</strong>: <code>put()</code> したのに次のリクエストで消えている。</p>
 <p><strong>原因</strong>: <code>save()</code> を呼んでいません。自動保存はしません。</p>
@@ -414,6 +426,7 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 			<li class="level-2"><a href="#ローカルで-cookie-が効かない">ローカルで Cookie が効かない</a></li>
 			<li class="level-2"><a href="#ルートが登録されていない">ルートが登録されていない</a></li>
 			<li class="level-2"><a href="#before-が効いていない同じパスなのに">before が効いていない（同じパスなのに）</a></li>
+			<li class="level-2"><a href="#request-から直接読むと黙って空になる">request() から直接読むと、黙って空になる</a></li>
 			<li class="level-2"><a href="#セッションが保存されていない">セッションが保存されていない</a></li>
 			<li class="level-2"><a href="#select-の結果が取れない">select の結果が取れない</a></li>
 			<li class="level-2"><a href="#db-のエラーに気づかない">DB のエラーに気づかない</a></li>

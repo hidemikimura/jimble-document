@@ -236,7 +236,21 @@
 Later ones overwrite earlier ones.</p>
 <p>Every one of them returns a <code>Data</code> (a subclass of <code>LinkedHashMap&lt;String,Object&gt;</code>).
 You pull values out with <code>getString</code> <code>getInt</code> <code>getLong</code> <code>getBoolean</code> <code>getData</code> <code>getDataList</code> and friends.
-<code>getStringOptional</code> gives you null when the value is missing; <code>getString</code> gives you an empty string.</p>
+<strong>A missing key gives you <code>null</code> from <code>getString</code>, <code>0</code> from <code>getInt</code>, and <code>false</code> from
+<code>getBoolean</code></strong> — you cannot tell &quot;missing&quot; from &quot;0&quot;. When you need to, use the Object
+versions (<code>getIntObject</code> and friends) or <code>isNull(key)</code>. See <a href="./util">Utilities</a>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>You cannot read straight off <code>context.request()</code>.</strong>
+<code>Request</code> is a <code>Data</code> too, so <code>context.request().getString(&quot;title&quot;)</code> <strong>compiles</strong> — and
+returns <strong><code>null</code></strong>, because neither the body nor the query string is in there.
+Go through one of the methods in the table above (usually <code>bodyAll()</code>).</p>
+<pre class="code"><code class="lang-java">Data input = context.request().bodyAll();
+String title = input.getString(<span class="h-s">"title"</span>);
+</code></pre>
+<p><strong><code>getStringOptional</code> does give you an empty string when the key is missing — and it
+puts that empty string into the <code>Data</code>.</strong> Reading alone adds keys, so do not call it
+just before serialising to JSON or inside a loop (<a href="./util">Utilities</a>).</p>
+</div>
 <h2 id="nested-parameters">Nested parameters<a class="anchor" href="#nested-parameters">#</a></h2>
 <p>You can nest with either <code>.</code> or <code>[ ]</code>.</p>
 <pre class="code"><code class="lang-text">user.name=taro

@@ -244,6 +244,119 @@ repository into <code>settings.gradle.kts</code> (the <code>jimble new</code> sk
 That is separate from your application, which is Java 25.
 <strong>Gradle 9 or later</strong> is required.</p>
 </div>
+<h2 id="writing-it-from-scratch">Writing it from scratch<a class="anchor" href="#writing-it-from-scratch">#</a></h2>
+<p>If you are not using <code>jimble new</code>, these two files are enough.
+<strong>What follows was actually run</strong> (<code>gradle build</code> chains
+<code>migrate</code> → <code>codegen</code> → <code>compileJava</code>, and <code>gradle run</code> starts the app).</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">// settings.gradle.kts</span>
+pluginManagement {
+	repositories {
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = <span class="h-s">"memo"</span>
+</code></pre>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
+<span class="h-k">plugins</span> {
+	application
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.2.0"</span>   <span class="h-c">// if you use src/main/jte</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.2.0"</span>   <span class="h-c">// if you want hot reload</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.2.0"</span>   <span class="h-c">// if you use a database</span>
+}
+
+repositories {
+	mavenCentral()
+}
+
+<span class="h-c">// jimble is built for Java 25. Without this the dependencies will not resolve</span>
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(<span class="h-n">25</span>)
+	}
+}
+
+<span class="h-k">dependencies</span> {
+	implementation(<span class="h-s">"io.jimble:jimble-web:0.2.0"</span>)
+
+	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
+	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
+	testRuntimeOnly(<span class="h-s">"org.junit.platform:junit-platform-launcher"</span>)
+}
+
+<span class="h-k">tasks</span>.withType&lt;Test&gt;().configureEach {
+	useJUnitPlatform()
+}
+
+<span class="h-c">// Add conf/ to the resources. Config and migrations are both read from there ([Configuration](./config))</span>
+sourceSets {
+	main {
+		resources {
+			srcDir(<span class="h-s">"conf"</span>)
+		}
+	}
+}
+
+application {
+	mainClass = <span class="h-s">"memo.App"</span>
+}
+
+jimbleRun {
+	mainClass = <span class="h-s">"memo.App"</span>
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The toolchain block is required.</strong> Without it you stop at dependency resolution.</p>
+<pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
+but 'io.jimble:jimble-web:0.2.0' is only compatible with JVM runtime version 25 or newer
+</code></pre>
+</div>
+<h2 id="which-artifact-to-depend-on">Which artifact to depend on<a class="anchor" href="#which-artifact-to-depend-on">#</a></h2>
+<p><strong>You do not write down what comes along for the ride</strong> (add <code>jimble-web</code> and you get
+<code>jimble-db</code> and <code>jimble-util</code> too).</p>
+<table>
+<thead>
+<tr>
+<th>Add this</th>
+<th>What it is</th>
+<th>What comes with it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>io.jimble:jimble-web</code></td>
+<td>Web (Router / Context / Session / templates)</td>
+<td><code>jimble-db</code> → <code>jimble-util</code> → <code>jimble-core</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-db</code></td>
+<td>The database layer alone (for a batch or a CLI)</td>
+<td><code>jimble-util</code> → <code>jimble-core</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-mq</code></td>
+<td>MQ</td>
+<td><code>jimble-db</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-batch</code></td>
+<td>Batches and the DB scheduler</td>
+<td><code>jimble-db</code> / <code>jimble-mq</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-batch-manager</code></td>
+<td>The batch admin screen</td>
+<td><code>jimble-web</code> / <code>jimble-batch</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-mcp</code></td>
+<td>The MCP server</td>
+<td><code>jimble-web</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>You do not need a JDBC driver</strong> — <code>jimble-db</code> carries MySQL / MariaDB and PostgreSQL.</p>
 <h2 id="iojimbledb">io.jimble.db<a class="anchor" href="#iojimbledb">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate       # apply the SQL that has not been applied
 <span class="h-k">./gradlew</span> codegen       # build the table definition classes (after migrate)
@@ -490,6 +603,8 @@ If <code>gradlew</code> is broken, it says why and falls back to <code>gradle</c
 	<nav class="toc" aria-label="On this page">
 		<p class="section">On this page</p>
 		<ul>
+			<li class="level-2"><a href="#writing-it-from-scratch">Writing it from scratch</a></li>
+			<li class="level-2"><a href="#which-artifact-to-depend-on">Which artifact to depend on</a></li>
 			<li class="level-2"><a href="#iojimbledb">io.jimble.db</a></li>
 			<li class="level-2"><a href="#iojimblejte">io.jimble.jte</a></li>
 			<li class="level-2"><a href="#iojimblerun">io.jimble.run</a></li>

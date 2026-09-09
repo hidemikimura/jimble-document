@@ -243,6 +243,118 @@
 <p>プラグインは <strong>Gradle デーモンの中</strong>で動くので、バイトコードは Java 17 で出しています。
 アプリ側（Java 25）とは別です。<strong>Gradle は 9 以上</strong>が要ります。</p>
 </div>
+<h2 id="まっさらから書く">まっさらから書く<a class="anchor" href="#まっさらから書く">#</a></h2>
+<p><code>jimble new</code> を使わないなら、この2つを置けば動きます。
+<strong>下は実際に動かして確かめたもの</strong>です（<code>gradle build</code> で
+<code>migrate</code> → <code>codegen</code> → <code>compileJava</code> が繋がり、<code>gradle run</code> で起動します）。</p>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">// settings.gradle.kts</span>
+pluginManagement {
+	repositories {
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = <span class="h-s">"memo"</span>
+</code></pre>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
+<span class="h-k">plugins</span> {
+	application
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.2.0"</span>   <span class="h-c">// src/main/jte を使うなら</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.2.0"</span>   <span class="h-c">// ホットリロードを使うなら</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.2.0"</span>   <span class="h-c">// DB を使うなら</span>
+}
+
+repositories {
+	mavenCentral()
+}
+
+<span class="h-c">// jimble は Java 25 で作ってあります。これが無いと依存が解決できません</span>
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(<span class="h-n">25</span>)
+	}
+}
+
+<span class="h-k">dependencies</span> {
+	implementation(<span class="h-s">"io.jimble:jimble-web:0.2.0"</span>)
+
+	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
+	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
+	testRuntimeOnly(<span class="h-s">"org.junit.platform:junit-platform-launcher"</span>)
+}
+
+<span class="h-k">tasks</span>.withType&lt;Test&gt;().configureEach {
+	useJUnitPlatform()
+}
+
+<span class="h-c">// conf/ をリソースに足す。設定もマイグレーションもここから読みます（[設定](./config)）</span>
+sourceSets {
+	main {
+		resources {
+			srcDir(<span class="h-s">"conf"</span>)
+		}
+	}
+}
+
+application {
+	mainClass = <span class="h-s">"memo.App"</span>
+}
+
+jimbleRun {
+	mainClass = <span class="h-s">"memo.App"</span>
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**ツールチェーンの指定は要ります。**書かないと、依存の解決の時点で止まります。</p>
+<pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
+but 'io.jimble:jimble-web:0.2.0' is only compatible with JVM runtime version 25 or newer
+</code></pre>
+</div>
+<h2 id="どれを依存に足すか">どれを依存に足すか<a class="anchor" href="#どれを依存に足すか">#</a></h2>
+<p><strong>まとめて入るものは書かなくてよい</strong>です（<code>jimble-web</code> を足せば <code>jimble-db</code> も <code>jimble-util</code> も付いてきます）。</p>
+<table>
+<thead>
+<tr>
+<th>足すもの</th>
+<th>何が入るか</th>
+<th>いっしょに付いてくるもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>io.jimble:jimble-web</code></td>
+<td>Web（Router / Context / Session / テンプレート）</td>
+<td><code>jimble-db</code> → <code>jimble-util</code> → <code>jimble-core</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-db</code></td>
+<td>DB だけ（バッチや CLI から使うとき）</td>
+<td><code>jimble-util</code> → <code>jimble-core</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-mq</code></td>
+<td>MQ</td>
+<td><code>jimble-db</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-batch</code></td>
+<td>バッチ・DB スケジューラ</td>
+<td><code>jimble-db</code> / <code>jimble-mq</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-batch-manager</code></td>
+<td>バッチ管理画面</td>
+<td><code>jimble-web</code> / <code>jimble-batch</code></td>
+</tr>
+<tr>
+<td><code>io.jimble:jimble-mcp</code></td>
+<td>MCP サーバー</td>
+<td><code>jimble-web</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>DB のドライバは要りません</strong>（MySQL / MariaDB と PostgreSQL は <code>jimble-db</code> が持っています）。</p>
 <h2 id="iojimbledb">io.jimble.db<a class="anchor" href="#iojimbledb">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate       # 未適用の SQL を当てる
 <span class="h-k">./gradlew</span> codegen       # テーブル定義のクラスを作る（migrate のあと）
@@ -477,6 +589,8 @@ SQL も設定もリソース側にあるので、これで足ります。</p>
 	<nav class="toc" aria-label="このページの中身">
 		<p class="section">このページ</p>
 		<ul>
+			<li class="level-2"><a href="#まっさらから書く">まっさらから書く</a></li>
+			<li class="level-2"><a href="#どれを依存に足すか">どれを依存に足すか</a></li>
 			<li class="level-2"><a href="#iojimbledb">io.jimble.db</a></li>
 			<li class="level-2"><a href="#iojimblejte">io.jimble.jte</a></li>
 			<li class="level-2"><a href="#iojimblerun">io.jimble.run</a></li>

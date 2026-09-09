@@ -205,10 +205,19 @@
 </code></pre>
 <h2 id="入れる">入れる<a class="anchor" href="#入れる">#</a></h2>
 <p><strong>jimble のリポジトリからビルドして、PATH に通します。</strong></p>
-<pre class="code"><code class="lang-bash"><span class="h-k">cd</span> jimble
+<pre class="code"><code class="lang-bash">git clone https://github.com/hidemikimura/jimble.git
+<span class="h-k">cd</span> jimble
 <span class="h-k">./gradlew</span> :jimble-cli:installDist
 <span class="h-k">export</span> PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 </code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>CLI は Maven Central にありますが、そのままでは起動できません</strong>
+（<code>io.jimble:jimble-cli</code> の jar に <code>Main-Class</code> を入れていないので、
+<code>java -jar</code> では動きません）。リポジトリからビルドしてください。</p>
+<p><strong>CLI が無くても始められます。</strong><code>jimble new</code> が作るものは
+<a href="./gradle">Gradle プラグイン</a> の「まっさらから書く」に全文があります。
+<code>migrate</code> と <code>codegen</code> は Gradle のタスク（<code>./gradlew migrate</code> / <code>./gradlew codegen</code>）でも走ります。</p>
+</div>
 <pre class="code"><code class="lang-bash">$ jimble version
 <span class="h-k">jimble</span> 0.2.1-SNAPSHOT
 </code></pre>
@@ -268,7 +277,7 @@
 </div>
 <h2 id="次にすること">次にすること<a class="anchor" href="#次にすること">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">cd</span> my-blog
-<span class="h-k">gradle</span> wrapper          # Gradle ラッパーを用意する（1回だけ）
+<span class="h-k">gradle</span> wrapper --gradle-version 9.7.1   # Gradle ラッパーを用意する（1回だけ）
 <span class="h-k">./gradlew</span> run           # 起動する
 <span class="h-k">./gradlew</span> jimbleRun     # ホットリロードで起動する
 </code></pre>

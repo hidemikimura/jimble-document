@@ -232,10 +232,19 @@
 </table>
 <h2 id="installing-it">Installing it<a class="anchor" href="#installing-it">#</a></h2>
 <p><strong>Build it from the jimble repository and put it on your PATH.</strong></p>
-<pre class="code"><code class="lang-bash"><span class="h-k">cd</span> jimble
+<pre class="code"><code class="lang-bash">git clone https://github.com/hidemikimura/jimble.git
+<span class="h-k">cd</span> jimble
 <span class="h-k">./gradlew</span> :jimble-cli:installDist
 <span class="h-k">export</span> PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 </code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>The CLI is on Maven Central, but it will not run as it is</strong> — the
+<code>io.jimble:jimble-cli</code> jar has no <code>Main-Class</code>, so <code>java -jar</code> does nothing.
+Build it from the repository.</p>
+<p><strong>You can start without the CLI.</strong> Everything <code>jimble new</code> writes is spelled out in
+&quot;Writing it from scratch&quot; on the <a href="./gradle">Gradle plugins</a> page, and <code>migrate</code> and
+<code>codegen</code> also run as Gradle tasks (<code>./gradlew migrate</code> / <code>./gradlew codegen</code>).</p>
+</div>
 <pre class="code"><code class="lang-bash">$ jimble version
 <span class="h-k">jimble</span> 0.2.1-SNAPSHOT
 </code></pre>
@@ -298,7 +307,7 @@ When you do want them, you uncomment the lines already sitting in
 </div>
 <h2 id="what-to-do-next">What to do next<a class="anchor" href="#what-to-do-next">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">cd</span> my-blog
-<span class="h-k">gradle</span> wrapper          # set up the Gradle wrapper (once)
+<span class="h-k">gradle</span> wrapper --gradle-version 9.7.1   # set up the Gradle wrapper (once)
 <span class="h-k">./gradlew</span> run           # start it
 <span class="h-k">./gradlew</span> jimbleRun     # start it with hot reload
 </code></pre>
