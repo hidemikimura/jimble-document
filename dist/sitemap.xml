@@ -34,6 +34,7 @@
 	<url><loc>https://jimble.io/ja/upload</loc></url>
 	<url><loc>https://jimble.io/ja/util</loc></url>
 	<url><loc>https://jimble.io/ja/validation</loc></url>
+	<url><loc>https://jimble.io/ja/versioning</loc></url>
 	<url><loc>https://jimble.io/ja/view</loc></url>
 	<url><loc>https://jimble.io/ja/websocket</loc></url>
 	<url><loc>https://jimble.io/en/assets</loc></url>
@@ -70,6 +71,7 @@
 	<url><loc>https://jimble.io/en/upload</loc></url>
 	<url><loc>https://jimble.io/en/util</loc></url>
 	<url><loc>https://jimble.io/en/validation</loc></url>
+	<url><loc>https://jimble.io/en/versioning</loc></url>
 	<url><loc>https://jimble.io/en/view</loc></url>
 	<url><loc>https://jimble.io/en/websocket</loc></url>
 </urlset>

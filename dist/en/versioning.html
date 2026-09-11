@@ -1,0 +1,354 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Versions and compatibility - jimble</title>
+<meta name="description" content="What counts as public API, when it can break, and what we do before breaking it">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="current">Versions and compatibility</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="versions-and-compatibility">Versions and compatibility<a class="anchor" href="#versions-and-compatibility">#</a></h1>
+<h2 id="we-are-on-0x">We are on 0.x<a class="anchor" href="#we-are-on-0x">#</a></h2>
+<p><strong>While we are on 0.x, a minor release can break things.</strong>
+<a href="https://semver.org/">Semantic Versioning</a> says so itself — below 1.0 nothing is promised —
+and jimble takes it at its word.</p>
+<p><strong>From 1.0, breaking a public API is preceded by a deprecation period of at least one minor.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>0.x (now)</th>
+<th>1.0 onwards</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Breaking a public API</td>
+<td><strong>Can happen in a minor</strong></td>
+<td>Deprecated for at least one minor, then removed in the next major</td>
+</tr>
+<tr>
+<td>Changing internals</td>
+<td>Any time</td>
+<td>Any time</td>
+</tr>
+<tr>
+<td>Writing it in the CHANGELOG</td>
+<td><strong>Always</strong></td>
+<td>Always</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Even on 0.x, nothing breaks silently.</strong>
+What is not promised is that things will not break — not that you will not be told.
+Anything that can break you goes in the <strong>&quot;変わったこと（挙動）&quot; (behaviour changes)</strong>
+section of the <a href="https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md">CHANGELOG</a>.
+Reading that section alone is enough before you upgrade.</p>
+</div>
+<h2 id="what-counts-as-public-api">What counts as public API<a class="anchor" href="#what-counts-as-public-api">#</a></h2>
+<p><strong>The line is drawn per package.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Public API</strong></td>
+<td>What you touch when writing an application: <code>io.jimble.db</code>, <code>io.jimble.web.server</code>, <code>io.jimble.util.data</code> and so on</td>
+</tr>
+<tr>
+<td><strong>Internal</strong></td>
+<td>What only exists inside an entry-point class: <code>io.jimble.db.sql.query.*</code> (inside <code>SQL</code>), <code>io.jimble.util.json.encoder</code> (inside <code>Dson</code>) and so on</td>
+</tr>
+</tbody>
+</table>
+<p>The full list is in
+<a href="https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt"><code>docs/api-packages.txt</code></a>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>public</code> does not mean public API.</strong> Java has no modifier for &quot;visible outside the
+module but not meant for you&quot;, so <strong>internals are <code>public</code> too</strong>. Whether you may
+touch something is decided by the list above, not by the keyword.</p>
+</div>
+<p><strong>The list does not go stale.</strong> Add a package and forget to classify it and
+<code>ApiSurfaceTest</code> fails. The same test checks that the samples under <code>examples/</code> do not
+import anything internal.</p>
+<h2 id="when-the-signature-is-the-same-but-the-result-changes">When the signature is the same but the result changes<a class="anchor" href="#when-the-signature-is-the-same-but-the-result-changes">#</a></h2>
+<p><strong>This is the part that matters most.</strong></p>
+<p>Almost every way jimble has actually broken people so far <strong>left the signatures alone</strong> —
+a 404 became a 405, <code>insertBatch</code> started returning <code>null</code>, a cancelled batch started
+being recorded as <code>canceled</code> instead of <code>completed</code>. All of it still compiles, so
+<strong>upgrading tells you nothing.</strong></p>
+<p>So we split these in two:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>What we do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>It was broken and we fixed it</strong></td>
+<td><strong>Fixed straight away.</strong> No deprecation period</td>
+</tr>
+<tr>
+<td><strong>We changed what it does</strong></td>
+<td>From 1.0, <strong>the old behaviour stays for one minor</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>A fix gets no deprecation period because it cannot have one.</strong> <code>insertBatch</code>, for
+instance, <strong>silently shifted values sideways</strong> when the stacked builders did not produce
+the same SQL. &quot;For one more minor, we will keep writing corrupted rows&quot; is not something
+we can offer.</p>
+<p>Either way it goes in the <strong>behaviour changes</strong> section of the CHANGELOG. It never gets
+buried under &quot;fixed&quot;.</p>
+<h2 id="what-breaking-looks-like">What breaking looks like<a class="anchor" href="#what-breaking-looks-like">#</a></h2>
+<ol>
+<li><strong>Deprecate it</strong> (1.0 onwards). Add <code>@Deprecated(since = &quot;1.2&quot;, forRemoval = true)</code>
+and say <strong>what to use instead</strong> in the javadoc.</li>
+<li><strong>Write it in the CHANGELOG</strong>, including when it goes away.</li>
+<li><strong>Wait at least one minor, then remove it</strong> — in the next major.</li>
+</ol>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A <code>@Deprecated</code> thing still works until it is removed.</strong> All you get is a build
+warning. <strong>Do not switch those warnings off</strong> — otherwise you find out it is gone
+after you upgrade.</p>
+</div>
+<h2 id="choosing-a-version">Choosing a version<a class="anchor" href="#choosing-a-version">#</a></h2>
+<p><strong>Releases are on <a href="https://repo.maven.apache.org/maven2/io/jimble/">Maven Central</a>.</strong>
+The dependency coordinates and a build file that works as it stands are on the
+<a href="./gradle">Gradle plugins</a> page.</p>
+<p><strong>This site describes the latest release</strong> (see <a href="./index">About versions</a>).</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="security">
+				<span>Previous</span>Security
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#we-are-on-0x">We are on 0.x</a></li>
+			<li class="level-2"><a href="#what-counts-as-public-api">What counts as public API</a></li>
+			<li class="level-2"><a href="#when-the-signature-is-the-same-but-the-result-changes">When the signature is the same but the result changes</a></li>
+			<li class="level-2"><a href="#what-breaking-looks-like">What breaking looks like</a></li>
+			<li class="level-2"><a href="#choosing-a-version">Choosing a version</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

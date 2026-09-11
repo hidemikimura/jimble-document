@@ -1,0 +1,353 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>版と互換性 - jimble</title>
+<meta name="description" content="どこまでが公開 API か。いつ壊れうるか。壊すときに何をするか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="page">日本語</a>
+		<a href="../en/"
+		 aria-current="false">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble コマンド</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="current">版と互換性</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="版と互換性">版と互換性<a class="anchor" href="#版と互換性">#</a></h1>
+<h2 id="いまは-0x-です">いまは 0.x です<a class="anchor" href="#いまは-0x-です">#</a></h2>
+<p><strong>0.x のあいだは、マイナーを上げるときに壊れることがあります。</strong>
+<a href="https://semver.org/lang/ja/">Semantic Versioning</a> がそう定めていて（1.0 未満は安定を約束しない）、
+jimble もそのとおりに扱います。</p>
+<p><strong>1.0 からは、公開 API を壊す前に非推奨期間を1マイナー以上置きます。</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>0.x（いま）</th>
+<th>1.0 以降</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>公開 API を壊す</td>
+<td><strong>マイナーで起きうる</strong></td>
+<td>非推奨期間を1マイナー以上置いてから、次のメジャーで消す</td>
+</tr>
+<tr>
+<td>内部実装を変える</td>
+<td>いつでも</td>
+<td>いつでも</td>
+</tr>
+<tr>
+<td>CHANGELOG に書く</td>
+<td><strong>必ず書く</strong></td>
+<td>必ず書く</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>0.x でも、黙って壊すことはしません。</strong>
+約束していないのは「壊さないこと」であって、「知らせること」ではありません。
+壊れうる変更は必ず <a href="https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md">CHANGELOG</a> の
+**「変わったこと（挙動）」**に出します。上げる前にそこだけ読めば足ります。</p>
+</div>
+<h2 id="どこまでが公開-api-か">どこまでが公開 API か<a class="anchor" href="#どこまでが公開-api-か">#</a></h2>
+<p><strong>パッケージで線を引いています。</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>公開 API</strong></td>
+<td>アプリを書くときに触るもの。<code>io.jimble.db</code>、<code>io.jimble.web.server</code>、<code>io.jimble.util.data</code> など</td>
+</tr>
+<tr>
+<td><strong>内部実装</strong></td>
+<td>入口クラスの内側でしかないもの。<code>io.jimble.db.sql.query.*</code>（<code>SQL</code> の内側）、<code>io.jimble.util.json.encoder</code>（<code>Dson</code> の内側）など</td>
+</tr>
+</tbody>
+</table>
+<p>全部の一覧は
+<a href="https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt"><code>docs/api-packages.txt</code></a>
+にあります。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>public</code> だから公開 API、ではありません。</strong>
+Java には「モジュールの外から見えるが、使ってほしくはない」を表す修飾子がないので、
+<strong>内部実装も <code>public</code> になっています</strong>。触ってよいかは、上の一覧で見てください。</p>
+</div>
+<p>**この一覧は古くなりません。**パッケージを増やして一覧に書き忘れると、
+<code>ApiSurfaceTest</code> が落ちます。サンプル（<code>examples/</code>）が内部パッケージを
+import していないかも、同じテストが見ています。</p>
+<h2 id="シグネチャは同じなのに結果が変わるとき">シグネチャは同じなのに、結果が変わるとき<a class="anchor" href="#シグネチャは同じなのに結果が変わるとき">#</a></h2>
+<p><strong>ここがいちばん大事なところです。</strong></p>
+<p>jimble でこれまで実際に起きた壊れ方は、<strong>ほとんどがシグネチャを変えない変更</strong>でした——
+404 が 405 になる、<code>insertBatch</code> が <code>null</code> を返すようになる、
+中断したバッチの履歴が <code>completed</code> から <code>canceled</code> になる。
+どれもコンパイルは通るので、<strong>上げた側は何も気づきません</strong>。</p>
+<p>そこで<strong>2つに分けて扱います。</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>何をするか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>壊れていたのを直した</strong></td>
+<td>**すぐ直します。**非推奨期間は置きません</td>
+</tr>
+<tr>
+<td><strong>仕様を変えた</strong></td>
+<td>1.0 以降は、<strong>古い動きを1マイナーのあいだ残します</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>「壊れていた」に非推奨期間を置かないのは、置けないからです。</strong>
+たとえば <code>insertBatch</code> は、SQL の揃っていないビルダーを混ぜると
+<b>値が横にずれて入っていました</b>。「1マイナーのあいだは、これまでどおり
+壊れたデータを書きます」とは言えません。</p>
+<p>どちらであっても、<strong>CHANGELOG の「変わったこと（挙動）」には必ず出します。</strong>
+「直した」に埋めて済ませることはしません。</p>
+<h2 id="壊すときに何をするか">壊すときに何をするか<a class="anchor" href="#壊すときに何をするか">#</a></h2>
+<ol>
+<li><strong>非推奨にする</strong>（1.0 以降）。<code>@Deprecated(since = &quot;1.2&quot;, forRemoval = true)</code> を付け、
+javadoc に<b>代わりに何を使うか</b>を書きます</li>
+<li>**CHANGELOG に書く。**いつ消えるかも書きます</li>
+<li>**1マイナー以上あけてから消す。**消すのは次のメジャーです</li>
+</ol>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>@Deprecated</code> が付いていても、消えるまでは動きます。</strong>
+ビルドの警告が出るだけです。<strong>警告を切らないでください</strong>——
+消えたことに気づくのが、上げたあとになります。</p>
+</div>
+<h2 id="版を選ぶ">版を選ぶ<a class="anchor" href="#版を選ぶ">#</a></h2>
+<p><strong>公開されているものは <a href="https://repo.maven.apache.org/maven2/io/jimble/">Maven Central</a> にあります。</strong>
+依存の座標と、そのまま動くビルドファイルは <a href="./gradle">Gradle プラグイン</a> にあります。</p>
+<p><strong>このドキュメントサイトは、いちばん新しいリリースの内容です</strong>（<a href="./index">版について</a>）。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="security">
+				<span>前</span>セキュリティ
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#いまは-0x-です">いまは 0.x です</a></li>
+			<li class="level-2"><a href="#どこまでが公開-api-か">どこまでが公開 API か</a></li>
+			<li class="level-2"><a href="#シグネチャは同じなのに結果が変わるとき">シグネチャは同じなのに、結果が変わるとき</a></li>
+			<li class="level-2"><a href="#壊すときに何をするか">壊すときに何をするか</a></li>
+			<li class="level-2"><a href="#版を選ぶ">版を選ぶ</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>
