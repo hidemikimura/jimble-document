@@ -1,0 +1,327 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security - jimble</title>
+<meta name="description" content="Where to report a vulnerability, and what happens after we get it">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="current">Security</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="security">Security<a class="anchor" href="#security">#</a></h1>
+<h2 id="reporting-a-vulnerability">Reporting a vulnerability<a class="anchor" href="#reporting-a-vulnerability">#</a></h2>
+<p><strong>Please do not open a public issue.</strong></p>
+<p>Tell us through GitHub's private vulnerability reporting:</p>
+<p><a href="https://github.com/hidemikimura/jimble/security/advisories/new">https://github.com/hidemikimura/jimble/security/advisories/new</a></p>
+<p>The discussion, the fix and the publication all happen in that thread.
+<strong>There is no email address</strong> — one intake means nothing gets lost in a second inbox.</p>
+<p>Helpful things to include:</p>
+<ul>
+<li>the version it happens on (<code>0.3.0</code>, say)</li>
+<li>the module (<code>jimble-web</code>, say)</li>
+<li>how to reproduce it, ideally as a minimal piece of code</li>
+<li>what it lets someone do</li>
+</ul>
+<h2 id="what-happens-next">What happens next<a class="anchor" href="#what-happens-next">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Acknowledgement</td>
+<td><strong>Within a few days.</strong> If you hear nothing, it may not have arrived</td>
+</tr>
+<tr>
+<td>Deadline for a fix</td>
+<td><strong>Not promised</strong> — this is a one-person project. We work worst impact first</td>
+</tr>
+<tr>
+<td>Publication</td>
+<td>A GitHub Security Advisory, once the fixed version is out</td>
+</tr>
+<tr>
+<td>Credit</td>
+<td><strong>We credit reporters by name</strong>, unless you would rather we did not</td>
+</tr>
+</tbody>
+</table>
+<h2 id="which-versions-get-fixed">Which versions get fixed<a class="anchor" href="#which-versions-get-fixed">#</a></h2>
+<p><strong>Fixes go into the latest release.</strong> We do not backport to older versions.
+This is still 0.x, so upgrading is the fastest path.</p>
+<h2 id="scope">Scope<a class="anchor" href="#scope">#</a></h2>
+<p><strong>In scope</strong> — the <code>io.jimble</code> libraries and Gradle plugins published to Maven Central.</p>
+<p><strong>Out of scope:</strong></p>
+<ul>
+<li><strong>The sample applications under <code>examples/</code>.</strong> They exist to explain things, not to be
+deployed. Their credentials and keys are left at defaults. <strong>Do not run them as they are.</strong></li>
+<li>The content and appearance of this documentation site.</li>
+<li><strong>Vulnerabilities in dependencies themselves.</strong> Those are tracked through the Dependency
+graph and Dependabot. If the way jimble uses one is what makes it reachable, that is in scope.</li>
+<li><strong>Behaviour the configuration asks for.</strong> Set <code>server.trust_proxy = true</code> and
+<code>X-Forwarded-For</code> is trusted (the default is <code>false</code>). Documented behaviour is not a
+vulnerability.</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A mismatch between the documentation and the implementation is treated as a
+vulnerability.</strong> &quot;I thought it was safe because that is what the page said&quot; is the most
+dangerous way to be wrong.</p>
+</div>
+<h2 id="hardening-your-own-application">Hardening your own application<a class="anchor" href="#hardening-your-own-application">#</a></h2>
+<p>What jimble gives you lives on the pages for each topic.</p>
+<table>
+<thead>
+<tr>
+<th>For</th>
+<th>See</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sessions and CSRF, signed cookies, key rotation</td>
+<td><a href="./session-security">Sessions and safe defaults</a></td>
+</tr>
+<tr>
+<td>Rate limiting and bot handling</td>
+<td><a href="./ratelimit">Rate limiting</a></td>
+</tr>
+<tr>
+<td>Whether to trust proxy headers</td>
+<td><a href="./server">Server configuration</a></td>
+</tr>
+<tr>
+<td>Keeping internals out of error responses</td>
+<td><a href="./errors">Error handling</a></td>
+</tr>
+<tr>
+<td>Where keys and connection details live</td>
+<td><a href="./config">Configuration</a></td>
+</tr>
+</tbody>
+</table>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="migration-jooby">
+				<span>Previous</span>Migrating from jooby
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#reporting-a-vulnerability">Reporting a vulnerability</a></li>
+			<li class="level-2"><a href="#what-happens-next">What happens next</a></li>
+			<li class="level-2"><a href="#which-versions-get-fixed">Which versions get fixed</a></li>
+			<li class="level-2"><a href="#scope">Scope</a></li>
+			<li class="level-2"><a href="#hardening-your-own-application">Hardening your own application</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

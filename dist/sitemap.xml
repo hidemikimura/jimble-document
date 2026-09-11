@@ -24,6 +24,7 @@
 	<url><loc>https://jimble.io/ja/ratelimit</loc></url>
 	<url><loc>https://jimble.io/ja/request-response</loc></url>
 	<url><loc>https://jimble.io/ja/routing</loc></url>
+	<url><loc>https://jimble.io/ja/security</loc></url>
 	<url><loc>https://jimble.io/ja/server</loc></url>
 	<url><loc>https://jimble.io/ja/session-security</loc></url>
 	<url><loc>https://jimble.io/ja/sql</loc></url>
@@ -59,6 +60,7 @@
 	<url><loc>https://jimble.io/en/ratelimit</loc></url>
 	<url><loc>https://jimble.io/en/request-response</loc></url>
 	<url><loc>https://jimble.io/en/routing</loc></url>
+	<url><loc>https://jimble.io/en/security</loc></url>
 	<url><loc>https://jimble.io/en/server</loc></url>
 	<url><loc>https://jimble.io/en/session-security</loc></url>
 	<url><loc>https://jimble.io/en/sql</loc></url>

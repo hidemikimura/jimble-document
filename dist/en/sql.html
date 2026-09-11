@@ -190,6 +190,10 @@
 				<a href="migration-jooby"
 				   class="">Migrating from jooby</a>
 			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -511,11 +515,29 @@ the loop</strong>. When it does not match, <code>DB_998</code> is set and <code>
 exception and no warning).</p>
 </div>
 <h2 id="large-results">Large results<a class="anchor" href="#large-results">#</a></h2>
-<p>When you do not want the whole thing in a list, take it one row at a time.</p>
-<pre class="code"><code class="lang-java">db.selectListWithFetcher(row -&gt; {
-	<span class="h-c">// arrives one row at a time</span>
-}, SQL.select().from(Post.instance()));
+<p>When you do not want the whole thing in a list, take it one row at a time with a cursor.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db();
+	 ResultSetFetcher fetcher = <span class="h-k">new</span> ResultSetFetcher()) {
+
+	db.selectListWithFetcher(fetcher, SQL.select().from(Post.instance()));
+
+	<span class="h-k">for</span> (Data row : fetcher) {
+		<span class="h-c">// arrives one row at a time</span>
+	}
+
+}
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Close the <code>DB</code> too.</strong> An ordinary statement <strong>returns its connection to the pool
+as soon as it finishes</strong>, so forgetting to close a <code>DB</code> leaves nothing behind — that
+is what makes the throwaway <code>DBUtil.getMainDB()</code> style work.
+<strong>A cursor is the exception.</strong> The <code>ResultSet</code> has to stay open until you have read
+it, so the connection <strong>stays held until <code>close()</code></strong>. Close the <code>fetcher</code> but not the
+<code>DB</code> and <strong>every call takes one more connection out of the pool</strong> — the SQL succeeds
+and nothing is logged, so <strong>nobody notices until the pool runs dry</strong>.
+An unclosed one is picked up at the end of the execution (F-D-16), but that
+<strong>writes an error to the log</strong>.</p>
+</div>
 
 		</article>
 

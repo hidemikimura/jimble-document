@@ -190,6 +190,10 @@
 				<a href="migration-jooby"
 				   class="">jooby からの移行</a>
 			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -219,7 +223,7 @@
 <code>migrate</code> と <code>codegen</code> は Gradle のタスク（<code>./gradlew migrate</code> / <code>./gradlew codegen</code>）でも走ります。</p>
 </div>
 <pre class="code"><code class="lang-bash">$ jimble version
-<span class="h-k">jimble</span> 0.3.0-SNAPSHOT
+<span class="h-k">jimble</span> 0.3.1-SNAPSHOT
 </code></pre>
 <p>毎回書きたくなければ、<code>~/.zshrc</code> に上の <code>export</code> を足すか、リンクを張ってください。</p>
 <pre class="code"><code class="lang-bash">ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
@@ -237,7 +241,7 @@
 </div>
 <h3 id="手元でビルドした-jimble-を使うとき">手元でビルドした jimble を使うとき<a class="anchor" href="#手元でビルドした-jimble-を使うとき">#</a></h3>
 <p><code>jimble new</code> が作る <code>build.gradle.kts</code> は、<strong>CLI をビルドした版</strong>を参照します。
-公開していない版（<code>0.3.0-SNAPSHOT</code> など）なら、<strong>先にローカルへ publish</strong>してください。</p>
+公開していない版（<code>0.3.1-SNAPSHOT</code> など）なら、<strong>先にローカルへ publish</strong>してください。</p>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> publishToMavenLocal
 <span class="h-k">./gradlew</span> -p gradle-plugin publishToMavenLocal
 </code></pre>

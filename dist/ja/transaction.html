@@ -190,6 +190,10 @@
 				<a href="migration-jooby"
 				   class="">jooby からの移行</a>
 			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -274,10 +278,43 @@
 <p>try-with-resources を使わずに <code>beginTransaction()</code> して、途中で <code>return</code> すると、
 ロールバックもされず接続もプールへ戻りません。</p>
 <p>jimble は<strong>実行（<code>Context</code>）の終わりに拾います</strong>。</p>
-<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: blog_example
 </code></pre>
 <p>黙って戻すと「入れたつもりが入っていない」が残るので、ERROR を出してからロールバックします。
 このログが出たら、囲み忘れです。</p>
+<p><strong>拾うのは <code>DBTransaction</code> を使ったときだけではありません。</strong>
+<code>db.beginTransaction()</code> を直に呼んだときも同じです
+（コネクションを握っているのは <code>DB</code> のほうなので、そちらで見ています）。</p>
+<h2 id="閉じ忘れた-db">閉じ忘れた <code>DB</code><a class="anchor" href="#閉じ忘れた-db">#</a></h2>
+<p><strong>ふつうの SQL は、<code>DB</code> を閉じ忘れても漏れません。</strong>
+1文ごとにコネクションをプールへ返しているので、<code>DBUtil.getMainDB()</code> を
+使い捨てにする書き方でかまいません。</p>
+<p><strong>握ったまま抜ける道は2つだけ</strong>で、どちらも実行の終わりに拾います。</p>
+<table>
+<thead>
+<tr>
+<th>握るもの</th>
+<th>いつ返るか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>トランザクション中</td>
+<td><code>commitEndTransaction()</code> / <code>rollbackEndTransaction()</code> / <code>close()</code></td>
+</tr>
+<tr>
+<td>カーソル（<code>selectListWithFetcher</code>）</td>
+<td><code>db.close()</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-text">ERROR 閉じられていない DB が残っていました。閉じます: blog_example（selectListWithFetcher はカーソルなので、close() までコネクションを返しません）
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**拾うのは最後の砦です。**拾われた時点で ERROR が出ているので、
+<b>ログが出たら直す</b>ものだと思ってください。
+実行が長いバッチでは、実行の終わりまで1本が握られたままになります。</p>
+</div>
 <h2 id="短く書く">短く書く<a class="anchor" href="#短く書く">#</a></h2>
 <pre class="code"><code class="lang-java">DBTransaction.transaction(db, transaction -&gt; {
 	db.insert(...);
@@ -313,6 +350,7 @@ PostFeedHandler.notifyNewPost(title);
 		<ul>
 			<li class="level-2"><a href="#使い分け">使い分け</a></li>
 			<li class="level-2"><a href="#畳み忘れ">畳み忘れ</a></li>
+			<li class="level-2"><a href="#閉じ忘れた-db">閉じ忘れた DB</a></li>
 			<li class="level-2"><a href="#短く書く">短く書く</a></li>
 			<li class="level-2"><a href="#mq-と混ぜるとき">MQ と混ぜるとき</a></li>
 		</ul>

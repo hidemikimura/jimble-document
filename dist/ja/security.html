@@ -1,0 +1,325 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>セキュリティ - jimble</title>
+<meta name="description" content="脆弱性の報告先と、受け取ったあとに何をするか">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="page">日本語</a>
+		<a href="../en/"
+		 aria-current="false">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble コマンド</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="current">セキュリティ</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="セキュリティ">セキュリティ<a class="anchor" href="#セキュリティ">#</a></h1>
+<h2 id="脆弱性を見つけたら">脆弱性を見つけたら<a class="anchor" href="#脆弱性を見つけたら">#</a></h2>
+<p><strong>公開の Issue を立てないでください。</strong></p>
+<p>GitHub の非公開報告から知らせてください。</p>
+<p><a href="https://github.com/hidemikimura/jimble/security/advisories/new">https://github.com/hidemikimura/jimble/security/advisories/new</a></p>
+<p>やりとりも修正も公表も、そのスレッドの中で完結します。
+**メールの窓口は用意していません。**受け口を1つにして、見落としを作らないためです。</p>
+<p>書いていただけると助かるもの。</p>
+<ul>
+<li>どの版で起きるか（<code>0.3.0</code> など）</li>
+<li>どのモジュールか（<code>jimble-web</code> など）</li>
+<li>再現の手順、できれば最小のコード</li>
+<li>何ができてしまうか</li>
+</ul>
+<h2 id="受け取ったあと">受け取ったあと<a class="anchor" href="#受け取ったあと">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>受領の返事</td>
+<td><strong>数日以内</strong>。返事が無ければ届いていない可能性があります</td>
+</tr>
+<tr>
+<td>修正の期限</td>
+<td><strong>約束していません</strong>（個人で開発しているためです）。影響の大きいものから手を付けます</td>
+</tr>
+<tr>
+<td>公表</td>
+<td>直った版を出してから、GitHub Security Advisory として</td>
+</tr>
+<tr>
+<td>クレジット</td>
+<td><strong>報告してくださった方のお名前を載せます</strong>（不要と言われれば載せません）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="どの版が直るか">どの版が直るか<a class="anchor" href="#どの版が直るか">#</a></h2>
+<p>**最新の版に修正を入れます。**古い版へのバックポートはしません。
+まだ 0.x なので、上げていただくのがいちばん早い道です。</p>
+<h2 id="対象の範囲">対象の範囲<a class="anchor" href="#対象の範囲">#</a></h2>
+<p><strong>対象になるもの</strong> — Maven Central に公開している <code>io.jimble</code> のライブラリと Gradle プラグイン。</p>
+<p><strong>対象にならないもの。</strong></p>
+<ul>
+<li>**<code>examples/</code> のサンプルアプリ。**説明のためのもので、本番に置くようには作っていません。
+接続情報も鍵も既定値のままです。<strong>そのまま動かさないでください</strong></li>
+<li>このドキュメントサイトの見た目や内容</li>
+<li>**依存ライブラリそのものの脆弱性。**Dependency graph と Dependabot で追いかけています。
+ただし「jimble の使い方のせいでそこに手が届く」のであれば対象です</li>
+<li><strong>設定でそうすると決めたもの。</strong><code>server.trust_proxy = true</code> にすれば <code>X-Forwarded-For</code> を
+信じます（既定は <code>false</code>）。書いてあるとおりの動きは脆弱性ではありません</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>ドキュメントと実装が食い違っているなら、それは脆弱性として扱います。</strong>
+「そう書いてあるから安全だと思っていた」が、いちばん危ない読み違いです。</p>
+</div>
+<h2 id="自分のアプリを固くする">自分のアプリを固くする<a class="anchor" href="#自分のアプリを固くする">#</a></h2>
+<p>jimble 側で用意しているものは、それぞれのページにあります。</p>
+<table>
+<thead>
+<tr>
+<th>何を</th>
+<th>どこに</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>セッションと CSRF、署名つき Cookie、鍵の入れ替え</td>
+<td><a href="./session-security">セッションとセキュリティ</a></td>
+</tr>
+<tr>
+<td>流量制限と Bot 対策</td>
+<td><a href="./ratelimit">流量制限</a></td>
+</tr>
+<tr>
+<td>プロキシヘッダを信じるかどうか</td>
+<td><a href="./server">サーバー</a></td>
+</tr>
+<tr>
+<td>エラー応答に内部情報を載せない</td>
+<td><a href="./errors">エラー</a></td>
+</tr>
+<tr>
+<td>鍵と接続情報の置き場</td>
+<td><a href="./config">設定</a></td>
+</tr>
+</tbody>
+</table>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="migration-jooby">
+				<span>前</span>jooby からの移行
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#脆弱性を見つけたら">脆弱性を見つけたら</a></li>
+			<li class="level-2"><a href="#受け取ったあと">受け取ったあと</a></li>
+			<li class="level-2"><a href="#どの版が直るか">どの版が直るか</a></li>
+			<li class="level-2"><a href="#対象の範囲">対象の範囲</a></li>
+			<li class="level-2"><a href="#自分のアプリを固くする">自分のアプリを固くする</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

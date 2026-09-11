@@ -190,6 +190,10 @@
 				<a href="migration-jooby"
 				   class="">Migrating from jooby</a>
 			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -274,11 +278,44 @@ left a hole: <strong>everything after it silently became auto-commit.</strong> j
 <p>Call <code>beginTransaction()</code> without try-with-resources and <code>return</code> partway through, and
 nothing is rolled back and the connection never goes back to the pool.</p>
 <p>jimble <strong>catches it at the end of the execution (<code>Context</code>)</strong>.</p>
-<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: blog_example
 </code></pre>
 <p>Rolling back silently would leave you with &quot;I thought I saved it and it is not there&quot;,
 so it logs an ERROR first and then rolls back.
 If you see this line, you forgot to wrap something.</p>
+<p><strong>This is not limited to <code>DBTransaction</code>.</strong> Calling <code>db.beginTransaction()</code> directly is
+caught the same way — the <code>DB</code> is what holds the connection, so that is where it is watched.</p>
+<h2 id="an-unclosed-db">An unclosed <code>DB</code><a class="anchor" href="#an-unclosed-db">#</a></h2>
+<p><strong>An ordinary statement does not leak when you forget to close the <code>DB</code>.</strong> The connection
+goes back to the pool as soon as the statement finishes, which is what makes the throwaway
+<code>DBUtil.getMainDB()</code> style fine.</p>
+<p><strong>There are only two ways to leave with the connection held</strong>, and both are caught at the
+end of the execution.</p>
+<table>
+<thead>
+<tr>
+<th>What holds it</th>
+<th>When it comes back</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An open transaction</td>
+<td><code>commitEndTransaction()</code> / <code>rollbackEndTransaction()</code> / <code>close()</code></td>
+</tr>
+<tr>
+<td>A cursor (<code>selectListWithFetcher</code>)</td>
+<td><code>db.close()</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-text">ERROR 閉じられていない DB が残っていました。閉じます: blog_example（selectListWithFetcher はカーソルなので、close() までコネクションを返しません）
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>This is a last line of defence.</strong> By the time it fires an ERROR has been logged, so
+treat the line as something to fix rather than something to rely on. In a long-running
+batch the connection stays held until the execution ends.</p>
+</div>
 <h2 id="the-short-form">The short form<a class="anchor" href="#the-short-form">#</a></h2>
 <pre class="code"><code class="lang-java">DBTransaction.transaction(db, transaction -&gt; {
 	db.insert(...);
@@ -314,6 +351,7 @@ It is the same DB, so a rollback removes what you pushed along with everything e
 		<ul>
 			<li class="level-2"><a href="#which-one-to-call">Which one to call</a></li>
 			<li class="level-2"><a href="#forgetting-to-close">Forgetting to close</a></li>
+			<li class="level-2"><a href="#an-unclosed-db">An unclosed DB</a></li>
 			<li class="level-2"><a href="#the-short-form">The short form</a></li>
 			<li class="level-2"><a href="#mixing-in-mq">Mixing in MQ</a></li>
 		</ul>

@@ -190,6 +190,10 @@
 				<a href="migration-jooby"
 				   class="">jooby からの移行</a>
 			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -503,11 +507,28 @@ List&lt;Long&gt;    ids    = db.insertBatch(builderList);    <span class="h-c">/
 （直すまでは、例外も警告も無しに<strong>値が横にずれて入っていました</strong>）。</p>
 </div>
 <h2 id="大きい結果">大きい結果<a class="anchor" href="#大きい結果">#</a></h2>
-<p>全部をリストに載せたくないときは、1行ずつ受け取ります。</p>
-<pre class="code"><code class="lang-java">db.selectListWithFetcher(row -&gt; {
-	<span class="h-c">// 1行ずつ来る</span>
-}, SQL.select().from(Post.instance()));
+<p>全部をリストに載せたくないときは、カーソルで1行ずつ受け取ります。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db();
+	 ResultSetFetcher fetcher = <span class="h-k">new</span> ResultSetFetcher()) {
+
+	db.selectListWithFetcher(fetcher, SQL.select().from(Post.instance()));
+
+	<span class="h-k">for</span> (Data row : fetcher) {
+		<span class="h-c">// 1行ずつ来る</span>
+	}
+
+}
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>DB</code> も一緒に畳んでください。</strong>
+ふつうの SQL は<b>1文ごとにコネクションをプールへ返す</b>ので、<code>DB</code> を閉じ忘れても
+何も残りません（<code>DBUtil.getMainDB()</code> を使い捨てにする書き方は、これで成り立っています）。
+**カーソルだけは違います。**読み終わるまで <code>ResultSet</code> を開けておく必要があるので、
+<b><code>close()</code> までコネクションを握ったまま</b>です。
+<code>fetcher</code> だけ畳んで <code>DB</code> を畳まないと、<b>呼ばれるたびにプールから1本ずつ消えます</b>——
+SQL は成功し、例外も警告も出ないので、<strong>プールが枯れるまで誰も気づきません</strong>。
+畳み忘れは実行の終わりに拾いますが（要件 F-D-16）、そのときは<b>エラーログが出ます</b>。</p>
+</div>
 
 		</article>
 
