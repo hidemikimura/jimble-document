@@ -248,6 +248,13 @@ DROP TABLE `note`;
 </code></pre>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate
 </code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>That is MySQL DDL.</strong> Migration SQL is <strong>handed to the database as it is</strong>, so write
+PostgreSQL syntax if that is what you are on (<code>BIGINT UNSIGNED AUTO_INCREMENT</code> becomes
+<code>bigserial</code>, <code>DATETIME</code> becomes <code>timestamp</code>, no backticks). Unlike the SQL builder,
+<strong>nothing here absorbs the dialect for you.</strong> To ship both, you can
+<a href="#splitting-sql-per-product">split them per product</a>.</p>
+</div>
 <ul>
 <li>File names are up to you. They are applied in <strong>the natural order of the names</strong>
 (a <code>001_</code> prefix makes it obvious)</li>

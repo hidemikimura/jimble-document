@@ -239,10 +239,29 @@ codegen {
 		driver   = <span class="h-s">"org.postgresql.Driver"</span>
 		url      = <span class="h-s">"jdbc:postgresql://127.0.0.1:5432/blog_example"</span>
 		username = <span class="h-s">"blog"</span>
+		password = <span class="h-s">"blog"</span>
 		password = ${?DB_PASSWORD}
 	}
 }
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>${?ENV}</code> の行だけを書かないでください。**環境変数が無いときに<b>キーごと消えます</b>
+（上の書き方は「まず既定値、あれば環境変数で上書き」の2行組です）。
+パスワードが消えたまま PostgreSQL に繋ぐと、返ってくるのは
+<code>The server requested SCRAM-based authentication, but no password was provided.</code> で、
+<b>設定の話に見えません。</b></p>
+</div>
+<h2 id="データベースがまだ無いとき">データベースがまだ無いとき<a class="anchor" href="#データベースがまだ無いとき">#</a></h2>
+<p><code>create_database_sql</code> を書いておくと、<strong>繋がらなかったときに1度だけ流します。</strong></p>
+<pre class="code"><code class="lang-conf">db {
+	blog_example {
+		...
+		create_database_sql = <span class="h-s">"CREATE DATABASE blog_example"</span>
+	}
+}
+</code></pre>
+<p>書かなければ何もしないので、<strong>手で作ってあるなら要りません。</strong>
+本番では<b>権限を持たない利用者で繋ぐほうが普通</b>なので、開発と CI のためのものです。</p>
 <table>
 <thead>
 <tr>
@@ -471,6 +490,7 @@ DROP TABLE `note`;
 		<ul>
 			<li class="level-2"><a href="#設定する">設定する</a></li>
 			<li class="level-2"><a href="#db-製品を選ぶ">DB 製品を選ぶ</a></li>
+			<li class="level-2"><a href="#データベースがまだ無いとき">データベースがまだ無いとき</a></li>
 			<li class="level-3"><a href="#その製品で書けないもの">その製品で書けないもの</a></li>
 			<li class="level-3"><a href="#気をつけること">気をつけること</a></li>
 			<li class="level-2"><a href="#起動時に繋ぐ">起動時に繋ぐ</a></li>

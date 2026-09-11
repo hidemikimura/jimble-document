@@ -240,10 +240,30 @@ normally do not have to add one.</p>
 		driver   = <span class="h-s">"org.postgresql.Driver"</span>
 		url      = <span class="h-s">"jdbc:postgresql://127.0.0.1:5432/blog_example"</span>
 		username = <span class="h-s">"blog"</span>
+		password = <span class="h-s">"blog"</span>
 		password = ${?DB_PASSWORD}
 	}
 }
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Never write the <code>${?ENV}</code> line on its own.</strong> When the variable is not set, <strong>the key
+disappears entirely</strong> (the form above is a pair: a default, then an override). Connect
+to PostgreSQL with the password gone and what comes back is
+<code>The server requested SCRAM-based authentication, but no password was provided.</code> —
+<strong>which does not look like a configuration problem at all.</strong></p>
+</div>
+<h2 id="when-the-database-does-not-exist-yet">When the database does not exist yet<a class="anchor" href="#when-the-database-does-not-exist-yet">#</a></h2>
+<p>Write <code>create_database_sql</code> and it is run <strong>once, after a failed connection</strong>.</p>
+<pre class="code"><code class="lang-conf">db {
+	blog_example {
+		...
+		create_database_sql = <span class="h-s">"CREATE DATABASE blog_example"</span>
+	}
+}
+</code></pre>
+<p>Leave it out and nothing happens, so <strong>you do not need it if you created the database by
+hand.</strong> In production you normally connect as a user without that privilege, so this is
+for development and CI.</p>
 <table>
 <thead>
 <tr>
@@ -479,6 +499,7 @@ gets generated are all in
 		<ul>
 			<li class="level-2"><a href="#configure-it">Configure it</a></li>
 			<li class="level-2"><a href="#choose-a-db-product">Choose a DB product</a></li>
+			<li class="level-2"><a href="#when-the-database-does-not-exist-yet">When the database does not exist yet</a></li>
 			<li class="level-3"><a href="#what-you-cannot-write-for-a-given-product">What you cannot write for a given product</a></li>
 			<li class="level-3"><a href="#things-to-watch">Things to watch</a></li>
 			<li class="level-2"><a href="#connecting-at-startup">Connecting at startup</a></li>

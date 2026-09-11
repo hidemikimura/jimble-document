@@ -246,6 +246,13 @@ DROP TABLE `note`;
 </code></pre>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate
 </code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**上は MySQL の DDL です。**マイグレーションの SQL は<b>そのまま DB に流します</b>ので、
+PostgreSQL なら PostgreSQL の書き方で書いてください
+（<code>BIGINT UNSIGNED AUTO_INCREMENT</code> → <code>bigserial</code>、<code>DATETIME</code> → <code>timestamp</code>、
+バッククォートは不要）。SQL ビルダーと違って、<strong>ここは方言を吸収しません。</strong>
+両方に配りたいときは<a href="#製品ごとに-sql-を分ける">製品ごとに分けられます</a>。</p>
+</div>
 <ul>
 <li>ファイル名は自由。<strong>名前の自然順</strong>に当たります（<code>001_</code> を付けるのが分かりやすい）</li>
 <li><code>&lt;スキーマ名&gt;</code> は設定の <code>scheme</code>（無ければデータソース名）</li>

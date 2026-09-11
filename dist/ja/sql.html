@@ -236,7 +236,7 @@
 <pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(
 	SQL.insert(Post.instance())
 		.value(Post.title, title)
-		.value(Post.created_at, <span class="h-k">new</span> Date())
+		.value(Post.created_at, <span class="h-k">new</span> Date())      <span class="h-c">// アプリ側の時計</span>
 );
 
 <span class="h-k">int</span> updated = db.update(
@@ -249,6 +249,15 @@
 	SQL.delete(Post.instance()).where(Post.id.eq(id))
 );
 </code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>時刻はどちらの時計で入れるかを決めてください。</strong><code>new Date()</code> は<b>アプリ側</b>の時計、
+<code>Dsl.now()</code> は<b>DB 側</b>の時計です。</p>
+<pre class="code"><code class="lang-java">.value(Post.created_at, Dsl.now())       <span class="h-c">// DB 側の時計</span>
+</code></pre>
+<p><strong>アプリを複数台で動かすなら DB 側にそろえるほうが安全です</strong>——
+台ごとに時計がずれていると、<b>あとから入れた行のほうが古い</b>ことが起こり、
+作成日時で並べた一覧が入れ替わります。</p>
+</div>
 <p><code>insert</code> は採番された ID を返します。ID が要らないときは
 <code>insertNoReturnKey</code> のほうが速いです。</p>
 <p>送られた項目だけ直す、という書き方はこうなります。</p>

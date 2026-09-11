@@ -237,7 +237,7 @@ Pass columns to pick them.</p>
 <pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(
 	SQL.insert(Post.instance())
 		.value(Post.title, title)
-		.value(Post.created_at, <span class="h-k">new</span> Date())
+		.value(Post.created_at, <span class="h-k">new</span> Date())      <span class="h-c">// the application's clock</span>
 );
 
 <span class="h-k">int</span> updated = db.update(
@@ -250,6 +250,15 @@ Pass columns to pick them.</p>
 	SQL.delete(Post.instance()).where(Post.id.eq(id))
 );
 </code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Decide which clock stamps the row.</strong> <code>new Date()</code> is <strong>the application's</strong> clock;
+<code>Dsl.now()</code> is <strong>the database's</strong>.</p>
+<pre class="code"><code class="lang-java">.value(Post.created_at, Dsl.now())       <span class="h-c">// the database's clock</span>
+</code></pre>
+<p><strong>Running more than one application node? Prefer the database's clock</strong> — when the
+nodes' clocks drift, <strong>a row inserted later can carry an earlier timestamp</strong>, and a
+list ordered by creation time silently swaps rows around.</p>
+</div>
 <p><code>insert</code> returns the generated key. When you do not need the ID,
 <code>insertNoReturnKey</code> is faster.</p>
 <p>Updating only the fields that were sent looks like this.</p>
