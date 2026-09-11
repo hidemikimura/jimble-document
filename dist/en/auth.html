@@ -1,0 +1,564 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login and authorization - jimble</title>
+<meta name="description" content="One line of before, plus route attributes. Closed by default">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="current">Login and authorization</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">Versions and compatibility</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="login-and-authorization">Login and authorization<a class="anchor" href="#login-and-authorization">#</a></h1>
+<p><strong>No annotations.</strong> One <code>before</code>, plus attributes on the routes.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> App <span class="h-k">extends</span> JimbleApp {
+
+	{
+		before(Auth::guard);                                    <span class="h-c">// that is all</span>
+
+		path(<span class="h-s">"/public"</span>, () -&gt; {
+			attribute(Auth.PUBLIC, <span class="h-k">true</span>);                       <span class="h-c">// the whole block is public</span>
+			attribute(Auth.NO_SESSION, <span class="h-k">true</span>);
+			get(<span class="h-s">"/guide"</span>, Guide::show);
+		});
+
+		get(<span class="h-s">"/login"</span>,  Login::show).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+		post(<span class="h-s">"/login"</span>, Login::submit).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+
+		get(<span class="h-s">"/requests"</span>,  RequestController::list);             <span class="h-c">// needs a login by default</span>
+		get(<span class="h-s">"/approvals"</span>, ApprovalController::list).attribute(Auth.ROLE, <span class="h-s">"approver"</span>);
+	}
+
+}
+</code></pre>
+<p>Register <code>before(Auth::guard)</code> <strong>first</strong>. It decides whether the request uses a session,
+so <strong>anything that touches <code>session()</code> before it wins the race.</strong></p>
+<h2 id="closed-by-default">Closed by default<a class="anchor" href="#closed-by-default">#</a></h2>
+<p><code>Auth.PUBLIC</code> defaults to <code>false</code> — a login is required.</p>
+<p><strong>A route someone adds without writing anything is closed.</strong> The other way round, a route
+they forgot about is silently open. Both are the same mistake; <strong>what differs is which way
+it falls.</strong></p>
+<h2 id="route-attributes">Route attributes<a class="anchor" href="#route-attributes">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Default</th>
+<th>What it decides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Auth.PUBLIC</code></td>
+<td><code>false</code></td>
+<td>Whether a login is not required</td>
+</tr>
+<tr>
+<td><code>Auth.ROLE</code></td>
+<td><code>&quot;&quot;</code></td>
+<td>The role required. Empty means any</td>
+</tr>
+<tr>
+<td><code>Auth.NO_SESSION</code></td>
+<td><code>false</code></td>
+<td>Whether to skip sessions entirely</td>
+</tr>
+<tr>
+<td><code>Auth.FULL_AUTH</code></td>
+<td><code>false</code></td>
+<td>Whether <strong>only someone who just typed their password</strong> may pass (below)</td>
+</tr>
+</tbody>
+</table>
+<p>Write it on a block and it applies to every route in it (<a href="./routing">Routing</a>).
+Override it on the one route that differs.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>PUBLIC</code> and <code>NO_SESSION</code> are separate decisions.</strong> The login endpoints need <strong>no
+login but do need a session</strong> — that is where the CSRF token and the post-login session
+live.</p>
+<p>Tie them together and <strong>the login page cannot hold a session, so nobody can log in</strong>
+(the 302 comes back fine and the next request is a 401 — we walked into this one).</p>
+<p><code>NO_SESSION</code> belongs only on <strong>genuinely public pages</strong>.</p>
+</div>
+<h2 id="logging-someone-in">Logging someone in<a class="anchor" href="#logging-someone-in">#</a></h2>
+<pre class="code"><code class="lang-java">Data staff = findStaff(loginId);
+
+<span class="h-k">if</span> (!Auth.checkPassword(password, staff.isEmpty() ? <span class="h-k">null</span> : staff.getString(<span class="h-s">"password_hash"</span>))) {
+	context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"Wrong login id or password"</span>);
+	context.response().redirect(<span class="h-s">"/login"</span>);
+	<span class="h-k">return</span>;
+}
+
+Auth.login(context, Principal.of(
+	staff.getLong(<span class="h-s">"id"</span>), staff.getString(<span class="h-s">"name"</span>), staff.getString(<span class="h-s">"role"</span>)));
+
+context.response().redirect(<span class="h-s">"/me"</span>);
+</code></pre>
+<p><code>Auth.attemptLogin</code> does the whole thing: <strong>make them wait, check, and clear the count on
+success.</strong> <code>Auth.login</code> <strong>regenerates the session id</strong> before storing anything, and
+<strong>saves</strong> (<a href="./session-security">Sessions and safe defaults</a>).</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not call <code>PasswordUtil.check</code> directly here.</strong> With a <code>null</code> hash it returns
+<code>false</code> <strong>immediately</strong>, so <strong>a user that does not exist answers measurably faster</strong>
+(being slow is BCrypt's whole job). That timing <strong>lets someone enumerate which ids
+exist.</strong></p>
+<p><code>Auth.attemptLogin</code> runs one round anyway before returning <code>false</code>.
+<strong>Do not split the message either</strong> — that undoes the point of matching the timing.</p>
+</div>
+<h2 id="when-someone-keeps-getting-it-wrong">When someone keeps getting it wrong<a class="anchor" href="#when-someone-keeps-getting-it-wrong">#</a></h2>
+<p><code>Auth.attemptLogin</code> <strong>counts the failures and makes the next attempt wait.</strong> There is
+nothing to write — the code above already does it.</p>
+<pre class="code"><code class="lang-text">failures 1-3 ... no wait (typos)
+4th ... 1 second
+5th ... 2 seconds
+6th ... 4 seconds     ... up to the maximum (300 seconds by default)
+</code></pre>
+<p>While the wait is still running it answers <strong>429 with <code>Retry-After</code></strong> (like 401, whether
+that becomes a redirect is your <code>error()</code> handler's decision). After a 24 hour gap the
+count starts again.</p>
+<p><strong>It is not &quot;N failures, locked for M minutes&quot;.</strong> Anything that stops an account <strong>is a
+harassment tool as it stands</strong> — getting it wrong on purpose locks that person out.
+Doubling the wait instead makes the attacker's rate effectively zero while <strong>a real user
+waits a few seconds.</strong></p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Count by the login id that was typed in.</strong> Pass the found user's database id and
+<strong>an id that does not exist is never counted</strong> — brute force starts with ids that do
+not exist, and <strong>whether you are made to wait then tells someone which ids are real.</strong></p>
+</div>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where</td>
+<td>The <code>auth_attempt</code> table. <strong>Does nothing without a DB</strong> (it says so in the log, once)</td>
+</tr>
+<tr>
+<td>Keyed by</td>
+<td>The login id (<strong>case and surrounding spaces are normalised</strong>, then SHA-256. It is not stored in the clear)</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>auth.lockout.*</code> (<a href="./config">Configuration</a>)</td>
+</tr>
+<tr>
+<td>Cleanup</td>
+<td>Automatic (once an hour, while counting a failure). <code>Lockout.cleanup()</code> if you want it by hand</td>
+</tr>
+<tr>
+<td>Releasing one</td>
+<td><code>Lockout.clear(loginId)</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>This does not replace <a href="./ratelimit">rate limiting</a>.</strong> Rate limiting counts <strong>per IP</strong>, so
+one attempt each from a thousand IPs against one account never fires. This counts <strong>per
+account</strong>, whoever it comes from. <strong>Use both.</strong></p>
+<h2 id="who-is-logged-in">Who is logged in<a class="anchor" href="#who-is-logged-in">#</a></h2>
+<pre class="code"><code class="lang-java">Principal me = Auth.principal(context);
+
+me.id();                  <span class="h-c">// 0 means nobody</span>
+me.name();
+me.hasRole(<span class="h-s">"approver"</span>);
+</code></pre>
+<p><strong>It never returns <code>null</code>.</strong> Nobody logged in gives you <code>Principal.ANONYMOUS</code>.</p>
+<p>A <code>Principal</code> carries <strong>three things: id, display name, role</strong>. Put the whole user object
+in the session instead and:</p>
+<ul>
+<li>fixing a name in the DB <strong>leaves the old one until they log in again</strong></li>
+<li>revoking a role <strong>does nothing until the session expires</strong></li>
+<li>with cookie sessions, <strong>all of it travels to the browser</strong></li>
+</ul>
+<p>Load the rest from the DB when you need it. If that is expensive, that is what the
+<a href="./cache">cache</a> is for.</p>
+<h2 id="logging-out">Logging out<a class="anchor" href="#logging-out">#</a></h2>
+<pre class="code"><code class="lang-java">Auth.logout(context);
+</code></pre>
+<p><strong>The whole session goes.</strong> Clear only the login keys and the shopping cart or the draft
+is <strong>still there for the next person</strong> (which matters on a shared machine).</p>
+<h2 id="returning-401-and-403">Returning 401 and 403<a class="anchor" href="#returning-401-and-403">#</a></h2>
+<p><code>Auth.guard</code> only throws an <code>HttpException</code>. <strong>Whether that becomes a redirect or JSON is
+your <code>error()</code> handler's decision.</strong></p>
+<pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
+
+	<span class="h-k">if</span> (statusCode == <span class="h-n">401</span> &amp;&amp; !context.request().acceptJson()) {
+		context.response().redirect(<span class="h-s">"/login"</span>);
+		<span class="h-k">return</span>;
+	}
+
+	context.response().code(statusCode).json(<span class="h-s">"error"</span>, cause.getMessage());
+
+});
+</code></pre>
+<p><strong>A missing role is a 403, not a 401.</strong> The status code is how you say that logging in
+again will not change the answer. Return 401 and people <strong>keep trying, believing another
+attempt will get them in.</strong></p>
+<h2 id="staying-logged-in-remember-me">Staying logged in (remember-me)<a class="anchor" href="#staying-logged-in-remember-me">#</a></h2>
+<pre class="code"><code class="lang-java">{
+	before(Remember.restore(App::findPrincipal));   <span class="h-c">// remember first</span>
+	before(Auth::guard);                            <span class="h-c">// then guard</span>
+
+	post(<span class="h-s">"/password"</span>, Password::change).attribute(Auth.FULL_AUTH, <span class="h-k">true</span>);
+}
+
+<span class="h-c">// Look the user up again by id. The role comes from here, so revoking one takes effect at once</span>
+<span class="h-k">private</span> <span class="h-k">static</span> Principal findPrincipal (<span class="h-k">long</span> id) {
+	Data staff = findStaff(id);
+	<span class="h-k">return</span> staff.isEmpty() ? <span class="h-k">null</span>
+		: Principal.of(staff.getLong(<span class="h-s">"id"</span>), staff.getString(<span class="h-s">"name"</span>), staff.getString(<span class="h-s">"role"</span>));
+}
+</code></pre>
+<p>At login, remember them <strong>only when the box was ticked</strong>.</p>
+<pre class="code"><code class="lang-java">Auth.login(context, principal);
+
+<span class="h-k">if</span> (<span class="h-s">"1"</span>.equals(request.getString(<span class="h-s">"remember"</span>))) {
+	Remember.issue(context, principal);
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Register <code>before(Remember.restore(...))</code> before <code>before(Auth::guard)</code>.</strong> The other way
+round, <strong>guard decides nobody is logged in and only then do you remember them.</strong></p>
+<p><strong>Do not call <code>issue</code> unconditionally</strong> — on a shared machine <strong>the next person gets in.</strong></p>
+</div>
+<h3 id="a-stolen-cookie-still-cannot-change-the-password">A stolen cookie still cannot change the password<a class="anchor" href="#a-stolen-cookie-still-cannot-change-the-password">#</a></h3>
+<p><strong>This is what makes remember-me safe enough to offer.</strong> Someone who came back through
+the cookie is not &quot;someone who just typed their password&quot;, so a route with
+<code>attribute(Auth.FULL_AUTH, true)</code> answers <strong>401</strong>.</p>
+<p>Put it on password changes, account deletion, payments, and contact details. In code it
+is <code>Auth.fullyAuthenticated(context)</code>, but <strong>the route attribute is the one you cannot
+forget to write.</strong></p>
+<h3 id="theft-shows-up">Theft shows up<a class="anchor" href="#theft-shows-up">#</a></h3>
+<p>The cookie holds <strong><code>selector:validator</code></strong>, and <strong>the validator is replaced on every use.</strong>
+A stolen cookie and the real one cannot both stay current, so <strong>a value from before the
+last rotation is the signal that one of them was copied.</strong></p>
+<p>On that signal <strong>every remembered login for that user is deleted</strong> (and it goes in the
+log). Which of the two used it first <strong>cannot be told apart</strong>, so deleting only one can
+leave <strong>the real user locked out and the thief still in.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where</td>
+<td>The <code>auth_remember</code> table. <strong>Does nothing without a DB</strong></td>
+</tr>
+<tr>
+<td>Cookie</td>
+<td><code>selector:validator</code>. <strong>The validator is stored as SHA-256</strong> (the selector is just the lookup key, so it is stored as is)</td>
+</tr>
+<tr>
+<td>Expiry</td>
+<td>30 days since last use, <strong>and</strong> 90 days since it was issued (it always expires eventually, however much you use it)</td>
+</tr>
+<tr>
+<td>Grace</td>
+<td>For 60 seconds after a rotation the old one still works, so <strong>parallel requests do not log people out</strong></td>
+</tr>
+<tr>
+<td>Logout</td>
+<td><code>Auth.logout</code> deletes it</td>
+</tr>
+<tr>
+<td>Password change</td>
+<td><strong>Call <code>Remember.forgetAll(userId)</code></strong> (below)</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>auth.remember.*</code> (<a href="./config">Configuration</a>)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Call <code>Remember.forgetAll(userId)</code> when the password changes.</strong> Without it <strong>a stolen
+cookie still works</strong> — which is the whole point of changing the password. It is also
+what &quot;log out everywhere&quot; is.</p>
+</div>
+<h2 id="basic-auth">Basic auth<a class="anchor" href="#basic-auth">#</a></h2>
+<p>Operational endpoints can use Basic auth
+(<a href="./request-response">Requests and responses</a>).</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	before(BasicAuth.of(<span class="h-s">"ops"</span>, System.getenv(<span class="h-s">"OPS_PASSWORD"</span>)));
+	attribute(Auth.PUBLIC, <span class="h-k">true</span>);      <span class="h-c">// a different mechanism from the session login</span>
+	get(<span class="h-s">"/whoami"</span>, Ops::whoami);
+});
+</code></pre>
+<h2 id="what-this-does-not-do">What this does not do<a class="anchor" href="#what-this-does-not-do">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Annotations (<code>@PreAuthorize</code> and friends)</td>
+<td>Not used, per the <a href="./principles">principles</a>. Routes declare it as an attribute</td>
+</tr>
+<tr>
+<td>Showing the user how many days are left</td>
+<td>Not offered. Read the row yourself</td>
+</tr>
+<tr>
+<td>JWT</td>
+<td><strong>Deliberately not offered.</strong> You cannot revoke one, and it adds key management. If you need API auth, use an opaque token held in the DB</td>
+</tr>
+<tr>
+<td>OAuth / OIDC / SAML</td>
+<td>Not yet</td>
+</tr>
+<tr>
+<td>A permission table</td>
+<td>Roles are plain strings</td>
+</tr>
+</tbody>
+</table>
+<p>A working one is in <code>examples/approval-auth</code>.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="session-security">
+				<span>Previous</span>Sessions and safe defaults
+			</a>
+			<a class="next" href="ratelimit">
+				<span>Next</span>Rate limiting
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#closed-by-default">Closed by default</a></li>
+			<li class="level-2"><a href="#route-attributes">Route attributes</a></li>
+			<li class="level-2"><a href="#logging-someone-in">Logging someone in</a></li>
+			<li class="level-2"><a href="#when-someone-keeps-getting-it-wrong">When someone keeps getting it wrong</a></li>
+			<li class="level-2"><a href="#who-is-logged-in">Who is logged in</a></li>
+			<li class="level-2"><a href="#logging-out">Logging out</a></li>
+			<li class="level-2"><a href="#returning-401-and-403">Returning 401 and 403</a></li>
+			<li class="level-2"><a href="#staying-logged-in-remember-me">Staying logged in (remember-me)</a></li>
+			<li class="level-3"><a href="#a-stolen-cookie-still-cannot-change-the-password">A stolen cookie still cannot change the password</a></li>
+			<li class="level-3"><a href="#theft-shows-up">Theft shows up</a></li>
+			<li class="level-2"><a href="#basic-auth">Basic auth</a></li>
+			<li class="level-2"><a href="#what-this-does-not-do">What this does not do</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

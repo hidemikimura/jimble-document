@@ -80,6 +80,10 @@
 				   class="">Sessions and safe defaults</a>
 			</li>
 			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
 				<a href="ratelimit"
 				   class="">Rate limiting</a>
 			</li>
@@ -344,6 +348,40 @@ get(<span class="h-s">"/health_check"</span>, context -&gt; context.response().s
 </code></pre>
 <p>An <code>AttributeKey</code> carries a default. Routes without the attribute get that default,
 so you never write a <code>null</code> check.</p>
+<h3 id="setting-it-for-a-whole-block">Setting it for a whole block<a class="anchor" href="#setting-it-for-a-whole-block">#</a></h3>
+<p><strong>You do not have to write it on every route.</strong> Call <code>attribute()</code> in a block and it
+applies to every route registered in that block.</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/docs"</span>, () -&gt; {
+
+	attribute(PUBLIC, <span class="h-k">true</span>);          <span class="h-c">// the whole block is public</span>
+
+	get(<span class="h-s">"/guide"</span>, Guide::show);       <span class="h-c">// public</span>
+	get(<span class="h-s">"/faq"</span>,   Faq::show);         <span class="h-c">// public</span>
+	get(<span class="h-s">"/me"</span>,    Me::show).attribute(PUBLIC, <span class="h-k">false</span>);   <span class="h-c">// this one needs a login</span>
+
+});
+</code></pre>
+<p>Strongest first: <strong>the route &gt; the inner block &gt; the outer block &gt; the key's default</strong>.</p>
+<p><strong>Where you write it in the block does not matter.</strong> Put it at the end and it still
+applies to routes registered above it — like <code>before</code>, it is handed out when the tree is
+sealed at startup.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Like filters, it does not attach to the path.</strong> It applies to <strong>routes registered in
+the same block</strong>, and to anything nested from it via <code>path()</code> / <code>install()</code>. Routes
+registered in a different block do not get it, even at the same path.</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/docs"</span>, () -&gt; {
+	attribute(PUBLIC, <span class="h-k">true</span>);
+	get(<span class="h-s">"/guide"</span>, ...);        <span class="h-c">// gets it</span>
+});
+
+path(<span class="h-s">"/docs"</span>, () -&gt; {
+	get(<span class="h-s">"/internal"</span>, ...);     <span class="h-c">// does not (a different block)</span>
+});
+</code></pre>
+<p>This is so that <strong>reading the code tells you whether it is there</strong>
+(the same rule as <a href="#how-far-a-filter-reaches">where filters apply</a>).</p>
+</div>
+<p><code>rateLimit()</code> rides on this same mechanism (<a href="./ratelimit">Rate limiting</a>).</p>
 <h2 id="splitting-into-controllers">Splitting into controllers<a class="anchor" href="#splitting-into-controllers">#</a></h2>
 <p>When one file gets long, pull it out into a <code>Controller</code>.</p>
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> PostController <span class="h-k">extends</span> Controller {
@@ -415,6 +453,7 @@ With <code>RouteTool</code>, one route becomes one tool.</p>
 			<li class="level-2"><a href="#filters">Filters</a></li>
 			<li class="level-2"><a href="#how-far-a-filter-reaches">How far a filter reaches</a></li>
 			<li class="level-2"><a href="#marking-a-single-route">Marking a single route</a></li>
+			<li class="level-3"><a href="#setting-it-for-a-whole-block">Setting it for a whole block</a></li>
 			<li class="level-2"><a href="#splitting-into-controllers">Splitting into controllers</a></li>
 			<li class="level-2"><a href="#handling-errors">Handling errors</a></li>
 			<li class="level-2"><a href="#calling-your-own-routes-from-the-inside">Calling your own routes from the inside</a></li>

@@ -84,6 +84,10 @@
 				   class="">レートリミット</a>
 			</li>
 			<li>
+				<a href="auth"
+				   class="">ログインと認可</a>
+			</li>
+			<li>
 				<a href="execution"
 				   class="">実行モデル</a>
 			</li>
@@ -306,6 +310,24 @@ upload {
 	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># 1リクエスト合計（50MB）</span>
 	max_files      = <span class="h-n">20</span>
 	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># 空なら java.io.tmpdir</span>
+}
+
+auth {
+	lockout {
+		enabled       = <span class="h-k">true</span>    <span class="h-c"># DB が無ければ何もしない</span>
+		free_attempts = <span class="h-n">3</span>       <span class="h-c"># ここまでは待たされない（打ち間違い）</span>
+		base_seconds  = <span class="h-n">1</span>       <span class="h-c"># 4回目から 1 → 2 → 4 …</span>
+		max_seconds   = <span class="h-n">300</span>     <span class="h-c"># 待ち時間の上限</span>
+		forget_hours  = <span class="h-n">24</span>      <span class="h-c"># これだけ間が空いたら数え直す</span>
+	}
+
+	remember {
+		enabled       = <span class="h-k">true</span>    <span class="h-c"># DB が無ければ何もしない</span>
+		cookie_name   = <span class="h-s">"remember"</span>
+		sliding_days  = <span class="h-n">30</span>      <span class="h-c"># 最後に使ってからこれだけ</span>
+		absolute_days = <span class="h-n">90</span>      <span class="h-c"># 発行してからこれを超えたら、使っていても切れる</span>
+		grace_seconds = <span class="h-n">60</span>      <span class="h-c"># 回した直後、古いほうも通す時間</span>
+	}
 }
 
 rate_limit {

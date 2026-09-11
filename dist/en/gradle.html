@@ -80,6 +80,10 @@
 				   class="">Sessions and safe defaults</a>
 			</li>
 			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
 				<a href="ratelimit"
 				   class="">Rate limiting</a>
 			</li>
@@ -233,9 +237,9 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.4.0"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.4.0"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.4.0"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.5.0"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.5.0"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.5.0"</span>
 }
 </code></pre>
 <p><strong>They are not on the Plugin Portal.</strong> They come from Maven Central, so write the
@@ -269,9 +273,9 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.4.0"</span>   <span class="h-c">// if you use src/main/jte</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.4.0"</span>   <span class="h-c">// if you want hot reload</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.4.0"</span>   <span class="h-c">// if you use a database</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"0.5.0"</span>   <span class="h-c">// if you use src/main/jte</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"0.5.0"</span>   <span class="h-c">// if you want hot reload</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"0.5.0"</span>   <span class="h-c">// if you use a database</span>
 }
 
 repositories {
@@ -286,7 +290,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:0.4.0"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:0.5.0"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -317,7 +321,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>The toolchain block is required.</strong> Without it you stop at dependency resolution.</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:0.4.0' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:0.5.0' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="which-artifact-to-depend-on">Which artifact to depend on<a class="anchor" href="#which-artifact-to-depend-on">#</a></h2>

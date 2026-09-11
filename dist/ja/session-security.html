@@ -84,6 +84,10 @@
 				   class="">レートリミット</a>
 			</li>
 			<li>
+				<a href="auth"
+				   class="">ログインと認可</a>
+			</li>
+			<li>
 				<a href="execution"
 				   class="">実行モデル</a>
 			</li>
@@ -240,6 +244,48 @@ context.session().save();</code></pre>
 <tr>
 <td><code>cookie</code></td>
 <td>サーバーに何も置きたくない。中身は署名される</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ログインしたらセッション-id-を振り直す">ログインしたらセッション ID を振り直す<a class="anchor" href="#ログインしたらセッション-id-を振り直す">#</a></h3>
+<p><strong>ログインが通った直後に <code>regenerateId()</code> を呼んでください。</strong></p>
+<pre class="code"><code class="lang-java">context.session().regenerateId();          <span class="h-c">// ID が変わる。中身は残る</span>
+context.session().put(<span class="h-s">"staff_id"</span>, staffId);
+context.session().save();                  <span class="h-c">// ← ここで新しい ID が発行される</span>
+</code></pre>
+<p>ログインの前後で ID が変わらないと、<strong>ログイン前に攻撃者が仕込んだ ID のまま、
+そのセッションが権限を持ちます</strong>（セッション固定化）。仕込む道はいくらでもあります
+——公開ページのリンク、別のサブドメイン、ブラウザの拡張。</p>
+<p>**中身は持ち越します。**ログインの直前に入れたもの（戻り先の URL、
+入力途中のフォーム、CSRF トークン）が消えると、
+<strong>ログインした瞬間に元いた場所を見失います。</strong></p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>振り直したら <code>save()</code> してください。</strong><code>regenerateId()</code> は保存しません
+（自動保存をしないという決まりのままです）。振り直したあと保存せずに終わると、
+<strong>古い側は消えていて新しい側は無い</strong>——つまりログインしていない状態になります。
+<strong>閉じるほうに倒れる</strong>ので事故にはなりませんが、
+「ログインしたのに 401」の原因はここです。</p>
+</div>
+<p>保存先で効き方が違います。</p>
+<table>
+<thead>
+<tr>
+<th>store</th>
+<th>何が起きるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db</code> / <code>redis</code></td>
+<td>古い行を消して、新しい ID で書き直す</td>
+</tr>
+<tr>
+<td><code>cookie</code></td>
+<td><strong>ID で引いていない</strong>ので、中身の Cookie を書き直すだけ（古い値は署名と暗号化で無効）</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>何も起きない</td>
 </tr>
 </tbody>
 </table>
@@ -416,6 +462,7 @@ cipher {
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#セッション">セッション</a></li>
+			<li class="level-3"><a href="#ログインしたらセッション-id-を振り直す">ログインしたらセッション ID を振り直す</a></li>
 			<li class="level-2"><a href="#csrf">CSRF</a></li>
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookie-の既定は-secure--true">Cookie の既定は secure = true</a></li>

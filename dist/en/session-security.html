@@ -80,6 +80,10 @@
 				   class="current">Sessions and safe defaults</a>
 			</li>
 			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
 				<a href="ratelimit"
 				   class="">Rate limiting</a>
 			</li>
@@ -240,6 +244,47 @@ That is to avoid writing on every request that only ever read.</p>
 <tr>
 <td><code>cookie</code></td>
 <td>You want to keep nothing on the server. The contents are signed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="regenerate-the-session-id-on-login">Regenerate the session id on login<a class="anchor" href="#regenerate-the-session-id-on-login">#</a></h3>
+<p><strong>Call <code>regenerateId()</code> as soon as the login succeeds.</strong></p>
+<pre class="code"><code class="lang-java">context.session().regenerateId();          <span class="h-c">// new id, same contents</span>
+context.session().put(<span class="h-s">"staff_id"</span>, staffId);
+context.session().save();                  <span class="h-c">// the new id is issued here</span>
+</code></pre>
+<p>If the id does not change across the login, <strong>an id an attacker planted beforehand keeps
+working and now carries the privileges</strong> (session fixation). There is no shortage of ways
+to plant one — a link on a public page, another subdomain, a browser extension.</p>
+<p><strong>The contents are carried over.</strong> Whatever you put in just before the login — the URL to
+return to, a half-filled form, the CSRF token — <strong>would otherwise vanish exactly when the
+user logs in</strong>, and they lose their place.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Call <code>save()</code> after regenerating.</strong> <code>regenerateId()</code> does not save (nothing here
+saves by itself). Regenerate without saving and <strong>the old side is gone and the new side
+was never written</strong> — the user is simply not logged in. It <strong>fails closed</strong>, so it is
+not dangerous, but &quot;I logged in and got a 401&quot; starts here.</p>
+</div>
+<p>What it does depends on the store:</p>
+<table>
+<thead>
+<tr>
+<th>store</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db</code> / <code>redis</code></td>
+<td>The old row is deleted and rewritten under the new id</td>
+</tr>
+<tr>
+<td><code>cookie</code></td>
+<td><strong>Nothing is keyed by the id</strong>, so the contents cookie is simply rewritten (the old value is void — it is signed and encrypted)</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Nothing</td>
 </tr>
 </tbody>
 </table>
@@ -415,8 +460,8 @@ For anything new, use <code>Aead</code> (AES-256-GCM).</p>
 			<a class="prev" href="assets">
 				<span>Previous</span>Static files and SPA
 			</a>
-			<a class="next" href="ratelimit">
-				<span>Next</span>Rate limiting
+			<a class="next" href="auth">
+				<span>Next</span>Login and authorization
 			</a>
 		</nav>
 	</main>
@@ -425,6 +470,7 @@ For anything new, use <code>Aead</code> (AES-256-GCM).</p>
 		<p class="section">On this page</p>
 		<ul>
 			<li class="level-2"><a href="#sessions">Sessions</a></li>
+			<li class="level-3"><a href="#regenerate-the-session-id-on-login">Regenerate the session id on login</a></li>
 			<li class="level-2"><a href="#csrf">CSRF</a></li>
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookies-default-to-secure--true">Cookies default to secure = true</a></li>

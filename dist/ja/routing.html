@@ -84,6 +84,10 @@
 				   class="">レートリミット</a>
 			</li>
 			<li>
+				<a href="auth"
+				   class="">ログインと認可</a>
+			</li>
+			<li>
 				<a href="execution"
 				   class="">実行モデル</a>
 			</li>
@@ -342,6 +346,40 @@ get(<span class="h-s">"/health_check"</span>, context -&gt; context.response().s
 </code></pre>
 <p><code>AttributeKey</code> は既定値を持ちます。付いていないルートでは既定値が返るので、
 <code>null</code> の判定が要りません。</p>
+<h3 id="ブロック単位で付ける">ブロック単位で付ける<a class="anchor" href="#ブロック単位で付ける">#</a></h3>
+<p><strong>ルート1本ずつに書かなくて済みます。</strong><code>attribute()</code> をブロックに書くと、
+そのブロックの中のルート全部に付きます。</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/docs"</span>, () -&gt; {
+
+	attribute(PUBLIC, <span class="h-k">true</span>);          <span class="h-c">// ← このブロックは全部公開</span>
+
+	get(<span class="h-s">"/guide"</span>, Guide::show);       <span class="h-c">// 公開</span>
+	get(<span class="h-s">"/faq"</span>,   Faq::show);         <span class="h-c">// 公開</span>
+	get(<span class="h-s">"/me"</span>,    Me::show).attribute(PUBLIC, <span class="h-k">false</span>);   <span class="h-c">// ここだけ要ログイン</span>
+
+});
+</code></pre>
+<p>強い順に <strong>ルート &gt; 内側のブロック &gt; 外側のブロック &gt; キーの既定値</strong>です。</p>
+<p>**書く場所は問いません。**ブロックの最後に書いても、その前に登録したルートに付きます
+（<code>before</code> と同じで、配るのは起動時の確定のときです）。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**フィルタと同じで、パスには付きません。**効くのは
+<strong>同じブロックで登録したルート</strong>と、そこから <code>path()</code> / <code>install()</code> で
+ネストしたものだけです。パスが同じでも、別のブロックで登録したルートには付きません。</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/docs"</span>, () -&gt; {
+	attribute(PUBLIC, <span class="h-k">true</span>);
+	get(<span class="h-s">"/guide"</span>, ...);        <span class="h-c">// ← 付く</span>
+});
+
+path(<span class="h-s">"/docs"</span>, () -&gt; {
+	get(<span class="h-s">"/internal"</span>, ...);     <span class="h-c">// ← 付かない（別のブロック）</span>
+});
+</code></pre>
+<p><strong>付いているかどうかがコードを読んで分かる</strong>ようにするためです
+（<a href="#フィルタの効く範囲">フィルタの効く範囲</a>と同じ決まり）。</p>
+</div>
+<p><code>rateLimit()</code> も、この仕組みの上に乗っています
+（<a href="./ratelimit">流量制限</a>）。</p>
 <h2 id="コントローラに分ける">コントローラに分ける<a class="anchor" href="#コントローラに分ける">#</a></h2>
 <p>1ファイルが長くなったら <code>Controller</code> に切り出します。</p>
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> PostController <span class="h-k">extends</span> Controller {
@@ -412,6 +450,7 @@ DB 接続もコンテキストごとに持つので、
 			<li class="level-2"><a href="#フィルタ">フィルタ</a></li>
 			<li class="level-2"><a href="#フィルタの効く範囲">フィルタの効く範囲</a></li>
 			<li class="level-2"><a href="#ルートごとの印">ルートごとの印</a></li>
+			<li class="level-3"><a href="#ブロック単位で付ける">ブロック単位で付ける</a></li>
 			<li class="level-2"><a href="#コントローラに分ける">コントローラに分ける</a></li>
 			<li class="level-2"><a href="#エラーの扱い">エラーの扱い</a></li>
 			<li class="level-2"><a href="#実装済みのルートを内側から呼ぶ">実装済みのルートを内側から呼ぶ</a></li>

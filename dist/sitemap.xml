@@ -2,6 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<url><loc>https://jimble.io/ja/assets</loc></url>
 	<url><loc>https://jimble.io/ja/async</loc></url>
+	<url><loc>https://jimble.io/ja/auth</loc></url>
 	<url><loc>https://jimble.io/ja/batch</loc></url>
 	<url><loc>https://jimble.io/ja/cache</loc></url>
 	<url><loc>https://jimble.io/ja/cli</loc></url>
@@ -39,6 +40,7 @@
 	<url><loc>https://jimble.io/ja/websocket</loc></url>
 	<url><loc>https://jimble.io/en/assets</loc></url>
 	<url><loc>https://jimble.io/en/async</loc></url>
+	<url><loc>https://jimble.io/en/auth</loc></url>
 	<url><loc>https://jimble.io/en/batch</loc></url>
 	<url><loc>https://jimble.io/en/cache</loc></url>
 	<url><loc>https://jimble.io/en/cli</loc></url>

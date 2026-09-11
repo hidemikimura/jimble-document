@@ -1,0 +1,566 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ログインと認可 - jimble</title>
+<meta name="description" content="before 1行と、ルート属性だけ。既定は「閉じている」">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="page">日本語</a>
+		<a href="../en/"
+		 aria-current="false">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="current">ログインと認可</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble コマンド</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">版と互換性</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="ログインと認可">ログインと認可<a class="anchor" href="#ログインと認可">#</a></h1>
+<p><strong>注釈はありません。</strong><code>before</code> を1行と、ルートに付ける属性だけです。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> App <span class="h-k">extends</span> JimbleApp {
+
+	{
+		before(Auth::guard);                                    <span class="h-c">// これだけ</span>
+
+		path(<span class="h-s">"/public"</span>, () -&gt; {
+			attribute(Auth.PUBLIC, <span class="h-k">true</span>);                       <span class="h-c">// ブロックごと公開</span>
+			attribute(Auth.NO_SESSION, <span class="h-k">true</span>);
+			get(<span class="h-s">"/guide"</span>, Guide::show);
+		});
+
+		get(<span class="h-s">"/login"</span>,  Login::show).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+		post(<span class="h-s">"/login"</span>, Login::submit).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+
+		get(<span class="h-s">"/requests"</span>,  RequestController::list);             <span class="h-c">// 既定で要ログイン</span>
+		get(<span class="h-s">"/approvals"</span>, ApprovalController::list).attribute(Auth.ROLE, <span class="h-s">"approver"</span>);
+	}
+
+}
+</code></pre>
+<p><code>before(Auth::guard)</code> は<strong>いちばん最初に</strong>登録してください。
+セッションを使うかどうかをここで決めるので、
+<strong>先に誰かが <code>session()</code> を触ると間に合いません。</strong></p>
+<h2 id="既定は閉じている">既定は「閉じている」<a class="anchor" href="#既定は閉じている">#</a></h2>
+<p><code>Auth.PUBLIC</code> の既定は <code>false</code>（＝ログインが要る）です。</p>
+<p><strong>ルートを足した人が何も書かなければ閉じています。</strong>
+逆にすると、書き忘れたルートが黙って開きます。
+どちらも「書き忘れ」ですが、<strong>倒れる先が違います。</strong></p>
+<h2 id="ルート属性">ルート属性<a class="anchor" href="#ルート属性">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>既定</th>
+<th>何を決めるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Auth.PUBLIC</code></td>
+<td><code>false</code></td>
+<td>ログインが要らないか</td>
+</tr>
+<tr>
+<td><code>Auth.ROLE</code></td>
+<td><code>&quot;&quot;</code></td>
+<td>要る役割。空なら問わない</td>
+</tr>
+<tr>
+<td><code>Auth.NO_SESSION</code></td>
+<td><code>false</code></td>
+<td>セッションをまったく使わないか</td>
+</tr>
+<tr>
+<td><code>Auth.FULL_AUTH</code></td>
+<td><code>false</code></td>
+<td><strong>いまパスワードを入れた人</strong>だけが通れるか（下記）</td>
+</tr>
+</tbody>
+</table>
+<p>ブロックに書けば、その中のルート全部に付きます（<a href="./routing">ルーティング</a>）。
+1本だけ違うなら、そのルートで上書きします。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>PUBLIC</code> と <code>NO_SESSION</code> は別の判断です。</strong>
+ログインの入口は<strong>ログインが要らないが、セッションは要ります</strong>——
+CSRF トークンも、ログイン後のセッションも、そこで持つからです。</p>
+<p>一緒にすると<strong>ログイン画面自身がセッションを持てず、誰もログインできなくなります</strong>
+（302 は返るのに、次のリクエストで 401 になります。実際に踏みました）。</p>
+<p><code>NO_SESSION</code> を付けてよいのは、<strong>本当に公開のページだけ</strong>です。</p>
+</div>
+<h2 id="ログインさせる">ログインさせる<a class="anchor" href="#ログインさせる">#</a></h2>
+<pre class="code"><code class="lang-java">Data staff = findStaff(loginId);
+
+<span class="h-k">if</span> (!Auth.checkPassword(password, staff.isEmpty() ? <span class="h-k">null</span> : staff.getString(<span class="h-s">"password_hash"</span>))) {
+	context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"ログインIDかパスワードが違います"</span>);
+	context.response().redirect(<span class="h-s">"/login"</span>);
+	<span class="h-k">return</span>;
+}
+
+Auth.login(context, Principal.of(
+	staff.getLong(<span class="h-s">"id"</span>), staff.getString(<span class="h-s">"name"</span>), staff.getString(<span class="h-s">"role"</span>)));
+
+context.response().redirect(<span class="h-s">"/me"</span>);
+</code></pre>
+<p><code>Auth.attemptLogin</code> が、<strong>待たせる → 照合する → 成功なら数えたものを消す</strong>までやります。
+<code>Auth.login</code> は<strong>セッション ID を振り直してから</strong>入れて、<strong>保存まで</strong>します
+（<a href="./session-security">セッションとセキュリティ</a>）。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>PasswordUtil.check</code> を直に呼ばないでください。</strong>
+ハッシュが <code>null</code> のとき<strong>即座に <code>false</code> を返す</strong>ので、
+<strong>利用者がいないほうが目に見えて速くなります</strong>（BCrypt は遅いのが仕事です）。
+応答時間で<strong>どの ID が存在するかを外から数えられます。</strong></p>
+<p><code>Auth.attemptLogin</code> は、相手がいなくても<strong>1回まわしてから</strong> <code>false</code> を返します。
+<strong>メッセージも分けないでください</strong>——分けたら時間を合わせた意味がありません。</p>
+</div>
+<h2 id="何度も間違えられたとき">何度も間違えられたとき<a class="anchor" href="#何度も間違えられたとき">#</a></h2>
+<p><code>Auth.attemptLogin</code> は<strong>失敗した回数を数えていて、次の試行を待たせます。</strong>
+書くことはありません（上のコードのままです）。</p>
+<pre class="code"><code class="lang-text">失敗 1〜3 回目 … 待たせない（打ち間違い）
+4 回目 … 1 秒
+5 回目 … 2 秒
+6 回目 … 4 秒     …… 上限（既定 300 秒）まで
+</code></pre>
+<p>まだ待ち時間が残っていれば <strong>429 と <code>Retry-After</code></strong> を返します
+（401 と同じく、画面へ飛ばすかどうかは <code>error()</code> が決めます）。
+24 時間間が空けば数え直します。</p>
+<p><strong>「N 回で M 分ロック」にはしていません。</strong>
+アカウント単位で止める仕組みは<strong>そのまま嫌がらせの道具になる</strong>からです——
+わざと間違えるだけで、その人を締め出せます。
+待ち時間を倍にしていく形なら、攻撃者から見た試行速度は実質ゼロになり、
+<strong>正規の利用者は数秒待つだけ</strong>で済みます。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>数える単位は「入力されたログイン ID」です。</strong>
+見つかった利用者の DB 上の ID を渡すと、<strong>居ない ID のときだけ数えられません。</strong>
+総当たりは居ない ID から始まりますし、
+<strong>「待たされるかどうか」でどの ID が在るかが分かってしまいます。</strong></p>
+</div>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>置き場</td>
+<td><code>auth_attempt</code> テーブル。<strong>DB が無ければ何もしません</strong>（ログに1度だけ出ます）</td>
+</tr>
+<tr>
+<td>単位</td>
+<td>ログイン ID（<strong>大小と前後の空白はそろえて</strong> SHA-256 で保存します。平文では残りません）</td>
+</tr>
+<tr>
+<td>設定</td>
+<td><code>auth.lockout.*</code>（<a href="./config">設定</a>）</td>
+</tr>
+<tr>
+<td>掃除</td>
+<td>自動です（失敗を数えたついでに、1時間に1度）。手で呼ぶなら <code>Lockout.cleanup()</code></td>
+</tr>
+<tr>
+<td>解除</td>
+<td><code>Lockout.clear(loginId)</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong><a href="./ratelimit">流量制限</a>の代わりにはなりません。</strong>
+流量制限は <strong>IP ごと</strong>なので、1つのアカウントに 1000 個の IP から1回ずつ来ると発火しません。
+こちらは<strong>アカウントごと</strong>なので、誰から来ても数えます。<strong>両方掛けてください。</strong></p>
+<h2 id="いま誰か">いま誰か<a class="anchor" href="#いま誰か">#</a></h2>
+<pre class="code"><code class="lang-java">Principal me = Auth.principal(context);
+
+me.id();                  <span class="h-c">// 0 なら未ログイン</span>
+me.name();
+me.hasRole(<span class="h-s">"approver"</span>);
+</code></pre>
+<p>**<code>null</code> は返りません。**ログインしていなければ <code>Principal.ANONYMOUS</code> です。</p>
+<p><code>Principal</code> が持つのは <strong>id / 表示名 / 役割の3つだけ</strong>です。
+利用者のオブジェクトを丸ごとセッションに入れると、</p>
+<ul>
+<li>DB で名前を直しても<strong>ログインし直すまで古いまま</strong></li>
+<li>権限を剥奪しても<strong>セッションが切れるまで効かない</strong></li>
+<li>Cookie セッションなら、<strong>その全部がブラウザへ出ていく</strong></li>
+</ul>
+<p>残りは要るときに DB から引いてください。引くのが重いなら<a href="./cache">キャッシュ</a>の仕事です。</p>
+<h2 id="ログアウト">ログアウト<a class="anchor" href="#ログアウト">#</a></h2>
+<pre class="code"><code class="lang-java">Auth.logout(context);
+</code></pre>
+<p><strong>セッションを丸ごと捨てます。<strong>ログインの鍵だけ消すと、
+買い物かごや下書きが</strong>次の利用者に見えます</strong>（共用の端末で効きます）。</p>
+<h2 id="401-と-403-の返し方">401 と 403 の返し方<a class="anchor" href="#401-と-403-の返し方">#</a></h2>
+<p><code>Auth.guard</code> は <code>HttpException</code> を投げるだけです。
+<strong>画面へ飛ばすか JSON を返すかは、アプリの <code>error()</code> が決めます。</strong></p>
+<pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
+
+	<span class="h-k">if</span> (statusCode == <span class="h-n">401</span> &amp;&amp; !context.request().acceptJson()) {
+		context.response().redirect(<span class="h-s">"/login"</span>);
+		<span class="h-k">return</span>;
+	}
+
+	context.response().code(statusCode).json(<span class="h-s">"error"</span>, cause.getMessage());
+
+});
+</code></pre>
+<p><strong>役割が足りないときは 403 で、401 ではありません。</strong>
+ログインし直しても結果が変わらないことを、状態コードで言います。
+401 を返すと、利用者は<strong>入り直せば見られると思って何度も試します。</strong></p>
+<h2 id="ログインしたままにするremember-me">ログインしたままにする（remember-me）<a class="anchor" href="#ログインしたままにするremember-me">#</a></h2>
+<pre class="code"><code class="lang-java">{
+	before(Remember.restore(App::findPrincipal));   <span class="h-c">// 先に「思い出す」</span>
+	before(Auth::guard);                            <span class="h-c">// そのあと見張る</span>
+
+	post(<span class="h-s">"/password"</span>, Password::change).attribute(Auth.FULL_AUTH, <span class="h-k">true</span>);
+}
+
+<span class="h-c">// id から引き直す。役割をここで引くので、権限を剥奪すればすぐ効く</span>
+<span class="h-k">private</span> <span class="h-k">static</span> Principal findPrincipal (<span class="h-k">long</span> id) {
+	Data staff = findStaff(id);
+	<span class="h-k">return</span> staff.isEmpty() ? <span class="h-k">null</span>
+		: Principal.of(staff.getLong(<span class="h-s">"id"</span>), staff.getString(<span class="h-s">"name"</span>), staff.getString(<span class="h-s">"role"</span>));
+}
+</code></pre>
+<p>ログインのときに、<strong>印が付いていたときだけ</strong>覚えます。</p>
+<pre class="code"><code class="lang-java">Auth.login(context, principal);
+
+<span class="h-k">if</span> (<span class="h-s">"1"</span>.equals(request.getString(<span class="h-s">"remember"</span>))) {
+	Remember.issue(context, principal);
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>before(Remember.restore(...))</code> は <code>before(Auth::guard)</code> より先に置いてください。</strong>
+あとに置くと、<strong>guard が「ログインしていない」と決めたあとで思い出す</strong>ことになります。</p>
+<p>**いつも <code>issue</code> を呼ばないでください。**共用の端末で、<strong>次の人が入れます。</strong></p>
+</div>
+<h3 id="cookie-を盗まれてもパスワードは変えられない">Cookie を盗まれても、パスワードは変えられない<a class="anchor" href="#cookie-を盗まれてもパスワードは変えられない">#</a></h3>
+<p><strong>これが remember-me を出せる理由です。</strong>
+思い出して戻ってきた人は「いまパスワードを入れた人」ではないので、
+<code>attribute(Auth.FULL_AUTH, true)</code> を付けたルートでは <strong>401</strong> になります。</p>
+<p>パスワードの変更・退会・決済・連絡先の変更に付けてください。
+コードの中で見るなら <code>Auth.fullyAuthenticated(context)</code> ですが、
+<strong>ルート属性のほうが書き忘れが起きません。</strong></p>
+<h3 id="盗まれたら気づく">盗まれたら気づく<a class="anchor" href="#盗まれたら気づく">#</a></h3>
+<p>Cookie には <strong><code>selector:validator</code></strong> の2つが入っていて、
+<strong>validator は使うたびに作り直します。</strong>
+盗まれた Cookie と本物の Cookie は同時に生きられないので、
+<strong>回転前の値が使われたら、それが盗まれた合図</strong>です。</p>
+<p>合図を見つけたら、<strong>その利用者の記憶を全部消します</strong>（ログにも残ります）。
+先に使ったのが本人か盗んだ側かは<strong>区別できない</strong>ので、
+片方だけ消すと<strong>本人だけが締め出されて盗んだ側が残る</strong>ことがあります。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>置き場</td>
+<td><code>auth_remember</code> テーブル。<strong>DB が無ければ何もしません</strong></td>
+</tr>
+<tr>
+<td>Cookie</td>
+<td><code>selector:validator</code>。<strong>validator は SHA-256 にして保存</strong>します（selector は引くための鍵なのでそのまま）</td>
+</tr>
+<tr>
+<td>期限</td>
+<td>最後に使ってから 30 日、<strong>かつ</strong>発行から 90 日（使い続けても、いつかは必ず切れます）</td>
+</tr>
+<tr>
+<td>猶予</td>
+<td>回した直後の 60 秒は古いほうも通します（<strong>並列のリクエストで勝手にログアウトさせない</strong>ため）</td>
+</tr>
+<tr>
+<td>ログアウト</td>
+<td><code>Auth.logout</code> が消します</td>
+</tr>
+<tr>
+<td>パスワード変更</td>
+<td><strong><code>Remember.forgetAll(userId)</code> を呼んでください</strong>（下記）</td>
+</tr>
+<tr>
+<td>設定</td>
+<td><code>auth.remember.*</code>（<a href="./config">設定</a>）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>パスワードを変えたら <code>Remember.forgetAll(userId)</code> を呼んでください。</strong>
+呼ばないと、<strong>盗まれた Cookie はそのまま使えます</strong>——変えた意味がありません。
+「全端末からログアウト」も同じものです。</p>
+</div>
+<h2 id="basic-認証">Basic 認証<a class="anchor" href="#basic-認証">#</a></h2>
+<p>運用向けの口には Basic 認証が使えます（<a href="./request-response">リクエストとレスポンス</a>）。</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	before(BasicAuth.of(<span class="h-s">"ops"</span>, System.getenv(<span class="h-s">"OPS_PASSWORD"</span>)));
+	attribute(Auth.PUBLIC, <span class="h-k">true</span>);      <span class="h-c">// セッションのログインとは別の仕組み</span>
+	get(<span class="h-s">"/whoami"</span>, Ops::whoami);
+});
+</code></pre>
+<h2 id="やらないこと">やらないこと<a class="anchor" href="#やらないこと">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>注釈（<code>@PreAuthorize</code> のようなもの）</td>
+<td><a href="./principles">原則</a>のとおり使いません。ルート属性で宣言します</td>
+</tr>
+<tr>
+<td>「あと何日で切れるか」を利用者に見せる口</td>
+<td>ありません。行を自分で引いてください</td>
+</tr>
+<tr>
+<td>JWT</td>
+<td>**出しません。**失効できず鍵の管理が増えます。API の認証が要るなら、DB に持つ不透明なトークンにしてください</td>
+</tr>
+<tr>
+<td>OAuth / OIDC / SAML</td>
+<td>まだありません</td>
+</tr>
+<tr>
+<td>権限（permission）の対応表</td>
+<td>役割の文字列だけです</td>
+</tr>
+</tbody>
+</table>
+<p>動いているものは <code>examples/approval-auth</code> にあります。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="ratelimit">
+				<span>前</span>レートリミット
+			</a>
+			<a class="next" href="execution">
+				<span>次</span>実行モデル
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#既定は閉じている">既定は「閉じている」</a></li>
+			<li class="level-2"><a href="#ルート属性">ルート属性</a></li>
+			<li class="level-2"><a href="#ログインさせる">ログインさせる</a></li>
+			<li class="level-2"><a href="#何度も間違えられたとき">何度も間違えられたとき</a></li>
+			<li class="level-2"><a href="#いま誰か">いま誰か</a></li>
+			<li class="level-2"><a href="#ログアウト">ログアウト</a></li>
+			<li class="level-2"><a href="#401-と-403-の返し方">401 と 403 の返し方</a></li>
+			<li class="level-2"><a href="#ログインしたままにするremember-me">ログインしたままにする（remember-me）</a></li>
+			<li class="level-3"><a href="#cookie-を盗まれてもパスワードは変えられない">Cookie を盗まれても、パスワードは変えられない</a></li>
+			<li class="level-3"><a href="#盗まれたら気づく">盗まれたら気づく</a></li>
+			<li class="level-2"><a href="#basic-認証">Basic 認証</a></li>
+			<li class="level-2"><a href="#やらないこと">やらないこと</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -80,6 +80,10 @@
 				   class="">Sessions and safe defaults</a>
 			</li>
 			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
 				<a href="ratelimit"
 				   class="">Rate limiting</a>
 			</li>
@@ -314,6 +318,24 @@ upload {
 	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># per request in total (50MB)</span>
 	max_files      = <span class="h-n">20</span>
 	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># empty means java.io.tmpdir</span>
+}
+
+auth {
+	lockout {
+		enabled       = <span class="h-k">true</span>    <span class="h-c"># does nothing without a DB</span>
+		free_attempts = <span class="h-n">3</span>       <span class="h-c"># no wait up to here (typos)</span>
+		base_seconds  = <span class="h-n">1</span>       <span class="h-c"># from the 4th: 1 -&gt; 2 -&gt; 4 ...</span>
+		max_seconds   = <span class="h-n">300</span>     <span class="h-c"># the longest wait</span>
+		forget_hours  = <span class="h-n">24</span>      <span class="h-c"># start counting again after this gap</span>
+	}
+
+	remember {
+		enabled       = <span class="h-k">true</span>    <span class="h-c"># does nothing without a DB</span>
+		cookie_name   = <span class="h-s">"remember"</span>
+		sliding_days  = <span class="h-n">30</span>      <span class="h-c"># from when it was last used</span>
+		absolute_days = <span class="h-n">90</span>      <span class="h-c"># past this it expires even if still in use</span>
+		grace_seconds = <span class="h-n">60</span>      <span class="h-c"># how long the old one still works after a rotation</span>
+	}
 }
 
 rate_limit {
