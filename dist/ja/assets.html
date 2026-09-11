@@ -227,8 +227,15 @@
 開発中は <code>build/resources/main</code> から読まれます。<strong>どちらでも同じ動きです</strong>（要件 F-W-18）。</p>
 <h2 id="静的ファイル">静的ファイル<a class="anchor" href="#静的ファイル">#</a></h2>
 <pre class="code"><code class="lang-java">install(() -&gt; AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"test-assets"</span>));</code></pre>
-<p><code>src/main/resources/test-assets/app.css</code> が <code>/assets/app.css</code> で出ます。
-<code>GET</code> と <code>HEAD</code> の2本が登録されます。</p>
+<p>第2引数は<strong>クラスパス上のディレクトリ</strong>です。ファイルシステムのパスではありません。
+<code>AssetHandler.mount(&quot;/assets&quot;, &quot;assets&quot;)</code> なら
+<code>src/main/resources/assets/app.css</code> が <code>/assets/app.css</code> で出ます。</p>
+<p><code>GET</code> と <code>HEAD</code> の2本（<code>/assets/*</code>）が登録されます。</p>
+<blockquote>
+<p>[!WARNING]
+**<code>/assets</code> 自身（末尾なし）には応えません。**登録されるのは <code>/assets/*</code> だけです。
+SPA と MPA は接頭辞そのものも登録するので、そこだけ形が違います。</p>
+</blockquote>
 <p>登録されたルートは <code>routes()</code> で受け取れます。<strong>属性を付けられます。</strong></p>
 <pre class="code"><code class="lang-java">AssetController assets = AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"assets"</span>);
 <span class="h-k">for</span> (Route route : assets.routes()) {
@@ -236,7 +243,9 @@
 }
 install(() -&gt; assets);
 </code></pre>
-<p><code>SpaHandler.mount(...)</code> / <code>MpaHandler.mount(...)</code> も同じです。</p>
+<p><code>SpaHandler.mount(...)</code> / <code>MpaHandler.mount(...)</code> でも <code>routes()</code> は同じように使えます。
+ただし<strong>本数が違います</strong>——SPA と MPA は接頭辞自身も登録するので4本です
+（<code>/app</code> と <code>/app/*</code> の <code>GET</code> と <code>HEAD</code>）。</p>
 <h3 id="キャッシュ">キャッシュ<a class="anchor" href="#キャッシュ">#</a></h3>
 <table>
 <thead>

@@ -345,6 +345,28 @@ Dsl.groupConcat(Tag.name, <span class="h-s">"/"</span>).as(<span class="h-s">"ta
 <p>Units (<code>DateUnit</code>) and types (<code>CastType</code>) are enums. <strong>You cannot pass strings.</strong>
 They go straight into the SQL, so the API is built so that a string from outside
 cannot reach them.</p>
+<h2 id="filtering-on-an-aggregate-having">Filtering on an aggregate (<code>having</code>)<a class="anchor" href="#filtering-on-an-aggregate-having">#</a></h2>
+<p><strong>An aggregate can be a condition directly</strong> — the same way a column can.</p>
+<pre class="code"><code class="lang-java">SQL.select(
+        Department.id
+        , Dsl.sum(Request.amount).as(<span class="h-s">"total"</span>))
+    .from(Request.instance())
+    .groupBy(Department.id)
+    <span class="h-c">// only departments over 500,000</span>
+    .having(Dsl.sum(Request.amount).ge(<span class="h-n">500</span>_000L));
+</code></pre>
+<p>It works inside <code>CASE</code> too.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">new</span> SelectQuery().dsl(Dsl.caseWhen()
+        .<span class="h-k">when</span>(Dsl.sum(Request.amount).ge(<span class="h-n">500</span>_000L)).then(<span class="h-s">"large"</span>)
+        .elseCase(<span class="h-s">"small"</span>)).as(<span class="h-s">"size"</span>)
+</code></pre>
+<p>Only the <strong>comparisons</strong> are there
+(<code>eq</code> / <code>not</code> / <code>gt</code> / <code>lt</code> / <code>ge</code> / <code>le</code> / <code>between</code> / <code>is_null</code> / <code>is_not_null</code>).
+<code>like</code> and <code>contains</code> are not, because they mean nothing against an aggregate.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>It cannot go in <code>where</code>.</strong> SQL evaluates <code>WHERE</code> before aggregation.
+Filtering on an aggregated value is what <code>having</code> is for.</p>
+</div>
 <h2 id="window-functions">Window functions<a class="anchor" href="#window-functions">#</a></h2>
 <p><strong>They attach an aggregate to each row without collapsing rows.</strong> Unlike
 <code>GROUP BY</code>, you do not lose rows.</p>
@@ -474,11 +496,20 @@ Which ones those are is listed in <a href="./db">Using the DB</a>.</p>
 SQL.select(Dsl.dateFormat(Post.created_at, <span class="h-s">"%Y-%m-%d"</span>)).from(Post.instance());
 </code></pre>
 <h2 id="running-a-batch">Running a batch<a class="anchor" href="#running-a-batch">#</a></h2>
-<pre class="code"><code class="lang-java">db.insertBatch(builderList);
-db.executeBatch(builderList);
+<pre class="code"><code class="lang-java">List&lt;Integer&gt; counts = db.executeBatch(builderList);   <span class="h-c">// row counts</span>
+List&lt;Long&gt;    ids    = db.insertBatch(builderList);    <span class="h-c">// generated keys</span>
 </code></pre>
-<p>The return value is a list of row counts. <code>DB.isBatchSuccess(list)</code> tells you
-whether all of them went through.</p>
+<p><strong>The two return different things.</strong> <code>executeBatch</code> gives you row counts
+(<code>List&lt;Integer&gt;</code>); <code>insertBatch</code> gives you the generated keys (<code>List&lt;Long&gt;</code>).
+For the counts, <code>DB.isBatchSuccess(list)</code> tells you whether all of them went through.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Every builder you stack has to produce the same SQL.</strong> The point of a batch is
+one statement with the parameters swapped in, so if the order you call <code>value()</code>
+changes partway through, the SQL changes too — <strong>keep the order the same inside
+the loop</strong>. When it does not match, <code>DB_998</code> is set and <code>null</code> comes back
+(until this was fixed, <strong>the values were silently shifted sideways</strong> with no
+exception and no warning).</p>
+</div>
 <h2 id="large-results">Large results<a class="anchor" href="#large-results">#</a></h2>
 <p>When you do not want the whole thing in a list, take it one row at a time.</p>
 <pre class="code"><code class="lang-java">db.selectListWithFetcher(row -&gt; {
@@ -507,6 +538,7 @@ whether all of them went through.</p>
 			<li class="level-2"><a href="#inserting-updating-deleting">Inserting, updating, deleting</a></li>
 			<li class="level-2"><a href="#using-functions">Using functions</a></li>
 			<li class="level-3"><a href="#the-list">The list</a></li>
+			<li class="level-2"><a href="#filtering-on-an-aggregate-having">Filtering on an aggregate (having)</a></li>
 			<li class="level-2"><a href="#window-functions">Window functions</a></li>
 			<li class="level-2"><a href="#in-will-not-take-an-empty-list">in will not take an empty list</a></li>
 			<li class="level-2"><a href="#product-differences-to-watch">Product differences to watch</a></li>

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ログ - jimble</title>
-<meta name="description" content="Log の使い方、アクセスログ、実行 ID、logback の設定">
+<meta name="description" content="Log の使い方、アクセスログ、実行 ID、メトリクス、トレース、logback の設定">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -325,6 +325,25 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 <p>クローラは全体の何割にもなります。分けておくと、
 **人のアクセスだけを数えられます。**同じところに出したいなら <code>false</code> にしてください。</p>
 </div>
+<h3 id="切る">切る<a class="anchor" href="#切る">#</a></h3>
+<p><code>server.access_log = false</code> で、1行も出さなくなります。</p>
+<pre class="code"><code class="lang-conf">server {
+	access_log = <span class="h-k">false</span>
+}
+</code></pre>
+<p><strong>1リクエストの中でいちばん大きいのがここです</strong>（割り当ての約4割。約 3,400 byte）。
+切ると、行を組み立てる仕事も、ボット判定（User-Agent の照合）も止まります。
+秒あたりの本数は1割ほど変わります（10 コアの Mac・8接続で 52,537 → 57,030 rps）。
+<strong>台によって違うので、切る前に自分の台で測ってください</strong>
+（<code>jimble-load/load.sh</code> が、出す版と出さない版を並べて測ります）。</p>
+<p>**メトリクスとトレースは残ります。**切って消えるのはアクセスログだけです。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**既定は <code>true</code> のままにしてください。**切ると、
+<strong>後から「あのとき何が起きたか」を調べる手段が無くなります。</strong>
+500 が出ていたことも、誰がどのパスを叩いたかも残りません。
+切るのは、<strong>前段（ロードバランサや nginx）が同じ内容を残していて、
+かつ実測して足りない</strong>と分かったときだけです。</p>
+</div>
 <h2 id="実行-id">実行 ID<a class="anchor" href="#実行-id">#</a></h2>
 <p><code>36進の時刻-乱数-連番</code> で、リクエスト（や WebSocket のメッセージ、バッチ）ごとに1つ採番されます。
 持ち回りは <code>ScopedValue</code> で、<strong>MDC は使っていません。</strong></p>
@@ -409,8 +428,211 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 
 	Log.resetSink();
 
+	<span class="h-c">// 設定を触るテストがあるので、必ず戻す（残すと後ろのテストが理由なく落ちる）</span>
+	Conf.reload();
+
 }</code></pre>
 <p><code>Log.sink(...)</code> は<strong>全体を差し替えます</strong>。<code>@AfterEach</code> で <code>Log.resetSink()</code> を忘れないでください。</p>
+<h2 id="メトリクス">メトリクス<a class="anchor" href="#メトリクス">#</a></h2>
+<p><code>Metrics.snapshot()</code> が、いまの値をまとめて返します。</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/metrics"</span>, context -&gt; context.response().json(Metrics.snapshot()));
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>**jimble は <code>/metrics</code> のルートを用意しません。<strong>外に晒すかどうか、認証を付けるかどうかは
+アプリの都合なので、フレームワークが握ると閉じたいときに閉じられません
+（<a href="./server">ヘルスチェック</a>と同じ考え方です）。
+上の1行は</strong>そのまま書くと誰でも見られます。**社内からだけ見せる、
+認証を通す、といった手当てをしてください。</p>
+</div>
+<p>返る形はこうです。</p>
+<pre class="code"><code class="lang-json">{
+  <span class="h-s">"counter"</span>: { <span class="h-s">"http.request"</span>: <span class="h-n">1234</span>, <span class="h-s">"http.status.2xx"</span>: <span class="h-n">1230</span>, <span class="h-s">"http.status.5xx"</span>: <span class="h-n">4</span> },
+  <span class="h-s">"latency"</span>: {
+    <span class="h-s">"http.GET /posts/{id}"</span>: {
+      <span class="h-s">"count"</span>: <span class="h-n">1200</span>, <span class="h-s">"sum_ms"</span>: <span class="h-n">4321.0</span>, <span class="h-s">"max_ms"</span>: <span class="h-n">812.3</span>,
+      <span class="h-s">"p50_ms"</span>: <span class="h-n">10</span>, <span class="h-s">"p95_ms"</span>: <span class="h-n">100</span>, <span class="h-s">"p99_ms"</span>: <span class="h-n">500</span>,
+      <span class="h-s">"bucket"</span>: { <span class="h-s">"1"</span>: <span class="h-n">300</span>, <span class="h-s">"5"</span>: <span class="h-n">700</span>, <span class="h-s">"10"</span>: <span class="h-n">150</span>, <span class="h-s">"50"</span>: <span class="h-n">40</span>, <span class="h-s">"100"</span>: <span class="h-n">8</span>, <span class="h-s">"500"</span>: <span class="h-n">1</span>, <span class="h-s">"1000"</span>: <span class="h-n">1</span>, <span class="h-s">"5000"</span>: <span class="h-n">0</span>, <span class="h-s">"over"</span>: <span class="h-n">0</span> }
+    }
+  },
+  <span class="h-s">"gauge"</span>: { <span class="h-s">"db.pool.main.active"</span>: <span class="h-n">3</span>, <span class="h-s">"db.pool.main.idle"</span>: <span class="h-n">5</span> }
+}
+</code></pre>
+<h3 id="何が勝手に入っているか">何が勝手に入っているか<a class="anchor" href="#何が勝手に入っているか">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>名前</th>
+<th>何</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http.request</code></td>
+<td>リクエスト数</td>
+</tr>
+<tr>
+<td><code>http.status.2xx</code> … <code>5xx</code></td>
+<td>ステータスの百の位ごとの数</td>
+</tr>
+<tr>
+<td><code>http.GET /posts/{id}</code></td>
+<td>ルートごとのレイテンシの分布</td>
+</tr>
+<tr>
+<td><code>db.pool.&lt;名前&gt;.{active,idle,total,waiting}</code></td>
+<td>接続プールの使用数</td>
+</tr>
+<tr>
+<td><code>mq.&lt;キュー&gt;.received</code> / <code>.completed</code> / <code>.error</code> …</td>
+<td>MQ の件数（終わり方ごと）</td>
+</tr>
+<tr>
+<td><code>mq.&lt;キュー&gt;</code></td>
+<td>MQ のレイテンシの分布</td>
+</tr>
+</tbody>
+</table>
+<h3 id="自分で入れる">自分で入れる<a class="anchor" href="#自分で入れる">#</a></h3>
+<pre class="code"><code class="lang-java">Metrics.count(<span class="h-s">"posts.created"</span>);
+Metrics.<span class="h-k">record</span>(<span class="h-s">"search.elapsed"</span>, elapsedNanos);
+Metrics.gauge(<span class="h-s">"cache.size"</span>, () -&gt; cache.size());
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>Metrics.gauge(...)</code> に渡すものが I/O をしてはいけません。</strong>
+<code>Metrics.snapshot()</code> のたびに呼ばれるので、DB を触ると
+<strong>DB が詰まっているときに限ってメトリクスも取れなくなります</strong>——いちばん見たいときに見えません。
+MQ の滞留数（<code>MqQueue#pendingCount()</code>）を jimble が自動で登録していないのはこのためです。
+承知のうえで要るなら、自分で登録してください。</p>
+<pre class="code"><code class="lang-java">Metrics.gauge(<span class="h-s">"mq.notice.pending"</span>, () -&gt; noticeQueue.pendingCount());
+</code></pre>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>利用者の入力を名前にしないでください。</strong><code>Metrics.count(request.path())</code> と書くと、
+<code>/aaa</code> <code>/aab</code> … と叩かれるだけでヒープが埋まります。名前は <strong>1000 種類</strong>が上限で、
+超えると1回だけ警告を出して、それ以上は数えません（<strong>そのあとは本物のルートも数えられません</strong>）。
+jimble 自身がレイテンシに生のパスではなく <code>GET /posts/{id}</code> を使い、
+どのルートにも当たらなかったものを <code>(unmatched)</code> 1つにまとめているのも同じ理由です。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>分布は固定のバケット</strong>（1 / 5 / 10 / 50 / 100 / 500 / 1000 / 5000ms ＋ あふれ）に数を入れるだけで、
+ひとつひとつの値は覚えません。何件入れてもメモリは増えませんが、
+<strong>パーセンタイルは「入ったバケットの上限」まで</strong>しか言えません（<code>p95_ms: 100</code> は「100ms 以下」）。
+あふれに入ったぶんは実測の最大を返します。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><code>Metrics.reset()</code> は<strong>テストのためのもの</strong>です。動いているアプリで呼ぶと、それまで数えたものが消えます。</p>
+</div>
+<h2 id="トレース">トレース<a class="anchor" href="#トレース">#</a></h2>
+<p>サービスをまたいだ1本の流れを見る（要件 NF-O-05）。<strong>使うときだけ依存が増えます。</strong></p>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
+implementation(<span class="h-s">"io.jimble:jimble-otel:0.2.1"</span>)
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) {
+
+    JimbleOtel.install(<span class="h-s">"my-app"</span>, <span class="h-s">"http://localhost:4318"</span>);
+
+    <span class="h-k">new</span> JimbleServer(...).start();
+
+}
+</code></pre>
+<p>これだけで、次のものに自動で区間が付きます。</p>
+<table>
+<thead>
+<tr>
+<th>区間</th>
+<th>名前</th>
+<th>種類</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTP リクエスト</td>
+<td><code>GET /posts/{id}</code></td>
+<td><code>server</code></td>
+</tr>
+<tr>
+<td>SQL 1文</td>
+<td><code>SELECT post</code></td>
+<td><code>client</code></td>
+</tr>
+<tr>
+<td>MQ に積む</td>
+<td><code>mq.put notice</code></td>
+<td><code>producer</code></td>
+</tr>
+<tr>
+<td>MQ を処理する</td>
+<td><code>mq notice</code></td>
+<td><code>consumer</code></td>
+</tr>
+<tr>
+<td>バッチ1回</td>
+<td><code>batch 日次集計</code></td>
+<td><code>internal</code></td>
+</tr>
+</tbody>
+</table>
+<p>アプリの中を細かく見たいところは自分で足せます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (Span span = Tracing.start(<span class="h-s">"画像の変換"</span>, SpanKind.internal)) {
+    span.attribute(<span class="h-s">"file"</span>, name);
+    convert(file);
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>足さないアプリは1 byte も増えません。</strong><code>jimble-core</code> が持っているのは口（<code>Tracer</code> / <code>Span</code>）だけで、
+OpenTelemetry の実体は <code>jimble-otel</code> にあります。登録しないあいだ、<code>Tracing.start(...)</code> の費用は
+<strong>静的な変数を1つ読んで分岐するだけ</strong>（実測で 1 回あたり 0 byte）です。</p>
+</div>
+<h3 id="サービスをまたぐ">サービスをまたぐ<a class="anchor" href="#サービスをまたぐ">#</a></h3>
+<p>入ってきた <code>traceparent</code>（W3C Trace Context）は<strong>自動で引き継ぎます</strong>。
+jimble の HTTP クライアントから出るときも<strong>自動で付きます</strong>。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 相手側のトレースが、こちらの続きとして繋がる</span>
+<span class="h-k">new</span> HttpGetExecutor(<span class="h-s">"https://api.example.com/users"</span>).execute();
+</code></pre>
+<p>MQ も繋がります。<strong>積んだリクエストと、何分もあとに別のプロセスで動いた処理が1本になります。</strong>
+そのために <code>traceparent</code> をキューの行に持っています（<code>data</code> には入れません）。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>MQ を使っているアプリは、キューのテーブルに列が1つ増えます</strong>（<code>traceparent varchar(64)</code>）。
+<code>MqTables.install(...)</code> が起動時に当てるので、手で流す必要はありません。</p>
+</div>
+<p>それ以外の経路で外へ渡すときは自分で入れてください。</p>
+<pre class="code"><code class="lang-java">String traceparent = Tracing.traceparent();   <span class="h-c">// トレースが無効なら null</span>
+</code></pre>
+<h3 id="ログと突き合わせる">ログと突き合わせる<a class="anchor" href="#ログと突き合わせる">#</a></h3>
+<p>トレースが有効なとき、<strong>すべてのログに <code>trace_id</code> と <code>span_id</code> が入ります</strong>。
+実行 ID（<code>request_id</code>）はそのままなので、いままでの集計は壊れません。</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"request_id"</span>:<span class="h-s">"mttvgm93-10676dj-1"</span>,<span class="h-s">"trace_id"</span>:<span class="h-s">"4bf92f35..."</span>,<span class="h-s">"span_id"</span>:<span class="h-s">"00f067aa..."</span>, ...}
+</code></pre>
+<h3 id="全部は拾わない">全部は拾わない<a class="anchor" href="#全部は拾わない">#</a></h3>
+<p>流量が多いと送る先が持ちません。割合を渡してください。</p>
+<pre class="code"><code class="lang-java">JimbleOtel.install(<span class="h-s">"my-app"</span>, <span class="h-s">"http://localhost:4318"</span>, <span class="h-n">0.1</span>);   <span class="h-c">// 10 本に1本</span>
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**拾うかどうかはトレース単位で決まります。**1本のトレースの途中だけ欠けることはありません。</p>
+</div>
+<h3 id="送り先">送り先<a class="anchor" href="#送り先">#</a></h3>
+<p>OTLP の HTTP（<code>/v1/traces</code>）へ protobuf で送ります。OpenTelemetry Collector でも、
+Jaeger でも、Grafana Tempo でも、OTLP を受けるものなら何でも構いません。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>/v1/traces</code> を付け忘れても動くようにしてあります。**付け忘れると 404 が返るだけで、
+<strong>ログにも出ずに何も届きません</strong>。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>送信は <strong>JDK の <code>HttpClient</code></strong> です。OpenTelemetry の既定（okhttp）は
+okhttp 851KB ＋ okio 374KB ＋ kotlin-stdlib 1.7MB を連れてくるので、外してあります。
+<code>jimble-otel</code> を足したときに増えるのは <strong>0.9MB</strong> です。</p>
+</div>
+<h3 id="自分で出す先を書く">自分で出す先を書く<a class="anchor" href="#自分で出す先を書く">#</a></h3>
+<p><code>Tracer</code> は 2 メソッドの interface です。標準出力に出す、社内の仕組みへ送る、
+テストで中身を見る、といったときは自分で書けます。テスト用の
+<code>RecordingTracer</code> は <code>jimble-core</code> に入っています。</p>
+<pre class="code"><code class="lang-java">RecordingTracer tracer = <span class="h-k">new</span> RecordingTracer();
+Tracing.use(tracer);
+
+<span class="h-c">// ... テストしたい処理 ...</span>
+
+assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<span class="h-n">0</span>).name());
+</code></pre>
 <h2 id="設定キー">設定キー<a class="anchor" href="#設定キー">#</a></h2>
 <table>
 <thead>
@@ -421,6 +643,11 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>server.access_log</code></td>
+<td><code>true</code></td>
+<td>アクセスログを出す。<code>false</code> で1行も出さない</td>
+</tr>
 <tr>
 <td><code>server.bot_access_log</code></td>
 <td><code>true</code></td>
@@ -458,10 +685,20 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 			<li class="level-2"><a href="#どのログにも必ず入るもの">どのログにも必ず入るもの</a></li>
 			<li class="level-2"><a href="#アクセスログ">アクセスログ</a></li>
 			<li class="level-3"><a href="#ボットを分ける">ボットを分ける</a></li>
+			<li class="level-3"><a href="#切る">切る</a></li>
 			<li class="level-2"><a href="#実行-id">実行 ID</a></li>
 			<li class="level-2"><a href="#sql-のログ">SQL のログ</a></li>
 			<li class="level-2"><a href="#logback-の設定">logback の設定</a></li>
 			<li class="level-2"><a href="#テストで拾う">テストで拾う</a></li>
+			<li class="level-2"><a href="#メトリクス">メトリクス</a></li>
+			<li class="level-3"><a href="#何が勝手に入っているか">何が勝手に入っているか</a></li>
+			<li class="level-3"><a href="#自分で入れる">自分で入れる</a></li>
+			<li class="level-2"><a href="#トレース">トレース</a></li>
+			<li class="level-3"><a href="#サービスをまたぐ">サービスをまたぐ</a></li>
+			<li class="level-3"><a href="#ログと突き合わせる">ログと突き合わせる</a></li>
+			<li class="level-3"><a href="#全部は拾わない">全部は拾わない</a></li>
+			<li class="level-3"><a href="#送り先">送り先</a></li>
+			<li class="level-3"><a href="#自分で出す先を書く">自分で出す先を書く</a></li>
 			<li class="level-2"><a href="#設定キー">設定キー</a></li>
 		</ul>
 	</nav>

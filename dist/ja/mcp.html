@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MCP - jimble</title>
-<meta name="description" content="Model Context Protocol のサーバーを立てる（2026-07-28 / Streamable HTTP）">
+<meta name="description" content="Model Context Protocol のサーバーを立てる（2026-07-28 / Streamable HTTP と stdio）">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -197,7 +197,8 @@
 		<article>
 			<h1 id="mcp">MCP<a class="anchor" href="#mcp">#</a></h1>
 <p>アプリの機能を、AI から呼べる形で公開します。
-jimble が実装しているのは <strong>2026-07-28</strong> 版の Streamable HTTP です。</p>
+jimble が実装しているのは <strong>2026-07-28</strong> 版で、
+トランスポートは <strong>Streamable HTTP</strong> と <strong>stdio</strong> の2つです。</p>
 <h2 id="公開するものを並べる">公開するものを並べる<a class="anchor" href="#公開するものを並べる">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
 
@@ -403,8 +404,81 @@ Data json = response.json();
 prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">new</span>);
 </code></pre>
 <p>リソースは読み取り専用のデータ、プロンプトは定型の指示です。</p>
+<h2 id="標準入出力で動かす">標準入出力で動かす<a class="anchor" href="#標準入出力で動かす">#</a></h2>
+<p>HTTP を立てずに、<strong>クライアントにプロセスを起こしてもらう</strong>形でも動きます。
+手元で使う道具や、ポートを開けたくないところで使います。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogStdio {
+
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) <span class="h-k">throws</span> Exception {
+
+		Bootstrap.load();
+
+		App app = <span class="h-k">new</span> App();
+
+		McpStdio.run(app, app.mcp().registry());
+
+	}
+
+}
+</code></pre>
+<pre class="code"><code class="lang-json">{
+	<span class="h-s">"mcpServers"</span>: {
+		<span class="h-s">"blog"</span>: {
+			<span class="h-s">"command"</span>: <span class="h-s">"java"</span>,
+			<span class="h-s">"args"</span>: [<span class="h-s">"-cp"</span>, <span class="h-s">"app.jar"</span>, <span class="h-s">"blog.BlogStdio"</span>]
+		}
+	}
+}
+</code></pre>
+<p><strong>ポートは開きませんが、ルート表は組みます。</strong>
+<code>RouteTool</code>（すでにある API をそのまま出すもの）も <code>before</code> の認証も、
+HTTP のときとまったく同じに動きます。</p>
+<p>アプリを渡さない <code>McpStdio.run(registry)</code> もあります。
+こちらは <code>RouteTool</code> が使えません（ルート表が無いので、呼ばれたらその旨を返します）。</p>
+<h3 id="標準出力に何も書かないでください">標準出力に何も書かないでください<a class="anchor" href="#標準出力に何も書かないでください">#</a></h3>
+<p>仕様は「<strong>サーバーは標準出力に MCP のメッセージ以外を書いてはならない</strong>」と決めています。
+ログが1行混ざるだけで、クライアントは「壊れた JSON が来た」として接続を切ります。</p>
+<p><code>McpStdio.run</code> は、これを<strong>気をつけて避けるのではなく、書けなくします</strong>。
+本物の標準出力は <code>McpStdio</code> だけが持ち、<code>System.out</code> は標準エラーに差し替えます。
+アプリが <code>System.out.println</code> を書いても、logback がそこへ出しても、
+全部が標準エラーへ流れます（クライアントは標準エラーを無視してよいと決まっています）。</p>
+<p><strong>終わり方は標準入力が閉じたときです。</strong> 開いている購読をきれいに閉じてから、
+<code>Shutdown</code> に預けたものを止めます。</p>
+<h2 id="変わったことを知らせる">変わったことを知らせる<a class="anchor" href="#変わったことを知らせる">#</a></h2>
+<p>クライアントは <code>subscriptions/listen</code> で購読を開きます。
+これは<strong>終わらない要求</strong>で、HTTP なら SSE、stdio なら同じ標準出力に流れます。</p>
+<p>アプリ側は、変わったときに1行呼ぶだけです。</p>
+<pre class="code"><code class="lang-java">postDao.save(post);
+
+McpNotify.resourceUpdated(<span class="h-s">"blog://posts/"</span> + post.getId());
+</code></pre>
+<ul>
+<li><strong>頼まれたものにしか届きません。</strong> 購読していない URI は飛ばします</li>
+<li>誰も購読していなければ何も起きません</li>
+<li>開いた直後に <code>notifications/subscriptions/acknowledged</code> が返ります。
+ここに<strong>受け付けた種類だけ</strong>が入るので、クライアントは頼んだものと突き合わせられます</li>
+</ul>
+<p><strong>流せるのはリソースの2つだけです</strong>（<code>resources/updated</code> と <code>resources/list_changed</code>）。
+ツールとプロンプトは起動時に明示登録するので、動いているあいだに増えも減りもしません。
+「対応している」と答えて一生届かないほうが困るので、
+<code>toolsListChanged</code> を頼まれても <code>acknowledged</code> には入れません。</p>
+<h2 id="一覧が多いとき">一覧が多いとき<a class="anchor" href="#一覧が多いとき">#</a></h2>
+<p><code>tools/list</code> などは、多いとページに分かれます。</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"jsonrpc"</span>:<span class="h-s">"2.0"</span>,<span class="h-s">"id"</span>:<span class="h-n">1</span>,<span class="h-s">"method"</span>:<span class="h-s">"resources/list"</span>,<span class="h-s">"params"</span>:{<span class="h-s">"cursor"</span>:<span class="h-s">"..."</span>}}
+</code></pre>
+<ul>
+<li>続きがあるときだけ <code>nextCursor</code> が付きます</li>
+<li><strong>既定は 100 件です。</strong> それ以下しか登録していないアプリの応答は今までと変わりません</li>
+<li>カーソルは<strong>中身を読まないでください</strong>（不透明な文字列です）</li>
+<li><strong>読めないカーソルは断ります</strong>（<code>-32602</code>）。黙って先頭に戻すと、
+クライアントは同じページを永遠に読み続けることになります</li>
+</ul>
+<pre class="code"><code class="lang-conf">mcp {
+	page_size = <span class="h-n">100</span>
+}
+</code></pre>
 <h2 id="口は1本">口は1本<a class="anchor" href="#口は1本">#</a></h2>
-<p>公開されるのは <code>POST /mcp</code> の1本だけです。</p>
+<p>HTTP で公開されるのは <code>POST /mcp</code> の1本だけです。</p>
 <ul>
 <li><strong>GET も DELETE も 405 で断ります。</strong> どちらも 2026-07-28 で仕様から消えました</li>
 <li><strong>セッションはありません。</strong> <code>Mcp-Session-Id</code> は使いません</li>
@@ -416,6 +490,8 @@ prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">
 	name            = <span class="h-s">"blog"</span>
 	version         = <span class="h-s">"1.0.0"</span>
 	allowed_origins = [<span class="h-s">"https://example.com"</span>]
+	page_size       = <span class="h-n">100</span>
+	instructions    = <span class="h-s">"記事の検索と投稿ができます"</span>
 }
 </code></pre>
 <h2 id="origin-を必ず設定してください">Origin を必ず設定してください<a class="anchor" href="#origin-を必ず設定してください">#</a></h2>
@@ -432,6 +508,9 @@ prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">
 	}
 }
 </code></pre>
+<p>クライアントは最初に <code>server/discover</code> を投げて、
+話せる版と、そのサーバーが何を持っているかを見ます。
+<strong>この呼び出しにだけは版のヘッダが要りません</strong>（版を知るための呼び出しなので）。</p>
 
 		</article>
 
@@ -457,6 +536,10 @@ prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">
 			<li class="level-3"><a href="#気をつけること">気をつけること</a></li>
 			<li class="level-3"><a href="#ツールを通さずに呼ぶ">ツールを通さずに呼ぶ</a></li>
 			<li class="level-2"><a href="#リソースとプロンプト">リソースとプロンプト</a></li>
+			<li class="level-2"><a href="#標準入出力で動かす">標準入出力で動かす</a></li>
+			<li class="level-3"><a href="#標準出力に何も書かないでください">標準出力に何も書かないでください</a></li>
+			<li class="level-2"><a href="#変わったことを知らせる">変わったことを知らせる</a></li>
+			<li class="level-2"><a href="#一覧が多いとき">一覧が多いとき</a></li>
 			<li class="level-2"><a href="#口は1本">口は1本</a></li>
 			<li class="level-2"><a href="#origin-を必ず設定してください">Origin を必ず設定してください</a></li>
 			<li class="level-2"><a href="#つなぐ">つなぐ</a></li>

@@ -257,6 +257,113 @@ same table will <strong>set each other's rows to <code>nothing</code>.</strong><
 </code></pre>
 <p>Press cancel on the admin screen and <code>isCancelOrder()</code> turns <code>true</code>.
 <strong>In anything long-running, always check it.</strong> A batch that never looks cannot be stopped.</p>
+<h2 id="reading-a-batch-of-rows-at-a-time">Reading a batch of rows at a time<a class="anchor" href="#reading-a-batch-of-rows-at-a-time">#</a></h2>
+<p>When you don't want to hold a million rows in one transaction, extend <code>AbstractChunkBatch</code>.
+It repeats <strong>read → process → write in bulk</strong>, committing every <code>chunkSize()</code> items.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> RequestArchiveBatch <span class="h-k">extends</span> AbstractChunkBatch&lt;Data&gt; {
+
+	<span class="h-a">@Override</span> <span class="h-k">public</span> String batchName ()   { <span class="h-k">return</span> <span class="h-s">"Archive old requests"</span>; }
+	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
+	<span class="h-a">@Override</span> <span class="h-k">public</span> String cron ()        { <span class="h-k">return</span> <span class="h-s">"0 4 * * *"</span>; }
+	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">int</span> chunkSize ()      { <span class="h-k">return</span> <span class="h-n">500</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> Iterator&lt;Data&gt; reader (BatchArgs args, DB db) {
+
+		<span class="h-c">// read a little at a time, in key order</span>
+		<span class="h-k">return</span> KeyPagingReader.of(<span class="h-s">"id"</span>, <span class="h-n">0L</span>, chunkSize(), (lastKey, limit) -&gt; db.selectList(<span class="h-s">"""
+				SELECT id, amount FROM request
+				WHERE status = ? AND id &gt; ?
+				ORDER BY id ASC
+				LIMIT ?
+			"""</span>, <span class="h-s">"approved"</span>, lastKey, limit));
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> Data process (Data item) {
+
+		<span class="h-c">// return null to leave an item out (the default just passes it through)</span>
+		<span class="h-k">return</span> item.getLong(<span class="h-s">"amount"</span>) == <span class="h-n">0</span> ? <span class="h-k">null</span> : item;
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> <span class="h-k">void</span> write (List&lt;Data&gt; items, DB db) {
+
+		<span class="h-k">for</span> (Data item : items) {
+			db.update(<span class="h-s">"UPDATE request SET status = 'archived' WHERE id = ?"</span>, item.getLong(<span class="h-s">"id"</span>));
+		}
+
+	}
+
+}
+</code></pre>
+<p>You register it, and see it in the admin screen, exactly like any other batch.</p>
+<ul>
+<li><strong>One call to <code>write()</code> is one transaction.</strong> It commits when the method returns</li>
+<li><strong>Cancellation is checked at each chunk boundary.</strong> You don't call <code>isCancelOrder()</code> yourself</li>
+<li><code>execute()</code> is <code>final</code>. The only places you write code are <code>reader()</code>, <code>process()</code> and <code>write()</code></li>
+</ul>
+<h3 id="when-it-fails-partway">When it fails partway<a class="anchor" href="#when-it-fails-partway">#</a></h3>
+<p><strong>That chunk is rolled back and the whole batch fails.</strong> It never quietly moves on.</p>
+<p>How far it got is recorded in <code>batch_history.execute_info</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chunk_read</code></td>
+<td>rows read</td>
+</tr>
+<tr>
+<td><code>chunk_filtered</code></td>
+<td>rows left out because <code>process()</code> returned <code>null</code></td>
+</tr>
+<tr>
+<td><code>chunk_written</code></td>
+<td>rows committed</td>
+</tr>
+<tr>
+<td><code>chunk_committed</code></td>
+<td>chunks committed</td>
+</tr>
+<tr>
+<td><code>chunk_failed_at</code></td>
+<td>which chunk it failed on</td>
+</tr>
+<tr>
+<td><code>chunk_canceled</code></td>
+<td>whether it stopped on a cancel</td>
+</tr>
+</tbody>
+</table>
+<p><code>chunk_written</code> is rewritten <strong>every <code>batch.progress_seconds</code> (5 by default)</strong>,
+so the admin screen shows how far along a running batch is.</p>
+<h3 id="the-reading-db-and-the-writing-db-are-different">The reading DB and the writing DB are different<a class="anchor" href="#the-reading-db-and-the-writing-db-are-different">#</a></h3>
+<p>The <code>db</code> handed to <code>reader()</code> and the <code>db</code> handed to <code>write()</code> are <strong>different instances</strong>.
+<strong>Use the one you are given.</strong></p>
+<p>Closing a <code>DBTransaction</code> returns the connection to the pool, so if you read through the same
+<code>DB</code>, <strong>your open read dies the moment the first chunk commits.</strong></p>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p><strong>Prefer <code>KeyPagingReader</code> over a cursor (<code>selectListWithFetcher</code>).</strong>
+A cursor holds one connection for as long as it stays open.
+On a batch that runs for hours, that matters.
+Paging holds no connection between pages.</p>
+</div>
+<p>The key you give <code>KeyPagingReader</code> must be <strong>unique, in step with the <code>ORDER BY</code>, and not
+rewritten while the batch runs.</strong> If a full page comes back without the key advancing, it throws —
+better that than spinning forever in silence.</p>
+<blockquote>
+<p>[!WARNING]
+<strong><code>db.insert()</code> and friends do not throw when they fail.</strong>
+<code>db.isError()</code> only holds the result of <strong>the statement just before it</strong>.
+If <code>write()</code> runs several statements, check after each one or throw yourself.</p>
+</blockquote>
 <h2 id="double-starts">Double starts<a class="anchor" href="#double-starts">#</a></h2>
 <p>How many copies of the same batch may run at once is set by <code>allowConcurrentExecutionCount()</code>.
 The default is one. If the previous execution has not finished, the next one is skipped.</p>
@@ -313,6 +420,9 @@ With nothing there, anyone can start your batches.</p>
 			<li class="level-2"><a href="#writing-one">Writing one</a></li>
 			<li class="level-2"><a href="#registering-it">Registering it</a></li>
 			<li class="level-2"><a href="#making-it-cancellable">Making it cancellable</a></li>
+			<li class="level-2"><a href="#reading-a-batch-of-rows-at-a-time">Reading a batch of rows at a time</a></li>
+			<li class="level-3"><a href="#when-it-fails-partway">When it fails partway</a></li>
+			<li class="level-3"><a href="#the-reading-db-and-the-writing-db-are-different">The reading DB and the writing DB are different</a></li>
 			<li class="level-2"><a href="#double-starts">Double starts</a></li>
 			<li class="level-2"><a href="#running-one-on-its-own">Running one on its own</a></li>
 			<li class="level-2"><a href="#the-admin-screen">The admin screen</a></li>

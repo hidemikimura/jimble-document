@@ -306,7 +306,11 @@ PostGIS は経度・緯度です。jimble は吸収しないので、両方で�
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) {
 
 	Migration.install();                                <span class="h-c">// 起動時マイグレーション（要るなら。DBUtil.load より前）</span>
-	DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>);       <span class="h-c">// 設定を読んで接続する</span>
+
+	<span class="h-c">// 繋がらなければ false。ここで止めます</span>
+	<span class="h-k">if</span> (!DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>)) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"DB を読み込めませんでした（このすぐ上のログに原因が出ています）"</span>);
+	}
 
 	JimbleServer.start(<span class="h-k">new</span> App());
 
@@ -314,6 +318,13 @@ PostGIS は経度・緯度です。jimble は吸収しないので、両方で�
 </code></pre>
 <p><code>DBUtil.load</code> の2つ目は<strong>クラスパスの起点</strong>です（マイグレーション SQL をここから探します）。
 自分のアプリのクラスを渡してください。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>戻り値を捨てないでください。</strong><code>DBUtil.load</code> は繋がらなくても例外を投げません
+（原因をログに出して <code>false</code> を返します）。捨てると<strong>サーバーは起動してしまい</strong>、
+最初にリクエストが来たところで落ちます。
+<code>DBUtil.getMainDB()</code> が「DB が読み込めていません」と言って落ちるので迷子にはなりませんが、
+<strong>起動した時点で気づけるほうが早い</strong>です。</p>
+</div>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong>入口が複数あるなら、この並びを1か所にまとめてください。</strong>
 Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだけ古くなります</b>。
@@ -328,8 +339,14 @@ Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだ�
 }
 </code></pre>
 <p><code>DBUtil.getDB(&quot;log_db&quot;)</code> で別のデータソースが取れます。
-<code>main = true</code> のものが <code>DBUtil.getDB()</code> の既定です。</p>
-<p><strong>同じサーバーの別スキーマ</strong>を引きたいだけなら、<code>subs</code> を使います。</p>
+<code>main = true</code> のものは <code>DBUtil.getMainDB()</code> です（引数なしの <code>getDB()</code> はありません）。</p>
+<p>トップレベルに並べたものは、<strong>1本ごとに独立した扱い</strong>を受けます。</p>
+<ul>
+<li><code>conf/migration/&lt;データソース名&gt;/</code> のマイグレーションが当たります</li>
+<li>codegen が <code>db/&lt;データソース名&gt;/</code> を作ります</li>
+<li><code>migration</code> / <code>db_lock</code> / <code>db_value</code> / <code>db_cache</code> もそちらに作られます</li>
+</ul>
+<p><strong>設定を書き写さずにもう1本ぶら下げたい</strong>だけなら、<code>subs</code> を使います。</p>
 <pre class="code"><code class="lang-conf">db {
 	main_db {
 		main = <span class="h-k">true</span>
@@ -340,8 +357,24 @@ Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだ�
 	}
 }
 </code></pre>
-<p>こちらは接続を共有します。<code>db.newSubDB(&quot;archive_db&quot;)</code> で取ります。
-トランザクションも共有されます。</p>
+<p><code>db.newSubDB(&quot;archive_db&quot;)</code> で取ります。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>接続もトランザクションも共有しません。</strong><code>subs</code> は親とは別のプールです。
+同じデータベースを指していても別の接続なので、親のトランザクションの中で
+<code>newSubDB</code> に書いても<strong>一緒には戻りません</strong>。片方だけ残ります。
+親から設定を引き継ぐ、それ以上のことはしていないと思ってください。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>subs</code> にはマイグレーションも codegen も当たりません。</strong>
+データソースごとの処理は、トップレベルの <code>db { }</code> しか回らないためです。
+だから <code>subs</code> に置けるのは「アプリが自分で作る作業用テーブル」までです。
+表と型が要るもの（別 DB の監査ログなど）は、<strong>トップレベルにもう1本</strong>書いてください。
+また <code>subs</code> が別のデータベースを指すなら、<strong>そのデータベースが先に在ること</strong>。
+<code>subs</code> は親のデータソースを作る途中で繋ぎにいくので、あとに書いた
+トップレベルの <code>create_database_sql</code> は間に合いません
+（<code>failed create subs datasource</code> で起動が止まります）。</p>
+</div>
+<p>2本立てと <code>subs</code> を両方書いたものが <code>examples/approval-data</code> にあります。</p>
 <h2 id="テーブル定義を生成する">テーブル定義を生成する<a class="anchor" href="#テーブル定義を生成する">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
 </code></pre>

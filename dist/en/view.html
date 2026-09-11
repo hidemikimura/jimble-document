@@ -228,6 +228,84 @@ Rather than interpreting strings at runtime, <strong>it compiles them to Java.</
 <li>Because of <code>@param</code> and <code>@import</code>, your types hold inside the template too</li>
 <li>You can look values up by <code>Column</code>, as in <code>Post.title</code>, so you never scatter string keys through your templates</li>
 </ul>
+<h2 id="sharing-the-frame">Sharing the frame<a class="anchor" href="#sharing-the-frame">#</a></h2>
+<p>Writing <code>&lt;html&gt;</code> on every page means <strong>changing the header means changing every page.</strong>
+Keep the frame in one layout, and let pages write only their own content.</p>
+<p><code>src/main/jte/layout/page.jte</code>:</p>
+<pre class="code"><code class="lang-jte"><span class="h-a">@import</span> gg.jte.Content
+<span class="h-a">@import</span> io.jimble.util.data.Data
+
+<span class="h-a">@param</span> Data data
+<span class="h-a">@param</span> Content content
+
+&lt;!doctype html&gt;
+&lt;html lang=<span class="h-s">"en"</span>&gt;
+&lt;head&gt;
+	&lt;title&gt;${data.getString(<span class="h-s">"title"</span>)}&lt;/title&gt;
+	&lt;link rel=<span class="h-s">"stylesheet"</span> href=<span class="h-s">"/assets/app.css"</span>&gt;
+&lt;/head&gt;
+&lt;body&gt;
+	<span class="h-a">@template</span>.tag.nav(current = data.getString(<span class="h-s">"nav"</span>))
+
+	&lt;main&gt;${content}&lt;/main&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p><code>src/main/jte/pages/home.jte</code>:</p>
+<pre class="code"><code class="lang-jte"><span class="h-a">@import</span> io.jimble.util.data.Data
+
+<span class="h-a">@param</span> Data data
+
+<span class="h-a">@template</span>.layout.page(data = data, content = @`
+	&lt;p&gt;The content goes here.&lt;/p&gt;
+`)
+</code></pre>
+<p><code>Content</code> is &quot;something to render later&quot;. Pass a block wrapped in <code>@</code> and backticks,
+and it lands where the layout writes <code>${content}</code>.</p>
+<p><strong>The call name mirrors the directory layout.</strong>
+<code>src/main/jte/layout/page.jte</code> is <code>@template.layout.page(...)</code>,
+<code>src/main/jte/tag/nav.jte</code> is <code>@template.tag.nav(...)</code>.</p>
+<h2 id="reusable-parts">Reusable parts<a class="anchor" href="#reusable-parts">#</a></h2>
+<p>The same mechanism gives you reusable parts.</p>
+<p><code>src/main/jte/tag/card.jte</code>:</p>
+<pre class="code"><code class="lang-jte"><span class="h-a">@import</span> gg.jte.Content
+
+<span class="h-a">@param</span> String title
+<span class="h-a">@param</span> Content body
+<span class="h-a">@param</span> String note = <span class="h-s">""</span>
+
+&lt;section <span class="h-k">class</span>=<span class="h-s">"card"</span>&gt;
+	&lt;h2&gt;${title}&lt;/h2&gt;
+	${body}
+	<span class="h-a">@if</span>(!note.isEmpty())
+		&lt;p <span class="h-k">class</span>=<span class="h-s">"note"</span>&gt;${note}&lt;/p&gt;
+	<span class="h-a">@endif</span>
+&lt;/section&gt;
+</code></pre>
+<ul>
+<li><strong><code>@param</code> can carry a default</strong> (<code>= &quot;&quot;</code>). Callers may then omit it</li>
+<li><strong>A part travels better when it takes what it needs rather than a whole <code>Data</code>.</strong>
+Hand it <code>Data</code> and the caller has to read the template to learn which keys matter</li>
+</ul>
+<p><code>examples/approval-pages</code> has all of this running.</p>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p><strong>Share the layout with your error pages too.</strong>
+Otherwise your 404 is the one page that looks like a different site.</p>
+</div>
+<h2 id="comments">Comments<a class="anchor" href="#comments">#</a></h2>
+<p><strong>A jte comment is <code>&lt;%--</code> … <code>--%&gt;</code>.</strong></p>
+<pre class="code"><code class="lang-jte">&lt;%-- <span class="h-k">this</span> does not reach the output --%&gt;
+</code></pre>
+<blockquote>
+<p>[!WARNING]
+<strong><code>@*</code> … <code>*@</code> is not a comment.</strong>
+It is written out verbatim, and <strong>any <code>@template.</code> inside it is executed</strong>.
+Put a layout's own usage example inside one, inside that layout, and you get
+<strong>infinite recursion and a <code>StackOverflowError</code></strong> (we walked into this one).</p>
+<p><strong>Comments do not nest.</strong> Write the closing marker inside your prose and the comment ends there.</p>
+<p><strong>HTML comments (<code>&lt;!-- --&gt;</code>) are also stripped by default.</strong>
+Markers you want the browser or an outside tool to see belong in a static file, not a template.</p>
+</blockquote>
 <h2 id="building">Building<a class="anchor" href="#building">#</a></h2>
 <p>Add the <code>io.jimble.jte</code> plugin and <code>src/main/jte</code> is converted to Java
 before <code>compileJava</code>.</p>
@@ -260,6 +338,9 @@ the conversion and the build run, and the next request serves it.</p>
 		<p class="section">On this page</p>
 		<ul>
 			<li class="level-2"><a href="#the-template-side">The template side</a></li>
+			<li class="level-2"><a href="#sharing-the-frame">Sharing the frame</a></li>
+			<li class="level-2"><a href="#reusable-parts">Reusable parts</a></li>
+			<li class="level-2"><a href="#comments">Comments</a></li>
 			<li class="level-2"><a href="#building">Building</a></li>
 			<li class="level-2"><a href="#hot-reload">Hot reload</a></li>
 		</ul>

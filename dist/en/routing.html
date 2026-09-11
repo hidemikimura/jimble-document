@@ -221,7 +221,34 @@ plus <code>any</code>, which registers for all of them. All lowercase.</p>
 <li><code>*</code> is a wildcard. <code>context.route().variables().wildcard()</code> gives you everything that is left</li>
 </ul>
 <p>When several routes match the same path, <strong>the more specific one wins</strong>
-(<code>/users/me</code> comes before <code>/users/{id}</code>).</p>
+(<code>/users/me</code> comes before <code>/users/{id}</code>).
+The order is <strong>fixed path &gt; path parameter &gt; wildcard</strong>, and when a level has several
+path parameters they are tried <strong>in registration order.</strong></p>
+<p><strong>Registering the same path and method twice throws right there</strong> — better than finding out
+after it is running.</p>
+<h3 id="routes-that-are-never-called">Routes that are never called<a class="anchor" href="#routes-that-are-never-called">#</a></h3>
+<p>Even without a duplicate, a route can be one that <strong>no request ever reaches.</strong></p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/users/{id}"</span>, ...);
+get(<span class="h-s">"/users/{userId}"</span>, ...);   <span class="h-c">// ← never called</span>
+</code></pre>
+<p>Only the name differs, so it registers fine, but <code>/users/5</code> always hits the first one.
+<strong>We find it at startup and warn.</strong></p>
+<pre class="code"><code class="lang-text">WARN  ルート: GET     /users/{userId} は一生呼ばれません（GET     /users/{id} が先に当たります）
+</code></pre>
+<p>A warning gets lost among the dozens of startup log lines, so <strong>make it throw in CI.</strong></p>
+<pre class="code"><code class="lang-conf">server {
+	strict_routes = <span class="h-k">true</span>
+}
+</code></pre>
+<p><code>/users/me</code> winning over <code>/users/{id}</code> is correct behaviour, so it is not reported —
+<code>{id}</code> still serves everything that is not <code>me</code>. What this looks for is routes that get
+<strong>no request at all.</strong></p>
+<h3 id="when-only-the-method-is-wrong">When only the method is wrong<a class="anchor" href="#when-only-the-method-is-wrong">#</a></h3>
+<p>If the path matches and only the method differs, you get <strong>405</strong>, not 404, with an <code>Allow</code> header.</p>
+<pre class="code"><code class="lang-text">$ curl -i -X POST http://localhost:9000/hello
+HTTP/1.1 405 Method Not Allowed
+Allow: GET
+</code></pre>
 <h2 id="grouping">Grouping<a class="anchor" href="#grouping">#</a></h2>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
 
@@ -374,6 +401,8 @@ With <code>RouteTool</code>, one route becomes one tool.</p>
 		<ul>
 			<li class="level-2"><a href="#where-routes-are-defined">Where routes are defined</a></li>
 			<li class="level-2"><a href="#path-parameters">Path parameters</a></li>
+			<li class="level-3"><a href="#routes-that-are-never-called">Routes that are never called</a></li>
+			<li class="level-3"><a href="#when-only-the-method-is-wrong">When only the method is wrong</a></li>
 			<li class="level-2"><a href="#grouping">Grouping</a></li>
 			<li class="level-2"><a href="#filters">Filters</a></li>
 			<li class="level-2"><a href="#how-far-a-filter-reaches">How far a filter reaches</a></li>

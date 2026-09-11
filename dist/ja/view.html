@@ -228,6 +228,84 @@
 <li><code>@param</code> と <code>@import</code> があるので、テンプレートの中でも型が効きます</li>
 <li><code>Post.title</code> のような <code>Column</code> で引けるので、テンプレートに文字列のキーを撒かずに済みます</li>
 </ul>
+<h2 id="枠を共有する">枠を共有する<a class="anchor" href="#枠を共有する">#</a></h2>
+<p>ページごとに <code>&lt;html&gt;</code> から書くと、<strong>ヘッダを直すのに全部を直すことになります。</strong>
+枠は1枚のレイアウトに閉じ込めて、ページは中身だけを書きます。</p>
+<p><code>src/main/jte/layout/page.jte</code>:</p>
+<pre class="code"><code class="lang-jte"><span class="h-a">@import</span> gg.jte.Content
+<span class="h-a">@import</span> io.jimble.util.data.Data
+
+<span class="h-a">@param</span> Data data
+<span class="h-a">@param</span> Content content
+
+&lt;!doctype html&gt;
+&lt;html lang=<span class="h-s">"ja"</span>&gt;
+&lt;head&gt;
+	&lt;title&gt;${data.getString(<span class="h-s">"title"</span>)}&lt;/title&gt;
+	&lt;link rel=<span class="h-s">"stylesheet"</span> href=<span class="h-s">"/assets/app.css"</span>&gt;
+&lt;/head&gt;
+&lt;body&gt;
+	<span class="h-a">@template</span>.tag.nav(current = data.getString(<span class="h-s">"nav"</span>))
+
+	&lt;main&gt;${content}&lt;/main&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p><code>src/main/jte/pages/home.jte</code>:</p>
+<pre class="code"><code class="lang-jte"><span class="h-a">@import</span> io.jimble.util.data.Data
+
+<span class="h-a">@param</span> Data data
+
+<span class="h-a">@template</span>.layout.page(data = data, content = @`
+	&lt;p&gt;ここが中身です。&lt;/p&gt;
+`)
+</code></pre>
+<p><code>Content</code> が「あとで描くもの」です。<code>@</code> とバッククォートで囲んだかたまりを渡すと、
+レイアウトの <code>${content}</code> の位置に入ります。</p>
+<p><strong>呼び出し名はディレクトリ構成そのままです。</strong>
+<code>src/main/jte/layout/page.jte</code> なら <code>@template.layout.page(...)</code>、
+<code>src/main/jte/tag/nav.jte</code> なら <code>@template.tag.nav(...)</code>。</p>
+<h2 id="部品">部品<a class="anchor" href="#部品">#</a></h2>
+<p>同じ仕組みで、使い回す部品も作れます。</p>
+<p><code>src/main/jte/tag/card.jte</code>:</p>
+<pre class="code"><code class="lang-jte"><span class="h-a">@import</span> gg.jte.Content
+
+<span class="h-a">@param</span> String title
+<span class="h-a">@param</span> Content body
+<span class="h-a">@param</span> String note = <span class="h-s">""</span>
+
+&lt;section <span class="h-k">class</span>=<span class="h-s">"card"</span>&gt;
+	&lt;h2&gt;${title}&lt;/h2&gt;
+	${body}
+	<span class="h-a">@if</span>(!note.isEmpty())
+		&lt;p <span class="h-k">class</span>=<span class="h-s">"note"</span>&gt;${note}&lt;/p&gt;
+	<span class="h-a">@endif</span>
+&lt;/section&gt;
+</code></pre>
+<ul>
+<li><strong><code>@param</code> には既定値を書けます</strong>（<code>= &quot;&quot;</code>）。書かなければ呼ぶ側は省略できます</li>
+<li><strong>部品は <code>Data</code> ではなく、必要なものだけを受け取るほうが使い回せます。</strong>
+<code>Data</code> を渡すと、呼ぶ側が「どのキーが要るのか」をテンプレートの中身を読まないと分かりません</li>
+</ul>
+<p>実際に動いているものは <code>examples/approval-pages</code> にあります。</p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><strong>エラー画面もレイアウトを共有してください。</strong>
+共有していないと、404 のときだけ見た目の違うサイトになります。</p>
+</div>
+<h2 id="コメント">コメント<a class="anchor" href="#コメント">#</a></h2>
+<p><strong>jte のコメントは <code>&lt;%--</code> と <code>--%&gt;</code> です。</strong></p>
+<pre class="code"><code class="lang-jte">&lt;%-- ここはコメント。出力に出ません --%&gt;
+</code></pre>
+<blockquote>
+<p>[!WARNING]
+<strong><code>@*</code> と <code>*@</code> で囲む書き方はコメントになりません。</strong>
+そのまま出力され、しかも<strong>中に書いた <code>@template.</code> は実行されます</strong>。
+レイアウトの中に、そのレイアウト自身の呼び出し例をコメントのつもりで書くと、
+<strong>無限再帰して <code>StackOverflowError</code> になります</strong>（実際に踏みました）。</p>
+<p>**コメントは入れ子にできません。**閉じの記号を説明文の中に書くと、そこで終わります。</p>
+<p><strong>HTML のコメント（<code>&lt;!-- --&gt;</code>）も既定では出力から消えます。</strong>
+ブラウザや外の道具に残したい印は、テンプレートではなく静的ファイル側に置いてください。</p>
+</blockquote>
 <h2 id="ビルド">ビルド<a class="anchor" href="#ビルド">#</a></h2>
 <p><code>io.jimble.jte</code> プラグインを入れると、<code>compileJava</code> の前に
 <code>src/main/jte</code> を Java に変換します。</p>
@@ -260,6 +338,9 @@
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#テンプレート側">テンプレート側</a></li>
+			<li class="level-2"><a href="#枠を共有する">枠を共有する</a></li>
+			<li class="level-2"><a href="#部品">部品</a></li>
+			<li class="level-2"><a href="#コメント">コメント</a></li>
 			<li class="level-2"><a href="#ビルド">ビルド</a></li>
 			<li class="level-2"><a href="#ホットリロード">ホットリロード</a></li>
 		</ul>

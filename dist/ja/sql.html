@@ -342,6 +342,28 @@ Dsl.groupConcat(Tag.name, <span class="h-s">"/"</span>).as(<span class="h-s">"ta
 </code></pre>
 <p>単位（<code>DateUnit</code>）と型（<code>CastType</code>）は enum です。<strong>文字列では渡せません。</strong>
 SQL にそのまま入るところなので、外から来た文字列を通せないようにしてあります。</p>
+<h2 id="まとめた値で絞るhaving">まとめた値で絞る（<code>having</code>）<a class="anchor" href="#まとめた値で絞るhaving">#</a></h2>
+<p>**集計した値は、そのまま条件にできます。**列と同じ書き方です。</p>
+<pre class="code"><code class="lang-java">SQL.select(
+        Department.id
+        , Dsl.sum(Request.amount).as(<span class="h-s">"total"</span>))
+    .from(Request.instance())
+    .groupBy(Department.id)
+    <span class="h-c">// 合計が 50 万を超える部署だけ</span>
+    .having(Dsl.sum(Request.amount).ge(<span class="h-n">500</span>_000L));
+</code></pre>
+<p><code>CASE</code> の条件にも置けます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">new</span> SelectQuery().dsl(Dsl.caseWhen()
+        .<span class="h-k">when</span>(Dsl.sum(Request.amount).ge(<span class="h-n">500</span>_000L)).then(<span class="h-s">"大"</span>)
+        .elseCase(<span class="h-s">"小"</span>)).as(<span class="h-s">"size"</span>)
+</code></pre>
+<p>書けるのは<strong>比べるもの</strong>だけです
+（<code>eq</code> / <code>not</code> / <code>gt</code> / <code>lt</code> / <code>ge</code> / <code>le</code> / <code>between</code> / <code>is_null</code> / <code>is_not_null</code>）。
+<code>like</code> や <code>contains</code> は足していません。集計に対しては、書けても意味がないためです。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>where</code> には書けません。**SQL の決まりで、<code>WHERE</code> は集計より前に評価されます。
+まとめたあとの値で絞るのは <code>having</code> の仕事です。</p>
+</div>
 <h2 id="ウィンドウ関数">ウィンドウ関数<a class="anchor" href="#ウィンドウ関数">#</a></h2>
 <p><strong>行をまとめずに、まとめた結果を各行に付けます。</strong><code>GROUP BY</code> と違って行が減りません。</p>
 <pre class="code"><code class="lang-java">SQL.select(
@@ -466,10 +488,20 @@ where(Site.id.<span class="h-k">in</span>(ids));
 SQL.select(Dsl.dateFormat(Post.created_at, <span class="h-s">"%Y-%m-%d"</span>)).from(Post.instance());
 </code></pre>
 <h2 id="まとめて流す">まとめて流す<a class="anchor" href="#まとめて流す">#</a></h2>
-<pre class="code"><code class="lang-java">db.insertBatch(builderList);
-db.executeBatch(builderList);
+<pre class="code"><code class="lang-java">List&lt;Integer&gt; counts = db.executeBatch(builderList);   <span class="h-c">// 件数のリスト</span>
+List&lt;Long&gt;    ids    = db.insertBatch(builderList);    <span class="h-c">// 採番値のリスト</span>
 </code></pre>
-<p>戻り値は件数のリストです。<code>DB.isBatchSuccess(list)</code> で全部通ったか見られます。</p>
+<p><strong>2つで戻り値が違います。</strong><code>executeBatch</code> は件数（<code>List&lt;Integer&gt;</code>）、
+<code>insertBatch</code> は採番値（<code>List&lt;Long&gt;</code>）です。
+件数のほうは <code>DB.isBatchSuccess(list)</code> で全部通ったか見られます。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>積んだビルダーの SQL は、全部同じでなければなりません。</strong>
+1本の文にパラメータだけを積み替えて流すためです。
+<code>value()</code> を積む順が途中で変わると SQL も変わるので、
+<strong>ループの中で順を揃えてください</strong>。
+揃っていなければ <code>DB_998</code> を立てて <code>null</code> が返ります
+（直すまでは、例外も警告も無しに<strong>値が横にずれて入っていました</strong>）。</p>
+</div>
 <h2 id="大きい結果">大きい結果<a class="anchor" href="#大きい結果">#</a></h2>
 <p>全部をリストに載せたくないときは、1行ずつ受け取ります。</p>
 <pre class="code"><code class="lang-java">db.selectListWithFetcher(row -&gt; {
@@ -498,6 +530,7 @@ db.executeBatch(builderList);
 			<li class="level-2"><a href="#入れる直す消す">入れる・直す・消す</a></li>
 			<li class="level-2"><a href="#関数を使う">関数を使う</a></li>
 			<li class="level-3"><a href="#一覧">一覧</a></li>
+			<li class="level-2"><a href="#まとめた値で絞るhaving">まとめた値で絞る（having）</a></li>
 			<li class="level-2"><a href="#ウィンドウ関数">ウィンドウ関数</a></li>
 			<li class="level-2"><a href="#in-に空の一覧は渡せません">in に空の一覧は渡せません</a></li>
 			<li class="level-2"><a href="#製品の違いで気をつけること">製品の違いで気をつけること</a></li>

@@ -256,6 +256,112 @@ BatchRegistry.sync(DBUtil.getMainDB());
 </code></pre>
 <p>管理画面から中断を押すと <code>isCancelOrder()</code> が <code>true</code> になります。
 <strong>長く回る処理では必ず見てください。</strong> 見ていないバッチは止められません。</p>
+<h2 id="一定件数ずつ読んでまとめて書く">一定件数ずつ読んでまとめて書く<a class="anchor" href="#一定件数ずつ読んでまとめて書く">#</a></h2>
+<p>100万件を1つのトランザクションで抱えたくないときは <code>AbstractChunkBatch</code> を継承します。
+<strong>読む → 加工する → まとめて書く</strong>を繰り返し、<code>chunkSize()</code> 件ごとに確定します。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> RequestArchiveBatch <span class="h-k">extends</span> AbstractChunkBatch&lt;Data&gt; {
+
+	<span class="h-a">@Override</span> <span class="h-k">public</span> String batchName ()   { <span class="h-k">return</span> <span class="h-s">"古い申請の書庫入れ"</span>; }
+	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
+	<span class="h-a">@Override</span> <span class="h-k">public</span> String cron ()        { <span class="h-k">return</span> <span class="h-s">"0 4 * * *"</span>; }
+	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">int</span> chunkSize ()      { <span class="h-k">return</span> <span class="h-n">500</span>; }
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> Iterator&lt;Data&gt; reader (BatchArgs args, DB db) {
+
+		<span class="h-c">// キー順に少しずつ読む</span>
+		<span class="h-k">return</span> KeyPagingReader.of(<span class="h-s">"id"</span>, <span class="h-n">0L</span>, chunkSize(), (lastKey, limit) -&gt; db.selectList(<span class="h-s">"""
+				SELECT id, amount FROM request
+				WHERE status = ? AND id &gt; ?
+				ORDER BY id ASC
+				LIMIT ?
+			"""</span>, <span class="h-s">"approved"</span>, lastKey, limit));
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> Data process (Data item) {
+
+		<span class="h-c">// 書かないものは null を返す（既定は素通し）</span>
+		<span class="h-k">return</span> item.getLong(<span class="h-s">"amount"</span>) == <span class="h-n">0</span> ? <span class="h-k">null</span> : item;
+
+	}
+
+	<span class="h-a">@Override</span>
+	<span class="h-k">protected</span> <span class="h-k">void</span> write (List&lt;Data&gt; items, DB db) {
+
+		<span class="h-k">for</span> (Data item : items) {
+			db.update(<span class="h-s">"UPDATE request SET status = 'archived' WHERE id = ?"</span>, item.getLong(<span class="h-s">"id"</span>));
+		}
+
+	}
+
+}
+</code></pre>
+<p>登録の仕方も、管理画面での見え方も、ふつうのバッチと同じです。</p>
+<ul>
+<li><strong>1回の <code>write()</code> が1トランザクション</strong>です。抜けた時点で確定します</li>
+<li><strong>中断はかたまりの切れ目で見ます。</strong><code>isCancelOrder()</code> を自分で呼ぶ必要はありません</li>
+<li><code>execute()</code> は <code>final</code> です。手を入れるのは <code>reader()</code> / <code>process()</code> / <code>write()</code> の3つだけです</li>
+</ul>
+<h3 id="途中で落ちたとき">途中で落ちたとき<a class="anchor" href="#途中で落ちたとき">#</a></h3>
+<p>**そのかたまりだけ戻して、バッチ全体を失敗にします。**黙って次へ進むことはしません。</p>
+<p>どこまで確定したかは <code>batch_history.execute_info</code> に残ります。</p>
+<table>
+<thead>
+<tr>
+<th>キー</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chunk_read</code></td>
+<td>読んだ件数</td>
+</tr>
+<tr>
+<td><code>chunk_filtered</code></td>
+<td><code>process()</code> が <code>null</code> を返してよけた件数</td>
+</tr>
+<tr>
+<td><code>chunk_written</code></td>
+<td>確定した件数</td>
+</tr>
+<tr>
+<td><code>chunk_committed</code></td>
+<td>確定したかたまりの数</td>
+</tr>
+<tr>
+<td><code>chunk_failed_at</code></td>
+<td>何かたまり目で落ちたか</td>
+</tr>
+<tr>
+<td><code>chunk_canceled</code></td>
+<td>中断で抜けたか</td>
+</tr>
+</tbody>
+</table>
+<p><code>chunk_written</code> は <strong><code>batch.progress_seconds</code>（既定5秒）ごとに書き換わる</strong>ので、
+走っている最中でも管理画面から「いま何件目か」が見えます。</p>
+<h3 id="読む-db-と書く-db-は別です">読む DB と書く DB は別です<a class="anchor" href="#読む-db-と書く-db-は別です">#</a></h3>
+<p><code>reader()</code> に渡る <code>db</code> と <code>write()</code> に渡る <code>db</code> は<strong>別のインスタンス</strong>です。
+<strong>渡されたものをそのまま使ってください。</strong></p>
+<p><code>DBTransaction</code> を閉じるとコネクションがプールへ返るので、
+同じ <code>DB</code> で読んでいると<strong>最初のかたまりを確定した時点で読みかけが死にます。</strong></p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><strong>カーソル（<code>selectListWithFetcher</code>）ではなく <code>KeyPagingReader</code> を勧めます。</strong>
+カーソルは開いているあいだ、ずっとコネクションを1本押さえます。
+数時間かかるバッチではそれが効いてきます。
+ページングはページとページの間はコネクションを持ちません。</p>
+</div>
+<p><code>KeyPagingReader</code> に渡すキーは、<strong>一意で、<code>ORDER BY</code> と揃っていて、走っているあいだ書き換わらない</strong>列にしてください。
+キーが進まないまま満杯のページが返ってきたときは例外になります（黙って無限に回るより落ちたほうがよいためです）。</p>
+<blockquote>
+<p>[!WARNING]
+<strong><code>db.insert()</code> などは失敗しても例外を投げません。</strong>
+<code>db.isError()</code> に<strong>その直前の1文</strong>の結果が入るだけです。
+<code>write()</code> の中で複数の文を流すなら、1文ごとに見るか、自分で例外を投げてください。</p>
+</blockquote>
 <h2 id="二重起動">二重起動<a class="anchor" href="#二重起動">#</a></h2>
 <p>同じバッチが同時に走る本数は <code>allowConcurrentExecutionCount()</code> で決まります。
 既定は1本です。前の実行がまだ終わっていなければ、次はスキップされます。</p>
@@ -312,6 +418,9 @@ BatchRegistry.sync(DBUtil.getMainDB());
 			<li class="level-2"><a href="#書く">書く</a></li>
 			<li class="level-2"><a href="#登録する">登録する</a></li>
 			<li class="level-2"><a href="#中断できるようにする">中断できるようにする</a></li>
+			<li class="level-2"><a href="#一定件数ずつ読んでまとめて書く">一定件数ずつ読んでまとめて書く</a></li>
+			<li class="level-3"><a href="#途中で落ちたとき">途中で落ちたとき</a></li>
+			<li class="level-3"><a href="#読む-db-と書く-db-は別です">読む DB と書く DB は別です</a></li>
 			<li class="level-2"><a href="#二重起動">二重起動</a></li>
 			<li class="level-2"><a href="#単体で走らせる">単体で走らせる</a></li>
 			<li class="level-2"><a href="#管理画面">管理画面</a></li>

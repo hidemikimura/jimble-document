@@ -221,7 +221,33 @@
 <li><code>*</code> はワイルドカード。<code>context.route().variables().wildcard()</code> で残り全部が取れます</li>
 </ul>
 <p>同じパスに複数当たる場合は、<strong>より具体的なほうが勝ちます</strong>
-（<code>/users/me</code> は <code>/users/{id}</code> より先）。</p>
+（<code>/users/me</code> は <code>/users/{id}</code> より先）。
+順番は <strong>固定パス &gt; パスパラメータ &gt; ワイルドカード</strong>で、
+同じ階層にパスパラメータが複数あるときは<strong>登録した順</strong>に試します。</p>
+<p><strong>同じパス・同じメソッドを2度登録すると、その場で例外になります。</strong>
+起動してから気づくより早いほうがよいからです。</p>
+<h3 id="一生呼ばれないルート">一生呼ばれないルート<a class="anchor" href="#一生呼ばれないルート">#</a></h3>
+<p>重複ではないのに、<strong>どんなリクエストでも他が先に当たる</strong>ことがあります。</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/users/{id}"</span>, ...);
+get(<span class="h-s">"/users/{userId}"</span>, ...);   <span class="h-c">// ← 一生呼ばれない</span>
+</code></pre>
+<p>名前が違うだけなので登録は通りますが、<code>/users/5</code> は必ず1本目に当たります。
+<strong>起動時に見つけて警告します。</strong></p>
+<pre class="code"><code class="lang-text">WARN  ルート: GET     /users/{userId} は一生呼ばれません（GET     /users/{id} が先に当たります）
+</code></pre>
+<p>警告は起動ログの何十行にも紛れるので、<strong>CI では例外にしてください</strong>。</p>
+<pre class="code"><code class="lang-conf">server {
+	strict_routes = <span class="h-k">true</span>
+}
+</code></pre>
+<p>なお <code>/users/me</code> が <code>/users/{id}</code> より先に当たるのは正しい動きなので、警告しません
+（<code>{id}</code> は <code>me</code> 以外のすべてで呼ばれます）。見ているのは<strong>1本も来ないもの</strong>だけです。</p>
+<h3 id="メソッドだけ違うとき">メソッドだけ違うとき<a class="anchor" href="#メソッドだけ違うとき">#</a></h3>
+<p>パスは合っていてメソッドだけ違うときは、404 ではなく <strong>405</strong> が返り、<code>Allow</code> が付きます。</p>
+<pre class="code"><code class="lang-text">$ curl -i -X POST http://localhost:9000/hello
+HTTP/1.1 405 Method Not Allowed
+Allow: GET
+</code></pre>
 <h2 id="まとめる">まとめる<a class="anchor" href="#まとめる">#</a></h2>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
 
@@ -372,6 +398,8 @@ DB 接続もコンテキストごとに持つので、
 		<ul>
 			<li class="level-2"><a href="#定義するところ">定義するところ</a></li>
 			<li class="level-2"><a href="#パスパラメータ">パスパラメータ</a></li>
+			<li class="level-3"><a href="#一生呼ばれないルート">一生呼ばれないルート</a></li>
+			<li class="level-3"><a href="#メソッドだけ違うとき">メソッドだけ違うとき</a></li>
 			<li class="level-2"><a href="#まとめる">まとめる</a></li>
 			<li class="level-2"><a href="#フィルタ">フィルタ</a></li>
 			<li class="level-2"><a href="#フィルタの効く範囲">フィルタの効く範囲</a></li>

@@ -272,20 +272,25 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 	max_header_size      = <span class="h-n">16384</span>
 	idle_timeout_seconds = <span class="h-n">60</span>
 	compression          = <span class="h-k">true</span>
+	access_log           = <span class="h-k">true</span>     <span class="h-c"># 切ると速くなるが、何が起きたか残らない</span>
 	bot_access_log       = <span class="h-k">true</span>
+	strict_routes        = <span class="h-k">false</span>    <span class="h-c"># 一生呼ばれないルートを例外にする（CI では true に）</span>
 
 	shutdown_grace_seconds   = <span class="h-n">0</span>    <span class="h-c"># 止め始めてから新規を断つまで</span>
 	shutdown_timeout_seconds = <span class="h-n">15</span>   <span class="h-c"># 処理中を待つ上限</span>
 }
 
 cookie {
-	secure = <span class="h-k">true</span>            <span class="h-c"># ローカルでは false（下を参照）</span>
-	secret = ${?COOKIE_SECRET}
+	secure           = <span class="h-k">true</span>            <span class="h-c"># ローカルでは false（下を参照）</span>
+	secret           = ${?COOKIE_SECRET}
+	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># 鍵の入れ替え中だけ</span>
 }
 
 session {
-	store       = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
-	cookie_name = <span class="h-s">"sid"</span>
+	store            = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	cookie_name      = <span class="h-s">"sid"</span>
+	secret           = ${?SESSION_SECRET}        <span class="h-c"># store = cookie のとき必須</span>
+	previous_secrets = [${?SESSION_SECRET_OLD}]  <span class="h-c"># 鍵の入れ替え中だけ</span>
 }
 
 upload {

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Logging - jimble</title>
-<meta name="description" content="How to use Log, access logs, execution IDs, configuring logback">
+<meta name="description" content="How to use Log, access logs, execution IDs, metrics, tracing, configuring logback">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -326,6 +326,26 @@ The judgement is a match against a User-Agent list (<code>crawler-user-agents</c
 <p>Crawlers can be a sizeable share of the total. Split them out and
 <strong>you can count human traffic on its own.</strong> Set it to <code>false</code> to keep them together.</p>
 </div>
+<h3 id="turning-it-off">Turning it off<a class="anchor" href="#turning-it-off">#</a></h3>
+<p><code>server.access_log = false</code> stops it writing anything at all.</p>
+<pre class="code"><code class="lang-conf">server {
+	access_log = <span class="h-k">false</span>
+}
+</code></pre>
+<p><strong>This is the largest single piece of a request</strong> (about 40% of what it allocates — around 3,400 bytes).
+Turning it off stops both the work of building the line and the bot judgement
+(matching the User-Agent). Requests per second move by around 10%
+(52,537 → 57,030 on a 10-core Mac at 8 connections).
+<strong>That figure varies by machine, so measure it on yours before turning it off</strong>
+(<code>jimble-load/load.sh</code> measures the two side by side).</p>
+<p><strong>Metrics and tracing stay.</strong> The access log is the only thing that goes.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Leave the default at <code>true</code>.</strong> With it off,
+<strong>you have no way to find out afterwards what happened.</strong>
+Neither the 500s nor who hit which path are kept.
+Turn it off only when something in front of you (a load balancer, nginx)
+already keeps the same thing, <strong>and</strong> you have measured and found it isn't enough.</p>
+</div>
 <h2 id="the-execution-id">The execution ID<a class="anchor" href="#the-execution-id">#</a></h2>
 <p>It is <code>base-36 time-random-sequence</code>, and one is issued per request (and per WebSocket message, and per batch).
 It is carried around in a <code>ScopedValue</code> — <strong>MDC is not used.</strong></p>
@@ -410,8 +430,208 @@ instead of using <code>logback.xml</code>.</p>
 
 	Log.resetSink();
 
+	<span class="h-c">// 設定を触るテストがあるので、必ず戻す（残すと後ろのテストが理由なく落ちる）</span>
+	Conf.reload();
+
 }</code></pre>
 <p><code>Log.sink(...)</code> <strong>replaces the whole thing</strong>. Do not forget <code>Log.resetSink()</code> in <code>@AfterEach</code>.</p>
+<h2 id="metrics">Metrics<a class="anchor" href="#metrics">#</a></h2>
+<p><code>Metrics.snapshot()</code> returns everything it has right now.</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/metrics"</span>, context -&gt; context.response().json(Metrics.snapshot()));
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>jimble does not register a <code>/metrics</code> route for you.</strong> Whether to expose it, and behind what
+authentication, is the application's call — if the framework owned the route you could not close it
+when you needed to (same reasoning as <a href="./server">the health check</a>).
+The one-liner above is <strong>readable by anyone</strong>; put it behind your network or your auth.</p>
+</div>
+<p>The shape:</p>
+<pre class="code"><code class="lang-json">{
+  <span class="h-s">"counter"</span>: { <span class="h-s">"http.request"</span>: <span class="h-n">1234</span>, <span class="h-s">"http.status.2xx"</span>: <span class="h-n">1230</span>, <span class="h-s">"http.status.5xx"</span>: <span class="h-n">4</span> },
+  <span class="h-s">"latency"</span>: {
+    <span class="h-s">"http.GET /posts/{id}"</span>: {
+      <span class="h-s">"count"</span>: <span class="h-n">1200</span>, <span class="h-s">"sum_ms"</span>: <span class="h-n">4321.0</span>, <span class="h-s">"max_ms"</span>: <span class="h-n">812.3</span>,
+      <span class="h-s">"p50_ms"</span>: <span class="h-n">10</span>, <span class="h-s">"p95_ms"</span>: <span class="h-n">100</span>, <span class="h-s">"p99_ms"</span>: <span class="h-n">500</span>,
+      <span class="h-s">"bucket"</span>: { <span class="h-s">"1"</span>: <span class="h-n">300</span>, <span class="h-s">"5"</span>: <span class="h-n">700</span>, <span class="h-s">"10"</span>: <span class="h-n">150</span>, <span class="h-s">"50"</span>: <span class="h-n">40</span>, <span class="h-s">"100"</span>: <span class="h-n">8</span>, <span class="h-s">"500"</span>: <span class="h-n">1</span>, <span class="h-s">"1000"</span>: <span class="h-n">1</span>, <span class="h-s">"5000"</span>: <span class="h-n">0</span>, <span class="h-s">"over"</span>: <span class="h-n">0</span> }
+    }
+  },
+  <span class="h-s">"gauge"</span>: { <span class="h-s">"db.pool.main.active"</span>: <span class="h-n">3</span>, <span class="h-s">"db.pool.main.idle"</span>: <span class="h-n">5</span> }
+}
+</code></pre>
+<h3 id="what-you-get-without-asking">What you get without asking<a class="anchor" href="#what-you-get-without-asking">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http.request</code></td>
+<td>Request count</td>
+</tr>
+<tr>
+<td><code>http.status.2xx</code> … <code>5xx</code></td>
+<td>Count per status class</td>
+</tr>
+<tr>
+<td><code>http.GET /posts/{id}</code></td>
+<td>Latency distribution per route</td>
+</tr>
+<tr>
+<td><code>db.pool.&lt;name&gt;.{active,idle,total,waiting}</code></td>
+<td>Connection pool usage</td>
+</tr>
+<tr>
+<td><code>mq.&lt;queue&gt;.received</code> / <code>.completed</code> / <code>.error</code> …</td>
+<td>MQ counts, by how the message ended</td>
+</tr>
+<tr>
+<td><code>mq.&lt;queue&gt;</code></td>
+<td>MQ latency distribution</td>
+</tr>
+</tbody>
+</table>
+<h3 id="adding-your-own">Adding your own<a class="anchor" href="#adding-your-own">#</a></h3>
+<pre class="code"><code class="lang-java">Metrics.count(<span class="h-s">"posts.created"</span>);
+Metrics.<span class="h-k">record</span>(<span class="h-s">"search.elapsed"</span>, elapsedNanos);
+Metrics.gauge(<span class="h-s">"cache.size"</span>, () -&gt; cache.size());
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>What you pass to <code>Metrics.gauge(...)</code> must not do I/O.</strong> It is called on every
+<code>Metrics.snapshot()</code>, so if it touches the database you <strong>lose your metrics exactly when the
+database is congested</strong> — which is when you want them most. That is why jimble does not register
+the MQ backlog (<code>MqQueue#pendingCount()</code>) for you. Register it yourself if you want it anyway:</p>
+<pre class="code"><code class="lang-java">Metrics.gauge(<span class="h-s">"mq.notice.pending"</span>, () -&gt; noticeQueue.pendingCount());
+</code></pre>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Never build a name out of user input.</strong> <code>Metrics.count(request.path())</code> fills the heap as soon as
+someone hits <code>/aaa</code>, <code>/aab</code>, … There is a cap of <strong>1000 names</strong>; past it jimble warns once and stops
+counting — and <strong>your real routes stop being counted too</strong>. That is also why jimble keys latency on
+<code>GET /posts/{id}</code> rather than the raw path, and collapses everything unmatched into <code>(unmatched)</code>.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Distributions are fixed buckets</strong> (1 / 5 / 10 / 50 / 100 / 500 / 1000 / 5000ms, plus an overflow
+bucket) — individual samples are never stored. Memory does not grow with the number of samples, but
+<strong>a percentile can only name the bucket's upper bound</strong> (<code>p95_ms: 100</code> means &quot;100ms or less&quot;).
+Samples in the overflow bucket report the observed maximum instead.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><code>Metrics.reset()</code> is <strong>for tests</strong>. Calling it in a running application throws away everything counted so far.</p>
+</div>
+<h2 id="tracing">Tracing<a class="anchor" href="#tracing">#</a></h2>
+<p>Follow one request across services (requirement NF-O-05). <strong>You only pay for it if you use it.</strong></p>
+<pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
+implementation(<span class="h-s">"io.jimble:jimble-otel:0.2.1"</span>)
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) {
+
+    JimbleOtel.install(<span class="h-s">"my-app"</span>, <span class="h-s">"http://localhost:4318"</span>);
+
+    <span class="h-k">new</span> JimbleServer(...).start();
+
+}
+</code></pre>
+<p>That is all. Spans then appear for:</p>
+<table>
+<thead>
+<tr>
+<th>Span</th>
+<th>Name</th>
+<th>Kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An HTTP request</td>
+<td><code>GET /posts/{id}</code></td>
+<td><code>server</code></td>
+</tr>
+<tr>
+<td>One SQL statement</td>
+<td><code>SELECT post</code></td>
+<td><code>client</code></td>
+</tr>
+<tr>
+<td>Putting a message on a queue</td>
+<td><code>mq.put notice</code></td>
+<td><code>producer</code></td>
+</tr>
+<tr>
+<td>Handling a queued message</td>
+<td><code>mq notice</code></td>
+<td><code>consumer</code></td>
+</tr>
+<tr>
+<td>One batch run</td>
+<td><code>batch daily-rollup</code></td>
+<td><code>internal</code></td>
+</tr>
+</tbody>
+</table>
+<p>Add your own wherever you want more detail.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (Span span = Tracing.start(<span class="h-s">"convert image"</span>, SpanKind.internal)) {
+    span.attribute(<span class="h-s">"file"</span>, name);
+    convert(file);
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>An application that does not add it grows by zero bytes.</strong> <code>jimble-core</code> carries only the
+interfaces (<code>Tracer</code> / <code>Span</code>); the OpenTelemetry implementation lives in <code>jimble-otel</code>. While
+nothing is registered, <code>Tracing.start(...)</code> costs <strong>one static read and a branch</strong> — measured at
+0 bytes allocated per call.</p>
+</div>
+<h3 id="across-services">Across services<a class="anchor" href="#across-services">#</a></h3>
+<p>An incoming <code>traceparent</code> (W3C Trace Context) is <strong>picked up automatically</strong>, and jimble's HTTP
+client <strong>adds it automatically</strong> on the way out.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// the other side's trace continues yours</span>
+<span class="h-k">new</span> HttpGetExecutor(<span class="h-s">"https://api.example.com/users"</span>).execute();
+</code></pre>
+<p>MQ is linked too. <strong>The request that queued the message and the process that handled it minutes
+later end up on the same trace.</strong> The <code>traceparent</code> is kept in its own column on the queue table —
+never inside <code>data</code>.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Applications using MQ get one extra column on the queue table</strong> (<code>traceparent varchar(64)</code>).
+<code>MqTables.install(...)</code> applies it at startup; there is nothing to run by hand.</p>
+</div>
+<p>For any other way of reaching out, pass it yourself.</p>
+<pre class="code"><code class="lang-java">String traceparent = Tracing.traceparent();   <span class="h-c">// null when tracing is off</span>
+</code></pre>
+<h3 id="joining-logs-to-traces">Joining logs to traces<a class="anchor" href="#joining-logs-to-traces">#</a></h3>
+<p>While tracing is on, <strong>every log line carries <code>trace_id</code> and <code>span_id</code></strong>. The execution ID
+(<code>request_id</code>) is unchanged, so anything already parsing your logs keeps working.</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"request_id"</span>:<span class="h-s">"mttvgm93-10676dj-1"</span>,<span class="h-s">"trace_id"</span>:<span class="h-s">"4bf92f35..."</span>,<span class="h-s">"span_id"</span>:<span class="h-s">"00f067aa..."</span>, ...}
+</code></pre>
+<h3 id="sampling">Sampling<a class="anchor" href="#sampling">#</a></h3>
+<p>At volume your backend will not keep up. Pass a ratio.</p>
+<pre class="code"><code class="lang-java">JimbleOtel.install(<span class="h-s">"my-app"</span>, <span class="h-s">"http://localhost:4318"</span>, <span class="h-n">0.1</span>);   <span class="h-c">// one in ten</span>
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>The decision is made per trace</strong>, so you never get a trace with the middle missing.</p>
+</div>
+<h3 id="where-it-goes">Where it goes<a class="anchor" href="#where-it-goes">#</a></h3>
+<p>OTLP over HTTP (<code>/v1/traces</code>), protobuf encoded. An OpenTelemetry Collector, Jaeger, Grafana
+Tempo — anything that speaks OTLP will do.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Forgetting <code>/v1/traces</code> still works</strong> — jimble appends it. Without that, the endpoint just
+answers 404 and <strong>nothing arrives, with nothing in the log to tell you</strong>.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>Sending uses the <strong>JDK <code>HttpClient</code></strong>. OpenTelemetry's default (okhttp) drags in okhttp 851KB +
+okio 374KB + kotlin-stdlib 1.7MB, so it is excluded. Adding <code>jimble-otel</code> costs <strong>0.9MB</strong>.</p>
+</div>
+<h3 id="writing-your-own-destination">Writing your own destination<a class="anchor" href="#writing-your-own-destination">#</a></h3>
+<p><code>Tracer</code> is a two-method interface. Write one to print to stdout, to feed an in-house system, or to
+inspect spans in a test. A <code>RecordingTracer</code> for tests ships in <code>jimble-core</code>.</p>
+<pre class="code"><code class="lang-java">RecordingTracer tracer = <span class="h-k">new</span> RecordingTracer();
+Tracing.use(tracer);
+
+<span class="h-c">// ... the code under test ...</span>
+
+assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<span class="h-n">0</span>).name());
+</code></pre>
 <h2 id="configuration-keys">Configuration keys<a class="anchor" href="#configuration-keys">#</a></h2>
 <table>
 <thead>
@@ -422,6 +642,11 @@ instead of using <code>logback.xml</code>.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>server.access_log</code></td>
+<td><code>true</code></td>
+<td>Writes the access log. <code>false</code> writes nothing at all</td>
+</tr>
 <tr>
 <td><code>server.bot_access_log</code></td>
 <td><code>true</code></td>
@@ -459,10 +684,20 @@ instead of using <code>logback.xml</code>.</p>
 			<li class="level-2"><a href="#what-is-in-every-log-line-always">What is in every log line, always</a></li>
 			<li class="level-2"><a href="#the-access-log">The access log</a></li>
 			<li class="level-3"><a href="#splitting-out-the-bots">Splitting out the bots</a></li>
+			<li class="level-3"><a href="#turning-it-off">Turning it off</a></li>
 			<li class="level-2"><a href="#the-execution-id">The execution ID</a></li>
 			<li class="level-2"><a href="#sql-logging">SQL logging</a></li>
 			<li class="level-2"><a href="#configuring-logback">Configuring logback</a></li>
 			<li class="level-2"><a href="#catching-it-in-tests">Catching it in tests</a></li>
+			<li class="level-2"><a href="#metrics">Metrics</a></li>
+			<li class="level-3"><a href="#what-you-get-without-asking">What you get without asking</a></li>
+			<li class="level-3"><a href="#adding-your-own">Adding your own</a></li>
+			<li class="level-2"><a href="#tracing">Tracing</a></li>
+			<li class="level-3"><a href="#across-services">Across services</a></li>
+			<li class="level-3"><a href="#joining-logs-to-traces">Joining logs to traces</a></li>
+			<li class="level-3"><a href="#sampling">Sampling</a></li>
+			<li class="level-3"><a href="#where-it-goes">Where it goes</a></li>
+			<li class="level-3"><a href="#writing-your-own-destination">Writing your own destination</a></li>
 			<li class="level-2"><a href="#configuration-keys">Configuration keys</a></li>
 		</ul>
 	</nav>

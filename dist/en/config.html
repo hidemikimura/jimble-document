@@ -280,20 +280,25 @@ this.</p>
 	max_header_size      = <span class="h-n">16384</span>
 	idle_timeout_seconds = <span class="h-n">60</span>
 	compression          = <span class="h-k">true</span>
+	access_log           = <span class="h-k">true</span>     <span class="h-c"># turning it off is faster, but nothing is left behind</span>
 	bot_access_log       = <span class="h-k">true</span>
+	strict_routes        = <span class="h-k">false</span>    <span class="h-c"># throw on routes nothing can reach (turn this on in CI)</span>
 
 	shutdown_grace_seconds   = <span class="h-n">0</span>    <span class="h-c"># from starting the stop until new requests are refused</span>
 	shutdown_timeout_seconds = <span class="h-n">15</span>   <span class="h-c"># how long to wait for work in flight</span>
 }
 
 cookie {
-	secure = <span class="h-k">true</span>            <span class="h-c"># false locally (see below)</span>
-	secret = ${?COOKIE_SECRET}
+	secure           = <span class="h-k">true</span>            <span class="h-c"># false locally (see below)</span>
+	secret           = ${?COOKIE_SECRET}
+	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># only while rotating</span>
 }
 
 session {
-	store       = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
-	cookie_name = <span class="h-s">"sid"</span>
+	store            = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	cookie_name      = <span class="h-s">"sid"</span>
+	secret           = ${?SESSION_SECRET}        <span class="h-c"># required when store = cookie</span>
+	previous_secrets = [${?SESSION_SECRET_OLD}]  <span class="h-c"># only while rotating</span>
 }
 
 upload {

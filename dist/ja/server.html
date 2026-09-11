@@ -204,7 +204,9 @@
 	idle_timeout_seconds = <span class="h-n">60</span>
 	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># X-Forwarded-* を信じるか</span>
 	compression          = <span class="h-k">true</span>       <span class="h-c"># 応答を gzip で返すか</span>
+	access_log           = <span class="h-k">true</span>       <span class="h-c"># アクセスログを出すか（[ログ](./log)）</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># ボットのアクセスログを分けるか</span>
+	strict_routes        = <span class="h-k">false</span>      <span class="h-c"># 一生呼ばれないルートを例外にするか（CI では true に）</span>
 
 	shutdown_grace_seconds   = <span class="h-n">0</span>      <span class="h-c"># 止め始めてから新規を断つまで（秒）</span>
 	shutdown_timeout_seconds = <span class="h-n">15</span>     <span class="h-c"># 処理中を待つ上限（秒）</span>

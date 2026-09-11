@@ -312,7 +312,11 @@ See <a href="./codegen">Splitting SQL per product</a></li>
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) {
 
 	Migration.install();                                <span class="h-c">// startup migrations (if you want them; before DBUtil.load)</span>
-	DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>);       <span class="h-c">// read the config and connect</span>
+
+	<span class="h-c">// false when it could not connect. Stop here</span>
+	<span class="h-k">if</span> (!DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>)) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"could not load the DB (the reason is in the log just above)"</span>);
+	}
 
 	JimbleServer.start(<span class="h-k">new</span> App());
 
@@ -320,6 +324,13 @@ See <a href="./codegen">Splitting SQL per product</a></li>
 </code></pre>
 <p>The second argument to <code>DBUtil.load</code> is the <strong>classpath anchor</strong> — migration SQL is
 looked up from there. Pass a class of your own application.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not throw the return value away.</strong> <code>DBUtil.load</code> does not throw when it cannot
+connect — it logs the reason and returns <code>false</code>. Throw that away and <strong>the server
+starts anyway</strong>, then falls over on the first request that arrives.
+<code>DBUtil.getMainDB()</code> fails saying the DB was never loaded, so you will not be lost,
+but <strong>noticing at startup is faster</strong>.</p>
+</div>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>If your app has more than one entry point, put this sequence in one place.</strong>
 Write it separately in the web, batch and scheduler mains and <b>one of them goes stale</b>.
@@ -334,8 +345,14 @@ Tests call the same thing (<a href="./pitfalls">Pitfalls</a> / <a href="./testin
 }
 </code></pre>
 <p><code>DBUtil.getDB(&quot;log_db&quot;)</code> gets you a different data source.
-The one with <code>main = true</code> is the default for <code>DBUtil.getDB()</code>.</p>
-<p>If all you want is <strong>another schema on the same server</strong>, use <code>subs</code>.</p>
+The one with <code>main = true</code> is <code>DBUtil.getMainDB()</code> (there is no no-argument <code>getDB()</code>).</p>
+<p>Everything listed at the top level is <strong>treated as its own thing</strong>:</p>
+<ul>
+<li>migrations under <code>conf/migration/&lt;data source name&gt;/</code> are applied to it</li>
+<li>codegen generates <code>db/&lt;data source name&gt;/</code> for it</li>
+<li><code>migration</code> / <code>db_lock</code> / <code>db_value</code> / <code>db_cache</code> are created there too</li>
+</ul>
+<p>If all you want is <strong>one more handle without copying the settings</strong>, use <code>subs</code>.</p>
 <pre class="code"><code class="lang-conf">db {
 	main_db {
 		main = <span class="h-k">true</span>
@@ -346,8 +363,25 @@ The one with <code>main = true</code> is the default for <code>DBUtil.getDB()</c
 	}
 }
 </code></pre>
-<p>This one shares the connection. Get it with <code>db.newSubDB(&quot;archive_db&quot;)</code>.
-The transaction is shared too.</p>
+<p>Get it with <code>db.newSubDB(&quot;archive_db&quot;)</code>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Neither the connection nor the transaction is shared.</strong> <code>subs</code> is a separate pool
+from its parent. Even when it points at the same database it is a different
+connection, so writing through <code>newSubDB</code> inside the parent's transaction
+<strong>does not roll back with it</strong> — one side stays. Assume it inherits the settings
+from the parent and nothing more.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Migrations and codegen do not apply to <code>subs</code>.</strong> Per-data-source work only runs
+for the top-level <code>db { }</code> entries. So all you can put in a <code>subs</code> is a scratch
+table the application creates itself. Anything that needs a schema and generated
+types (an audit log in another database, say) belongs in <strong>a second top-level entry</strong>.
+Also, if a <code>subs</code> points at a different database, <strong>that database has to exist
+first</strong>: <code>subs</code> connects while the parent data source is still being built, so a
+<code>create_database_sql</code> written on a later top-level entry does not arrive in time
+(startup stops with <code>failed create subs datasource</code>).</p>
+</div>
+<p><code>examples/approval-data</code> has both a second top-level entry and a <code>subs</code>.</p>
 <h2 id="generate-table-definitions">Generate table definitions<a class="anchor" href="#generate-table-definitions">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
 </code></pre>

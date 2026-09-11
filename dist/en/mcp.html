@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MCP - jimble</title>
-<meta name="description" content="Stand up a Model Context Protocol server (2026-07-28 / Streamable HTTP)">
+<meta name="description" content="Stand up a Model Context Protocol server (2026-07-28 / Streamable HTTP and stdio)">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -197,7 +197,8 @@
 		<article>
 			<h1 id="mcp">MCP<a class="anchor" href="#mcp">#</a></h1>
 <p>Expose your application's features in a form an AI can call.
-What jimble implements is the <strong>2026-07-28</strong> revision of Streamable HTTP.</p>
+What jimble implements is the <strong>2026-07-28</strong> revision, over two transports:
+<strong>Streamable HTTP</strong> and <strong>stdio</strong>.</p>
 <h2 id="listing-what-you-expose">Listing what you expose<a class="anchor" href="#listing-what-you-expose">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
 
@@ -403,8 +404,81 @@ A route that calls itself would go down forever, so it stops there and throws.</
 prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">new</span>);
 </code></pre>
 <p>A resource is read-only data. A prompt is a canned instruction.</p>
+<h2 id="running-it-over-standard-input-and-output">Running it over standard input and output<a class="anchor" href="#running-it-over-standard-input-and-output">#</a></h2>
+<p>You can also skip HTTP entirely and let <strong>the client start the process</strong>.
+This is what you want for local tooling, and anywhere you would rather not open a port.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogStdio {
+
+	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> main (String[] args) <span class="h-k">throws</span> Exception {
+
+		Bootstrap.load();
+
+		App app = <span class="h-k">new</span> App();
+
+		McpStdio.run(app, app.mcp().registry());
+
+	}
+
+}
+</code></pre>
+<pre class="code"><code class="lang-json">{
+	<span class="h-s">"mcpServers"</span>: {
+		<span class="h-s">"blog"</span>: {
+			<span class="h-s">"command"</span>: <span class="h-s">"java"</span>,
+			<span class="h-s">"args"</span>: [<span class="h-s">"-cp"</span>, <span class="h-s">"app.jar"</span>, <span class="h-s">"blog.BlogStdio"</span>]
+		}
+	}
+}
+</code></pre>
+<p><strong>No port is opened, but the route table is still built.</strong>
+<code>RouteTool</code> (exposing an API you already have) and the <code>before</code> checks on those routes
+behave exactly as they do over HTTP.</p>
+<p>There is also <code>McpStdio.run(registry)</code>, without the application.
+<code>RouteTool</code> cannot work there — with no route table, calling one says so instead.</p>
+<h3 id="do-not-write-anything-to-standard-output">Do not write anything to standard output<a class="anchor" href="#do-not-write-anything-to-standard-output">#</a></h3>
+<p>The spec says <strong>a server MUST NOT write anything but MCP messages to stdout</strong>.
+One stray log line and the client treats it as malformed JSON and drops the connection.</p>
+<p><code>McpStdio.run</code> does not ask you to be careful about this — <strong>it makes it impossible</strong>.
+<code>McpStdio</code> keeps the real stdout to itself and replaces <code>System.out</code> with stderr.
+Whatever the application prints, and whatever logback writes, goes to stderr
+(clients are allowed to ignore stderr).</p>
+<p><strong>It stops when standard input closes.</strong> Open subscriptions are closed cleanly first,
+then whatever was handed to <code>Shutdown</code> is stopped.</p>
+<h2 id="telling-the-client-something-changed">Telling the client something changed<a class="anchor" href="#telling-the-client-something-changed">#</a></h2>
+<p>A client opens a subscription with <code>subscriptions/listen</code>.
+That request never finishes: it becomes an SSE stream over HTTP, or the same stdout over stdio.</p>
+<p>On your side it is one line, where the change happens.</p>
+<pre class="code"><code class="lang-java">postDao.save(post);
+
+McpNotify.resourceUpdated(<span class="h-s">"blog://posts/"</span> + post.getId());
+</code></pre>
+<ul>
+<li><strong>Only what was asked for is delivered.</strong> Other URIs are skipped</li>
+<li>With nobody subscribed, nothing happens</li>
+<li><code>notifications/subscriptions/acknowledged</code> comes back first, carrying
+<strong>only the kinds that were accepted</strong>, so the client can compare it against what it asked for</li>
+</ul>
+<p><strong>Only the two resource notifications can ever fire</strong> (<code>resources/updated</code> and
+<code>resources/list_changed</code>). Tools and prompts are registered explicitly at startup, so they
+cannot appear or disappear while the server runs. Claiming support for something that will
+never arrive is worse than saying no, so <code>toolsListChanged</code> is dropped from the acknowledgement.</p>
+<h2 id="when-a-list-gets-long">When a list gets long<a class="anchor" href="#when-a-list-gets-long">#</a></h2>
+<p><code>tools/list</code> and friends come back in pages.</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"jsonrpc"</span>:<span class="h-s">"2.0"</span>,<span class="h-s">"id"</span>:<span class="h-n">1</span>,<span class="h-s">"method"</span>:<span class="h-s">"resources/list"</span>,<span class="h-s">"params"</span>:{<span class="h-s">"cursor"</span>:<span class="h-s">"..."</span>}}
+</code></pre>
+<ul>
+<li><code>nextCursor</code> is only present when there is more</li>
+<li><strong>The default is 100.</strong> An application with fewer than that registered sees no change at all</li>
+<li>The cursor is opaque — <strong>do not read it</strong></li>
+<li><strong>An unreadable cursor is refused</strong> (<code>-32602</code>). Quietly restarting from the top would
+have the client read the same page forever, with no error anywhere</li>
+</ul>
+<pre class="code"><code class="lang-conf">mcp {
+	page_size = <span class="h-n">100</span>
+}
+</code></pre>
 <h2 id="one-way-in">One way in<a class="anchor" href="#one-way-in">#</a></h2>
-<p>The only thing exposed is <code>POST /mcp</code>.</p>
+<p>Over HTTP, the only thing exposed is <code>POST /mcp</code>.</p>
 <ul>
 <li><strong>GET and DELETE are both refused with a 405.</strong> Both left the spec in 2026-07-28</li>
 <li><strong>There are no sessions.</strong> <code>Mcp-Session-Id</code> is not used</li>
@@ -416,6 +490,8 @@ prompt(<span class="h-s">"summarize"</span>, SummarizePrompt::<span class="h-k">
 	name            = <span class="h-s">"blog"</span>
 	version         = <span class="h-s">"1.0.0"</span>
 	allowed_origins = [<span class="h-s">"https://example.com"</span>]
+	page_size       = <span class="h-n">100</span>
+	instructions    = <span class="h-s">"Search and post articles"</span>
 }
 </code></pre>
 <h2 id="always-configure-origin">Always configure Origin<a class="anchor" href="#always-configure-origin">#</a></h2>
@@ -432,6 +508,9 @@ The more local the server, the more dangerous it is (<code>localhost</code> exis
 	}
 }
 </code></pre>
+<p>A client starts with <code>server/discover</code> to find out which revisions the server speaks
+and what it has. <strong>That one call does not need the version header</strong> — it is the call
+you make to learn the version.</p>
 
 		</article>
 
@@ -457,6 +536,10 @@ The more local the server, the more dangerous it is (<code>localhost</code> exis
 			<li class="level-3"><a href="#things-to-watch-for">Things to watch for</a></li>
 			<li class="level-3"><a href="#calling-it-without-a-tool">Calling it without a tool</a></li>
 			<li class="level-2"><a href="#resources-and-prompts">Resources and prompts</a></li>
+			<li class="level-2"><a href="#running-it-over-standard-input-and-output">Running it over standard input and output</a></li>
+			<li class="level-3"><a href="#do-not-write-anything-to-standard-output">Do not write anything to standard output</a></li>
+			<li class="level-2"><a href="#telling-the-client-something-changed">Telling the client something changed</a></li>
+			<li class="level-2"><a href="#when-a-list-gets-long">When a list gets long</a></li>
 			<li class="level-2"><a href="#one-way-in">One way in</a></li>
 			<li class="level-2"><a href="#always-configure-origin">Always configure Origin</a></li>
 			<li class="level-2"><a href="#connecting-to-it">Connecting to it</a></li>

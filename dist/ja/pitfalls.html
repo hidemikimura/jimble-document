@@ -306,7 +306,12 @@ jimble では <code>commit()</code> は終わらせません。終わらせる�
 	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> load () {
 
 		Migration.install();                                  <span class="h-c">// DBUtil.load より前</span>
-		DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>);
+
+		<span class="h-c">// 繋がらなければ false。見ずに進むと、あとで DB の話をしない例外で落ちる</span>
+		<span class="h-k">if</span> (!DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>)) {
+			<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"DB を読み込めませんでした"</span>);
+		}
+
 		BatchTables.install(DBUtil.getMainDB());
 		<span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
 

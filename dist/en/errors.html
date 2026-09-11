@@ -316,15 +316,15 @@ An <code>error</code> written inside <code>path(&quot;/admin&quot;, ...)</code> 
 It is the checked exception used for DB errors (<code>db.getError()</code>) and inside validators; throw it and you get a 500.</p>
 </div>
 <h2 id="who-builds-the-body">Who builds the body<a class="anchor" href="#who-builds-the-body">#</a></h2>
-<p><strong>The framework has no default error page.</strong> The order is this.</p>
+<p>The order is this.</p>
 <ol>
 <li><code>context.response().code(statusCode)</code> goes in <strong>first</strong> (so a handler can override it)</li>
 <li><code>error(...)</code> handlers are called from the inside out. <strong>It stops the moment one of them sends</strong></li>
-<li>If nobody sends, <code>response().send()</code> is called</li>
+<li>If nobody has built a body, the <strong>default error response</strong> goes in</li>
+<li><code>response().send()</code> is called</li>
 </ol>
-<p>The point of step 3 is that it is <code>send()</code>, not <code>send(statusCode)</code>.
+<p>The point of step 4 is that it is <code>send()</code>, not <code>send(statusCode)</code>.
 Whatever a handler built up with <code>json(...)</code> or the like is <strong>sent, not thrown away.</strong></p>
-<p>So if you set <code>code(...)</code> and never build a body, only the status comes back.</p>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
 
 	<span class="h-c">// JSON for an API, HTML for a screen</span>
@@ -337,7 +337,39 @@ Whatever a handler built up with <code>json(...)</code> or the like is <strong>s
 
 });
 </code></pre>
-<p><code>acceptJson()</code> checks whether <code>Accept</code> carries <code>application/json</code> or <code>text/javascript</code>.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p>Putting <code>cause.getMessage()</code> in the body, as above, means <strong>whatever is in it goes out.</strong>
+On a 500 that is the DB's error text and your internal paths.
+Hand a <code>Throwable</code> straight to <code>json(...)</code> and <strong>the whole stack trace goes out.</strong>
+The default response below carries neither, but <strong>what you write is yours to keep clean.</strong></p>
+</div>
+<h2 id="when-you-write-nothing">When you write nothing<a class="anchor" href="#when-you-write-nothing">#</a></h2>
+<p>With no <code>error(...)</code> at all — or one that never builds a body — jimble returns a <strong>fixed shape.</strong></p>
+<p>If <code>Accept</code> names JSON, it is JSON.</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"error"</span>: {<span class="h-s">"status"</span>: <span class="h-n">404</span>, <span class="h-s">"message"</span>: <span class="h-s">"Not Found"</span>}}
+</code></pre>
+<p>Otherwise it is a short line of text (<code>Content-Type: text/plain; charset=UTF-8</code>).</p>
+<pre class="code"><code class="lang-text">404 Not Found
+</code></pre>
+<ul>
+<li><strong><code>message</code> is the short phrase from RFC 9110</strong> (<code>Not Found</code>, <code>Internal Server Error</code>) —
+the same wording you see in the status line and in client libraries</li>
+<li><strong>The cause is not in there.</strong> No exception message, no SQL, no stack trace.
+The cause is in the log (5xx goes to <code>Log.error</code>)</li>
+<li><strong><code>*/*</code> gets text.</strong> &quot;Anything will do&quot; is not &quot;JSON, please&quot;</li>
+<li><strong>An <code>error(...)</code> handler wins</strong>, even one that built a body without sending it</li>
+</ul>
+<p><code>acceptJson()</code> asks whether <code>Accept</code> <strong>names</strong> <code>application/json</code> or <code>text/javascript</code>.
+Parameters are fine — <code>application/json;q=0.9</code> counts. <code>q=0</code> (don't want it) and <code>*/*</code>
+(anything will do) do not.</p>
+<h2 id="405-and-404-are-different-answers">405 and 404 are different answers<a class="anchor" href="#405-and-404-are-different-answers">#</a></h2>
+<p>When the path matches and only the method is wrong, you get a 405 with an <code>Allow</code> header.</p>
+<pre class="code"><code class="lang-text">$ curl -i -X POST http://localhost:9000/hello
+HTTP/1.1 405 Method Not Allowed
+Allow: GET
+</code></pre>
+<p>404 means &quot;there is no such thing&quot;; 405 means &quot;there is, but not by that name&quot;.
+Merge them and writing <code>get</code> where you meant <code>post</code> looks like a wrong path.</p>
 <h2 id="when-the-handler-itself-fails">When the handler itself fails<a class="anchor" href="#when-the-handler-itself-fails">#</a></h2>
 <p><strong>We swallow it and move on to the next one, outward.</strong> Being left unable to return anything
 because error handling failed is the worse outcome.
@@ -431,6 +463,8 @@ There is meant to be exactly one path through.</p>
 			<li class="level-2"><a href="#how-far-it-reaches">How far it reaches</a></li>
 			<li class="level-2"><a href="#how-the-status-code-is-decided">How the status code is decided</a></li>
 			<li class="level-2"><a href="#who-builds-the-body">Who builds the body</a></li>
+			<li class="level-2"><a href="#when-you-write-nothing">When you write nothing</a></li>
+			<li class="level-2"><a href="#405-and-404-are-different-answers">405 and 404 are different answers</a></li>
 			<li class="level-2"><a href="#when-the-handler-itself-fails">When the handler itself fails</a></li>
 			<li class="level-2"><a href="#how-it-is-logged">How it is logged</a></li>
 			<li class="level-2"><a href="#validation-failures-do-not-go-through-error">Validation failures do not go through error</a></li>

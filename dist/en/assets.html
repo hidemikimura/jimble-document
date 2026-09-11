@@ -227,8 +227,15 @@
 during development it is read from <code>build/resources/main</code>. <strong>The behaviour is the same either way</strong> (requirement F-W-18).</p>
 <h2 id="static-files">Static files<a class="anchor" href="#static-files">#</a></h2>
 <pre class="code"><code class="lang-java">install(() -&gt; AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"test-assets"</span>));</code></pre>
-<p><code>src/main/resources/test-assets/app.css</code> comes out at <code>/assets/app.css</code>.
-Two routes are registered: <code>GET</code> and <code>HEAD</code>.</p>
+<p>The second argument is a <strong>directory on the classpath</strong>, not a filesystem path.
+With <code>AssetHandler.mount(&quot;/assets&quot;, &quot;assets&quot;)</code>,
+<code>src/main/resources/assets/app.css</code> comes out at <code>/assets/app.css</code>.</p>
+<p>Two routes are registered: <code>GET</code> and <code>HEAD</code> on <code>/assets/*</code>.</p>
+<blockquote>
+<p>[!WARNING]
+<strong><code>/assets</code> itself (no trailing path) is not served.</strong> Only <code>/assets/*</code> is registered.
+SPA and MPA also register the bare prefix, so they differ here.</p>
+</blockquote>
 <p><code>routes()</code> hands those routes back, so <strong>you can attach attributes to them.</strong></p>
 <pre class="code"><code class="lang-java">AssetController assets = AssetHandler.mount(<span class="h-s">"/assets"</span>, <span class="h-s">"assets"</span>);
 <span class="h-k">for</span> (Route route : assets.routes()) {
@@ -236,7 +243,9 @@ Two routes are registered: <code>GET</code> and <code>HEAD</code>.</p>
 }
 install(() -&gt; assets);
 </code></pre>
-<p><code>SpaHandler.mount(...)</code> and <code>MpaHandler.mount(...)</code> work the same way.</p>
+<p><code>routes()</code> works the same way for <code>SpaHandler.mount(...)</code> and <code>MpaHandler.mount(...)</code>.
+The <strong>count differs</strong>, though — SPA and MPA also register the bare prefix, so there are four
+(<code>GET</code> and <code>HEAD</code> on both <code>/app</code> and <code>/app/*</code>).</p>
 <h3 id="caching">Caching<a class="anchor" href="#caching">#</a></h3>
 <table>
 <thead>

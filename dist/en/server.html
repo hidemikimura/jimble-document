@@ -204,7 +204,9 @@
 	idle_timeout_seconds = <span class="h-n">60</span>
 	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># Whether to believe X-Forwarded-*</span>
 	compression          = <span class="h-k">true</span>       <span class="h-c"># Whether to gzip responses</span>
+	access_log           = <span class="h-k">true</span>       <span class="h-c"># Whether to write the access log ([Logging](./log))</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># Whether to split out the bot access log</span>
+	strict_routes        = <span class="h-k">false</span>      <span class="h-c"># Throw on routes nothing can reach (turn this on in CI)</span>
 
 	shutdown_grace_seconds   = <span class="h-n">0</span>      <span class="h-c"># From "start stopping" to refusing new requests (seconds)</span>
 	shutdown_timeout_seconds = <span class="h-n">15</span>     <span class="h-c"># How long to wait for in-flight work (seconds)</span>

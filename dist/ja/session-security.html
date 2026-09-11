@@ -278,14 +278,89 @@ String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
 </code></pre>
 <p><strong>書いた値は同じリクエストの中で読み返せます。</strong> 受信した Cookie しか見えないと、
 発行したばかりの CSRF トークンを読み直すたびに別のものが出てしまうためです。</p>
-<p>署名を付けたいときは <code>Cookies.sign(value)</code> で署名し、<code>put(Cookie, 平文)</code> で入れます。
-読むときは <code>context.request().unsignCookie(&quot;名前&quot;)</code> です。改ざんされていたら <code>null</code> が返ります。
-鍵は <code>application.conf</code> の <code>cookie.secret</code>（Cookie セッションは <code>session.secret</code>）で、
+<p>署名を付けたいときは <code>Cookies.sign(value)</code> で署名し、<code>put(Cookie, 平文)</code> で入れます。</p>
+<p><strong>読むときは <code>context.cookies().get(&quot;名前&quot;)</code> か <code>context.request().cookie(&quot;名前&quot;)</code> です。</strong>
+署名が合わなかった値はここに入りません（改ざんされた値がアプリに渡らないようにするためです）。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>unsignCookie(&quot;名前&quot;)</code> は署名を検証しません。</strong>
+名前に反して、返るのは<strong>受信した生の値</strong>です。無いときは <code>null</code> ではなく<strong>空文字</strong>が返ります。
+検証済みの値が要るなら <code>cookie(&quot;名前&quot;)</code> を使ってください。</p>
+</div>
+<p>鍵は <code>application.conf</code> の <code>cookie.secret</code>（Cookie セッションは <code>session.secret</code>）で、
 本番では環境変数から渡してください。</p>
 <pre class="code"><code class="lang-conf">cookie {
 	secret = ${?COOKIE_SECRET}
 }
 </code></pre>
+<p><strong>鍵を設定しないと、署名の機能が丸ごと効きません。</strong> 例外は出ず、Cookie は普通に読み書きできるので、
+効いていないことに気づく手がかりがありません。起動時に警告を出しています。</p>
+<h2 id="鍵を入れ替える">鍵を入れ替える<a class="anchor" href="#鍵を入れ替える">#</a></h2>
+<p><strong>鍵は入れ替えられます。誰もログアウトしません。</strong></p>
+<p>新しい鍵を <code>secret</code> に、いままでの鍵を <code>previous_secrets</code> に書きます。
+<strong>書くのは常に <code>secret</code>、読むときだけ <code>previous_secrets</code> も試します。</strong></p>
+<pre class="code"><code class="lang-conf">cookie {
+	secret           = ${?COOKIE_SECRET}       <span class="h-c"># 新しい鍵</span>
+	previous_secrets = [${?COOKIE_SECRET_OLD}] <span class="h-c"># いままでの鍵</span>
+}
+
+session {
+	secret           = ${?SESSION_SECRET}
+	previous_secrets = [${?SESSION_SECRET_OLD}]
+}
+</code></pre>
+<p>手順は3段です。</p>
+<ol>
+<li><strong>新しい鍵を先頭にして、いままでの鍵を <code>previous_secrets</code> に残す。</strong> デプロイします</li>
+<li><strong>待つ。</strong> アクセスしてきた人から順に、古い鍵の Cookie が新しい鍵で書き直されます</li>
+<li><strong><code>previous_secrets</code> を消す。</strong> もう一度デプロイして完了です</li>
+</ol>
+<h3 id="いつ-3-に進めるか">いつ 3 に進めるか<a class="anchor" href="#いつ-3-に進めるか">#</a></h3>
+<p><strong>勘で決めないでください。</strong> 古い鍵で読めた回数がメトリクス（<code>Metrics.snapshot()</code>）に出ます。</p>
+<table>
+<thead>
+<tr>
+<th>名前</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cookie.stale_secret</code></td>
+<td>古い鍵で署名された Cookie を読んだ回数</td>
+</tr>
+<tr>
+<td><code>session.stale_secret</code></td>
+<td>古い鍵で暗号化されたセッションを読んだ回数</td>
+</tr>
+</tbody>
+</table>
+<p><strong>これが増えなくなったら、古い鍵を捨てられます。</strong> 起動ログにも本数が出ます（<code>鍵=cookie=2, session=2</code>）。
+2 のままなら入れ替えの途中、<code>previous_secrets</code> を消し忘れていればここで気づけます。</p>
+<p>いつまでも 0 にならない場合は、その分だけ「たまにしか来ない人」が残っているということです。
+Cookie の寿命（<code>cookie.max_age</code>。既定は1年）が過ぎれば必ず消えるので、それが最長の待ち時間です。</p>
+<h3 id="自分で書いた-cookie-は自分で書き直してください">自分で書いた Cookie は自分で書き直してください<a class="anchor" href="#自分で書いた-cookie-は自分で書き直してください">#</a></h3>
+<p>枠組みが出す <code>sid</code> と <code>csrf_token</code> は自動で署名し直します。
+<strong>アプリが <code>cookies().put(...)</code> で書いた Cookie は自動では書き直しません</strong>——
+有効期限をいくつにすべきかは、書いた側にしか分からないためです（ブラウザは有効期限を送ってきません）。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">if</span> (context.cookies().isStale(<span class="h-s">"last_post"</span>)) {
+	context.cookies().put(<span class="h-s">"last_post"</span>, context.cookies().get(<span class="h-s">"last_post"</span>), <span class="h-n">30</span> * <span class="h-n">24</span> * <span class="h-n">60</span> * <span class="h-n">60</span>);
+}
+</code></pre>
+<p>書き直さなくても読めますが、その Cookie が消えるまで古い鍵を捨てられません。</p>
+<h3 id="パスワードの鍵は入れ替えられません">パスワードの鍵は入れ替えられません<a class="anchor" href="#パスワードの鍵は入れ替えられません">#</a></h3>
+<p><strong><code>cipher.key</code> と <code>hash.password.pepper</code> はこの仕組みの対象外です。</strong>
+これらで作った値は Cookie ではなく <strong>DB のパスワードカラム</strong>に入っていて、
+書き直せるのは<strong>ログインに成功した瞬間だけ</strong>です（平文がそのときしか無いため）。
+つまり、しばらくログインしていない人がいる限り古い鍵を捨てられません。</p>
+<p>替えるなら、アプリ側でこうします。</p>
+<ol>
+<li>新しい鍵で <code>createHash</code> するように切り替える</li>
+<li><strong>ログイン成功時に、古い方式のハッシュだったら作り直して保存する</strong>
+（<code>check(input, hash, encrypted)</code> で方式を指定して照合できます）</li>
+<li>全員が入れ替わったことを確認してから古い鍵を捨てる</li>
+</ol>
+<p>3 を確認する手立ては jimble にはありません。<strong>「最終ログイン日時が古い人を数える」など、
+アプリ側で持っている情報で判断してください。</strong></p>
 <h2 id="パスワード">パスワード<a class="anchor" href="#パスワード">#</a></h2>
 <p><code>PasswordUtil</code> は BCrypt でハッシュ化します。<strong>そのうえで暗号化するかどうかは選べます。</strong></p>
 <pre class="code"><code class="lang-java">String hash = PasswordUtil.createHash(password);
@@ -337,6 +412,10 @@ cipher {
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookie-の既定は-secure--true">Cookie の既定は secure = true</a></li>
 			<li class="level-2"><a href="#cookie">Cookie</a></li>
+			<li class="level-2"><a href="#鍵を入れ替える">鍵を入れ替える</a></li>
+			<li class="level-3"><a href="#いつ-3-に進めるか">いつ 3 に進めるか</a></li>
+			<li class="level-3"><a href="#自分で書いた-cookie-は自分で書き直してください">自分で書いた Cookie は自分で書き直してください</a></li>
+			<li class="level-3"><a href="#パスワードの鍵は入れ替えられません">パスワードの鍵は入れ替えられません</a></li>
 			<li class="level-2"><a href="#パスワード">パスワード</a></li>
 		</ul>
 	</nav>

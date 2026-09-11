@@ -312,7 +312,13 @@ or a new environment.</p>
 	<span class="h-k">public</span> <span class="h-k">static</span> <span class="h-k">void</span> load () {
 
 		Migration.install();                                  <span class="h-c">// before DBUtil.load</span>
-		DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>);
+
+		<span class="h-c">// false when it could not connect. Ignore it and you fall over later</span>
+		<span class="h-c">// with an exception that says nothing about the DB</span>
+		<span class="h-k">if</span> (!DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>)) {
+			<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"could not load the DB"</span>);
+		}
+
 		BatchTables.install(DBUtil.getMainDB());
 		<span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
 

@@ -316,15 +316,15 @@
 DB のエラー（<code>db.getError()</code>）とバリデータの中で使う検査例外で、投げれば 500 です。</p>
 </div>
 <h2 id="本文は誰が作るか">本文は誰が作るか<a class="anchor" href="#本文は誰が作るか">#</a></h2>
-<p><strong>フレームワークは既定のエラーページを持ちません。</strong> 順番はこうです。</p>
+<p>順番はこうです。</p>
 <ol>
 <li><code>context.response().code(statusCode)</code> を<strong>先に</strong>入れる（ハンドラが上書きできる）</li>
 <li><code>error(...)</code> を内側から順に呼ぶ。<strong>送った時点で止まる</strong></li>
-<li>誰も送らなければ <code>response().send()</code> を呼ぶ</li>
+<li>誰も本文を用意していなければ、<strong>既定のエラー応答</strong>を入れる</li>
+<li><code>response().send()</code> を呼ぶ</li>
 </ol>
-<p>3 が <code>send(statusCode)</code> ではなく <code>send()</code> なのが要点です。
+<p>4 が <code>send(statusCode)</code> ではなく <code>send()</code> なのが要点です。
 ハンドラが <code>json(...)</code> などで組み立てた中身を、<strong>捨てずに送る</strong>ためです。</p>
-<p>つまり <code>code(...)</code> だけ入れて本文を作らなければ、ステータスだけが返ります。</p>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
 
 	<span class="h-c">// API なら JSON、画面なら HTML</span>
@@ -337,7 +337,41 @@ DB のエラー（<code>db.getError()</code>）とバリデータの中で使う
 
 });
 </code></pre>
-<p><code>acceptJson()</code> は <code>Accept</code> に <code>application/json</code> か <code>text/javascript</code> があるかを見ます。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>この例のように <code>cause.getMessage()</code> を本文に出すのは、<strong>中身次第では外に見せてはいけないもの</strong>です。
+500 のときは DB のエラー文や内部のパスがそのまま入ります。
+<code>Throwable</code> をそのまま <code>json(...)</code> に渡すと、<strong>スタックトレースが丸ごと出ます</strong>。
+既定のエラー応答（次の節）はどちらも載せませんが、<strong>自分で書いたぶんは自分で抑えてください</strong>。</p>
+</div>
+<h2 id="何も書かなかったとき">何も書かなかったとき<a class="anchor" href="#何も書かなかったとき">#</a></h2>
+<p><code>error(...)</code> を1つも書いていない、あるいは書いたけれど本文を作らなかったとき、
+jimble が<strong>決まった形</strong>を返します。</p>
+<p><code>Accept</code> が JSON を名指ししていれば JSON です。</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"error"</span>: {<span class="h-s">"status"</span>: <span class="h-n">404</span>, <span class="h-s">"message"</span>: <span class="h-s">"Not Found"</span>}}
+</code></pre>
+<p>そうでなければ、短いテキストです（<code>Content-Type: text/plain; charset=UTF-8</code>）。</p>
+<pre class="code"><code class="lang-text">404 Not Found
+</code></pre>
+<ul>
+<li><strong><code>message</code> は RFC 9110 の短い語</strong>です（<code>Not Found</code> / <code>Internal Server Error</code>）。
+ステータス行やクライアントのライブラリに出てくる語と同じにしてあります</li>
+<li><strong>原因は入りません。</strong> 例外のメッセージも SQL もスタックトレースも載せません。
+原因はログに出ています（500 番台は <code>Log.error</code>）</li>
+<li><strong><code>*/*</code> はテキスト</strong>です。「何でもいい」であって「JSON がいい」ではありません</li>
+<li><strong><code>error(...)</code> で組み立てていれば、そちらが勝ちます。</strong> 送信まで済んでいなくてもです</li>
+</ul>
+<p><code>acceptJson()</code> は <code>Accept</code> が <code>application/json</code> か <code>text/javascript</code> を
+<strong>名指ししているか</strong>を見ます。<code>application/json;q=0.9</code> のようにパラメータが付いていても効きます。
+<code>q=0</code>（要らない）と <code>*/*</code>（何でもいい）は名指しに数えません。</p>
+<h2 id="405-と-404-は分かれます">405 と 404 は分かれます<a class="anchor" href="#405-と-404-は分かれます">#</a></h2>
+<p>パスは合っていて<strong>メソッドだけ違う</strong>ときは 405 で、<code>Allow</code> が付きます。</p>
+<pre class="code"><code class="lang-text">$ curl -i -X POST http://localhost:9000/hello
+HTTP/1.1 405 Method Not Allowed
+Allow: GET
+</code></pre>
+<p>404 は「そんなものは無い」、405 は「あるが、その呼び方ではない」です。
+一緒にすると、<code>post</code> と書くべきところを <code>get</code> と書いただけの間違いが
+「パスが違う」に見えてしまいます。</p>
 <h2 id="ハンドラ自身が失敗したら">ハンドラ自身が失敗したら<a class="anchor" href="#ハンドラ自身が失敗したら">#</a></h2>
 <p><strong>握って次（外側）へ進みます。</strong> エラー処理の失敗で何も返せなくなるほうが困るからです。
 失敗は <code>エラーハンドラで例外が発生しました</code> としてログに出ます。</p>
@@ -430,6 +464,8 @@ context.response().code(<span class="h-n">422</span>);
 			<li class="level-2"><a href="#効く範囲">効く範囲</a></li>
 			<li class="level-2"><a href="#ステータスコードの決まり方">ステータスコードの決まり方</a></li>
 			<li class="level-2"><a href="#本文は誰が作るか">本文は誰が作るか</a></li>
+			<li class="level-2"><a href="#何も書かなかったとき">何も書かなかったとき</a></li>
+			<li class="level-2"><a href="#405-と-404-は分かれます">405 と 404 は分かれます</a></li>
 			<li class="level-2"><a href="#ハンドラ自身が失敗したら">ハンドラ自身が失敗したら</a></li>
 			<li class="level-2"><a href="#ログの出しかた">ログの出しかた</a></li>
 			<li class="level-2"><a href="#検証の失敗は-error-を通らない">検証の失敗は error を通らない</a></li>

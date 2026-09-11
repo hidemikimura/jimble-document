@@ -283,14 +283,91 @@ String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
 <p><strong>A value you write is readable again inside the same request.</strong> If only received cookies
 were visible, every re-read of a CSRF token you had issued a moment ago would hand you
 a different one.</p>
-<p>To sign a value, sign it with <code>Cookies.sign(value)</code> and put it in with <code>put(Cookie, plaintext)</code>.
-Read it back with <code>context.request().unsignCookie(&quot;a name&quot;)</code>. If it has been tampered with, you get <code>null</code>.
-The key is <code>cookie.secret</code> in <code>application.conf</code> (<code>session.secret</code> for cookie sessions);
+<p>To sign a value, sign it with <code>Cookies.sign(value)</code> and put it in with <code>put(Cookie, plaintext)</code>.</p>
+<p><strong>Read it back with <code>context.cookies().get(&quot;a name&quot;)</code> or <code>context.request().cookie(&quot;a name&quot;)</code>.</strong>
+A value whose signature did not check out never lands there — that is the point, so a tampered
+value cannot reach your code.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>unsignCookie(&quot;a name&quot;)</code> does not verify the signature.</strong>
+Despite the name, it hands back the <strong>raw received value</strong>, and an empty string — not <code>null</code> —
+when there is nothing. Use <code>cookie(&quot;a name&quot;)</code> when you want the verified value.</p>
+</div>
+<p>The key is <code>cookie.secret</code> in <code>application.conf</code> (<code>session.secret</code> for cookie sessions);
 in production, pass it in from an environment variable.</p>
 <pre class="code"><code class="lang-conf">cookie {
 	secret = ${?COOKIE_SECRET}
 }
 </code></pre>
+<p><strong>With no key set, signing is off entirely.</strong> Nothing throws, cookies read and write as usual,
+and there is no sign that it is not working — so we warn about it at startup.</p>
+<h2 id="rotating-a-key">Rotating a key<a class="anchor" href="#rotating-a-key">#</a></h2>
+<p><strong>Keys can be rotated. Nobody gets logged out.</strong></p>
+<p>Put the new key in <code>secret</code> and the outgoing one in <code>previous_secrets</code>.
+<strong>Writing always uses <code>secret</code>; <code>previous_secrets</code> is only tried when reading.</strong></p>
+<pre class="code"><code class="lang-conf">cookie {
+	secret           = ${?COOKIE_SECRET}       <span class="h-c"># the new key</span>
+	previous_secrets = [${?COOKIE_SECRET_OLD}] <span class="h-c"># the one being retired</span>
+}
+
+session {
+	secret           = ${?SESSION_SECRET}
+	previous_secrets = [${?SESSION_SECRET_OLD}]
+}
+</code></pre>
+<p>Three steps.</p>
+<ol>
+<li><strong>Put the new key first and keep the old one in <code>previous_secrets</code>.</strong> Deploy</li>
+<li><strong>Wait.</strong> As people come back, their old-key cookies get rewritten with the new key</li>
+<li><strong>Drop <code>previous_secrets</code>.</strong> Deploy again and you are done</li>
+</ol>
+<h3 id="knowing-when-step-3-is-safe">Knowing when step 3 is safe<a class="anchor" href="#knowing-when-step-3-is-safe">#</a></h3>
+<p><strong>Do not guess.</strong> How often an old key was needed shows up in the metrics (<code>Metrics.snapshot()</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cookie.stale_secret</code></td>
+<td>Cookies read that were signed with an old key</td>
+</tr>
+<tr>
+<td><code>session.stale_secret</code></td>
+<td>Sessions read that were encrypted with an old key</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Once these stop climbing, the old key can go.</strong> The startup log carries the count too
+(<code>鍵=cookie=2, session=2</code>): still 2 means the rotation is in flight — or that you forgot to
+drop <code>previous_secrets</code>.</p>
+<p>If it never quite reaches zero, that is people who come back rarely. Cookies expire at
+<code>cookie.max_age</code> (a year by default), so that is the longest you would ever wait.</p>
+<h3 id="cookies-you-wrote-are-yours-to-rewrite">Cookies you wrote are yours to rewrite<a class="anchor" href="#cookies-you-wrote-are-yours-to-rewrite">#</a></h3>
+<p><code>sid</code> and <code>csrf_token</code> are re-signed for you. <strong>Cookies your app wrote with <code>cookies().put(...)</code>
+are not</strong> — only the code that wrote one knows what its lifetime should be, and the browser
+does not send it back.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">if</span> (context.cookies().isStale(<span class="h-s">"last_post"</span>)) {
+	context.cookies().put(<span class="h-s">"last_post"</span>, context.cookies().get(<span class="h-s">"last_post"</span>), <span class="h-n">30</span> * <span class="h-n">24</span> * <span class="h-n">60</span> * <span class="h-n">60</span>);
+}
+</code></pre>
+<p>They still read fine if you skip this; you just cannot drop the old key until they expire.</p>
+<h3 id="password-keys-cannot-be-rotated-this-way">Password keys cannot be rotated this way<a class="anchor" href="#password-keys-cannot-be-rotated-this-way">#</a></h3>
+<p><strong><code>cipher.key</code> and <code>hash.password.pepper</code> are outside this mechanism.</strong>
+What they produce lives in a <strong>password column in your database</strong>, not in a cookie, and the only
+moment it can be rewritten is <strong>a successful login</strong> — that is the only time the plaintext exists.
+So as long as one person has not logged in lately, the old key has to stay.</p>
+<p>To change them, do this in your application:</p>
+<ol>
+<li>Switch <code>createHash</code> over to the new key</li>
+<li><strong>On a successful login, if the stored hash is in the old form, rebuild and save it</strong>
+(<code>check(input, hash, encrypted)</code> lets you name the form to check against)</li>
+<li>Retire the old key once everyone has moved over</li>
+</ol>
+<p>jimble cannot tell you when step 3 is safe. <strong>Decide it from something your application knows —
+counting accounts whose last login is old, for instance.</strong></p>
 <h2 id="passwords">Passwords<a class="anchor" href="#passwords">#</a></h2>
 <p><code>PasswordUtil</code> hashes with BCrypt. <strong>Whether it then encrypts is yours to choose.</strong></p>
 <pre class="code"><code class="lang-java">String hash = PasswordUtil.createHash(password);
@@ -344,6 +421,10 @@ For anything new, use <code>Aead</code> (AES-256-GCM).</p>
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookies-default-to-secure--true">Cookies default to secure = true</a></li>
 			<li class="level-2"><a href="#cookies">Cookies</a></li>
+			<li class="level-2"><a href="#rotating-a-key">Rotating a key</a></li>
+			<li class="level-3"><a href="#knowing-when-step-3-is-safe">Knowing when step 3 is safe</a></li>
+			<li class="level-3"><a href="#cookies-you-wrote-are-yours-to-rewrite">Cookies you wrote are yours to rewrite</a></li>
+			<li class="level-3"><a href="#password-keys-cannot-be-rotated-this-way">Password keys cannot be rotated this way</a></li>
 			<li class="level-2"><a href="#passwords">Passwords</a></li>
 		</ul>
 	</nav>
