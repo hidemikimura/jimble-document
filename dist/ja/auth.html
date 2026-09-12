@@ -482,6 +482,298 @@ me.hasRole(<span class="h-s">"approver"</span>);
 呼ばないと、<strong>盗まれた Cookie はそのまま使えます</strong>——変えた意味がありません。
 「全端末からログアウト」も同じものです。</p>
 </div>
+<h2 id="google-でログインopenid-connect">「Google でログイン」（OpenID Connect）<a class="anchor" href="#google-でログインopenid-connect">#</a></h2>
+<pre class="code"><code class="lang-java">{
+	before(Auth::guard);
+
+	<span class="h-c">// どちらも「ログインは要らないが、セッションは要る」</span>
+	get(<span class="h-s">"/auth/google"</span>, Oidc.start(<span class="h-s">"google"</span>))
+		.attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+
+	get(<span class="h-s">"/auth/google/callback"</span>, Oidc.callback(<span class="h-s">"google"</span>, App::findOrCreate))
+		.attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+}
+
+<span class="h-c">// 名乗ってきた相手を、アプリの利用者に結び付ける。入れたくなければ null</span>
+<span class="h-k">private</span> <span class="h-k">static</span> Principal findOrCreate (OidcUser user) {
+
+	Data staff = findByOidcKey(user.key());        <span class="h-c">// "google:1234567890"</span>
+
+	<span class="h-k">return</span> staff.isEmpty() ? <span class="h-k">null</span>
+		: Principal.of(staff.getLong(<span class="h-s">"id"</span>), staff.getString(<span class="h-s">"name"</span>), staff.getString(<span class="h-s">"role"</span>));
+
+}
+</code></pre>
+<p>設定は <code>auth.oidc.&lt;名前&gt;.*</code>（<a href="./config">設定</a>）。<strong><code>client_secret</code> は環境変数から</strong>入れてください。
+<code>authorization_endpoint</code> などは書かなければ <strong>discovery</strong>（<code>issuer</code> + <code>/.well-known/openid-configuration</code>）で引きます。
+<strong>起動時には引きません</strong>——引くと、プロバイダが落ちているあいだアプリが起動しなくなります。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>Auth.NO_SESSION</code> を付けないでください。</strong><code>state</code> も <code>nonce</code> も PKCE の検証子も
+セッションに置くので、付けると<strong>戻ってきたときに何も残っていません</strong>。</p>
+<p><code>Auth.PUBLIC</code> は要ります（まだログインしていない人が通る道なので）。
+<strong>この2つが別の判断だという話は上のとおりです。</strong></p>
+</div>
+<h3 id="認可コード--pkce-だけ">認可コード + PKCE だけ<a class="anchor" href="#認可コード--pkce-だけ">#</a></h3>
+<p>暗黙フローは持っていません。<code>start</code> が <strong>state / nonce / PKCE の検証子</strong>を作ってセッションに置き、
+<code>callback</code> が突き合わせます。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>何を防ぐか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state</code></td>
+<td>**ログイン CSRF。**攻撃者のコードを踏ませて、<strong>被害者を攻撃者のアカウントでログインさせる</strong>手</td>
+</tr>
+<tr>
+<td><code>nonce</code></td>
+<td>**ID トークンの使い回し。**1度取れたトークンを何度でも持ち込む手</td>
+</tr>
+<tr>
+<td><strong>PKCE</strong>（S256）</td>
+<td>**認可コードの横取り。**検証子を知らないとトークンに換えられません</td>
+</tr>
+</tbody>
+</table>
+<p><code>state</code> は<strong>読んだ時点で捨てます</strong>（1回だけにするのが役目なので）。</p>
+<h3 id="id-トークンの検証">ID トークンの検証<a class="anchor" href="#id-トークンの検証">#</a></h3>
+<p>**外部のライブラリを入れていません。**JWKS が返す <code>n</code>/<code>e</code>（RSA）と <code>x</code>/<code>y</code>（EC）は
+JDK の <code>KeyFactory</code> で公開鍵に戻せて、署名の検証も <code>java.security.Signature</code> がやります。</p>
+<p>見ているのは次のとおりです。<strong>どれも「見ていない」だけで通ってしまう</strong>ところです。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>alg</code></td>
+<td><strong>ヘッダを信じません。<strong>表に載っている RS/ES だけを通します。<code>none</code> は「署名が空でも検証したことになる」、<code>HS256</code> は</strong>公開鍵を共有鍵として渡すと誰でも署名できる</strong></td>
+</tr>
+<tr>
+<td><code>kid</code></td>
+<td>その鍵で検証します。JWKS 側が <code>alg</code> を名乗っていれば、それとも一致すること</td>
+</tr>
+<tr>
+<td><code>iss</code></td>
+<td>**1文字違わず一致。**前方一致にすると <code>https://accounts.google.com.evil.jp</code> が通ります</td>
+</tr>
+<tr>
+<td><code>aud</code></td>
+<td>自分が入っていること。<strong>複数あれば <code>azp</code> も</strong>（別のクライアント宛てを持ち込ませない）</td>
+</tr>
+<tr>
+<td><code>exp</code> / <code>iat</code> / <code>nbf</code></td>
+<td>時計のずれぶんだけ緩めます。<strong>未来に発行されたことになっているものは通しません</strong></td>
+</tr>
+<tr>
+<td><code>nonce</code></td>
+<td>こちらが送ったものと一致すること</td>
+</tr>
+</tbody>
+</table>
+<p><strong>断る理由は返しません。</strong>「nonce が合いません」と返すと、<strong>どこまで通ったかを外から測れます</strong>。
+ログにだけ残して、返すのは 401 です。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>メールが同じでも、既存の利用者に自動で結び付けません。</strong>
+引くのは <code>provider + sub</code> の組（<code>user.key()</code>）だけです。</p>
+<p>メール一致で自動的に結び付けると、<strong>メールを検証していないプロバイダが1つ混ざるだけで
+アカウント乗っ取りになります</strong>。既存のアカウントに紐付けたいなら、
+**ログイン済みの状態で明示的に「連携する」**操作をさせてください。</p>
+<p><code>user.emailVerified()</code> は見られますが、<strong>それを信じるかどうかはアプリの判断</strong>です。</p>
+</div>
+<h3 id="やらないこと">やらないこと<a class="anchor" href="#やらないこと">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>アクセストークンの保管</td>
+<td>しません。ここは「誰がログインしたか」までです。外部 API を叩くなら、返ってきたトークンをアプリが自分で持ってください（保管・暗号化・失効・スコープの追加同意まで面倒を見ることになります）</td>
+</tr>
+<tr>
+<td>jimble が認可サーバーになる</td>
+<td>ありません</td>
+</tr>
+<tr>
+<td>ルートを自動で生やす</td>
+<td>しません。<code>get(&quot;/auth/google&quot;, ...)</code> と自分で書きます（<a href="./principles">原則</a>）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="二要素認証totp">二要素認証（TOTP）<a class="anchor" href="#二要素認証totp">#</a></h2>
+<p>パスワードが合ったあと、<strong>まだログインさせずに</strong>コードを待ちます。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// パスワードが合ったあと</span>
+<span class="h-k">if</span> (Mfa.isActive(staff.getLong(<span class="h-s">"id"</span>))) {
+	Mfa.pending(context, principal);        <span class="h-c">// ログインさせない。セッションに預けるだけ</span>
+	context.response().redirect(<span class="h-s">"/login/code"</span>);
+	<span class="h-k">return</span>;
+}
+
+Auth.login(context, principal);
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// POST /login/code</span>
+<span class="h-k">if</span> (!Mfa.complete(context, request.getString(<span class="h-s">"code"</span>))) {
+	context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"コードが違います"</span>);
+}
+
+context.response().redirect(Mfa.isPending(context) ? <span class="h-s">"/login/code"</span> : <span class="h-s">"/"</span>);
+</code></pre>
+<p><code>complete</code> が true を返したときは、<strong>中で <code>Auth.login</code> まで済んでいます。</strong></p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>コードを入れるまでは「ログインしていない」扱いです。</strong>
+<code>Auth.principal(context)</code> は <code>Principal.ANONYMOUS</code> を返し、
+<code>/login/code</code> 以外のルートは通れません。</p>
+<p>つまり <strong><code>/login/code</code> には <code>Auth.PUBLIC</code> が要ります</strong>（まだログインしていない人が通る道なので）。
+<code>Auth.NO_SESSION</code> は付けないでください——途中の人はセッションに預けてあります。</p>
+</div>
+<h3 id="登録">登録<a class="anchor" href="#登録">#</a></h3>
+<pre class="code"><code class="lang-java">Mfa.Enrollment enrollment = Mfa.enroll(staffId, <span class="h-s">"member1@example.com"</span>);
+
+<span class="h-c">// enrollment.uri() を QR にして見せる（otpauth://totp/...）</span>
+<span class="h-c">// enrollment.recoveryCodes() は「この一度だけ」見せる</span>
+</code></pre>
+<p><strong><code>enroll</code> だけでは有効になりません。</strong>
+認証アプリに入れてもらってから、出てきたコードで <code>Mfa.activate(staffId, code)</code> を呼びます。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">if</span> (!Mfa.activate(staffId, request.getString(<span class="h-s">"code"</span>))) {
+	context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"コードが合いません。もう一度お試しください"</span>);
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>2段階にしてあるのは、締め出さないためです。</strong>
+<code>enroll</code> の時点で有効にすると、<strong>QR の読み取りに失敗した人が二度と入れなくなります。</strong></p>
+</div>
+<h3 id="秘密鍵は暗号化して持ちます">秘密鍵は暗号化して持ちます<a class="anchor" href="#秘密鍵は暗号化して持ちます">#</a></h3>
+<p><strong><code>auth.mfa.secret_key</code> が設定されていなければ、<code>enroll</code> は例外を投げて断ります。</strong></p>
+<p>TOTP の秘密鍵は、パスワードのハッシュとは違います。
+ハッシュは漏れても解くのに手間がかかりますが、<strong>秘密鍵は漏れたらその場でコードが作れます。</strong>
+平文で持つと、「2要素を入れてあるのに、DB が漏れたら全員突破される」ものになります。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>cipher.key</code> を流用しないでください。</strong>
+<code>hash.password.encrypt</code> の既定は **「<code>cipher.key</code> があれば true」**です
+（移送してきたアプリの保存済みハッシュが暗号化されているため）。</p>
+<p>つまり、<strong>いま平文の BCrypt を保存しているアプリが、二要素認証のために <code>cipher.key</code> を
+設定すると、保存済みのパスワードが「暗号化済み」として読まれて全員入れなくなります。</strong>
+返るのは「IDかパスワードが違います」だけなので、原因に辿り着けません。
+<strong>鍵を分けてあるのはこのためです。</strong></p>
+</div>
+<h3 id="回復コード">回復コード<a class="anchor" href="#回復コード">#</a></h3>
+<p>認証アプリを入れた端末は失くします。回復コードはそのための逃げ道です。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>出る場所</td>
+<td><code>enroll</code> の戻り値だけ。<strong>DB には SHA-256 しか残りません</strong></td>
+</tr>
+<tr>
+<td>数</td>
+<td>10 個（<code>auth.mfa.recovery_codes</code>）</td>
+</tr>
+<tr>
+<td>使い方</td>
+<td>コードの欄にそのまま入れます。<code>verify</code> が認証アプリ → 回復コードの順に見ます</td>
+</tr>
+<tr>
+<td>使ったら</td>
+<td>**消えます。**1つは1回だけです</td>
+</tr>
+<tr>
+<td>残りの数</td>
+<td><code>Mfa.remainingRecoveryCodes(userId)</code></td>
+</tr>
+</tbody>
+</table>
+<p>**残りが 0 になっても知らせません。**画面に出すかどうかはアプリの判断です。</p>
+<h3 id="総当たりへの備え">総当たりへの備え<a class="anchor" href="#総当たりへの備え">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>待たせる</td>
+<td><code>Lockout</code> と同じ仕掛けです（鍵は <code>mfa:&lt;利用者 ID&gt;</code>）。<strong>6桁は 100 万通りしかないので、抑えないと1日で当たります</strong></td>
+</tr>
+<tr>
+<td>待たせ方</td>
+<td>3回までは待たせず、そのあと 1 → 2 → 4 … 秒。上限 300 秒。超えたら <strong>429</strong></td>
+</tr>
+<tr>
+<td>窓</td>
+<td>前後1つ（<code>auth.mfa.window</code>）。<strong>広げるほど当たりも増えます</strong>——10 にすると当たりが 21 通りぶんになります</td>
+</tr>
+<tr>
+<td>使い回し</td>
+<td>**一度通ったコードは、その窓が終わるまで通りません。**同じコードを覗き見て入れ直す手を止めます</td>
+</tr>
+<tr>
+<td>猶予</td>
+<td>パスワードが通ってからコードまで 300 秒（<code>auth.mfa.pending_seconds</code>）。過ぎたら<strong>はじめからやり直し</strong>です</td>
+</tr>
+</tbody>
+</table>
+<h3 id="やめるとき">やめるとき<a class="anchor" href="#やめるとき">#</a></h3>
+<pre class="code"><code class="lang-java">post(<span class="h-s">"/mfa/disable"</span>, Mfa2::disable).attribute(Auth.FULL_AUTH, <span class="h-k">true</span>);
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>Mfa.disable</code> を呼ぶ前に、本人であることを確かめてください。</strong>
+ここが緩いと、<strong>Cookie を盗んだ側が2要素を外せます</strong>——入れた意味がなくなります。
+<code>attribute(Auth.FULL_AUTH, true)</code> を付けて、<strong>いまパスワードを入れた人だけ</strong>にしてください。</p>
+</div>
+<h3 id="仕様とやらないこと">仕様と、やらないこと<a class="anchor" href="#仕様とやらないこと">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>方式</td>
+<td>TOTP（RFC 6238 / RFC 4226）。HMAC-SHA1、6桁、30 秒。<strong>認証アプリが揃って読めるのがこれだけ</strong>だからです</td>
+</tr>
+<tr>
+<td>置き場</td>
+<td><code>auth_mfa</code> と <code>auth_mfa_recovery</code>。<strong>DB が要ります</strong>（無ければ <code>enroll</code> は例外）</td>
+</tr>
+<tr>
+<td>QR 画像</td>
+<td>作りません。<code>enrollment.uri()</code> を渡すので、画面側で描いてください（依存を増やさないため）</td>
+</tr>
+<tr>
+<td>SMS / メール</td>
+<td>ありません。SMS は SIM の乗っ取りで抜かれます</td>
+</tr>
+<tr>
+<td>WebAuthn / パスキー</td>
+<td>まだありません</td>
+</tr>
+<tr>
+<td>「信頼した端末」</td>
+<td>ありません。remember-me が近いことをしますが、<strong>別のものです</strong>（あちらはパスワードの代わり）</td>
+</tr>
+</tbody>
+</table>
+<p>動いているものは <code>examples/approval-auth</code> にあります（ログイン → コード → 登録 → 解除まで）。</p>
 <h2 id="basic-認証">Basic 認証<a class="anchor" href="#basic-認証">#</a></h2>
 <p>運用向けの口には Basic 認証が使えます（<a href="./request-response">リクエストとレスポンス</a>）。</p>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
@@ -490,7 +782,7 @@ me.hasRole(<span class="h-s">"approver"</span>);
 	get(<span class="h-s">"/whoami"</span>, Ops::whoami);
 });
 </code></pre>
-<h2 id="やらないこと">やらないこと<a class="anchor" href="#やらないこと">#</a></h2>
+<h2 id="やらないこと-2">やらないこと<a class="anchor" href="#やらないこと-2">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -512,7 +804,7 @@ me.hasRole(<span class="h-s">"approver"</span>);
 <td>**出しません。**失効できず鍵の管理が増えます。API の認証が要るなら、DB に持つ不透明なトークンにしてください</td>
 </tr>
 <tr>
-<td>OAuth / OIDC / SAML</td>
+<td>SAML</td>
 <td>まだありません</td>
 </tr>
 <tr>
@@ -548,8 +840,19 @@ me.hasRole(<span class="h-s">"approver"</span>);
 			<li class="level-2"><a href="#ログインしたままにするremember-me">ログインしたままにする（remember-me）</a></li>
 			<li class="level-3"><a href="#cookie-を盗まれてもパスワードは変えられない">Cookie を盗まれても、パスワードは変えられない</a></li>
 			<li class="level-3"><a href="#盗まれたら気づく">盗まれたら気づく</a></li>
+			<li class="level-2"><a href="#google-でログインopenid-connect">「Google でログイン」（OpenID Connect）</a></li>
+			<li class="level-3"><a href="#認可コード--pkce-だけ">認可コード + PKCE だけ</a></li>
+			<li class="level-3"><a href="#id-トークンの検証">ID トークンの検証</a></li>
+			<li class="level-3"><a href="#やらないこと">やらないこと</a></li>
+			<li class="level-2"><a href="#二要素認証totp">二要素認証（TOTP）</a></li>
+			<li class="level-3"><a href="#登録">登録</a></li>
+			<li class="level-3"><a href="#秘密鍵は暗号化して持ちます">秘密鍵は暗号化して持ちます</a></li>
+			<li class="level-3"><a href="#回復コード">回復コード</a></li>
+			<li class="level-3"><a href="#総当たりへの備え">総当たりへの備え</a></li>
+			<li class="level-3"><a href="#やめるとき">やめるとき</a></li>
+			<li class="level-3"><a href="#仕様とやらないこと">仕様と、やらないこと</a></li>
 			<li class="level-2"><a href="#basic-認証">Basic 認証</a></li>
-			<li class="level-2"><a href="#やらないこと">やらないこと</a></li>
+			<li class="level-2"><a href="#やらないこと-2">やらないこと</a></li>
 		</ul>
 	</nav>
 </div>

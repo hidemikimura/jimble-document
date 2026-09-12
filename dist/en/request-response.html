@@ -299,8 +299,10 @@ context.response().redirect(<span class="h-s">"/"</span>);                  <spa
 context.response().download(file, <span class="h-s">"report.xlsx"</span>);  <span class="h-c">// download</span>
 context.response().code(<span class="h-n">201</span>).send();               <span class="h-c">// no body</span>
 </code></pre>
-<p><code>json()</code> only builds; <code>send()</code> is what sends.
-Call <code>json()</code> several times and it keeps adding to the same JSON document.</p>
+<p><code>json()</code> only builds. Call it several times and it keeps adding to the same JSON document.</p>
+<p><strong>You do not need a <code>send()</code> after <code>json()</code>.</strong> Once it is built, the dispatcher sends it at
+the end of the execution. Write <code>send()</code> explicitly only when you want to finish <strong>with no
+body</strong> (<code>code(204).send()</code>), or when you are returning text directly.</p>
 <pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
 <h2 id="streaming-something-large">Streaming something large<a class="anchor" href="#streaming-something-large">#</a></h2>
 <p>When you do not want the whole thing in memory, use <code>outputStream()</code> directly.</p>

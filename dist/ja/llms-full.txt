@@ -1,0 +1,8114 @@
+# jimble
+
+> Java 25 と Helidon の上に載る、注釈もDIもリフレクションも使わない Web フレームワーク
+
+
+---
+
+<!-- https://jimble.io/ja/index -->
+
+
+# jimble とは
+
+jimble は Java の Web フレームワークです。Helidon の Níma（仮想スレッド）の上に載り、
+ルーティング・DB・テンプレート・バッチ・MQ・SSE・WebSocket・MCP をひとまとまりで持ちます。
+
+```java
+get("/hello", context -> context.response().send("hello, jimble\n"));
+```
+
+## 何が違うのか
+
+ほとんどのフレームワークは「書く量を減らすこと」を目指します。
+jimble が目指すのは **読む人が上から順に追えること** です。
+
+- **注釈がない。** `@Controller` も `@Inject` も `@Transactional` もありません。
+  ルートは `get("/hello", ...)` と書いてあるところにしかありません。
+- **DI コンテナがない。** オブジェクトは `new` します。誰が誰を作るかはコードに出ています。
+- **起動時にクラスパスを走査しない。** 起動が速く、ネイティブイメージとも喧嘩しません。
+  そのかわり、使うものは自分で `install()` します。
+
+この3つを守ると、「なぜこれが動くのか分からない」という時間が消えます。
+かわりに数行だけ多く書きます。jimble はそちらのほうが安いと考えています。
+
+詳しくは [考え方](./principles) を読んでください。
+
+## いま何ができるか
+
+| できること | 見るところ |
+| --- | --- |
+| HTTP のルーティング、パスパラメータ、フィルタ | [ルーティング](./routing) |
+| リクエストの読み取りと検証、レスポンスの組み立て | [リクエストとレスポンス](./request-response) |
+| ファイルアップロードとダウンロード | [ファイルアップロード](./upload) |
+| 入力の検証、ページング | [検証とページング](./validation) |
+| 例外・未マッチ・検証失敗の扱い | [エラー処理](./errors) |
+| jte テンプレート（コンパイル済み） | [テンプレート](./view) |
+| 静的ファイル・SPA・MPA の配信 | [静的ファイルと SPA](./assets) |
+| セッション・CSRF・Flash・署名付き Cookie | [セッションと安全側の既定](./session-security) |
+| レートリミット（ルート単位・IP 単位） | [レートリミット](./ratelimit) |
+| 仮想スレッド、何がどこで動くか、止め方 | [実行モデル](./execution) |
+| SQL DSL、テーブル定義の生成 | [DB を使う](./db) |
+| マイグレーションとコード生成の流れ | [マイグレーションとコード生成](./codegen) |
+| トランザクション | [トランザクション](./transaction) |
+| キャッシュ（DB / メモリ / Redis）と分散ロック | [キャッシュとロック](./cache) |
+| cron で回るバッチ、管理画面 | [バッチ](./batch) |
+| DB を使ったキュー | [MQ](./mq) |
+| Server-Sent Events | [SSE](./sse) |
+| WebSocket | [WebSocket](./websocket) |
+| Model Context Protocol のサーバー | [MCP](./mcp) |
+| CLI の入れ方、雛形の生成、ホットリロード | [jimble コマンド](./cli) / [ホットリロード](./hot-reload) |
+| Gradle のタスクと設定 | [Gradle プラグイン](./gradle) |
+| テストの書き方（DB を使うぶんの分け方も） | [テスト](./testing) |
+| Data・JSON・HTTP クライアント・CSV・暗号 | [ユーティリティ](./util) |
+| ポート・上限・プロキシ・圧縮 | [サーバー設定](./server) |
+| アクセスログ、実行 ID、logback の設定 | [ログ](./log) |
+
+## 版について
+
+**このサイトは、いちばん新しいリリースの内容です。**
+反映はリリースのときだけなので、ここに書いてあることは<b>公開されている版で動きます</b>。
+
+公開されているものは
+[Maven Central](https://repo.maven.apache.org/maven2/io/jimble/) にあります。
+依存の座標と、そのまま動くビルドファイルは [Gradle プラグイン](./gradle) に、
+ソースは [GitHub](https://github.com/hidemikimura/jimble) にあります。
+
+## まず動かす
+
+[5分で最初のエンドポイント](./quickstart) へ進んでください。
+
+
+
+---
+
+<!-- https://jimble.io/ja/quickstart -->
+
+
+# 5分で最初のエンドポイント
+
+## 用意するもの
+
+- **JDK 25**（LTS）。jimble は仮想スレッドと `ScopedValue` を使います
+- **Gradle 9 以上**。Gradle 8 は Java 25 の上では動きません
+  （ツールチェーンとして Java 25 を使うのは 8 でもできますが、Gradle 自身が動きません）
+
+DB はまだ要りません。あとから足せます。
+
+`jimble` コマンドの入れ方は [jimble コマンド](./cli) にあります
+（[リポジトリ](https://github.com/hidemikimura/jimble)で `./gradlew :jimble-cli:installDist` して PATH に通すだけです）。
+
+> [!TIP]
+> **コマンドを入れなくても始められます。**`jimble new` が作るビルドファイルは
+> [Gradle プラグイン](./gradle) の「まっさらから書く」に全文があります。
+> 2つのファイルを貼れば、ここから先は同じです。
+
+## 1. 雛形を作る
+
+```bash
+jimble new my-blog
+cd my-blog
+gradle wrapper --gradle-version 9.7.1
+```
+
+`gradle wrapper` に版を付けるのは、**手元の Gradle が 8 だと 8 のラッパーができてしまう**ためです。
+
+`jimble new` が作るのは、ビルドファイル・`application.conf`・`App.java`・
+`index.jte`・`.gitignore` だけです。空のディレクトリは作りません。
+
+## 2. 起動する
+
+```bash
+./gradlew run
+```
+
+```
+jimble 構成: env=local / session=none / cache=db / redis=なし / db=[]
+route: GET     /
+jimble を起動しました: http://localhost:9000
+```
+
+起動ログに **ルート一覧が全部出ます**。
+「登録したつもりのルートが無い」を起動の時点で見つけるためです。
+
+```bash
+curl http://localhost:9000/
+```
+
+## 3. エンドポイントを足す
+
+`App.java` の初期化ブロックに1行足します。
+
+```java
+get("/hello", context -> context.response().send("hello, jimble\n"));
+```
+
+`{ }` の中はコンストラクタの前に走る初期化ブロックです。
+`JimbleApp` を継承したクラスの初期化ブロックが、そのままルート定義になります。
+
+JSON を返すなら:
+
+```java
+get("/posts", context -> context.response().json("posts", BlogApp.listPosts()));
+```
+
+`json()` は `Data`（`LinkedHashMap<String,Object>` の派生）を組み立てて、
+`send()` の時点で JSON にします。
+
+上のコード片はサンプルアプリ（`examples/blog`）から抜いたものなので、
+`listPosts()` のような**そのアプリのメソッド**が出てきます。
+自分のアプリでは、そこを自分の処理に置き換えてください。
+
+## 4. 直したら反映されるようにする
+
+```bash
+./gradlew jimbleRun
+```
+
+`jimbleRun` は 9000 番でプロキシを立て、その裏で**同じ JVM の中に**アプリを起動します。
+ソースを直すと次のリクエストのときにビルドして入れ替えます。
+ビルドが失敗したら、そのエラーがブラウザに出ます。
+
+詳しくは [ホットリロード](./hot-reload) を見てください。
+
+## 5. エラーの出し方を決める
+
+```java
+error((context, cause, statusCode) ->
+	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, cause.getMessage())));
+```
+
+`error()` に渡したものが、投げられた例外にも、どのルートにも当たらなかった 404 にも使われます。
+何も登録しないと jimble の既定の形で返ります。
+
+## クラスの置き場所
+
+コード片には `import` を書いていません。よく使うものはここにあります。
+
+| クラス | パッケージ |
+| --- | --- |
+| `JimbleApp` / `JimbleServer` | `io.jimble.web.server` |
+| `Context` / `WebContext` | `io.jimble.core.context` / `io.jimble.web.context` |
+| `Data` | `io.jimble.util.data` |
+| `Conf` | `io.jimble.util.conf` |
+| `Log` | `io.jimble.util.log` |
+| `DB` / `DBUtil` | `io.jimble.db` |
+| `SQL` / `Dsl` | `io.jimble.db.sql` / `io.jimble.db.sql.query.dsl` |
+| `Migration` | `io.jimble.db.migration` |
+| 生成されたテーブル定義 | `<codegen.package>.<スキーマ名>.table.<テーブル名>` |
+
+## 次に読むもの
+
+- [ルーティング](./routing) — パスパラメータ、フィルタ、まとめ方
+- [DB を使う](./db) — DB を足す
+- [落とし穴](./pitfalls) — 先に読んでおくと1日得します
+
+
+
+---
+
+<!-- https://jimble.io/ja/principles -->
+
+
+# 考え方
+
+jimble には守っている決めごとがいくつかあります。
+機能を足すかどうかは、たいていここで決まります。
+
+## 1. 上から順に追えること
+
+コードを読む人が、`main` から目的の処理までを**指でたどれる**ことを最優先します。
+
+そのために捨てたもの:
+
+- **注釈でのルート定義**（`@GET @Path("/x")`）。
+  どのクラスが読まれるのかがコードに出ないため
+- **DI コンテナ**。
+  `@Inject` された実装がどれになるかは、実行するまで分からないため
+- **注釈でのトランザクション**（`@Transactional`）。
+  どこで始まってどこで終わるかが、メソッドの外にあるため
+
+かわりに `new` を書きます。`install(AdminController::new)` と書きます。
+`try (DBTransaction transaction = ...)` と書きます。数行増えます。
+
+## 2. 起動時にクラスパスを走査しない
+
+コントローラもバッチも MCP のツールも、**自分で登録します**。
+
+```java
+tool("search_posts", SearchPostsTool::new);
+tool("create_post", CreatePostTool::new);
+
+resource("blog://latest", LatestPostsResource::new);
+```
+
+走査しないので、起動が速く、何が登録されたかが起動ログで完結し、
+ネイティブイメージや jlink とも喧嘩しません。
+登録し忘れは、起動ログのルート一覧で気づけます。
+
+## 3. 黙って間違えないこと
+
+いちばん高くつくバグは、落ちないバグです。
+jimble は「静かに効かなくなる」状態を潰すことに時間を使っています。
+
+例:
+
+- `env=local` なのに `cookie.secure = true` なら、起動時に **WARN を出します**。
+  そのままだとブラウザが Cookie を返さず、セッションも CSRF も Flash も
+  エラーなしで効かなくなるためです
+- トランザクションを開いたまま実行が終わったら、**ERROR を出してロールバックします**。
+  黙って接続をプールへ返すと「入れたつもりが入っていない」が残ります
+- ドキュメントのコード片は実コードから抜いています。
+  印の付いた場所が消えたら、**サイトのビルドが落ちます**
+
+## 4. 例外にしないところ
+
+DB のエラーは例外ではなく戻り値で返します。
+`select` 系は `null`、更新系は `-1` です。
+
+```java
+try (DB db = BlogExample.db()) {
+
+	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
+
+	/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */
+	if (rows == null) {
+		Log.error("引けませんでした: " + db.getError());
+		return;
+	}
+
+}
+```
+
+理由は、DB のエラーの多くが「呼び出し側が分岐したいもの」だからです。
+例外にすると `try` で囲むか、囲み忘れて上まで飛ばすかの二択になります。
+
+## 5. 一つの実行 = 一つの Context
+
+Web のリクエスト・バッチの実行・MQ の1件・WebSocket の1メッセージ、
+それぞれに `Context` が1つ作られます。
+DB 接続もセッションもここにぶら下がり、終わりで畳まれます。
+
+`Context` は `ScopedValue` で渡します。`ThreadLocal` ではありません。
+仮想スレッドの上では `ScopedValue` のほうが安く、
+かつ**書き換えられない**ので、途中ですり替わることがありません。
+
+
+
+---
+
+<!-- https://jimble.io/ja/routing -->
+
+
+# ルーティング
+
+## 定義するところ
+
+`JimbleApp` を継承したクラスの初期化ブロックが、ルート定義です。
+
+```java
+public class App extends JimbleApp {
+
+	{
+		get("/hello", context -> context.response().send("hello"));
+	}
+
+	public static void main (String[] args) {
+		JimbleServer.start(new App());
+	}
+
+}
+```
+
+使えるメソッドは `get` `post` `put` `patch` `delete` `head` `options` `trace`、
+それと全部に登録する `any` です。すべて小文字です。
+
+## パスパラメータ
+
+```java
+get("/users/{id}", context ->
+	context.response().send(context.route().variables().get("id")));
+```
+
+- `{id}` は1区切りぶん。`%2F` を含んでいても1つの値として取れます
+- `*` はワイルドカード。`context.route().variables().wildcard()` で残り全部が取れます
+
+同じパスに複数当たる場合は、**より具体的なほうが勝ちます**
+（`/users/me` は `/users/{id}` より先）。
+順番は **固定パス > パスパラメータ > ワイルドカード**で、
+同じ階層にパスパラメータが複数あるときは**登録した順**に試します。
+
+**同じパス・同じメソッドを2度登録すると、その場で例外になります。**
+起動してから気づくより早いほうがよいからです。
+
+### 一生呼ばれないルート
+
+重複ではないのに、**どんなリクエストでも他が先に当たる**ことがあります。
+
+```java
+get("/users/{id}", ...);
+get("/users/{userId}", ...);   // ← 一生呼ばれない
+```
+
+名前が違うだけなので登録は通りますが、`/users/5` は必ず1本目に当たります。
+**起動時に見つけて警告します。**
+
+```
+WARN  ルート: GET     /users/{userId} は一生呼ばれません（GET     /users/{id} が先に当たります）
+```
+
+警告は起動ログの何十行にも紛れるので、**CI では例外にしてください**。
+
+```conf
+server {
+	strict_routes = true
+}
+```
+
+なお `/users/me` が `/users/{id}` より先に当たるのは正しい動きなので、警告しません
+（`{id}` は `me` 以外のすべてで呼ばれます）。見ているのは**1本も来ないもの**だけです。
+
+### メソッドだけ違うとき
+
+パスは合っていてメソッドだけ違うときは、404 ではなく **405** が返り、`Allow` が付きます。
+
+```
+$ curl -i -X POST http://localhost:9000/hello
+HTTP/1.1 405 Method Not Allowed
+Allow: GET
+```
+
+## まとめる
+
+```java
+path("/form", () -> {
+
+	/*
+	 * 状態を変えるものだけ検証する。
+	 * GET / HEAD / OPTIONS / TRACE は素通しする（Csrf.SAFE_METHODS）。
+	 */
+	before(Csrf::verify);
+
+	get("", FormController::show);
+	post("", FormController::submit);
+
+});
+```
+
+`path()` の中で登録したものには、同じ `before` が付きます。
+`path()` は入れ子にできます。
+
+## フィルタ
+
+| 登録 | いつ走るか |
+| --- | --- |
+| `before(handler)` | ハンドラの前 |
+| `after(handler)` | ハンドラの後（レスポンスを送る前） |
+| `error(handler)` | 例外が出たとき・どのルートにも当たらなかったとき |
+
+`before` の中で例外を投げると、そこで止まって `error` に行きます。
+認証はここでやります。
+
+```java
+static void requireAuth (WebContext context) {
+
+	if (!"secret".equals(context.request().header().getString("x-token"))) {
+		throw new HttpException(401, "認証が必要です");
+	}
+
+}
+```
+
+## フィルタの効く範囲
+
+**フィルタは「書いた場所」に付きます。パスには付きません。**
+効くのは、同じブロックで登録したルートと、そこから `path()` / `install()` で
+ネストしたものだけです。
+
+```java
+path("/admin", () -> {
+	before(AdminController::requireAuth);
+	get("/users", ...);          // ← 効く
+	install(GroupController::new);   // ← 効く（中のルートも全部）
+});
+
+path("/admin", () -> {
+	get("/login", ...);          // ← 効かない（別のブロック）
+});
+```
+
+パスが同じでも、**別のブロックで登録したルートには効きません。**
+だから「`/admin` 配下は全部認証」を成り立たせたいときは、
+`/admin` のルートを1か所にまとめてください。
+逆に言うと、**誰かが別の場所で `/admin/...` を足しても、
+知らないうちにフィルタに捕まることがありません。**
+
+ブロックの中では、`before` を書いた位置とルートを書いた位置の前後は関係ありません。
+ブロック全体に効きます。
+
+フィルタはルートごとに**起動時に1度だけ**組み立てます。
+そのため、**確定した後にフィルタを足すと落ちます**（「足したのに効かない」を作らないため）。
+ルート定義はコントローラの初期化ブロックの中で完結させてください。
+
+**未マッチ（404）のときに呼ばれるのは、一番外側の `error` だけ**です。
+どのルートにも当たっていないので、内側のブロックが決まりません。
+
+## ルートごとの印
+
+フィルタを1本だけ外したいときは、注釈ではなく**属性**を使います。
+
+```java
+static final AttributeKey<Boolean> NO_AUTH = new AttributeKey<>("no_auth", false);
+
+get("/health_check", context -> context.response().send()).attribute(NO_AUTH, true);
+```
+
+```java
+if (context.route().route().attribute(NO_AUTH)) {
+	return;
+}
+```
+
+`AttributeKey` は既定値を持ちます。付いていないルートでは既定値が返るので、
+`null` の判定が要りません。
+
+### ブロック単位で付ける
+
+**ルート1本ずつに書かなくて済みます。**`attribute()` をブロックに書くと、
+そのブロックの中のルート全部に付きます。
+
+```java
+path("/docs", () -> {
+
+	attribute(PUBLIC, true);          // ← このブロックは全部公開
+
+	get("/guide", Guide::show);       // 公開
+	get("/faq",   Faq::show);         // 公開
+	get("/me",    Me::show).attribute(PUBLIC, false);   // ここだけ要ログイン
+
+});
+```
+
+強い順に **ルート > 内側のブロック > 外側のブロック > キーの既定値**です。
+
+**書く場所は問いません。**ブロックの最後に書いても、その前に登録したルートに付きます
+（`before` と同じで、配るのは起動時の確定のときです）。
+
+> [!TRAP]
+> **フィルタと同じで、パスには付きません。**効くのは
+> **同じブロックで登録したルート**と、そこから `path()` / `install()` で
+> ネストしたものだけです。パスが同じでも、別のブロックで登録したルートには付きません。
+>
+> ```java
+> path("/docs", () -> {
+> 	attribute(PUBLIC, true);
+> 	get("/guide", ...);        // ← 付く
+> });
+>
+> path("/docs", () -> {
+> 	get("/internal", ...);     // ← 付かない（別のブロック）
+> });
+> ```
+>
+> **付いているかどうかがコードを読んで分かる**ようにするためです
+> （[フィルタの効く範囲](#フィルタの効く範囲)と同じ決まり）。
+
+`rateLimit()` も、この仕組みの上に乗っています
+（[流量制限](./ratelimit)）。
+
+## コントローラに分ける
+
+1ファイルが長くなったら `Controller` に切り出します。
+
+```java
+public class PostController extends Controller {
+
+	{
+		get("/posts", context -> context.response().json("posts", listPosts()));
+	}
+
+}
+```
+
+```java
+install(PostController::new);
+```
+
+`install()` に渡すのは**インスタンスではなくコンストラクタ参照**です。
+走査はしないので、`install()` を書かないと登録されません。
+起動ログのルート一覧で確認してください。
+
+## エラーの扱い
+
+```java
+error((context, cause, statusCode) ->
+	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, cause.getMessage())));
+```
+
+`HttpException(404, "...")` を投げると、そのステータスで `error` に入ります。
+`error` を複数登録すると、登録した順に呼ばれます。
+どれかがレスポンスを送ったら、そこで止まります。
+
+ステータスコードの決まり方、未マッチ（404）の扱い、検証失敗との違いは
+[エラー処理](./errors) にまとめてあります。
+
+## 実装済みのルートを内側から呼ぶ
+
+登録済みのルートは、HTTP を通さずに呼べます。
+
+```java
+CallResponse response = context.dispatcher().call(context
+	, CallRequest.of("GET", "/api/posts").query("page", "2"));
+
+Data json = response.json();
+```
+
+**通常のリクエストとまったく同じ道を通ります。**
+`before` / `after` / エラーハンドラ / [レートリミット](./ratelimit) が効き、
+違うのは送り先だけです（ネットワークに出す代わりに `CallResponse` で受け取ります）。
+
+**内側は外側のリクエストの続きとして走ります。**
+ヘッダ・Cookie・セッション・Flash は外側のものをそのまま使い、
+実行 ID も引き継ぐのでログは 1 本に繋がります。
+個別に変えたいヘッダは `.header("X-Token", "...")` で上書きしてください。
+
+内側で発行した Cookie も、外側のレスポンスに載って相手に届きます。
+
+> [!trap]
+> **内側は外側とは別のトランザクションです。**
+> DB 接続もコンテキストごとに持つので、
+> 外側で開けたトランザクションの中には入りません。
+> まとめてコミットしたい処理は、ドメイン層で共有してください。
+
+いちばんの用途は、[MCP](./mcp) から API をそのまま公開することです。
+`RouteTool` を使うと、ルート 1 本がそのままツールになります。
+
+
+
+---
+
+<!-- https://jimble.io/ja/request-response -->
+
+
+# リクエストとレスポンス
+
+## 入力を読む
+
+`context.request()` から取れます。どこから来た値かで分かれています。
+
+| メソッド | 中身 |
+| --- | --- |
+| `bodyPath()` | パスパラメータ（`/users/{id}`） |
+| `bodyQuery()` | クエリ文字列 |
+| `bodyForm()` | `application/x-www-form-urlencoded` / `multipart` |
+| `bodyJson()` | JSON の本文 |
+| `bodyFile()` | アップロードされたファイル（[ファイルアップロード](./upload)） |
+| `bodyAll()` | 上を全部重ねたもの |
+
+`bodyAll()` の重ね順は **path → query → form → json** です。
+あとのものが前を上書きします。
+
+戻り値はどれも `Data`（`LinkedHashMap<String,Object>` の派生）です。
+`getString` `getInt` `getLong` `getBoolean` `getData` `getDataList` などで取り出します。
+**無いキーは `getString` なら `null`、`getInt` なら `0`、`getBoolean` なら `false`** です
+（「無い」と「0」は区別できません。区別したいときは `getIntObject` などの Object 版か `isNull(key)`。
+詳しくは [ユーティリティ](./util)）。
+
+> [!TRAP]
+> **`context.request()` から直接は読めません。**
+> `Request` も `Data` なので `context.request().getString("title")` は<b>コンパイルが通り</b>ますが、
+> 本文もクエリも入っていないので **`null` が返ります。**
+> 上の表のどれか（ふつうは `bodyAll()`）を通してください。
+>
+> ```java
+> Data input = context.request().bodyAll();
+> String title = input.getString("title");
+> ```
+>
+> **`getStringOptional` は「無ければ空文字」ですが、その空文字を `Data` に入れます。**
+> 読んだだけでキーが増えるので、JSON にして返す直前やループの中では使わないでください
+> （[ユーティリティ](./util)）。
+
+## 入れ子のパラメータ
+
+`.` と `[ ]` のどちらでも入れ子にできます。
+
+```
+user.name=taro
+user[name]=taro          同じ
+items[0].price=100
+items[].price=100        末尾に足す
+```
+
+`[ ]` の中が数字なら添字、空なら追加、それ以外なら名前です。
+JSON の本文と混ざったときは、フォームの値が JSON を上書きします。
+
+## 検証する
+
+```java
+ValidationRules rules = new ValidationRules()
+	.put(Item.name, new ValidationRule().empty())
+	.put(Item.age, new ValidationRule().integer(1, 120));
+
+Data request = new Data();
+request.putData(Item.name, "");
+request.putData(Item.age, "999");
+
+// エラーは最初の1件で止めず、全部集める（要件 F-V-03）
+Data errors = rules.validate(null, request);
+
+Data messages = ValidationMessages.toMessages(errors);
+```
+
+**エラーは最初の1件で止めません。** 全部集めてから返します。
+入力し直す人にとって、1件ずつ言われるのがいちばん困るからです。
+
+`ValidationMessages.toMessages(errors)` で、項目名 → メッセージの `Data` になります。
+そのまま JSON で返すか、テンプレートに渡します。
+
+ルールの一覧、ルート単位でかける `ValidationExecutor`、ページングは
+[検証とページング](./validation) にまとめてあります。
+
+## 返す
+
+```java
+context.response().send("text");                   // text/plain
+context.response().json("posts", list);            // JSON
+context.response().view("blog/posts.jte");         // テンプレート
+context.response().redirect("/");                  // 302
+context.response().download(file, "報告書.xlsx");  // ダウンロード
+context.response().code(201).send();               // 本文なし
+```
+
+`json()` は組み立てるだけです。複数回呼ぶと、1つの JSON に足されていきます。
+
+**`json()` のあとに `send()` を書く必要はありません。**
+組み立てておけば、ディスパッチャが実行の終わりに送ります。
+`send()` を明示するのは、**本文なしで終わらせたいとき**（`code(204).send()`）や、
+テキストをそのまま返すときです。
+
+```java
+get("/posts", context -> context.response().json("posts", BlogApp.listPosts()));
+```
+
+## 大きいものを流す
+
+全部をメモリに載せたくないときは `outputStream()` を直接使います。
+
+```java
+context.response().setResponseHeader("Content-Type", "text/csv; charset=UTF-8");
+
+try (OutputStream out = context.response().outputStream()) {
+	// 1行ずつ書く。書いたそばから流れていく
+}
+```
+
+進捗を送りたいだけなら [SSE](./sse) のほうが簡単です。
+
+## 二重送信
+
+`send()` を2回呼ぶとエラーになります。
+`isSent()` で送信済みかどうかを見られます。
+`after` フィルタや `error` ハンドラの中では、これを見てから触ってください。
+
+
+
+---
+
+<!-- https://jimble.io/ja/upload -->
+
+
+# ファイルアップロード
+
+`multipart/form-data` で来たファイルは `bodyFile()` から取ります。
+
+```java
+Data files = context.request().bodyFile();
+```
+
+> [!TRAP]
+> **ファイルは `bodyAll()` にも `bodyForm()` にも載りません。**`bodyFile()` だけです。
+> 同じ本文に入っているテキスト項目のほうは、いつもどおり `bodyAll()` から取れます。
+
+## 受け取る
+
+```java
+for (Object value : context.request().bodyFile().values()) {
+	if (value instanceof List<?> list) {
+		for (Object item : list) {
+			UploadFile uploadFile = (UploadFile) item;
+			received.add("%s:%s:%d".formatted(
+				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
+			received.add("content=" + read(uploadFile.file.toPath()));
+			tempFiles.add(uploadFile.file.toPath());
+		}
+	}
+}
+```
+
+取り出すのは `UploadFile` です。**メソッドを持たない入れ物**で、中身はこれだけです。
+
+| フィールド | 中身 |
+| --- | --- |
+| `name` | フォームの `name` 属性 |
+| `fileName` | **クライアントが名乗った**ファイル名（無ければ `""`） |
+| `contentType` | **クライアントが名乗った** Content-Type（無ければ `""`） |
+| `fileSize` | 実際に書き出したバイト数 |
+| `file` | 一時ファイル（`java.io.File`） |
+
+> [!WARN]
+> **ファイルが1件でも `List` にくるまれます。**
+> `bodyFile()` の値を `UploadFile` に直接キャストすると落ちます。
+> 同じ `name` で複数送れる以上、常にリストとして扱うのが正しい形です。
+
+## 一時ファイル
+
+| | |
+| --- | --- |
+| 置き場所 | `upload.temp_dir`（既定は `java.io.tmpdir`） |
+| 名前 | `jimble-upload-<連番>.tmp`。**元のファイル名は使いません** |
+| 消えるとき | **リクエストが終わるとき**（コンテキストのクローズ） |
+
+> [!TRAP]
+> **リクエストが終わったあとに `uploadFile.file` は触れません。**
+> 非同期に処理を投げたり、パスだけ DB に入れて後で読んだりすると、
+> **もう無いファイル**を掴みます。残したいものはハンドラの中でコピーしてください。
+
+一時ファイルには `deleteOnExit()` を付けていません。
+プロセスが落ちれば残るので、そこは OS の一時ディレクトリの掃除に任せています。
+
+## 上限
+
+**設定を書かなくても上限は掛かります**（要件 NF-S-05）。
+
+```conf
+upload {
+	max_file_size  = 10485760   # 1ファイル。既定 10MB
+	max_total_size = 52428800   # 1リクエスト合計。既定 50MB
+	max_files      = 20         # 件数
+	temp_dir       = ""         # 空なら java.io.tmpdir
+}
+```
+
+超えたときはその場で例外になり、**書きかけの一時ファイルも消します。**
+
+| 条件 | 返り |
+| --- | --- |
+| 件数超過 | **413**「アップロードできるファイル数は N 件までです」 |
+| 1ファイル／合計の超過 | **413**「アップロードのサイズが上限（N バイト）を超えています」 |
+| multipart として読めない | **400**「multipart を読めませんでした」 |
+
+サイズは**読みながら**見ています。全部受け取ってから測ると、
+上限を超えた分までディスクに書いてしまうからです。
+
+> [!WARN]
+> **`server.max_request_size`（既定 10MB）のほうが先に効きます。**
+> `upload.max_total_size` の既定は 50MB なので、**そのままでは 50MB は届きません。**
+> 大きいものを許すなら、両方を上げてください。
+
+## 保存する
+
+**保存のヘルパはありません。**`uploadFile.file` を JDK の `Files` で写します。
+
+```java
+private static String saveImage (WebContext context) throws Exception {
+
+	UploadFile uploadFile = firstFile(context);
+
+	if (uploadFile == null || uploadFile.fileSize <= 0) {
+		return null;
+	}
+
+	String extension = extensionOf(uploadFile.fileName);
+
+	if (!ALLOWED_EXTENSIONS.contains(extension)) {
+		throw new io.jimble.web.http.HttpException(
+			400, "受け付けられない形式です: %s（%s のみ）"
+				.formatted(uploadFile.fileName, String.join(" ", ALLOWED_EXTENSIONS)));
+	}
+
+	Path dir = Path.of(UPLOAD_DIR);
+	Files.createDirectories(dir);
+
+	String saved = UUID.randomUUID() + extension;
+
+	/*
+	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
+	 * 残したいものはここで移す。
+	 */
+	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+
+	return saved;
+
+}
+```
+
+要点は3つです。
+
+| | |
+| --- | --- |
+| **名前はこちらで付ける** | `UUID.randomUUID() + extension` |
+| **拡張子は許可リストで見る** | 落ちたら 400 で断る |
+| `Files.copy` | 元は消えるので、コピーでも移動でもよい |
+
+> [!TRAP]
+> **`uploadFile.fileName` をそのまま保存先に使わないでください。**
+> jimble はこの名前を**一切検査しません**（クライアントが名乗ったままです）。
+> `../../etc/passwd` のような名前が来ると、置き場所の外に書けてしまいます。
+
+> [!WARN]
+> **`contentType` も検査していません。**クライアントの自己申告です。
+> `image/png` と名乗った実行ファイルが来ます。
+> 拡張子の許可リストと、必要なら中身の検査を自分で書いてください。
+
+## テキスト項目との混在
+
+同じ本文に入っているので、**1回で解析して持っておきます**（本文は1回しか読めません）。
+ファイル名の無いパートはテキスト項目として扱われ、`bodyAll()` に載ります。
+
+> [!NOTE]
+> テキスト項目は **UTF-8 固定**で読み、**全量をメモリに載せます**（サイズ上限はありません）。
+> ここを守っているのは `server.max_request_size` だけです。
+
+## 返す（ダウンロード）
+
+```java
+context.response().download(file);                  // 実ファイル名で添付
+context.response().download(file, "報告書.xlsx");   // 名前を指定して添付
+context.response().file(file);                      // インライン（種類は中身から判定）
+context.response().file(file, "image/png");         // インライン（種類を指定）
+context.response().stream(in, "text/csv");          // ストリーム
+context.response().stream(in, "text/csv", length);  // 長さが分かっているストリーム
+```
+
+`Content-Disposition` は RFC 5987 の形（`filename*=UTF-8''...`）で付くので、
+**日本語のファイル名がそのまま通ります。**
+
+> [!NOTE]
+> 互換用の `filename="..."`（ASCII 版）は併記していません。
+> また、名前に**半角スペースが入ると `+` になります**（`%20` ではありません）。
+> 気になる場合はスペースを `_` に置き換えてから渡してください。
+
+
+
+---
+
+<!-- https://jimble.io/ja/validation -->
+
+
+# 検証とページング
+
+## 検証は3段ある
+
+| 段 | クラス | 何をするか |
+| --- | --- | --- |
+| 1項目 | `ValidationRule` | 「空でない」「1〜120 の整数」を積む |
+| 1リクエスト | `ValidationRules` | 列ごとにルールを結びつけ、まとめて回す |
+| 1ルート | `ValidationExecutor` | 失敗したら**後続の処理を止めて 422 を返す** |
+
+下だけ、上だけ、どちらでも使えます。
+
+## ルールを組み立てる
+
+```java
+ValidationRule rule = new ValidationRule()
+	.empty()
+	.textLengthMax(100);
+```
+
+積んだ順に走り、**最初に落ちたところで止まります**（1項目につきエラーは1件）。
+
+| 分類 | メソッド |
+| --- | --- |
+| 必須 | `empty()` / `required()`（同じもの） |
+| 文字数 | `textLength(min, max)` / `textLengthMin(min)` / `textLengthMax(max)` |
+| バイト数 | `textByteLength(min, max[, charset])` / `textByteLengthMin` / `textByteLengthMax`（既定 UTF-8） |
+| 数値 | `integer()` / `integer(min, max)` / `integerMin` / `integerMax` / `number()` / `number(min, max)` / `numberMin` / `numberMax` |
+| 形式 | `bool()` / `email()` / `url()` / `domain()` / `date()` / `date(format)` / `regex(regex)` / `enumType(Class)` |
+| 文字種 | `characterType(CharacterType[])` / `characterType(Character[])` / 両方 |
+| 自作 | `custom(IValidator)` |
+| 分岐 | `insertRequired()` |
+
+> [!NOTE]
+> **`empty()` 以外は、空を通します。**
+> `textLengthMax(100)` は「入っているなら 100 文字以内」という意味で、
+> 空文字や `null` はエラーにしません。**必須は必ず `empty()` で書いてください。**
+
+> [!WARN]
+> `regex(...)` は `matches` ではなく **`find`（部分一致）** です。
+> 全体に効かせたいときは `^` と `$` を自分で書いてください。
+
+## 列にまとめる
+
+```java
+ValidationRules rules = new ValidationRules()
+	.put(Item.name, new ValidationRule().empty())
+	.put(Item.age, new ValidationRule().integer(1, 120));
+
+Data request = new Data();
+request.putData(Item.name, "");
+request.putData(Item.age, "999");
+
+// エラーは最初の1件で止めず、全部集める（要件 F-V-03）
+Data errors = rules.validate(null, request);
+
+Data messages = ValidationMessages.toMessages(errors);
+```
+
+- **項目をまたいだエラーは全部集めます**（1件ずつ言われるのが、入力し直す人にはいちばん困るため）
+- **送られてこなかった項目は検証しません**（`insertRequired()` を除く）
+- 1つの列に配列が来たら、要素ごとに回します
+- `put(rule)`（列なし）で、項目に紐づかない相関チェックも書けます
+
+### 生のエラーの形
+
+`validate` が返すのは**文言ではありません。**「どの種別で落ちたか」と「そのときの設定」です。
+
+```java
+{ "validation_type": Empty, "validation_setting": {}, "input": "" }
+```
+
+これを人が読む形に変えるのが `ValidationMessages.toMessages(errors)` で、
+**項目名 → メッセージの一覧**になります。
+
+```json
+{ "title": ["入力してください"], "age": ["1 以上 120 以下の整数で入力してください"] }
+```
+
+> [!TIP]
+> 文言を持たずに種別で返しているので、**同じ検証結果を日本語にも英語にも API のコードにも変えられます。**
+
+### 文言を差し替える
+
+```java
+ValidationMessages.put(ValidationErrorType.Empty, (type, settings) -> "required");
+
+ValidationRules rules = new ValidationRules()
+	.put(Item.name, new ValidationRule().empty());
+
+Data request = new Data();
+request.putData(Item.name, "");
+
+assertEquals(List.of("required"),
+	ValidationMessages.toMessages(rules.validate(null, request)).get("name"));
+```
+
+> [!TRAP]
+> `ValidationMessages` は **static でグローバル**です。テストで差し替えたら
+> `finally` で `ValidationMessages.reset()` してください。
+> 忘れると、**あとから走ったテストだけが落ちます。**
+
+## 登録のときだけ必須
+
+```java
+ValidationRules rules = new ValidationRules()
+	.put(Item.name, new ValidationRule().insertRequired().empty())
+	.insertRequestChecker(req -> req.getBoolean("is_insert"));
+
+Data update = new Data();
+update.put("is_insert", false);
+assertTrue(rules.validate(null, update).isEmpty(), "更新なのに必須になっている");
+
+Data insert = new Data();
+insert.put("is_insert", true);
+assertFalse(rules.validate(null, insert).isEmpty(), "登録なのに必須になっていない");
+```
+
+「登録リクエストかどうか」の判定は `insertRequestChecker` に渡します。
+同じ判定が各バリデータの `isInsertRequest` にも届きます。
+
+## 複数行を検証する
+
+```java
+ValidationRules rules = new ValidationRules()
+	.put(Item.name, new ValidationRule().empty());
+
+Data ok = new Data();
+ok.putData(Item.name, "あ");
+
+Data ng = new Data();
+ng.putData(Item.name, "");
+
+List<Data> errors = rules.validate(null, List.of(ok, ng, ok));
+
+assertEquals(1, errors.size());
+assertEquals(2, errors.getFirst().getInt("index"), "行番号が違う");
+```
+
+**エラーのある行だけ**返り、各行に `index` が入ります（**1 始まり**）。
+
+## ルートにかける
+
+`ValidationExecutor` を継承して `validate` だけ書きます。
+
+```java
+private class Failing extends ValidationExecutor {
+
+	@Override
+	protected void validate (WebContext context) {
+
+		log.add("validate");
+		addError("title", "入力してください");
+
+	}
+
+}
+```
+
+ルートでは**いちばん先に積みます。**
+
+```java
+JimbleApp app = new JimbleApp() {
+	{
+		post("/items", context -> {
+			context.addExecutor(new Failing());
+			context.addExecutor(new UseCase());
+		});
+	}
+};
+```
+
+失敗すると、こうなります。
+
+| | |
+| --- | --- |
+| ステータス | **422** |
+| 本文 | `{"validation": {"項目名": ["メッセージ"]}}` **＋ 送られてきた入力値** |
+| 後続の Executor | **実行されない**（捨てられる） |
+| `error(...)` フック | **通らない**（例外を投げていないため。[エラー処理](./errors)） |
+
+`ValidationRules` の結果をそのまま積むこともできます。
+
+```java
+addErrors(rules.validate(db, context.request().bodyAll()));
+```
+
+> [!NOTE]
+> `ValidationExecutor` は **`WebContext` をフィールドに持ちません。**
+> `validate(WebContext)` の引数で受け取ります。
+> インスタンスを使い回したときに、**前のリクエストのコンテキストに書き込む**事故を避けるためです。
+
+> [!WARN]
+> **列定義からルールは自動生成されません。**
+> 生成されたテーブルクラス（`Post.title` など）が持っているのは
+> 型・NULL 可否・主キーだけで、**varchar の桁数を持っていません。**
+> `textLengthMax` を自動で導く材料が無いので、ルールは手で書きます。
+
+## ページング
+
+### リクエストから読む
+
+```java
+Paging paging = context.request().paging();
+```
+
+| | |
+| --- | --- |
+| 読むキー | `page` / `per` |
+| 既定 | `page = 1`、`per = 10` |
+| 全件 | `per=all`（LIMIT を付けません） |
+| キー名の変更 | `paging.page` / `paging.per`（設定） |
+| 数値でない値 | 無視して既定を使います |
+
+`context.request().paging(20)` と書けば、`per` が来ていないときの既定を変えられます。
+
+### SELECT にかける
+
+```java
+Paging paging = new Paging();
+paging.load(request("2", "10"), 0);
+
+SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
+
+assertEquals(10, response.list.size(), "1ページ分だけ取れていない");
+assertEquals(TOTAL, response.rowCount, "総件数が LIMIT に影響されている");
+
+assertEquals(TOTAL, paging.totalCount());
+assertEquals(3, paging.maxPage(), "25 件を 10 件ずつなら 3 ページ");
+assertEquals(11, paging.start());
+```
+
+`selectListWithRowCount` が**総件数の COUNT も投げます。**
+COUNT 文は FROM / WHERE / GROUP BY / HAVING だけを写すので、
+SELECT 句や ORDER BY、LIMIT には影響されません。
+
+> [!TRAP]
+> **総件数を数えるのは `selectListWithRowCount` だけ**です。
+> ふつうの `selectList(builder)` では `paging.totalCount()` が 0 のままで、
+> **ページャが「1 / 1 ページ」になります。**
+
+> [!WARN]
+> 生 SQL 版（`selectListWithRowCount(sql, params...)`）は `Paging` を触りません。
+> 自分で `paging.set(response.list.size(), response.rowCount)` を呼んでください。
+
+### 取れるもの
+
+| メソッド | 中身 |
+| --- | --- |
+| `page()` | 現在ページ |
+| `per()` | 1ページの件数 |
+| `perAll()` | 全件指定だったか |
+| `totalCount()` | 総件数 |
+| `maxPage()` | 総ページ数（**最低 1**） |
+| `start()` | このページの先頭が何件目か（**1 始まり**） |
+| `count()` | このページで実際に取れた件数 |
+
+> [!NOTE]
+> **「次がある / 前がある」のメソッドはありません。**
+> `page() > 1` と `page() < maxPage()` で判定してください。
+
+### レスポンスに載る
+
+`context.request().paging()` を**呼んだ時点で**レスポンスに載ります。自分で詰め直す必要はありません。
+
+```json
+{
+  "rows": [ ... ],
+  "paging": { "page": 2, "per": 10, "perAll": false,
+              "maxPage": 3, "totalCount": 25, "start": 11, "count": 10 }
+}
+```
+
+テンプレートからも同じものが見えます（`${paging.page()}`）。
+
+### 気をつけること
+
+> [!TRAP]
+> **`per` に上限がありません。**`?per=100000` を送られると
+> `LIMIT 100000` がそのまま出ます。外に公開する一覧では、
+> `paging(...)` の前後で自分で上限を決めてください。
+
+範囲外のページ（`?page=999`）はエラーにならず、**0 件が返ります。**
+
+
+
+---
+
+<!-- https://jimble.io/ja/errors -->
+
+
+# エラー処理
+
+エラーが表に出る道は3本あります。**通る場所が違います。**
+
+| 何が起きたか | 誰が拾うか | 既定の返り |
+| --- | --- | --- |
+| 例外が投げられた | `error(...)` フック | ステータスは例外しだい。本文はアプリが作る |
+| ルートに当たらなかった | **いちばん外側の** `error(...)` | 404 |
+| 検証に失敗した | `ValidationExecutor`（`error` は通らない） | 422 と `validation` の JSON |
+
+## error の書き方
+
+```java
+error((context, cause, statusCode) -> {
+	context.response().code(statusCode).send("エラー: " + statusCode);
+});
+```
+
+引数は3つです。**例外だけでなくステータスコードも渡ってきます。**
+`cause` から毎回コードを引き直さなくて済むようにするためです。
+
+```java
+void handle (WebContext context, Throwable cause, int statusCode) throws Exception;
+```
+
+## 効く範囲
+
+`before` / `after` と同じで、**書いたブロックに付きます**（パスのノードではありません）。
+実行は<b>内側から外側へ</b>。詳しくは [ルーティング](./routing) を見てください。
+
+```java
+JimbleApp app = new JimbleApp() {
+	{
+		error((context, cause, statusCode) -> log.add("outer"));
+
+		path("/admin", () -> {
+			error((context, cause, statusCode) -> {
+				log.add("inner");
+				throw new IllegalStateException("error handler failed");
+			});
+			get("/x", context -> {
+				throw new HttpException(400, "bad");
+			});
+		});
+	}
+};
+```
+
+`/admin/x` に来ると、内側 → 外側の順に呼ばれます。
+**内側が例外を投げても外側に進みます**（下の「ハンドラ自身が失敗したら」）。
+
+> [!NOTE]
+> 未マッチ（404）のときだけ扱いが違います。**いちばん外側のスコープに直接書いた `error` だけ**が呼ばれます。
+> どのルートにも当たっていないので、「内側」が決まらないためです。
+> `path("/admin", ...)` の中に書いた `error` は、`/admin/nope` でも呼ばれません。
+
+## ステータスコードの決まり方
+
+`JimbleApp#resolveStatusCode(Throwable)` が決めます。既定はこれだけです。
+
+| 例外 | コード |
+| --- | --- |
+| `HttpException` | `statusCode()` の値 |
+| `NotFoundException`（`HttpException` の子） | 404 |
+| そのほか全部 | **500** |
+
+```java
+JimbleApp app = new JimbleApp() {
+	{
+		error((context, cause, statusCode) -> {
+			log.add("error:" + statusCode);
+			context.response().code(statusCode).send();
+		});
+		get("/forbidden", context -> {
+			throw new HttpException(403, "だめ");
+		});
+	}
+};
+```
+
+自分の例外にコードを割り当てるなら上書きします。
+
+```java
+JimbleApp app = new JimbleApp() {
+
+	{
+		error((context, cause, statusCode) -> log.add("error:" + statusCode));
+		get("/x", context -> {
+			throw new MyException();
+		});
+	}
+
+	@Override
+	protected int resolveStatusCode (Throwable cause) {
+		if (cause instanceof MyException) {
+			return 409;
+		}
+		return super.resolveStatusCode(cause);
+	}
+
+};
+```
+
+> [!WARN]
+> `CodeException`（`io.jimble.util.exception.CodeException`）は **HTTP のステータスには効きません。**
+> DB のエラー（`db.getError()`）とバリデータの中で使う検査例外で、投げれば 500 です。
+
+## 本文は誰が作るか
+
+順番はこうです。
+
+1. `context.response().code(statusCode)` を**先に**入れる（ハンドラが上書きできる）
+2. `error(...)` を内側から順に呼ぶ。**送った時点で止まる**
+3. 誰も本文を用意していなければ、**既定のエラー応答**を入れる
+4. `response().send()` を呼ぶ
+
+4 が `send(statusCode)` ではなく `send()` なのが要点です。
+ハンドラが `json(...)` などで組み立てた中身を、**捨てずに送る**ためです。
+
+```java
+error((context, cause, statusCode) -> {
+
+	// API なら JSON、画面なら HTML
+	if (context.request().acceptJson()) {
+		context.response().json("error", cause.getMessage());
+		return;
+	}
+
+	context.response().send("エラー: %d %s".formatted(statusCode, cause.getMessage()));
+
+});
+```
+
+> [!WARN]
+> この例のように `cause.getMessage()` を本文に出すのは、**中身次第では外に見せてはいけないもの**です。
+> 500 のときは DB のエラー文や内部のパスがそのまま入ります。
+> `Throwable` をそのまま `json(...)` に渡すと、**スタックトレースが丸ごと出ます**。
+> 既定のエラー応答（次の節）はどちらも載せませんが、**自分で書いたぶんは自分で抑えてください**。
+
+## 何も書かなかったとき
+
+`error(...)` を1つも書いていない、あるいは書いたけれど本文を作らなかったとき、
+jimble が**決まった形**を返します。
+
+`Accept` が JSON を名指ししていれば JSON です。
+
+```json
+{"error": {"status": 404, "message": "Not Found"}}
+```
+
+そうでなければ、短いテキストです（`Content-Type: text/plain; charset=UTF-8`）。
+
+```
+404 Not Found
+```
+
+- **`message` は RFC 9110 の短い語**です（`Not Found` / `Internal Server Error`）。
+  ステータス行やクライアントのライブラリに出てくる語と同じにしてあります
+- **原因は入りません。** 例外のメッセージも SQL もスタックトレースも載せません。
+  原因はログに出ています（500 番台は `Log.error`）
+- **`*/*` はテキスト**です。「何でもいい」であって「JSON がいい」ではありません
+- **`error(...)` で組み立てていれば、そちらが勝ちます。** 送信まで済んでいなくてもです
+
+`acceptJson()` は `Accept` が `application/json` か `text/javascript` を
+**名指ししているか**を見ます。`application/json;q=0.9` のようにパラメータが付いていても効きます。
+`q=0`（要らない）と `*/*`（何でもいい）は名指しに数えません。
+
+## 405 と 404 は分かれます
+
+パスは合っていて**メソッドだけ違う**ときは 405 で、`Allow` が付きます。
+
+```
+$ curl -i -X POST http://localhost:9000/hello
+HTTP/1.1 405 Method Not Allowed
+Allow: GET
+```
+
+404 は「そんなものは無い」、405 は「あるが、その呼び方ではない」です。
+一緒にすると、`post` と書くべきところを `get` と書いただけの間違いが
+「パスが違う」に見えてしまいます。
+
+## ハンドラ自身が失敗したら
+
+**握って次（外側）へ進みます。** エラー処理の失敗で何も返せなくなるほうが困るからです。
+失敗は `エラーハンドラで例外が発生しました` としてログに出ます。
+
+## ログの出しかた
+
+| ステータス | ログ |
+| --- | --- |
+| 500 番台 | `Log.error`（スタックトレースつき） |
+| それ以外（404 を含む） | `Log.debug` |
+
+> [!TIP]
+> 404 をエラーログに出さないのは意図的です。
+> クローラや古いリンクで毎日何千件も出るものを `error` に混ぜると、
+> **本物の 500 が埋もれます。**
+
+`after` と `onComplete` の中で例外が出た場合も、握ってログに出します（レスポンスは返ります）。
+
+## 検証の失敗は error を通らない
+
+`ValidationExecutor` は**例外を投げません。**
+自分をキャンセルして、後続の Executor を捨て、そのまま返します。
+
+```java
+context.response().putForm(context.request().bodyAll());
+context.response().json("validation", errors);
+context.response().code(422);
+```
+
+返る形はこうです。入力値も一緒に返るので、画面を組み直せます。
+
+```json
+{
+  "validation": { "title": ["入力してください"] },
+  "title": "",
+  "body": "..."
+}
+```
+
+> [!TRAP]
+> **`error(...)` に検証エラーの整形を書いても呼ばれません。**
+> 422 の見た目を変えたいときは `ValidationExecutor` 側（`onCancel`）を見てください。
+
+## アプリ全体で差し替えられるもの
+
+`JimbleApp` で上書きできるのは3つだけです。
+
+| メソッド | いつ呼ばれるか |
+| --- | --- |
+| `protected void onRequest (WebContext context) throws Exception` | 全リクエストの最初。**未マッチでも呼ばれる。**ここで送れば以降は走らない |
+| `protected void onComplete (WebContext context)` | 全リクエストの最後。例外が出ても必ず呼ばれる |
+| `protected int resolveStatusCode (Throwable cause)` | 例外 → ステータスコード |
+
+ディスパッチャそのものは差し替えられません（`final`）。
+道を1本にしておくためです。
+
+
+
+---
+
+<!-- https://jimble.io/ja/view -->
+
+
+# テンプレート
+
+jimble のテンプレートは [jte](https://jte.gg/) です。
+文字列を実行時に解釈するのではなく、**Java にコンパイルします**。
+
+```java
+get("/", context -> {
+
+	context.response().putData("title", "ブログ");
+	context.response().putData("posts", listPosts());
+	context.response().view("blog/posts.jte");
+
+});
+```
+
+`putData()` で入れたものが `Data` として渡り、`view()` でテンプレート名を指定します。
+
+## テンプレート側
+
+`src/main/jte/blog/posts.jte`:
+
+```jte
+@import db.blog_example.table.post.Post
+@import io.jimble.util.data.Data
+@import java.util.List
+
+@param Data data
+
+!{List<Data> posts = data.getDataList("posts");}
+
+<h1>${data.getString("title")}</h1>
+
+@for(Data post : posts)
+	<b>${post.getString(Post.title)}</b>
+	<p>${post.getString(Post.body)}</p>
+@endfor
+```
+
+- `${ }` は **HTML エスケープされます**。生で出すには `$unsafe{ }` を使います
+- `@param` と `@import` があるので、テンプレートの中でも型が効きます
+- `Post.title` のような `Column` で引けるので、テンプレートに文字列のキーを撒かずに済みます
+
+## 枠を共有する
+
+ページごとに `<html>` から書くと、**ヘッダを直すのに全部を直すことになります。**
+枠は1枚のレイアウトに閉じ込めて、ページは中身だけを書きます。
+
+`src/main/jte/layout/page.jte`:
+
+```jte
+@import gg.jte.Content
+@import io.jimble.util.data.Data
+
+@param Data data
+@param Content content
+
+<!doctype html>
+<html lang="ja">
+<head>
+	<title>${data.getString("title")}</title>
+	<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+	@template.tag.nav(current = data.getString("nav"))
+
+	<main>${content}</main>
+</body>
+</html>
+```
+
+`src/main/jte/pages/home.jte`:
+
+```jte
+@import io.jimble.util.data.Data
+
+@param Data data
+
+@template.layout.page(data = data, content = @`
+	<p>ここが中身です。</p>
+`)
+```
+
+`Content` が「あとで描くもの」です。`@` とバッククォートで囲んだかたまりを渡すと、
+レイアウトの `${content}` の位置に入ります。
+
+**呼び出し名はディレクトリ構成そのままです。**
+`src/main/jte/layout/page.jte` なら `@template.layout.page(...)`、
+`src/main/jte/tag/nav.jte` なら `@template.tag.nav(...)`。
+
+## 部品
+
+同じ仕組みで、使い回す部品も作れます。
+
+`src/main/jte/tag/card.jte`:
+
+```jte
+@import gg.jte.Content
+
+@param String title
+@param Content body
+@param String note = ""
+
+<section class="card">
+	<h2>${title}</h2>
+	${body}
+	@if(!note.isEmpty())
+		<p class="note">${note}</p>
+	@endif
+</section>
+```
+
+- **`@param` には既定値を書けます**（`= ""`）。書かなければ呼ぶ側は省略できます
+- **部品は `Data` ではなく、必要なものだけを受け取るほうが使い回せます。**
+  `Data` を渡すと、呼ぶ側が「どのキーが要るのか」をテンプレートの中身を読まないと分かりません
+
+実際に動いているものは `examples/approval-pages` にあります。
+
+> [!TIP]
+> **エラー画面もレイアウトを共有してください。**
+> 共有していないと、404 のときだけ見た目の違うサイトになります。
+
+## コメント
+
+**jte のコメントは `<%--` と `--%>` です。**
+
+```jte
+<%-- ここはコメント。出力に出ません --%>
+```
+
+> [!WARNING]
+> **`@*` と `*@` で囲む書き方はコメントになりません。**
+> そのまま出力され、しかも**中に書いた `@template.` は実行されます**。
+> レイアウトの中に、そのレイアウト自身の呼び出し例をコメントのつもりで書くと、
+> **無限再帰して `StackOverflowError` になります**（実際に踏みました）。
+>
+> **コメントは入れ子にできません。**閉じの記号を説明文の中に書くと、そこで終わります。
+>
+> **HTML のコメント（`<!-- -->`）も既定では出力から消えます。**
+> ブラウザや外の道具に残したい印は、テンプレートではなく静的ファイル側に置いてください。
+
+## ビルド
+
+`io.jimble.jte` プラグインを入れると、`compileJava` の前に
+`src/main/jte` を Java に変換します。
+
+```kotlin
+plugins {
+	application
+	id("io.jimble.jte")
+}
+```
+
+**テンプレートの間違いはビルドで落ちます。** 実行時に404を見てから気づくことはありません。
+
+設定できることは [Gradle プラグイン](./gradle) にあります。
+
+コンパイラ（`gg.jte:jte`）はビルドのときだけ使い、
+アプリの実行時クラスパスには `gg.jte:jte-runtime` しか入りません。
+
+## ホットリロード
+
+`./gradlew jimbleRun` で起動していれば、`.jte` を直した時点で
+変換とビルドが走り、次のリクエストで反映されます。
+
+
+
+---
+
+<!-- https://jimble.io/ja/assets -->
+
+
+# 静的ファイルと SPA
+
+配り方は3つあります。**どれもルーティング本体とは別のハンドラ**です（要件 F-W-20）。
+
+| やりたいこと | 使うもの | 当たらなかったら |
+| --- | --- | --- |
+| CSS・JS・画像をそのまま配る | `AssetHandler` | 404 |
+| SPA（どのパスでも同じ index.html） | `SpaHandler` | いちばん近い `index.html` |
+| MPA（ディレクトリごとに index.html） | `MpaHandler` | 拡張子が無ければ `<パス>/index.html` |
+
+**中身はクラスパスから読みます。** jar に入れたまま配れますし、
+開発中は `build/resources/main` から読まれます。**どちらでも同じ動きです**（要件 F-W-18）。
+
+## 静的ファイル
+
+```java
+install(() -> AssetHandler.mount("/assets", "test-assets"));
+```
+
+第2引数は**クラスパス上のディレクトリ**です。ファイルシステムのパスではありません。
+`AssetHandler.mount("/assets", "assets")` なら
+`src/main/resources/assets/app.css` が `/assets/app.css` で出ます。
+
+`GET` と `HEAD` の2本（`/assets/*`）が登録されます。
+
+> [!WARNING]
+> **`/assets` 自身（末尾なし）には応えません。**登録されるのは `/assets/*` だけです。
+> SPA と MPA は接頭辞そのものも登録するので、そこだけ形が違います。
+
+登録されたルートは `routes()` で受け取れます。**属性を付けられます。**
+
+```java
+AssetController assets = AssetHandler.mount("/assets", "assets");
+for (Route route : assets.routes()) {
+	route.attribute(NO_AUTH, true);
+}
+install(() -> assets);
+```
+
+`SpaHandler.mount(...)` / `MpaHandler.mount(...)` でも `routes()` は同じように使えます。
+ただし**本数が違います**——SPA と MPA は接頭辞自身も登録するので4本です
+（`/app` と `/app/*` の `GET` と `HEAD`）。
+
+### キャッシュ
+
+| 拡張子 | `Cache-Control` |
+| --- | --- |
+| `.js` `.css` `.woff` `.woff2` | `public,max-age=31536000,immutable` |
+| そのほか | `public,max-age=<assets.max_age>,must-revalidate` |
+
+動的なレスポンスの既定は `no-store` です（要件 F-X-07）。**静的配信だけがここを上書きします。**
+
+```conf
+assets {
+	max_age            = 0        # 通常のファイル
+	immutable_max_age  = 31536000 # 内容ハッシュ付きのファイル向け（1年）
+	etag               = true
+	if_modified_since  = true
+}
+```
+
+> [!WARN]
+> `immutable` が付くのは**拡張子だけ**で判断しています。
+> `app.js` を中身を変えて置き直しても、**ブラウザは1年取りに来ません。**
+> ファイル名にハッシュを入れる（`app.9f3a1c.js`）か、`assets.immutable_max_age` を下げてください。
+
+### 条件付き GET
+
+- `ETag` は弱い ETag（パス・更新時刻・サイズの md5）
+- `Last-Modified` は `URLConnection` の更新時刻
+- 判定は **`If-None-Match` が先**。無ければ `If-Modified-Since`
+- 一致したら **本文を読まずに 304**
+
+### 無いもの
+
+| | |
+| --- | --- |
+| Range（部分取得） | **ありません。**`206` は返りません |
+| 個別の圧縮 | **ありません。**サーバー全体の `server.compression`（helidon）に任せています |
+| ディレクトリ一覧 | 出しません |
+
+## SPA
+
+```java
+install(() -> SpaHandler.mount("/app", "test-spa"));
+```
+
+`/app/...` に来たとき、こう探します。
+
+1. 実ファイルがあれば**それを返す**（`AssetHandler` と同じヘッダ）
+2. 無ければ、そのパスから上へ順に `index.html` を探す
+3. 最後にベース直下の `index.html`
+4. それも無ければ 404
+
+**通常のルートと共存します。**`/api/items` を先に書いてあれば SPA には食われません。
+ツリーの優先順（固定セグメント &gt; パスパラメータ &gt; ワイルドカード）がそのまま効きます。
+
+### パスごとに index.html を書き換える
+
+クローラや OGP のために `<title>` や `<meta>` を差し替えたいときに使います。
+
+```java
+install(() -> SpaHandler.mount("/app", "test-spa", spa -> spa
+	.route("/app/items/{id}", (context, html) ->
+		html.replace("<!--title-->", "<title>item " + context.request().bodyPath().getString("id") + "</title>"))
+));
+```
+
+パスの書き方は本体のルートと同じです（`{id}`、末尾の `/*`）。
+**マッチも本体と同じルートツリーがやります**（要件 D-75）。
+
+| | |
+| --- | --- |
+| 優先順 | 固定 &gt; 変数 &gt; ワイルドカード。**書いた順には依存しない** |
+| パスパラメータ | `context.request().bodyPath().getString("id")` |
+| 重複したパス | 登録時に落ちる |
+| 本体のルート一覧 | **混ざらない**（別インスタンス。要件 F-W-20） |
+
+> [!NOTE]
+> 書き換えたときだけ `ETag` と `Last-Modified` は付きません（中身がリクエストごとに変わるため）。
+> `Cache-Control` は `public,max-age=<assets.max_age>,must-revalidate` になります。
+
+## MPA
+
+```java
+install(() -> MpaHandler.mount("/docs", "test-mpa"));
+```
+
+拡張子があればファイル、無ければ `<パス>/index.html` を返します。
+`/docs/guide` → `docs/guide/index.html` です。
+
+## 安全側の既定
+
+パスは配る前に必ず検査します。**危ないものは 404** です（何があるかを教えないため）。
+
+弾くもの：NUL 文字、バックスラッシュ、空のセグメント（`//`）、`.` と `..` のセグメント。
+
+> [!TIP]
+> `%2e%2e` のようなパーセントエンコードも弾けます。
+> セグメントごとにデコードしてから検査するので、`..` が復元されたところで捕まります。
+
+## 開発中に直したとき
+
+`jimbleRun` の監視対象には `.html` / `.js` / `.css` が入っています。
+保存すればリソースがビルドし直され、次のリクエストで反映されます（[ホットリロード](./hot-reload)）。
+
+> [!TRAP]
+> **アプリを止めずにファイルだけ差し替えると、古いままになることがあります。**
+> 「ファイルがあるか」と `index.html` の中身をメモリに覚えているためで、
+> 消す口は `Resources.clearCache()` しかありません。`jimbleRun` を使っていれば入れ替えのたびに作り直されます。
+
+
+
+---
+
+<!-- https://jimble.io/ja/session-security -->
+
+
+# セッションと安全側の既定
+
+## セッション
+
+```java
+context.session().put("user_id", 42);
+
+// 明示的に保存する（要件 F-S-02）。自動保存はしない
+context.session().save();
+```
+
+**自動保存はしません。** `save()` を呼ばなければ書かれません。
+「読んだだけのリクエストで毎回書き込む」を避けるためです。
+
+保存先は `application.conf` で選びます。
+
+```conf
+session {
+	store       = "db"     # none | db | redis | cookie
+	cookie_name = "sid"
+}
+```
+
+| store | 向いているところ |
+| --- | --- |
+| `none` | セッションを使わない（既定） |
+| `db` | サーバーが複数台。DB がある |
+| `redis` | サーバーが複数台。速さが要る |
+| `cookie` | サーバーに何も置きたくない。中身は署名される |
+
+### ログインしたらセッション ID を振り直す
+
+**ログインが通った直後に `regenerateId()` を呼んでください。**
+
+```java
+context.session().regenerateId();          // ID が変わる。中身は残る
+context.session().put("staff_id", staffId);
+context.session().save();                  // ← ここで新しい ID が発行される
+```
+
+ログインの前後で ID が変わらないと、**ログイン前に攻撃者が仕込んだ ID のまま、
+そのセッションが権限を持ちます**（セッション固定化）。仕込む道はいくらでもあります
+——公開ページのリンク、別のサブドメイン、ブラウザの拡張。
+
+**中身は持ち越します。**ログインの直前に入れたもの（戻り先の URL、
+入力途中のフォーム、CSRF トークン）が消えると、
+**ログインした瞬間に元いた場所を見失います。**
+
+> [!TRAP]
+> **振り直したら `save()` してください。**`regenerateId()` は保存しません
+> （自動保存をしないという決まりのままです）。振り直したあと保存せずに終わると、
+> **古い側は消えていて新しい側は無い**——つまりログインしていない状態になります。
+> **閉じるほうに倒れる**ので事故にはなりませんが、
+> 「ログインしたのに 401」の原因はここです。
+
+保存先で効き方が違います。
+
+| store | 何が起きるか |
+| --- | --- |
+| `db` / `redis` | 古い行を消して、新しい ID で書き直す |
+| `cookie` | **ID で引いていない**ので、中身の Cookie を書き直すだけ（古い値は署名と暗号化で無効） |
+| `none` | 何も起きない |
+
+## CSRF
+
+```java
+path("/form", () -> {
+
+	/*
+	 * 状態を変えるものだけ検証する。
+	 * GET / HEAD / OPTIONS / TRACE は素通しする（Csrf.SAFE_METHODS）。
+	 */
+	before(Csrf::verify);
+
+	get("", FormController::show);
+	post("", FormController::submit);
+
+});
+```
+
+`Csrf::verify` を `before` に置くと、その下のルートが守られます。
+`GET` `HEAD` `OPTIONS` `TRACE` は素通しです（`Csrf.SAFE_METHODS`）。
+
+トークンは `context.request().csrfToken()` で取り、フォームの hidden に入れます。
+
+## Flash
+
+リダイレクトの先へ1回だけ渡すものです。
+
+```java
+context.flash().put("message", "保存しました");
+context.response().redirect("/");
+```
+
+読んだ時点で消えます。Cookie に署名して入れています。
+
+## Cookie の既定は secure = true
+
+jimble の Cookie は既定で `Secure` が付きます。HTTPS でしか送られません。
+
+**ローカルは http なので、そのままだとブラウザが Cookie を返しません。**
+セッションも CSRF も Flash も、エラーを出さずに効かなくなります。
+
+これは静かに壊れる典型なので、jimble は `env=local` かつ `cookie.secure = true`
+のときに**起動時に WARN を出します**。
+
+```
+cookie.secure = true のままです（env=local）。
+ローカルは http なので、ブラウザは Cookie を送り返しません。
+application.conf に次を足してください。
+  cookie { secure = false }
+```
+
+`jimble new` の雛形には最初からこの節が入っています。
+**本番へ出すときは消してください。**
+
+## Cookie
+
+```java
+// 30日
+context.cookies().put("last_post", String.valueOf(id), 30L * 24 * 60 * 60);
+
+String lastPost = context.cookies().get("last_post");
+```
+
+**書いた値は同じリクエストの中で読み返せます。** 受信した Cookie しか見えないと、
+発行したばかりの CSRF トークンを読み直すたびに別のものが出てしまうためです。
+
+署名を付けたいときは `Cookies.sign(value)` で署名し、`put(Cookie, 平文)` で入れます。
+
+**読むときは `context.cookies().get("名前")` か `context.request().cookie("名前")` です。**
+署名が合わなかった値はここに入りません（改ざんされた値がアプリに渡らないようにするためです）。
+
+> [!WARN]
+> **`unsignCookie("名前")` は署名を検証しません。**
+> 名前に反して、返るのは**受信した生の値**です。無いときは `null` ではなく**空文字**が返ります。
+> 検証済みの値が要るなら `cookie("名前")` を使ってください。
+
+鍵は `application.conf` の `cookie.secret`（Cookie セッションは `session.secret`）で、
+本番では環境変数から渡してください。
+
+```conf
+cookie {
+	secret = ${?COOKIE_SECRET}
+}
+```
+
+**鍵を設定しないと、署名の機能が丸ごと効きません。** 例外は出ず、Cookie は普通に読み書きできるので、
+効いていないことに気づく手がかりがありません。起動時に警告を出しています。
+
+## 鍵を入れ替える
+
+**鍵は入れ替えられます。誰もログアウトしません。**
+
+新しい鍵を `secret` に、いままでの鍵を `previous_secrets` に書きます。
+**書くのは常に `secret`、読むときだけ `previous_secrets` も試します。**
+
+```conf
+cookie {
+	secret           = ${?COOKIE_SECRET}       # 新しい鍵
+	previous_secrets = [${?COOKIE_SECRET_OLD}] # いままでの鍵
+}
+
+session {
+	secret           = ${?SESSION_SECRET}
+	previous_secrets = [${?SESSION_SECRET_OLD}]
+}
+```
+
+手順は3段です。
+
+1. **新しい鍵を先頭にして、いままでの鍵を `previous_secrets` に残す。** デプロイします
+2. **待つ。** アクセスしてきた人から順に、古い鍵の Cookie が新しい鍵で書き直されます
+3. **`previous_secrets` を消す。** もう一度デプロイして完了です
+
+### いつ 3 に進めるか
+
+**勘で決めないでください。** 古い鍵で読めた回数がメトリクス（`Metrics.snapshot()`）に出ます。
+
+| 名前 | 意味 |
+|---|---|
+| `cookie.stale_secret` | 古い鍵で署名された Cookie を読んだ回数 |
+| `session.stale_secret` | 古い鍵で暗号化されたセッションを読んだ回数 |
+
+**これが増えなくなったら、古い鍵を捨てられます。** 起動ログにも本数が出ます（`鍵=cookie=2, session=2`）。
+2 のままなら入れ替えの途中、`previous_secrets` を消し忘れていればここで気づけます。
+
+いつまでも 0 にならない場合は、その分だけ「たまにしか来ない人」が残っているということです。
+Cookie の寿命（`cookie.max_age`。既定は1年）が過ぎれば必ず消えるので、それが最長の待ち時間です。
+
+### 自分で書いた Cookie は自分で書き直してください
+
+枠組みが出す `sid` と `csrf_token` は自動で署名し直します。
+**アプリが `cookies().put(...)` で書いた Cookie は自動では書き直しません**——
+有効期限をいくつにすべきかは、書いた側にしか分からないためです（ブラウザは有効期限を送ってきません）。
+
+```java
+if (context.cookies().isStale("last_post")) {
+	context.cookies().put("last_post", context.cookies().get("last_post"), 30 * 24 * 60 * 60);
+}
+```
+
+書き直さなくても読めますが、その Cookie が消えるまで古い鍵を捨てられません。
+
+### パスワードの鍵は入れ替えられません
+
+**`cipher.key` と `hash.password.pepper` はこの仕組みの対象外です。**
+これらで作った値は Cookie ではなく **DB のパスワードカラム**に入っていて、
+書き直せるのは**ログインに成功した瞬間だけ**です（平文がそのときしか無いため）。
+つまり、しばらくログインしていない人がいる限り古い鍵を捨てられません。
+
+替えるなら、アプリ側でこうします。
+
+1. 新しい鍵で `createHash` するように切り替える
+2. **ログイン成功時に、古い方式のハッシュだったら作り直して保存する**
+   （`check(input, hash, encrypted)` で方式を指定して照合できます）
+3. 全員が入れ替わったことを確認してから古い鍵を捨てる
+
+3 を確認する手立ては jimble にはありません。**「最終ログイン日時が古い人を数える」など、
+アプリ側で持っている情報で判断してください。**
+
+## パスワード
+
+`PasswordUtil` は BCrypt でハッシュ化します。**そのうえで暗号化するかどうかは選べます。**
+
+```java
+String hash = PasswordUtil.createHash(password);
+
+if (PasswordUtil.check(input, user.getString("password"))) {
+	// 一致した
+}
+```
+
+```conf
+hash {
+	password {
+		# 既定は cipher.key があれば true、無ければ false
+		encrypt = true
+		pepper  = ${?PASSWORD_PEPPER}
+	}
+}
+
+cipher {
+	key = ${?CIPHER_KEY}   # 16 / 24 / 32 バイト
+	iv  = ${?CIPHER_IV}    # 16 バイト
+}
+```
+
+**既定は「鍵があれば暗号化する」です。** 固定の `false` にすると、暗号化されたハッシュを
+保存している既存のアプリが、鍵を設定しているのに平文として照合してしまい、
+**全員ログインできなくなります。** どちらで動いているかは起動時のログに出ます
+（`パスワード暗号化=あり`）。明示したいときは `encrypt` を書いてください。
+
+暗号化を後から入れる・外すときは、保存済みのハッシュを作り直す必要があります。
+`createHash(password, encrypt)` と `check(input, hash, encrypted)` で片方ずつ指定できます。
+
+`CipherUtil` は **AES/CBC で IV が固定**です。既に保存されている暗号文を読むために残してあります。
+**新しく暗号化するものには使わないでください。** 同じ平文が必ず同じ暗号文になり、改ざん検知もありません。
+新しく作るものは `Aead`（AES-256-GCM）を使います。
+
+
+
+---
+
+<!-- https://jimble.io/ja/ratelimit -->
+
+
+# レートリミット
+
+**ルートに宣言します。**書いたところにだけかかります。
+
+```java
+// 1本だけ
+post("/api/login", handler)
+	.attribute(RateLimit.KEY, RateLimit.perIp(5, Duration.ofMinutes(1)));
+
+// このブロック全部
+path("/api", () -> {
+	rateLimit(RateLimit.perIp(60, Duration.ofMinutes(1)));
+
+	get("/items", handler);
+	get("/items/{id}", handler);
+});
+```
+
+`before` と同じで**書いたブロックに付きます**（パスのノードではありません）。
+内側に別のものを書けば内側が勝ち、ルートが属性で持っていればそれが勝ちます。
+
+## 数え方
+
+**トークンバケット**です。`duration` かけて `limit` 個まで戻ります。
+**短いバーストは通り、続けて叩くと止まります。**
+
+> [!NOTE]
+> 固定の窓（「1分あたり N 回」）にしなかったのは、
+> 窓の境目で**一瞬 2N 回通ってしまう**ためです。
+
+## 数える単位
+
+```java
+RateLimit.perIp(60, Duration.ofMinutes(1));                       // 送信元ごと
+RateLimit.of(context -> context.session().id(), 10, Duration.ofMinutes(1));   // ログインごと
+```
+
+> [!TRAP]
+> **`perIp` は `server.trust_proxy` を見ます。**プロキシの後ろに置いているのに
+> `false` のままだと、**全員がロードバランサの IP として1つに数えられます**
+> （[サーバー設定](./server)）。
+
+社内からのアクセスなど、数えたくないものは外せます。
+
+```java
+RateLimit.perIp(60, Duration.ofMinutes(1))
+	.exclude(context -> context.request().proxyAddress().startsWith("10."));
+```
+
+## 止めたときに返るもの
+
+| | |
+| --- | --- |
+| ステータス | **429** |
+| `Retry-After` | 待つ秒数（切り上げ。最低 1） |
+| `X-RateLimit-Limit` / `X-RateLimit-Remaining` | 上限と残り |
+
+**`before` より前で止めます。**認証や DB を触らせないためです。
+
+## 置き場
+
+```conf
+rate_limit {
+	store   = "memory"   # memory | redis | db
+	enabled = true
+}
+```
+
+| | 台をまたぐか | 向き |
+| --- | --- | --- |
+| `memory`（既定） | **またがない** | 1台のとき |
+| `redis` | またぐ | 複数台に並べるとき |
+| `db` | またぐ | Redis が無くて、**回数が少ない**とき |
+
+> [!WARN]
+> **`memory` のまま複数台に並べると、全体では台数ぶん通ります。**
+> 3台なら 3 倍です。並べるなら `redis` にしてください。
+
+> [!NOTE]
+> `redis` は Lua で数えます。「残り」と「最後に足した時刻」を
+> **一緒に読み書きしないと数え落ちる**ためです。
+> `db` は `SELECT ... FOR UPDATE` なので、**高い頻度には向きません**
+> （ログインの試行回数のような用途向け）。テーブルは初めて使うときに作ります。
+
+> [!TRAP]
+> **数えられなかったときは通します。**Redis が落ちているだけで
+> サイト全体が 429 になるほうが困るからです。
+> ただし**黙っては通しません**（`流量制限を数えられませんでした（通します）` がログに出ます）。
+
+
+
+---
+
+<!-- https://jimble.io/ja/auth -->
+
+
+# ログインと認可
+
+**注釈はありません。**`before` を1行と、ルートに付ける属性だけです。
+
+```java
+public class App extends JimbleApp {
+
+	{
+		before(Auth::guard);                                    // これだけ
+
+		path("/public", () -> {
+			attribute(Auth.PUBLIC, true);                       // ブロックごと公開
+			attribute(Auth.NO_SESSION, true);
+			get("/guide", Guide::show);
+		});
+
+		get("/login",  Login::show).attribute(Auth.PUBLIC, true);
+		post("/login", Login::submit).attribute(Auth.PUBLIC, true);
+
+		get("/requests",  RequestController::list);             // 既定で要ログイン
+		get("/approvals", ApprovalController::list).attribute(Auth.ROLE, "approver");
+	}
+
+}
+```
+
+`before(Auth::guard)` は**いちばん最初に**登録してください。
+セッションを使うかどうかをここで決めるので、
+**先に誰かが `session()` を触ると間に合いません。**
+
+## 既定は「閉じている」
+
+`Auth.PUBLIC` の既定は `false`（＝ログインが要る）です。
+
+**ルートを足した人が何も書かなければ閉じています。**
+逆にすると、書き忘れたルートが黙って開きます。
+どちらも「書き忘れ」ですが、**倒れる先が違います。**
+
+## ルート属性
+
+| 属性 | 既定 | 何を決めるか |
+| --- | --- | --- |
+| `Auth.PUBLIC` | `false` | ログインが要らないか |
+| `Auth.ROLE` | `""` | 要る役割。空なら問わない |
+| `Auth.NO_SESSION` | `false` | セッションをまったく使わないか |
+| `Auth.FULL_AUTH` | `false` | **いまパスワードを入れた人**だけが通れるか（下記） |
+
+ブロックに書けば、その中のルート全部に付きます（[ルーティング](./routing)）。
+1本だけ違うなら、そのルートで上書きします。
+
+> [!TRAP]
+> **`PUBLIC` と `NO_SESSION` は別の判断です。**
+> ログインの入口は**ログインが要らないが、セッションは要ります**——
+> CSRF トークンも、ログイン後のセッションも、そこで持つからです。
+>
+> 一緒にすると**ログイン画面自身がセッションを持てず、誰もログインできなくなります**
+> （302 は返るのに、次のリクエストで 401 になります。実際に踏みました）。
+>
+> `NO_SESSION` を付けてよいのは、**本当に公開のページだけ**です。
+
+## ログインさせる
+
+```java
+Data staff = findStaff(loginId);
+
+if (!Auth.checkPassword(password, staff.isEmpty() ? null : staff.getString("password_hash"))) {
+	context.flash().put("message", "ログインIDかパスワードが違います");
+	context.response().redirect("/login");
+	return;
+}
+
+Auth.login(context, Principal.of(
+	staff.getLong("id"), staff.getString("name"), staff.getString("role")));
+
+context.response().redirect("/me");
+```
+
+`Auth.attemptLogin` が、**待たせる → 照合する → 成功なら数えたものを消す**までやります。
+`Auth.login` は**セッション ID を振り直してから**入れて、**保存まで**します
+（[セッションとセキュリティ](./session-security)）。
+
+> [!TRAP]
+> **`PasswordUtil.check` を直に呼ばないでください。**
+> ハッシュが `null` のとき**即座に `false` を返す**ので、
+> **利用者がいないほうが目に見えて速くなります**（BCrypt は遅いのが仕事です）。
+> 応答時間で**どの ID が存在するかを外から数えられます。**
+>
+> `Auth.attemptLogin` は、相手がいなくても**1回まわしてから** `false` を返します。
+> **メッセージも分けないでください**——分けたら時間を合わせた意味がありません。
+
+## 何度も間違えられたとき
+
+`Auth.attemptLogin` は**失敗した回数を数えていて、次の試行を待たせます。**
+書くことはありません（上のコードのままです）。
+
+```
+失敗 1〜3 回目 … 待たせない（打ち間違い）
+4 回目 … 1 秒
+5 回目 … 2 秒
+6 回目 … 4 秒     …… 上限（既定 300 秒）まで
+```
+
+まだ待ち時間が残っていれば **429 と `Retry-After`** を返します
+（401 と同じく、画面へ飛ばすかどうかは `error()` が決めます）。
+24 時間間が空けば数え直します。
+
+**「N 回で M 分ロック」にはしていません。**
+アカウント単位で止める仕組みは**そのまま嫌がらせの道具になる**からです——
+わざと間違えるだけで、その人を締め出せます。
+待ち時間を倍にしていく形なら、攻撃者から見た試行速度は実質ゼロになり、
+**正規の利用者は数秒待つだけ**で済みます。
+
+> [!TRAP]
+> **数える単位は「入力されたログイン ID」です。**
+> 見つかった利用者の DB 上の ID を渡すと、**居ない ID のときだけ数えられません。**
+> 総当たりは居ない ID から始まりますし、
+> **「待たされるかどうか」でどの ID が在るかが分かってしまいます。**
+
+| | |
+| --- | --- |
+| 置き場 | `auth_attempt` テーブル。**DB が無ければ何もしません**（ログに1度だけ出ます） |
+| 単位 | ログイン ID（**大小と前後の空白はそろえて** SHA-256 で保存します。平文では残りません） |
+| 設定 | `auth.lockout.*`（[設定](./config)） |
+| 掃除 | 自動です（失敗を数えたついでに、1時間に1度）。手で呼ぶなら `Lockout.cleanup()` |
+| 解除 | `Lockout.clear(loginId)` |
+
+**[流量制限](./ratelimit)の代わりにはなりません。**
+流量制限は **IP ごと**なので、1つのアカウントに 1000 個の IP から1回ずつ来ると発火しません。
+こちらは**アカウントごと**なので、誰から来ても数えます。**両方掛けてください。**
+
+## いま誰か
+
+```java
+Principal me = Auth.principal(context);
+
+me.id();                  // 0 なら未ログイン
+me.name();
+me.hasRole("approver");
+```
+
+**`null` は返りません。**ログインしていなければ `Principal.ANONYMOUS` です。
+
+`Principal` が持つのは **id / 表示名 / 役割の3つだけ**です。
+利用者のオブジェクトを丸ごとセッションに入れると、
+
+- DB で名前を直しても**ログインし直すまで古いまま**
+- 権限を剥奪しても**セッションが切れるまで効かない**
+- Cookie セッションなら、**その全部がブラウザへ出ていく**
+
+残りは要るときに DB から引いてください。引くのが重いなら[キャッシュ](./cache)の仕事です。
+
+## ログアウト
+
+```java
+Auth.logout(context);
+```
+
+**セッションを丸ごと捨てます。**ログインの鍵だけ消すと、
+買い物かごや下書きが**次の利用者に見えます**（共用の端末で効きます）。
+
+## 401 と 403 の返し方
+
+`Auth.guard` は `HttpException` を投げるだけです。
+**画面へ飛ばすか JSON を返すかは、アプリの `error()` が決めます。**
+
+```java
+error((context, cause, statusCode) -> {
+
+	if (statusCode == 401 && !context.request().acceptJson()) {
+		context.response().redirect("/login");
+		return;
+	}
+
+	context.response().code(statusCode).json("error", cause.getMessage());
+
+});
+```
+
+**役割が足りないときは 403 で、401 ではありません。**
+ログインし直しても結果が変わらないことを、状態コードで言います。
+401 を返すと、利用者は**入り直せば見られると思って何度も試します。**
+
+## ログインしたままにする（remember-me）
+
+```java
+{
+	before(Remember.restore(App::findPrincipal));   // 先に「思い出す」
+	before(Auth::guard);                            // そのあと見張る
+
+	post("/password", Password::change).attribute(Auth.FULL_AUTH, true);
+}
+
+// id から引き直す。役割をここで引くので、権限を剥奪すればすぐ効く
+private static Principal findPrincipal (long id) {
+	Data staff = findStaff(id);
+	return staff.isEmpty() ? null
+		: Principal.of(staff.getLong("id"), staff.getString("name"), staff.getString("role"));
+}
+```
+
+ログインのときに、**印が付いていたときだけ**覚えます。
+
+```java
+Auth.login(context, principal);
+
+if ("1".equals(request.getString("remember"))) {
+	Remember.issue(context, principal);
+}
+```
+
+> [!TRAP]
+> **`before(Remember.restore(...))` は `before(Auth::guard)` より先に置いてください。**
+> あとに置くと、**guard が「ログインしていない」と決めたあとで思い出す**ことになります。
+>
+> **いつも `issue` を呼ばないでください。**共用の端末で、**次の人が入れます。**
+
+### Cookie を盗まれても、パスワードは変えられない
+
+**これが remember-me を出せる理由です。**
+思い出して戻ってきた人は「いまパスワードを入れた人」ではないので、
+`attribute(Auth.FULL_AUTH, true)` を付けたルートでは **401** になります。
+
+パスワードの変更・退会・決済・連絡先の変更に付けてください。
+コードの中で見るなら `Auth.fullyAuthenticated(context)` ですが、
+**ルート属性のほうが書き忘れが起きません。**
+
+### 盗まれたら気づく
+
+Cookie には **`selector:validator`** の2つが入っていて、
+**validator は使うたびに作り直します。**
+盗まれた Cookie と本物の Cookie は同時に生きられないので、
+**回転前の値が使われたら、それが盗まれた合図**です。
+
+合図を見つけたら、**その利用者の記憶を全部消します**（ログにも残ります）。
+先に使ったのが本人か盗んだ側かは**区別できない**ので、
+片方だけ消すと**本人だけが締め出されて盗んだ側が残る**ことがあります。
+
+| | |
+| --- | --- |
+| 置き場 | `auth_remember` テーブル。**DB が無ければ何もしません** |
+| Cookie | `selector:validator`。**validator は SHA-256 にして保存**します（selector は引くための鍵なのでそのまま） |
+| 期限 | 最後に使ってから 30 日、**かつ**発行から 90 日（使い続けても、いつかは必ず切れます） |
+| 猶予 | 回した直後の 60 秒は古いほうも通します（**並列のリクエストで勝手にログアウトさせない**ため） |
+| ログアウト | `Auth.logout` が消します |
+| パスワード変更 | **`Remember.forgetAll(userId)` を呼んでください**（下記） |
+| 設定 | `auth.remember.*`（[設定](./config)） |
+
+> [!TRAP]
+> **パスワードを変えたら `Remember.forgetAll(userId)` を呼んでください。**
+> 呼ばないと、**盗まれた Cookie はそのまま使えます**——変えた意味がありません。
+> 「全端末からログアウト」も同じものです。
+
+## 「Google でログイン」（OpenID Connect）
+
+```java
+{
+	before(Auth::guard);
+
+	// どちらも「ログインは要らないが、セッションは要る」
+	get("/auth/google", Oidc.start("google"))
+		.attribute(Auth.PUBLIC, true);
+
+	get("/auth/google/callback", Oidc.callback("google", App::findOrCreate))
+		.attribute(Auth.PUBLIC, true);
+}
+
+// 名乗ってきた相手を、アプリの利用者に結び付ける。入れたくなければ null
+private static Principal findOrCreate (OidcUser user) {
+
+	Data staff = findByOidcKey(user.key());        // "google:1234567890"
+
+	return staff.isEmpty() ? null
+		: Principal.of(staff.getLong("id"), staff.getString("name"), staff.getString("role"));
+
+}
+```
+
+設定は `auth.oidc.<名前>.*`（[設定](./config)）。**`client_secret` は環境変数から**入れてください。
+`authorization_endpoint` などは書かなければ **discovery**（`issuer` + `/.well-known/openid-configuration`）で引きます。
+**起動時には引きません**——引くと、プロバイダが落ちているあいだアプリが起動しなくなります。
+
+> [!TRAP]
+> **`Auth.NO_SESSION` を付けないでください。**`state` も `nonce` も PKCE の検証子も
+> セッションに置くので、付けると**戻ってきたときに何も残っていません**。
+>
+> `Auth.PUBLIC` は要ります（まだログインしていない人が通る道なので）。
+> **この2つが別の判断だという話は上のとおりです。**
+
+### 認可コード + PKCE だけ
+
+暗黙フローは持っていません。`start` が **state / nonce / PKCE の検証子**を作ってセッションに置き、
+`callback` が突き合わせます。
+
+| | 何を防ぐか |
+| --- | --- |
+| `state` | **ログイン CSRF。**攻撃者のコードを踏ませて、**被害者を攻撃者のアカウントでログインさせる**手 |
+| `nonce` | **ID トークンの使い回し。**1度取れたトークンを何度でも持ち込む手 |
+| **PKCE**（S256） | **認可コードの横取り。**検証子を知らないとトークンに換えられません |
+
+`state` は**読んだ時点で捨てます**（1回だけにするのが役目なので）。
+
+### ID トークンの検証
+
+**外部のライブラリを入れていません。**JWKS が返す `n`/`e`（RSA）と `x`/`y`（EC）は
+JDK の `KeyFactory` で公開鍵に戻せて、署名の検証も `java.security.Signature` がやります。
+
+見ているのは次のとおりです。**どれも「見ていない」だけで通ってしまう**ところです。
+
+| | |
+| --- | --- |
+| `alg` | **ヘッダを信じません。**表に載っている RS/ES だけを通します。`none` は「署名が空でも検証したことになる」、`HS256` は**公開鍵を共有鍵として渡すと誰でも署名できる** |
+| `kid` | その鍵で検証します。JWKS 側が `alg` を名乗っていれば、それとも一致すること |
+| `iss` | **1文字違わず一致。**前方一致にすると `https://accounts.google.com.evil.jp` が通ります |
+| `aud` | 自分が入っていること。**複数あれば `azp` も**（別のクライアント宛てを持ち込ませない） |
+| `exp` / `iat` / `nbf` | 時計のずれぶんだけ緩めます。**未来に発行されたことになっているものは通しません** |
+| `nonce` | こちらが送ったものと一致すること |
+
+**断る理由は返しません。**「nonce が合いません」と返すと、**どこまで通ったかを外から測れます**。
+ログにだけ残して、返すのは 401 です。
+
+> [!TRAP]
+> **メールが同じでも、既存の利用者に自動で結び付けません。**
+> 引くのは `provider + sub` の組（`user.key()`）だけです。
+>
+> メール一致で自動的に結び付けると、**メールを検証していないプロバイダが1つ混ざるだけで
+> アカウント乗っ取りになります**。既存のアカウントに紐付けたいなら、
+> **ログイン済みの状態で明示的に「連携する」**操作をさせてください。
+>
+> `user.emailVerified()` は見られますが、**それを信じるかどうかはアプリの判断**です。
+
+### やらないこと
+
+| | |
+| --- | --- |
+| アクセストークンの保管 | しません。ここは「誰がログインしたか」までです。外部 API を叩くなら、返ってきたトークンをアプリが自分で持ってください（保管・暗号化・失効・スコープの追加同意まで面倒を見ることになります） |
+| jimble が認可サーバーになる | ありません |
+| ルートを自動で生やす | しません。`get("/auth/google", ...)` と自分で書きます（[原則](./principles)） |
+
+## 二要素認証（TOTP）
+
+パスワードが合ったあと、**まだログインさせずに**コードを待ちます。
+
+```java
+// パスワードが合ったあと
+if (Mfa.isActive(staff.getLong("id"))) {
+	Mfa.pending(context, principal);        // ログインさせない。セッションに預けるだけ
+	context.response().redirect("/login/code");
+	return;
+}
+
+Auth.login(context, principal);
+```
+
+```java
+// POST /login/code
+if (!Mfa.complete(context, request.getString("code"))) {
+	context.flash().put("message", "コードが違います");
+}
+
+context.response().redirect(Mfa.isPending(context) ? "/login/code" : "/");
+```
+
+`complete` が true を返したときは、**中で `Auth.login` まで済んでいます。**
+
+> [!TRAP]
+> **コードを入れるまでは「ログインしていない」扱いです。**
+> `Auth.principal(context)` は `Principal.ANONYMOUS` を返し、
+> `/login/code` 以外のルートは通れません。
+>
+> つまり **`/login/code` には `Auth.PUBLIC` が要ります**（まだログインしていない人が通る道なので）。
+> `Auth.NO_SESSION` は付けないでください——途中の人はセッションに預けてあります。
+
+### 登録
+
+```java
+Mfa.Enrollment enrollment = Mfa.enroll(staffId, "member1@example.com");
+
+// enrollment.uri() を QR にして見せる（otpauth://totp/...）
+// enrollment.recoveryCodes() は「この一度だけ」見せる
+```
+
+**`enroll` だけでは有効になりません。**
+認証アプリに入れてもらってから、出てきたコードで `Mfa.activate(staffId, code)` を呼びます。
+
+```java
+if (!Mfa.activate(staffId, request.getString("code"))) {
+	context.flash().put("message", "コードが合いません。もう一度お試しください");
+}
+```
+
+> [!TRAP]
+> **2段階にしてあるのは、締め出さないためです。**
+> `enroll` の時点で有効にすると、**QR の読み取りに失敗した人が二度と入れなくなります。**
+
+### 秘密鍵は暗号化して持ちます
+
+**`auth.mfa.secret_key` が設定されていなければ、`enroll` は例外を投げて断ります。**
+
+TOTP の秘密鍵は、パスワードのハッシュとは違います。
+ハッシュは漏れても解くのに手間がかかりますが、**秘密鍵は漏れたらその場でコードが作れます。**
+平文で持つと、「2要素を入れてあるのに、DB が漏れたら全員突破される」ものになります。
+
+> [!TRAP]
+> **`cipher.key` を流用しないでください。**
+> `hash.password.encrypt` の既定は **「`cipher.key` があれば true」**です
+> （移送してきたアプリの保存済みハッシュが暗号化されているため）。
+>
+> つまり、**いま平文の BCrypt を保存しているアプリが、二要素認証のために `cipher.key` を
+> 設定すると、保存済みのパスワードが「暗号化済み」として読まれて全員入れなくなります。**
+> 返るのは「IDかパスワードが違います」だけなので、原因に辿り着けません。
+> **鍵を分けてあるのはこのためです。**
+
+### 回復コード
+
+認証アプリを入れた端末は失くします。回復コードはそのための逃げ道です。
+
+| | |
+| --- | --- |
+| 出る場所 | `enroll` の戻り値だけ。**DB には SHA-256 しか残りません** |
+| 数 | 10 個（`auth.mfa.recovery_codes`） |
+| 使い方 | コードの欄にそのまま入れます。`verify` が認証アプリ → 回復コードの順に見ます |
+| 使ったら | **消えます。**1つは1回だけです |
+| 残りの数 | `Mfa.remainingRecoveryCodes(userId)` |
+
+**残りが 0 になっても知らせません。**画面に出すかどうかはアプリの判断です。
+
+### 総当たりへの備え
+
+| | |
+| --- | --- |
+| 待たせる | `Lockout` と同じ仕掛けです（鍵は `mfa:<利用者 ID>`）。**6桁は 100 万通りしかないので、抑えないと1日で当たります** |
+| 待たせ方 | 3回までは待たせず、そのあと 1 → 2 → 4 … 秒。上限 300 秒。超えたら **429** |
+| 窓 | 前後1つ（`auth.mfa.window`）。**広げるほど当たりも増えます**——10 にすると当たりが 21 通りぶんになります |
+| 使い回し | **一度通ったコードは、その窓が終わるまで通りません。**同じコードを覗き見て入れ直す手を止めます |
+| 猶予 | パスワードが通ってからコードまで 300 秒（`auth.mfa.pending_seconds`）。過ぎたら**はじめからやり直し**です |
+
+### やめるとき
+
+```java
+post("/mfa/disable", Mfa2::disable).attribute(Auth.FULL_AUTH, true);
+```
+
+> [!TRAP]
+> **`Mfa.disable` を呼ぶ前に、本人であることを確かめてください。**
+> ここが緩いと、**Cookie を盗んだ側が2要素を外せます**——入れた意味がなくなります。
+> `attribute(Auth.FULL_AUTH, true)` を付けて、**いまパスワードを入れた人だけ**にしてください。
+
+### 仕様と、やらないこと
+
+| | |
+| --- | --- |
+| 方式 | TOTP（RFC 6238 / RFC 4226）。HMAC-SHA1、6桁、30 秒。**認証アプリが揃って読めるのがこれだけ**だからです |
+| 置き場 | `auth_mfa` と `auth_mfa_recovery`。**DB が要ります**（無ければ `enroll` は例外） |
+| QR 画像 | 作りません。`enrollment.uri()` を渡すので、画面側で描いてください（依存を増やさないため） |
+| SMS / メール | ありません。SMS は SIM の乗っ取りで抜かれます |
+| WebAuthn / パスキー | まだありません |
+| 「信頼した端末」 | ありません。remember-me が近いことをしますが、**別のものです**（あちらはパスワードの代わり） |
+
+
+動いているものは `examples/approval-auth` にあります（ログイン → コード → 登録 → 解除まで）。
+
+## Basic 認証
+
+運用向けの口には Basic 認証が使えます（[リクエストとレスポンス](./request-response)）。
+
+```java
+path("/ops", () -> {
+	before(BasicAuth.of("ops", System.getenv("OPS_PASSWORD")));
+	attribute(Auth.PUBLIC, true);      // セッションのログインとは別の仕組み
+	get("/whoami", Ops::whoami);
+});
+```
+
+## やらないこと
+
+| | |
+| --- | --- |
+| 注釈（`@PreAuthorize` のようなもの） | [原則](./principles)のとおり使いません。ルート属性で宣言します |
+| 「あと何日で切れるか」を利用者に見せる口 | ありません。行を自分で引いてください |
+| JWT | **出しません。**失効できず鍵の管理が増えます。API の認証が要るなら、DB に持つ不透明なトークンにしてください |
+| SAML | まだありません |
+| 権限（permission）の対応表 | 役割の文字列だけです |
+
+動いているものは `examples/approval-auth` にあります。
+
+
+
+---
+
+<!-- https://jimble.io/ja/execution -->
+
+
+# 実行モデル
+
+**リクエスト1本につき仮想スレッドが1本**です。その上で、最初から最後まで**同期的に**走ります。
+
+- スレッドプールの設定はありません（Helidon に任せています）
+- `CompletableFuture` を返す API はありません
+- **ブロッキングして構いません。**JDBC もそのまま呼びます
+
+## 1リクエストの流れ
+
+```
+onRequest
+  ↓
+before（外側 → 内側）
+  ↓
+ルートの処理 / Executor を順に実行
+  ↓
+送信
+  ↓
+（例外なら）error（内側 → 外側）
+  ↓
+after（内側 → 外側）※必ず通る
+  ↓
+onComplete ※必ず通る
+```
+
+`onRequest` は**ルートに当たらなくても呼ばれます**。
+`after` と `onComplete` は `finally` にあるので、例外が出ても必ず通ります。
+
+### 「送ったら止まる」は1か所で見ている
+
+`before` でログイン画面を返したら、**その先の `before`・ルート・Executor は走りません。**
+この判定は1か所（`Stage`）に閉じています。
+
+**`after` と `onComplete` は走ります。**この2つは `finally` にあるので、
+送信済みでも例外が出ても必ず通ります（上の図のとおりです）。
+「送ったら止まる」のは**送信までの段だけ**です。
+
+> [!NOTE]
+> 移送元（jooby_base）は同じ判定を7か所にコピーしていました。
+> 1か所に集めたのは、**書き足したところだけ判定を忘れる**のを防ぐためです（要件 F-C-13）。
+
+### Executor
+
+ルートは処理を直接書くほかに、**Executor をキューに積む**書き方ができます。
+
+```java
+post("/save", () -> new SaveExecutor());
+```
+
+- キューは実行中にも積めます（`context.addExecutor(...)`）
+- `cancel()` を呼んでも**その場では止まりません**。`execute` から戻ったあとに残りが捨てられ、`onCancel` が呼ばれます
+- `OPTIONS` はプリフライト専用なので、**キューを回しません**（要件 F-W-19）
+
+## どこが何のスレッドで動くか
+
+| 仕組み | スレッド |
+| --- | --- |
+| HTTP リクエスト | Helidon の**仮想スレッド**（リクエストごとに1本） |
+| `AsyncData` / `AsyncList` の読み込み・先読み | **呼び出しスレッドそのもの。**名前に反して別スレッドは使いません |
+| SSE | **そのリクエストの仮想スレッドを掴んだまま** |
+| WebSocket | Helidon のリスナのスレッド（接続ごと） |
+| MQ のワーカー | 仮想スレッド。型ごとに `mq.thread_count.<型>` 本 |
+| スケジューラの時計 | プラットフォームスレッド1本（`jimble-scheduler`） |
+| スケジューラが起動するバッチ | 仮想スレッド。`scheduler.execute_threads` 本（`0` で無制限） |
+| バッチのハートビート | 仮想スレッド1本（`jimble-batch-heartbeat`） |
+
+本数を絞りたいところでは `VirtualThreadManager` を使います。
+
+> [!NOTE]
+> `VirtualThreadManager(n)` の `n` は「**同時に走る**本数」です。
+> セマフォを取るのは仮想スレッドを起こした後なので、待っているスレッドは作られています。
+> 仮想スレッドは安いので実害はありませんが、「n 本しか作らない」ではありません。
+
+## 詰まるのはスレッドではなく接続プール
+
+仮想スレッドはいくらでも増えます。**先に尽きるのは DB の接続です。**
+
+> [!TRAP]
+> トランザクションの中や `selectListWithFetcher` の途中は、接続をプールに返していません。
+> その状態で SSE のように長く繋ぐと、**人数分だけプールを食います。**
+> `maximumPoolSize = 10` なら10人で尽き、11人目は「遅い」でも「エラー」でもなく
+> **接続待ちで止まったまま**になります。
+
+SSE で無限ループを書かないのはこのためです。
+有限のぶんを送って閉じ、クライアントに繋ぎ直させてください（[SSE](./sse)）。
+
+## 仮想スレッドで気をつけること
+
+| | |
+| --- | --- |
+| **`synchronized` を使わない** | 仮想スレッドがキャリアに固定されます。`ReentrantLock` を使ってください（jimble 自身もそうしています） |
+| **共有可変状態を守る** | `static` な `HashMap` は同時アクセスで壊れます。「たまたま動いていた」が起きにくいぶん、仮想スレッドでは**実際に壊れます** |
+| **`ThreadLocal` に頼らない** | jimble はリクエストの受け渡しに `ScopedValue` を使っています（`Context.current()`） |
+
+## 止めるとき
+
+止め方は1か所（`Shutdown`）に預けます。
+
+```java
+Shutdown.add("わたしのワーカー", worker::stop);
+```
+
+| | |
+| --- | --- |
+| 順番 | **後に預けたものから先に止める**（立てた順の逆）。DB を先に閉じると、止まる途中のものが DB を使えないため |
+| 失敗したら | **残りは止める。**止められなかったものの名前が返る |
+| jimble が預けるもの | DB プール / サーバー / スケジューラ |
+
+> [!NOTE]
+> **SIGTERM を受けると、預けたものが逆順に止まります**（[サーバー設定](./server)）。
+> コンテナは SIGTERM を送って待つので、受け取らずに死ぬと
+> 処理中のリクエストが途中で切れます。
+>
+> 普通に動かしているぶんには要りません。**プロセスが終われば全部止まります。**
+> 要るのは<b>プロセスを終わらせずにアプリを入れ替えるとき</b>、つまり `jimbleRun` です。
+> 止め忘れたものは入れ替え後のものと二重に動き、「同じジョブが2回走る」という形で出ます
+> （[ホットリロード](./hot-reload)）。
+
+リクエスト1本ぶんの後始末は `Shutdown` ではなく `context.onClose(...)` です。
+登録の逆順に呼ばれ、1つ失敗しても残りを畳みます。
+
+
+
+---
+
+<!-- https://jimble.io/ja/db -->
+
+
+# DB を使う
+
+## 設定する
+
+`application.conf` にデータソースを書きます。
+
+```conf
+db {
+	blog_example {
+		main     = true
+		driver   = "org.mariadb.jdbc.Driver"
+		url      = "jdbc:mariadb://127.0.0.1:3306/blog_example?useUnicode=true&characterEncoding=UTF-8"
+		url      = ${?DB_URL}
+		username = "blog"
+		username = ${?DB_USER}
+		password = ""
+		password = ${?DB_PASSWORD}
+
+		maximumPoolSize      = 10
+		connection_pool_type = "hikari"
+	}
+}
+
+codegen {
+	package = "db"
+}
+```
+
+**秘密はファイルに書かないでください。** `${?ENV_NAME}` の形にしておくと、
+環境変数があればそちらが勝ちます。無ければ前の行の値が残ります。
+
+ドライバは `jimble-db` が MySQL / MariaDB と PostgreSQL の両方を持っているので、
+ふつうは足す必要はありません。
+
+## DB 製品を選ぶ
+
+`product` に製品を書くと、**SQL ビルダーがその製品用の SQL を出します。**
+
+```conf
+db {
+	blog_example {
+		main     = true
+		product  = "postgresql"
+		driver   = "org.postgresql.Driver"
+		url      = "jdbc:postgresql://127.0.0.1:5432/blog_example"
+		username = "blog"
+		password = "blog"
+		password = ${?DB_PASSWORD}
+	}
+}
+```
+
+> [!TRAP]
+> **`${?ENV}` の行だけを書かないでください。**環境変数が無いときに<b>キーごと消えます</b>
+> （上の書き方は「まず既定値、あれば環境変数で上書き」の2行組です）。
+> パスワードが消えたまま PostgreSQL に繋ぐと、返ってくるのは
+> `The server requested SCRAM-based authentication, but no password was provided.` で、
+> <b>設定の話に見えません。</b>
+
+## データベースがまだ無いとき
+
+`create_database_sql` を書いておくと、**繋がらなかったときに1度だけ流します。**
+
+```conf
+db {
+	blog_example {
+		...
+		create_database_sql = "CREATE DATABASE blog_example"
+	}
+}
+```
+
+書かなければ何もしないので、**手で作ってあるなら要りません。**
+本番では<b>権限を持たない利用者で繋ぐほうが普通</b>なので、開発と CI のためのものです。
+
+| 書ける値 | 製品 |
+|---|---|
+| `mysql`（既定）／ `mariadb` | MySQL 8.x / MariaDB |
+| `postgresql` ／ `postgres` ／ `pgsql` | PostgreSQL 16 以降 |
+
+省略すると `mysql` です。知らない値を書くと**起動時に落ちます**。
+
+**アプリのコードは1行も変わりません。**
+
+```java
+// この1行が、product に応じて
+//   MySQL      SELECT `post`.`id` AS `post__id` ... LIMIT ? OFFSET ?
+//   PostgreSQL SELECT "post"."id" AS "post__id" ... LIMIT ? OFFSET ?
+// になります
+SQL.select().from(Post.instance()).where(Post.id.eq(1L));
+```
+
+データソースごとに違う製品を書けます（メインは MySQL、集計用は PostgreSQL、など）。
+
+### その製品で書けないもの
+
+**書けないものは、SQL を組み立てたところで `DialectException` になります。**
+実行してから製品の構文エラーで落ちる、ということはありません。
+
+| ビルダー | PostgreSQL |
+|---|---|
+| `Dsl.match(...)`（全文検索） | 書けない。`to_tsvector` は語彙の分割もスコアも別物なので、黙って置き換えません |
+| `Dsl.dateFormat(col, "%Y-%m-%d")` | 書けない。`to_char` は書式の言語が違うので、置き換えると**例外にならずに違う文字列**が返ります。Java 側で整えてください |
+| `Dsl.jsonExtract(col, "$.a[0]")` | 配列・ワイルドカード・引用符つきキーは書けません。`$.a.b` の形だけ |
+
+逆に、**名前だけ違うものは黙って揃えます**（`RAND` / `RANDOM`、`IFNULL` / `COALESCE`、
+`TRUNCATE` / `TRUNC` など）。`Dsl.concat(...)` は PostgreSQL では `||` になります
+（PostgreSQL の `concat()` は NULL を空文字として飲み込むので、
+名前だけ置き換えると MySQL と結果が変わります）。
+
+どうしてもその製品の書き方を使いたいときは `Dsl.freeSql(...)` で逃げられます。
+
+### 気をつけること
+
+- **空間関数の座標の順が違います。**MySQL 8 の SRID 4326 は緯度・経度、
+  PostGIS は経度・緯度です。jimble は吸収しないので、両方で使うなら自分で合わせてください
+- マイグレーションの SQL（`conf/migration/...`）は**自分で書いたものがそのまま流れます。**
+  両方の製品で動かすなら、`001_xxx.mysql.sql` / `001_xxx.postgresql.sql` と
+  **ファイル名の接尾辞**で分けます（接尾辞なしはどちらでも当たります）。
+  詳しくは [製品ごとに SQL を分ける](./codegen)
+
+## 起動時に繋ぐ
+
+**設定を書いただけでは繋がりません。**アプリの `main` で明示的に呼びます。
+
+```java
+public static void main (String[] args) {
+
+	Migration.install();                                // 起動時マイグレーション（要るなら。DBUtil.load より前）
+
+	// 繋がらなければ false。ここで止めます
+	if (!DBUtil.load(Conf.conf().config(), App.class)) {
+		throw new IllegalStateException("DB を読み込めませんでした（このすぐ上のログに原因が出ています）");
+	}
+
+	JimbleServer.start(new App());
+
+}
+```
+
+`DBUtil.load` の2つ目は**クラスパスの起点**です（マイグレーション SQL をここから探します）。
+自分のアプリのクラスを渡してください。
+
+> [!TRAP]
+> **戻り値を捨てないでください。**`DBUtil.load` は繋がらなくても例外を投げません
+> （原因をログに出して `false` を返します）。捨てると**サーバーは起動してしまい**、
+> 最初にリクエストが来たところで落ちます。
+> `DBUtil.getMainDB()` が「DB が読み込めていません」と言って落ちるので迷子にはなりませんが、
+> **起動した時点で気づけるほうが早い**です。
+
+> [!TRAP]
+> **入口が複数あるなら、この並びを1か所にまとめてください。**
+> Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだけ古くなります</b>。
+> テストからも同じものを呼びます（[落とし穴](./pitfalls) / [テスト](./testing)）。
+
+終わるときは `DBUtil.stop()` です（Web は[グレースフルシャットダウン](./server)が呼びます。
+バッチやテストでは自分で呼びます）。
+
+## データソースが複数あるとき
+
+```conf
+db {
+	main_db { main = true, ... }
+	log_db  { ... }
+}
+```
+
+`DBUtil.getDB("log_db")` で別のデータソースが取れます。
+`main = true` のものは `DBUtil.getMainDB()` です（引数なしの `getDB()` はありません）。
+
+トップレベルに並べたものは、**1本ごとに独立した扱い**を受けます。
+
+- `conf/migration/<データソース名>/` のマイグレーションが当たります
+- codegen が `db/<データソース名>/` を作ります
+- `migration` / `db_lock` / `db_value` / `db_cache` もそちらに作られます
+
+**設定を書き写さずにもう1本ぶら下げたい**だけなら、`subs` を使います。
+
+```conf
+db {
+	main_db {
+		main = true
+		...
+		subs {
+			archive_db { }
+		}
+	}
+}
+```
+
+`db.newSubDB("archive_db")` で取ります。
+
+> [!TRAP]
+> **接続もトランザクションも共有しません。**`subs` は親とは別のプールです。
+> 同じデータベースを指していても別の接続なので、親のトランザクションの中で
+> `newSubDB` に書いても**一緒には戻りません**。片方だけ残ります。
+> 親から設定を引き継ぐ、それ以上のことはしていないと思ってください。
+
+> [!TRAP]
+> **`subs` にはマイグレーションも codegen も当たりません。**
+> データソースごとの処理は、トップレベルの `db { }` しか回らないためです。
+> だから `subs` に置けるのは「アプリが自分で作る作業用テーブル」までです。
+> 表と型が要るもの（別 DB の監査ログなど）は、**トップレベルにもう1本**書いてください。
+> また `subs` が別のデータベースを指すなら、**そのデータベースが先に在ること**。
+> `subs` は親のデータソースを作る途中で繋ぎにいくので、あとに書いた
+> トップレベルの `create_database_sql` は間に合いません
+> （`failed create subs datasource` で起動が止まります）。
+
+2本立てと `subs` を両方書いたものが `examples/approval-data` にあります。
+
+## テーブル定義を生成する
+
+```bash
+./gradlew codegen
+```
+
+DB のスキーマから、テーブルごとのクラスを生成します。
+
+```java
+Post.id       // Column
+Post.title
+Post.instance()   // Table
+```
+
+`io.jimble.db` プラグインを入れると、`migrate → codegen → compileJava` が繋がります。
+DDL を書いて起動すれば、コードのほうが追いつきます。
+
+```kotlin
+plugins {
+	id("io.jimble.db")
+}
+```
+
+生成されたクラスは**リポジトリに入れてください**。
+生成物をコミットしないと、DB が無い環境でビルドできなくなります。
+
+## 引く
+
+```java
+Data row = db.select(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.id.eq(1L))
+);
+
+// SELECT の結果はテーブル名でネストする（要件 F-D-02）
+String title = row.getData("post").getString("title");
+
+// Column で引けば、途中の文字列が出てこない
+String same = row.getString(Post.title);
+```
+
+**SELECT の結果はテーブル名でネストします。**
+`post` と `comment` を join したとき、両方に `id` があっても衝突しません。
+
+`Column` で引けば、文字列のキーがコードに出てきません。
+`row.getData(Post.instance())` で、1テーブルぶんを**平らにして**取り出せます。
+
+> [!TRAP]
+> **`extractTableData` は平らにしません。**`{post: {...}}` を<b>ネストしたまま</b>返すので、
+> そのまま JSON にすると**入れ子が1段残ります**。
+> 平らにしたいときは `getData(テーブル)` か `flattenTable(テーブル)` です。
+
+## エラーの見方
+
+```java
+try (DB db = BlogExample.db()) {
+
+	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
+
+	/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */
+	if (rows == null) {
+		Log.error("引けませんでした: " + db.getError());
+		return;
+	}
+
+}
+```
+
+DB のエラーは例外ではなく戻り値で返ります。
+`select` 系は `null`、`insert` は `-1`、`update` / `delete` は `-1` です。
+理由は `db.getError()` に入っています。
+
+## マイグレーション
+
+`conf/migration/<スキーマ名>/001_xxx.sql` に置きます。
+
+```sql
+# --- !Ups
+
+CREATE TABLE `note` (
+	`id`         BIGINT UNSIGNED AUTO_INCREMENT COMMENT 'ID' PRIMARY KEY,
+	`title`      VARCHAR(200)  NOT NULL COMMENT 'タイトル',
+	`created_at` DATETIME      NOT NULL COMMENT '作成日時'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='メモ';
+
+# --- !Downs
+
+DROP TABLE `note`;
+```
+
+```bash
+./gradlew migrate
+```
+
+適用済みのものは記録されるので、二度は走りません。
+複数のサーバーが同時に起動しても、ロックを取るので1つしか流れません。
+
+いつ何が走るか、失敗したときにどうなるか、生成される型の対応は
+[マイグレーションとコード生成](./codegen) にまとめてあります。
+
+
+
+---
+
+<!-- https://jimble.io/ja/sql -->
+
+
+# SQL DSL
+
+文字列で SQL を書くこともできますが、DSL のほうが型が効きます。
+
+## 引く
+
+```java
+List<Data> posts = db.selectList(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.published.eq(true))
+		.orderBy(Post.created_at.desc())
+		.limit(20)
+);
+```
+
+`limit` と `offset` があります。`select()` に何も渡さなければ全列です。列を選ぶなら渡します。
+
+```java
+SQL.select(Post.id, Post.title).from(Post.instance())
+```
+
+## 条件
+
+```java
+.where(Post.id.eq(1L))
+.where(Post.title.like("%jimble%"))
+.where(Post.created_at.ge(from).and(Post.created_at.lt(to)))
+.where(Post.id.in(List.of(1L, 2L, 3L)))
+```
+
+`where` を複数回呼ぶと AND で繋がります。
+
+## 結合
+
+```java
+SQL.select()
+	.from(Post.instance())
+	.left(Comment.instance()).on(Comment.post_id.eq(Post.id))
+	.where(Post.id.eq(id))
+```
+
+内部結合は `inner(...)` です。`on()` は直前の結合に付きます。
+
+結果はテーブル名でネストするので、`row.getData("comment")` で取れます。
+
+## 入れる・直す・消す
+
+```java
+long id = db.insert(
+	SQL.insert(Post.instance())
+		.value(Post.title, title)
+		.value(Post.created_at, new Date())      // アプリ側の時計
+);
+
+int updated = db.update(
+	SQL.update(Post.instance())
+		.set(Post.published, true)
+		.where(Post.id.eq(id))
+);
+
+int deleted = db.delete(
+	SQL.delete(Post.instance()).where(Post.id.eq(id))
+);
+```
+
+> [!NOTE]
+> **時刻はどちらの時計で入れるかを決めてください。**`new Date()` は<b>アプリ側</b>の時計、
+> `Dsl.now()` は<b>DB 側</b>の時計です。
+>
+> ```java
+> .value(Post.created_at, Dsl.now())       // DB 側の時計
+> ```
+>
+> **アプリを複数台で動かすなら DB 側にそろえるほうが安全です**——
+> 台ごとに時計がずれていると、<b>あとから入れた行のほうが古い</b>ことが起こり、
+> 作成日時で並べた一覧が入れ替わります。
+
+`insert` は採番された ID を返します。ID が要らないときは
+`insertNoReturnKey` のほうが速いです。
+
+送られた項目だけ直す、という書き方はこうなります。
+
+```java
+patch("/posts/{id}", context -> {
+
+	long id = id(context);
+	BlogApp.findPost(id);
+
+	Data request = context.request().bodyAll();
+
+	UpdateBuilder builder = SQL.update(Post.instance());
+	boolean hasChange = false;
+
+	if (request.containsKey("title")) {
+		builder.set(Post.title, request.getString("title"));
+		hasChange = true;
+	}
+
+	if (request.containsKey("body")) {
+		builder.set(Post.body, request.getString("body"));
+		hasChange = true;
+	}
+
+	if (request.containsKey("published")) {
+		builder.set(Post.published, request.getBoolean("published"));
+		hasChange = true;
+	}
+
+	if (!hasChange) {
+		throw new HttpException(400, "変える項目がありません（title / body / published）");
+	}
+
+	int updated = BlogExample.db().update(builder.where(Post.id.eq(id)));
+
+	context.response().json("updated", updated);
+
+});
+```
+
+## 関数を使う
+
+`Dsl` に関数が並んでいます。**どれも MySQL と PostgreSQL の両方で動きます。**
+
+```java
+SQL.select(Dsl.count(), Dsl.max(Post.created_at)).from(Post.instance())
+```
+
+`CASE WHEN` のように**値としても列としても使えるもの**は、
+select に直接は渡せません。`SelectQuery` で包んでください。
+
+```java
+SQL.select(new SelectQuery().dsl(Dsl.caseWhen()...)).from(...)
+```
+
+包まずに渡すと、列ではなく**バインドされる値**として扱われます。
+
+### 一覧
+
+| 系統 | ある関数 |
+| --- | --- |
+| 文字列 | `lower` / `upper` / `trim` / `ltrim` / `rtrim` / `length` / `byteLength` / `substring` / `replace` / `left` / `right` / `lpad` / `rpad` / `reverse` / `repeat` / `concat` / `concatWs` / `md5` / `locate` |
+| 数値 | `abs` / `mod` / `power` / `sqrt` / `sign` / `exp` / `ln` / `log10` / `ceiling` / `floor` / `round` / `truncate` / `greatest` / `least` |
+| 日付 | `now` / `curDate` / `curTime` / `date` / `year` / `month` / `day` / `hour` / `minute` / `second` / `quarter` / `dayOfWeek` / `dayOfYear` / `weekOfYear` / `dateAdd` / `dateSub` / `dateDiff` / `secondsBetween` / `unixTimestamp` / `fromUnixTime` / `secondsAgo` … `yearsAfter` |
+| 条件・型変換 | `caseWhen` / `ifThenElse` / `ifnull` / `coalesce` / `nullif` / `cast` / `castDecimal` / `regexp` / `regexpIgnoreCase` |
+| 集約 | `count` / `countDistinct` / `sum` / `sumDistinct` / `min` / `max` / `avg` / `stddev` / `variance` / `groupConcat` / `groupConcatDistinct` |
+| ウィンドウ | `rowNumber` / `rank` / `denseRank` / `nTile` / `lag` / `lead` / `firstValue` / `lastValue` / `over` |
+| JSON・地理空間 | `jsonExtract` / `jsonUnquote` / `stGeomFromText` / `stDistanceSphere` / `stWithin` / `match` |
+
+```java
+// 名前を整えて、空なら「（無名）」
+Dsl.coalesce(Dsl.trim(Post.title), "（無名）").as("title")
+
+// 月ごとの件数
+SQL.select(Dsl.year(Post.created_at).as("y"), Dsl.month(Post.created_at).as("m"), Dsl.count())
+    .from(Post.instance())
+    .groupBy(Dsl.year(Post.created_at), Dsl.month(Post.created_at))
+
+// 30 日後
+Dsl.dateAdd(Post.created_at, 30, DateUnit.DAY)
+
+// タグをまとめて1つの文字列に
+Dsl.groupConcat(Tag.name, "/").as("tags")
+```
+
+単位（`DateUnit`）と型（`CastType`）は enum です。**文字列では渡せません。**
+SQL にそのまま入るところなので、外から来た文字列を通せないようにしてあります。
+
+## まとめた値で絞る（`having`）
+
+**集計した値は、そのまま条件にできます。**列と同じ書き方です。
+
+```java
+SQL.select(
+        Department.id
+        , Dsl.sum(Request.amount).as("total"))
+    .from(Request.instance())
+    .groupBy(Department.id)
+    // 合計が 50 万を超える部署だけ
+    .having(Dsl.sum(Request.amount).ge(500_000L));
+```
+
+`CASE` の条件にも置けます。
+
+```java
+new SelectQuery().dsl(Dsl.caseWhen()
+        .when(Dsl.sum(Request.amount).ge(500_000L)).then("大")
+        .elseCase("小")).as("size")
+```
+
+書けるのは**比べるもの**だけです
+（`eq` / `not` / `gt` / `lt` / `ge` / `le` / `between` / `is_null` / `is_not_null`）。
+`like` や `contains` は足していません。集計に対しては、書けても意味がないためです。
+
+> [!TRAP]
+> **`where` には書けません。**SQL の決まりで、`WHERE` は集計より前に評価されます。
+> まとめたあとの値で絞るのは `having` の仕事です。
+
+## ウィンドウ関数
+
+**行をまとめずに、まとめた結果を各行に付けます。**`GROUP BY` と違って行が減りません。
+
+```java
+SQL.select(
+        Sale.shop_id
+        , Sale.amount
+        // 店ごとの売上順位
+        , Dsl.rank().partitionBy(Sale.shop_id).orderBy(Sale.amount.desc()).as("rank")
+        // 累計
+        , Dsl.over(Dsl.sum(Sale.amount))
+            .orderBy(Sale.sold_at.asc())
+            .rowsBetween(WindowFrame.unboundedPreceding(), WindowFrame.currentRow())
+            .as("total"))
+    .from(Sale.instance());
+```
+
+`Dsl.over(...)` には集約（`sum` / `count` / `avg` など）を渡します。
+別名や計算を中に入れると例外になります（`OVER` のあとに付けてください）。
+
+> [!WARNING]
+> **ウィンドウ関数は `where` にも `having` にも書けません。**
+> SQL の決まりで、評価されるのがどちらより後だからです。
+> `Dsl.rowNumber().over(...).eq(1)` と書くと**組み立てた時点で例外**になります。
+> 順位で絞るなら、いったん副問い合わせで出してから外側で絞ってください。
+
+## `in` に空の一覧は渡せません
+
+```java
+where(Site.id.in(List.of()))   // ← 組み立てた時点で例外
+```
+
+`IN ()` は構文エラーです。**黙って DB に投げると、
+エラーメッセージからどこで空を渡したのか辿れません**（要件 F-D-07）。
+
+**「空なら条件を外す」ことはしません。**
+`in(空)` は「どれにも当たらない」で、条件を外すと**全件**です。
+どちらの意味かは呼び出し側にしか分からないので、呼び出し側で分けてください。
+
+```java
+if (ids.isEmpty()) {
+	return List.of();          // 「どれにも当たらない」
+}
+where(Site.id.in(ids));
+```
+
+## 製品の違いで気をつけること
+
+**名前が同じでも意味が違う**ものは DSL が揃えます。
+
+| | どう揃えているか |
+| --- | --- |
+| `length` | **文字数**です（MySQL の `LENGTH` はバイト数）。バイト数は `byteLength` |
+| `dayOfWeek` | **日曜が 1**（PostgreSQL の `DOW` は 0 なので +1 しています） |
+| `weekOfYear` | **ISO 週**（MySQL の `WEEK` は既定が ISO ではないので `WEEKOFYEAR`） |
+| `second` | 小数秒は**切り捨て**（PostgreSQL は素だと四捨五入して 60 を返すことがあります） |
+| `unixTimestamp` | **接続のタイムゾーン**で読みます（PostgreSQL の `timestamp` は素だと UTC 扱い） |
+| `stddev` / `variance` | **標本**（`STDDEV_SAMP` / `VAR_SAMP`） |
+| `concat` | 1つでも NULL なら NULL（PostgreSQL では `\|\|` になります） |
+
+**揃えていない**ものもあります。
+
+| | 違い |
+| --- | --- |
+| `greatest` / `least` | **MySQL は1つでも NULL なら NULL、PostgreSQL は NULL を無視します。**NULL が入りうるなら `ifnull` で埋めてから渡してください |
+| `regexp` | 正規表現の方言が違います（MySQL 8 は ICU、PostgreSQL は POSIX）。`^` `$` `[]` `+` は同じですが、**`\d` は片方でしか効きません。**`[0-9]` と書いてください |
+| 0 除算・負の長さ | MySQL は NULL を返し、**PostgreSQL は落ちます**（`mod(x, 0)`、`left(x, -1)` など） |
+| 数値を文字列関数に渡す | MySQL は暗黙に変換し、**PostgreSQL は「関数が無い」で落ちます。**`cast` を挟んでください |
+| `groupConcat` | MySQL は `group_concat_max_len`（既定 1024 バイト）を超えると**黙って切ります** |
+| `cast` で数にできない文字列 | MySQL は **0** を返し、PostgreSQL は落ちます |
+
+**その製品に無いものは、SQL を組み立てたところで例外**（`DialectException`）になります。
+[DB を使う](./db) にまとめてあります。
+
+## DB 製品が違うとき
+
+**同じコードのまま、`db.xxx.product` に応じた SQL が出ます。**
+識別子の囲み（`` ` `` と `"`）、`ON DUPLICATE KEY UPDATE` と `ON CONFLICT`、
+`INSERT IGNORE` と `ON CONFLICT DO NOTHING`、`RAND()` と `RANDOM()` などは
+ビルダーが吸収します。
+
+**その製品で書けないものは、SQL を組み立てたところで例外**（`DialectException`）になります。
+どれが書けないかは [DB を使う](./db) にまとめてあります。
+
+```java
+// PostgreSQL では DialectException（to_char は書式の言語が違う）
+SQL.select(Dsl.dateFormat(Post.created_at, "%Y-%m-%d")).from(Post.instance());
+```
+
+## まとめて流す
+
+```java
+List<Integer> counts = db.executeBatch(builderList);   // 件数のリスト
+List<Long>    ids    = db.insertBatch(builderList);    // 採番値のリスト
+```
+
+**2つで戻り値が違います。**`executeBatch` は件数（`List<Integer>`）、
+`insertBatch` は採番値（`List<Long>`）です。
+件数のほうは `DB.isBatchSuccess(list)` で全部通ったか見られます。
+
+> [!TRAP]
+> **積んだビルダーの SQL は、全部同じでなければなりません。**
+> 1本の文にパラメータだけを積み替えて流すためです。
+> `value()` を積む順が途中で変わると SQL も変わるので、
+> **ループの中で順を揃えてください**。
+> 揃っていなければ `DB_998` を立てて `null` が返ります
+> （直すまでは、例外も警告も無しに**値が横にずれて入っていました**）。
+
+## 大きい結果
+
+全部をリストに載せたくないときは、カーソルで1行ずつ受け取ります。
+
+```java
+try (DB db = BlogExample.db();
+	 ResultSetFetcher fetcher = new ResultSetFetcher()) {
+
+	db.selectListWithFetcher(fetcher, SQL.select().from(Post.instance()));
+
+	for (Data row : fetcher) {
+		// 1行ずつ来る
+	}
+
+}
+```
+
+> [!TRAP]
+> **`DB` も一緒に畳んでください。**
+> ふつうの SQL は<b>1文ごとにコネクションをプールへ返す</b>ので、`DB` を閉じ忘れても
+> 何も残りません（`DBUtil.getMainDB()` を使い捨てにする書き方は、これで成り立っています）。
+> **カーソルだけは違います。**読み終わるまで `ResultSet` を開けておく必要があるので、
+> <b>`close()` までコネクションを握ったまま</b>です。
+> `fetcher` だけ畳んで `DB` を畳まないと、<b>呼ばれるたびにプールから1本ずつ消えます</b>——
+> SQL は成功し、例外も警告も出ないので、**プールが枯れるまで誰も気づきません**。
+> 畳み忘れは実行の終わりに拾いますが（要件 F-D-16）、そのときは<b>エラーログが出ます</b>。
+
+
+
+---
+
+<!-- https://jimble.io/ja/transaction -->
+
+
+# トランザクション
+
+注釈はありません。**囲んだところがトランザクションです。**
+
+```java
+try (DBTransaction transaction = new DBTransaction(db)) {
+
+	transaction.beginTransaction();
+
+	long id = db.insert(
+		SQL.insert(Post.instance())
+			.value(Post.title, request.getString("title"))
+			.value(Post.body, request.getString("body"))
+			.value(Post.image_name, request.getStringOptional("image_name"))
+			.value(Post.published, request.getBoolean("published"))
+			.value(Post.created_at, new Date())
+	);
+
+	if (id <= 0) {
+		transaction.rollbackEndTransaction();
+		return -1;
+	}
+
+	new NoticeExecutor().put(db, new Data()
+		.putData("post_id", id)
+		.putData("title", request.getString("title")));
+
+	transaction.commitEndTransaction();
+
+	/*
+	 * コミットしてから流す。
+	 * 先に流すと、ロールバックしたときに
+	 * 「入っていない記事のお知らせ」だけが届く。
+	 */
+	PostFeedHandler.notifyNewPost(request.getStringOptional("title"));
+
+	return id;
+
+}
+```
+
+## 使い分け
+
+| メソッド | 何をするか |
+| --- | --- |
+| `beginTransaction()` | 始める。他で始まっていれば何もしない |
+| `commit()` | 確定する。**トランザクションは続く** |
+| `commitEndTransaction()` | 確定して終わる |
+| `rollback()` | 戻す。トランザクションは続く |
+| `rollbackEndTransaction()` | 戻して終わる |
+| `close()` | 開いたままなら戻す |
+
+`commit()` と `commitEndTransaction()` の違いに注意してください。
+`commit()` は「ここまでを確定して、まだ続ける」です。
+移送元のコードでは `commit()` が中で終わらせていたため、
+**そこから先が黙って自動コミットになる**という穴がありました。jimble では直っています。
+
+## 畳み忘れ
+
+try-with-resources を使わずに `beginTransaction()` して、途中で `return` すると、
+ロールバックもされず接続もプールへ戻りません。
+
+jimble は**実行（`Context`）の終わりに拾います**。
+
+```
+ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: blog_example
+```
+
+黙って戻すと「入れたつもりが入っていない」が残るので、ERROR を出してからロールバックします。
+このログが出たら、囲み忘れです。
+
+**拾うのは `DBTransaction` を使ったときだけではありません。**
+`db.beginTransaction()` を直に呼んだときも同じです
+（コネクションを握っているのは `DB` のほうなので、そちらで見ています）。
+
+## 閉じ忘れた `DB`
+
+**ふつうの SQL は、`DB` を閉じ忘れても漏れません。**
+1文ごとにコネクションをプールへ返しているので、`DBUtil.getMainDB()` を
+使い捨てにする書き方でかまいません。
+
+**握ったまま抜ける道は2つだけ**で、どちらも実行の終わりに拾います。
+
+| 握るもの | いつ返るか |
+| --- | --- |
+| トランザクション中 | `commitEndTransaction()` / `rollbackEndTransaction()` / `close()` |
+| カーソル（`selectListWithFetcher`） | `db.close()` |
+
+```
+ERROR 閉じられていない DB が残っていました。閉じます: blog_example（selectListWithFetcher はカーソルなので、close() までコネクションを返しません）
+```
+
+> [!TRAP]
+> **拾うのは最後の砦です。**拾われた時点で ERROR が出ているので、
+> <b>ログが出たら直す</b>ものだと思ってください。
+> 実行が長いバッチでは、実行の終わりまで1本が握られたままになります。
+
+## 短く書く
+
+```java
+DBTransaction.transaction(db, transaction -> {
+	db.insert(...);
+	db.update(...);
+});
+```
+
+始めて、渡した処理を走らせて、`commitEndTransaction()` まで済ませます。
+例外が出れば `close()` がロールバックします。
+
+## 外へ出すものと、DB に積むもの
+
+**どちらの中で呼ぶかが逆になります。**ここは間違えやすいところです。
+
+| | どこで呼ぶか | なぜ |
+| --- | --- | --- |
+| **DB のキューへ積む**（[MQ](./mq) の `put()`） | **トランザクションの中** | 同じ DB なので、ロールバックすれば積んだものも消えます |
+| **外へ出す**（SSE・メール送信・外部 API） | **コミットしたあと** | 戻せないので、先に流すと取り返しがつきません |
+
+```java
+try (DBTransaction transaction = new DBTransaction(db)) {
+
+	transaction.beginTransaction();
+
+	long id = db.insert(...);
+
+	new NoticeExecutor().put(db, data);      // ← 中で積む（DB のキュー）
+
+	transaction.commitEndTransaction();
+
+}
+
+PostFeedHandler.notifyNewPost(title);        // ← 外へ出すのはコミットしてから
+```
+
+外へ出すものを先に流すと、ロールバックしたときに
+**「入っていない記事のお知らせ」だけが届きます。**
+
+逆に、DB のキューをコミット後に積むと、**積む直前に落ちたぶんが黙って消えます**——
+記事は入っているのに、お知らせは誰も知らない状態になります。
+
+> [!TIP]
+> **外へ出す処理は、キューの中でやるのがいちばん確実です。**
+> トランザクションの中で `put()` して、実際の送信は
+> [MQ](./mq) の `execute()` に書きます。こうすると、
+> <b>「どちらの中で呼ぶか」を考えなくてよくなります。</b>
+
+
+
+---
+
+<!-- https://jimble.io/ja/async -->
+
+
+# 遅延読み込みと先読み
+
+一覧に「詳細も返せるようにしておきたいが、返さないことも多い」ものがあります。
+`AsyncData` / `AsyncList` は、**参照された時点ではじめて SQL を投げます**。
+
+```java
+protected List<Data> load () {
+
+	return BlogExample.db().selectList(
+		SQL.select()
+			.from(Comment.instance())
+			.where(Comment.post_id.eq(postId))
+			.orderBy(Comment.created_at)
+	);
+
+}
+```
+
+```java
+Data post = ...;
+post.put("comments", new CommentList(post.getLong(Post.id)));
+
+// ここまでは SQL が飛ばない
+post.getJsonString();   // ← ここで飛ぶ
+```
+
+## 実装するもの
+
+| メソッド | 何をするか |
+| --- | --- |
+| `load()` | 1件ぶん引く |
+| `setData(Data)` | 引いたものを自分に反映する |
+| `setRelationData(...)` | 全件の `setData` が終わってから1回だけ。要らなければ書かない |
+| `hashKey()` | 同じものかどうかを決めるキー |
+
+`AsyncData` は `Data`、`AsyncList` は `List` として振る舞うので、
+読み込んだあとは普通のデータです。
+
+## 読み込みを起こさずに見られるもの
+
+```java
+list.isLoaded()       // 読み込み済みか
+list.isLoadFailed()   // 失敗したか
+list.loadedValues()   // すでに持っている値だけ
+list.loadedSize()     // すでに持っている件数
+```
+
+`toString()` も読み込みを起こしません。**ログに1行出しただけで枝という枝に
+SQL が飛ぶ**、ということが起きないようにしてあります。
+
+`hashCode()` / `equals()` も `hashKey()` しか見ません。**比較しただけで
+SQL が飛びません。**
+
+## 読み込みに失敗したとき
+
+例外は投げません。ログを出して先へ進みます。
+
+**失敗しても「読み込み済み」になります。** そうしないと、参照されるたびに
+落ちるクエリを投げ続けます。失敗したことは `isLoadFailed()` で分かります。
+
+## N+1 になるとき
+
+一覧の全行にぶら下げて、全部を JSON にすると **1 + N 本**飛びます。
+
+```
+記事を20件引く          1本
+  記事1のコメント        1本
+  記事2のコメント        1本
+  ...                   ×20
+```
+
+これを2本にするのが**先読み**です。
+
+## 先読み
+
+`load()` と同じことを、`IN` 句で書きます。
+
+```java
+protected Map<Object, List<Data>> loadBatch (List<Object> ids) {
+
+	List<Data> rows = BlogExample.db().selectList(
+		SQL.select()
+			.from(Comment.instance())
+			.where(Comment.post_id.in(ids))
+			.orderBy(Comment.post_id, Comment.created_at)
+	);
+
+	if (rows == null) {
+		// 引けなかった。1つも読み込み済みにしないよう、例外にして個別読みへ落とす
+		throw new IllegalStateException("コメントを引けませんでした: " + BlogExample.db().getError());
+	}
+
+	Map<Object, List<Data>> byPost = new LinkedHashMap<>();
+
+	for (Data row : rows) {
+		byPost
+			.computeIfAbsent(row.getLong(Comment.post_id), key -> new ArrayList<>())
+			.add(row);
+	}
+
+	return byPost;
+
+}
+```
+
+あわせて、まとめる単位を宣言します。
+
+```java
+@Override
+public String batchKey () { return "CommentList"; }
+
+@Override
+public Object batchId () { return postId; }
+```
+
+**同じ `batchKey` を持つ未読み込みの枝が、`loadBatch` 1回にまとまります。**
+`ids` には、ほかの枝の `batchId` も入って渡ってきます。
+
+`load()` と `loadBatch()` は**同じファイルに並べて置いてください**。
+片方だけ直すと結果がずれます。置き場を分けない理由がこれです。
+
+## 走らせる
+
+```java
+get("/posts/with-comments", context -> {
+
+	List<Data> posts = new ArrayList<>();
+
+	for (Data row : BlogApp.listPosts()) {
+		posts.add(BlogApp.withComments(row));
+	}
+
+	context.response().json("posts", posts);
+
+	/*
+	 * ここまでで飛んだ SQL は記事の1本だけ。
+	 * これを呼ばずに JSON にすると、記事の数だけコメントの SQL が飛ぶ。
+	 */
+	AsyncPrefetch.run(context.response());
+
+});
+```
+
+`AsyncPrefetch.run(...)` がツリーを走査し、未読み込みで `batchKey` を持つ枝を
+集めて埋めます。**走査そのものは SQL を起こしません**（未読み込みの枝の中は見ません）。
+
+レスポンスを送る直前に自動で走らせることもできます。
+
+```conf
+async {
+	prefetch {
+		on_response = true
+		max_depth   = 5
+	}
+}
+```
+
+**既定は `false`** です。隠れた I/O を作らないためで、
+入れたとたんに挙動が変わることはありません。
+
+## 先読みしてもしなくても、結果は同じ
+
+変わるのはクエリの本数だけです。
+
+- `loadBatch` が返さなかった `batchId` は、**個別に引いて0件だったのと同じ**扱いになります
+- `loadBatch` が例外を投げたら、**そのまとまりは1つも読み込み済みにしません**。
+  それぞれが個別に `load()` されるので、結果は変わりません（速さだけが戻ります）
+- `loadBatch` を書いていないクラスは、そのまま個別に読まれます
+
+## 止まること
+
+埋めると新しい枝が生えるので、生えなくなるまで繰り返します。
+無限に回らないよう、3つで止めています。
+
+| | |
+| --- | --- |
+| `(batchKey, batchId)` は1回だけ展開する | A が B を、B が A を持っていても2周目で止まる |
+| 周回の上限 | `async.prefetch.max_depth`（既定 5） |
+| 同じオブジェクトを二度たどらない | 参照の同一性で判定する |
+
+## テーブルネストあり / なしを選んで JSON にする
+
+SELECT の結果は**テーブル名でネスト**しています。
+
+```json
+{"post": {"id": 1, "title": "こんにちは"}}
+```
+
+これを `setData` で平らにするか（`flattenTable`）、そのまま持つか（`extractTableData`）は、
+これまで**クラスを書いた時点で決まって**いました。
+つまり 1 つの `AsyncData` は 1 つの形しか出せません。
+
+管理画面 API はネスト、ショップ API はフラットで返したい、となると
+**同じ内容のクラスを 2 つ書く**ことになります。片方だけ直したときに気づけません。
+
+**形は JSON にするときに選べます。**
+
+```java
+data.getJsonString(TableNest.ON);    // {"post": {"id": 1}, "comments": [...]}
+data.getJsonString(TableNest.OFF);   // {"id": 1, "comments": [...]}
+```
+
+レスポンス単位でも指定できます。
+
+```java
+path("/admin", () -> {
+	before(context -> context.response().tableNest(TableNest.ON));
+	get("/posts/{id}", context -> context.response().json("post", new PostData(id)));
+});
+
+path("/shop", () -> {
+	before(context -> context.response().tableNest(TableNest.OFF));
+	get("/posts/{id}", context -> context.response().json("post", new PostData(id)));
+});
+```
+
+**返しているのは同じクラスです。**
+
+### どうやって形が分かるのか
+
+`AsyncData` / `AsyncList` は `load()` が返した**生のデータを持ったまま**です。
+その生データが「どのキーがどのテーブルの、どの列か」を知っています。
+
+```
+{"post": {"id": 1, "title": "..."}}
+  ↑ テーブル名   ↑ 列名
+```
+
+だから、`setData` を `flattenTable` で書いても `extractTableData` で書いても、
+**どちらの形にも組み直せます**。実装側に書き足すものはありません。
+
+### 列でないものは動きません
+
+`setRelationData` で足した子（`AsyncData` / `AsyncList`）や計算値は、
+生データの列に無いので**常に最上位に残ります**。
+
+```json
+{"post": {"id": 1, "title": "..."}, "comments": [...]}
+```
+
+> [!note]
+> **既定は `TableNest.AS_IS`** です。指定しなければ `setData` が作った形がそのまま出ます。
+> いまあるアプリの出力は 1 バイトも変わりません。
+
+> [!trap]
+> **組み直せないものがあります。**
+> 自由 SQL や集約でテーブルネストしていない結果（`{"total": 12}` など）は、
+> テーブル名が分からないので**そのまま出ます**。
+> `putData(null)` を受けたノードも同じです。
+>
+> JOIN していて**同じ列名が 2 つのテーブルにある**とき（`post.id` と `comment.id`）は、
+> 平らに持っている時点ですでに片方で上書きされていて、どちらの値かは分かりません。
+> ネストに戻すときは**先に出てきたテーブル**に入ります。
+
+
+
+---
+
+<!-- https://jimble.io/ja/cache -->
+
+
+# キャッシュとロック
+
+## 3つの実装から選ぶ
+
+```conf
+cache {
+	type = "db"        # db | memory | redis
+}
+```
+
+| | 置き場所 | プロセスをまたぐ | 期限 |
+| --- | --- | --- | --- |
+| `db`（**既定**） | `db_cache` テーブル | **またぐ** | **無い** |
+| `memory` | JVM のメモリ | またがない | `cache.memory.expire`（秒） |
+| `redis` | Redis | **またぐ** | **無い** |
+
+知らない値を書いても落ちません。**警告を出して `db` になります。**
+いま何で動いているかは起動ログに出ます（`cache=db`）。
+
+> [!WARN]
+> **`db` と `redis` には期限がありません。**古いものを消す仕組みも入っていません。
+> 入れっぱなしにすると `db_cache` は増え続けます。
+> **消すのは入れた側の仕事です**（`remove` / `removeGroup`）。
+
+## 読み書き
+
+```java
+ICache cache = Cache.instance(db);
+
+cache.set("top:posts", json, "application/json");
+String json = cache.getString("top:posts");
+
+cache.remove("top:posts");
+```
+
+| メソッド | 返り |
+| --- | --- |
+| `getString(key)` | 文字列。無ければ `null`（メモリ実装だけ `""`） |
+| `get(key)` | `CacheData`（作成日時・種類つき）。**`isError()` を見る** |
+| `set(key, value, contentType[, group])` | 入ったら `true` |
+| `has(key, group)` / `remove(key)` / `removeGroup(group)` | |
+
+> [!NOTE]
+> **256KB を超える値はファイルに落ちます**（gzip、`cache.temp_dir`）。
+> `CacheData#hasContentFile()` が true になり、そのまま
+> `context.response().cache(data)` で `Content-Encoding: gzip` として返せます。
+> 古い世代のファイルを消す仕組みは無いので、置き場は定期的に見てください。
+
+## グループでまとめて消す
+
+「記事を1本直したら、その記事に関わるキャッシュを全部捨てたい」ときに使います。
+
+```java
+cache.set("key-4", "値", "text/plain", "group");
+cache.set("key-5", "値", "text/plain", "group");
+cache.set("key-6", "値", "text/plain", "keep");
+
+cache.removeGroup("group");
+```
+
+jimble 自身もこれを使っています。スケジューラは台ごとの生存情報を同じグループに入れ、
+`getStringGroup(group)` で**全台ぶんをまとめて読み出します。**
+
+## SQL の結果をキャッシュする
+
+`ICache` は「入れた側が消す」ものでした。
+**SQL 結果キャッシュは、更新を見て自分で消えます。**
+
+**既定では無効です。** 使うアプリだけ 1 行書いてください。
+
+```conf
+sql_cache.enabled = true
+```
+
+```java
+Data customer = db.selectCached(
+	SQL.select()
+		.from(Customer.instance())
+		.inner(Shop.instance()).on(Customer.shop_id.eq(Shop.id))
+		.where(Customer.id.eq(1)));
+```
+
+```java
+// 更新は今までどおり書くだけ。関係するキャッシュだけが消えます
+db.update(SQL.update(Customer.instance()).set(Customer.name, "name1").where(Customer.id.eq(1)));
+```
+
+| 更新 | 上のキャッシュは |
+| --- | --- |
+| `UPDATE customer SET name = 'name1' WHERE id = 1` | **消える** |
+| `UPDATE customer SET name = 'name2' WHERE id = 2` | 消えない |
+| `UPDATE shop SET name = 'shop1' WHERE id = 1` | **消える**（結合先） |
+| `UPDATE shop SET name = 'shop2' WHERE id = 2` | 消えない |
+
+**読むほうは明示、消すほうは自動です。**
+逆にすると、消し忘れが黙って古いデータになります。
+
+### どう判断しているか
+
+キャッシュ 1 件に**依存タグ**を付けます。
+
+| タグ | 意味 | 何で消えるか |
+| --- | --- | --- |
+| `customer#id#1` | その行に依存している | その行を書き換えたとき |
+| `customer#*` | 行の集合に依存している（一覧） | INSERT / DELETE / 絞れない UPDATE |
+| `customer#@` | そのテーブルを読んでいる | **どの行に当たるか読めない**更新 |
+
+タグは 2 つの材料から作ります。
+
+- **SELECT の結果行**から、テーブルごとに**主キーと一意キー**の値を拾う。
+  結果はテーブル名でネストしている（[Data のネスト](./db)）ので、**結合先のキーもそのまま拾えます**
+- **UPDATE / DELETE の WHERE** から、主キー・一意キーの等値と `IN` を読む。
+  読めたらその行タグだけ、読めなければテーブルごと消します
+
+一意キーは codegen が `SHOW INDEX` から拾って生成します。`codegen` を流し直してください。
+
+### 一覧のキャッシュ
+
+行を 1 つに特定していない SELECT には、`customer#*` も付きます。
+
+```java
+// shop_id で絞った一覧。顧客が増えたら結果が変わる
+db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_id.eq(1)));
+```
+
+「特定している」と見なすのは次の場合です。
+
+- WHERE が主キー・一意キーの全列を**値で**縛っている（`WHERE id = 1`、`WHERE id IN (1, 2)`）
+- 結合条件が、**すでに特定できているテーブルの列**とキーの全列を縛っている
+  （`ON (customer.shop_id = shop.id)` で customer が特定できていれば、shop も 1 行に決まる）
+
+> [!trap]
+> **`LIMIT` を付けた SELECT は「特定している」になりません。**
+> `ORDER BY name LIMIT 1` は、別の行の名前が変わるだけで返る行が入れ替わります。
+> `IN (サブクエリ)` や `= 他テーブルの列` も同じ扱いです。
+
+> [!note]
+> **キーの列を SELECT していないとテーブルタグに倒れます。**
+> `SELECT id, name` のように列を絞ると、一意キーの `code` で絞った更新を取りこぼすので、
+> 安全側（そのテーブルの更新で全部消す）にします。`SELECT *` なら起きません。
+
+### トランザクション
+
+**トランザクションの中では読みも書きもしません。**
+まだ確定していない値をキャッシュに残さないためです。
+消すほうは溜めておいて、**コミットでまとめて**消します。ロールバックしたら消しません。
+
+### 効かないところ
+
+| | どうなるか |
+| --- | --- |
+| 生 SQL の更新（`db.execute("UPDATE ...")`） | どこに当たるか読めないので**全部消します** |
+| `ON DUPLICATE KEY UPDATE` / `INSERT ... SELECT` | 既存の行が変わりうるので、そのテーブルに触るものを全部消します |
+| 別のプロセスから DB を直接書き換えた | 追えません。`sql_cache.ttl`（既定 300 秒）が保険です |
+| `sql_cache.store = "memory"` | **その台の中だけ**です。複数台なら `redis` か `db` にしてください |
+
+### 設定
+
+```conf
+sql_cache {
+	enabled = true       # 既定は false
+	store   = "memory"   # memory | redis | db
+	ttl     = 300        # 秒。0 で無期限
+	max     = 10000      # memory のときだけ。持つ件数の上限
+}
+```
+
+**既定が `false` なのは、使っていないアプリに代金を払わせないため**です。
+有効だと、`selectCached` を 1 度も呼んでいなくても、
+すべての `insert` / `update` / `delete` で「どの行に当たるか」を組み立てます
+（WHERE を読み、テーブルのキーを引く）。
+`false` のあいだは**その処理が 1 行も走りません**。
+
+書き忘れても気づけるようにしてあります。
+
+- 起動時の構成ログに `sql_cache=off` と出ます
+- 切ったまま `selectCached` を呼ぶと、**初回だけ**警告が出ます（毎回は出しません）
+
+```
+jimble 構成: env=local / session=none / cache=db / sql_cache=off / redis=なし / ...
+```
+
+> [!note]
+> 切っているときの `selectCached` は、**ただの `selectList` として動きます**。
+> 例外にはしません。本番で調べるためにキャッシュを切ったらアプリごと止まる、
+> というのは行きすぎだからです。
+
+## ローディングキャッシュ
+
+「無ければ作る」を1か所に書く形です。
+
+```java
+LoadingCache<List<Data>> cache = Cache.loadingCache(
+	"top:posts", db, Duration.ofMinutes(5), loaderDb -> loaderDb.selectList(...));
+
+List<Data> posts = cache.get();
+```
+
+| | |
+| --- | --- |
+| 値の置き場 | **その JVM のメモリ**（共有キャッシュには「作った印」だけ置く） |
+| 期限 | `Duration` を渡さなければ**無期限** |
+| 他の台が `clear()` したとき | **1分に1回**だけ共有キャッシュを見に行って捨てる |
+| ローダーに渡る `DB` | 新しい接続（呼び出し元のトランザクションとは別） |
+
+> [!TRAP]
+> **ローダーが `null` を返しても「読み込み済み」になります。**
+> 期限が来るまで `null` を返し続けるので、
+> 「たまたま無かった」を覚え込ませたくないなら、空のリストなど**値で表してください。**
+
+## 分散ロック
+
+**Redis を使います。**「複数台のうち1台だけに処理させたい」ときのものです。
+
+```java
+RedisLockResult result = RedisLock.lock(key);
+
+assertEquals(RedisLockStatus.Success, result.status());
+
+closeQuietly(result);
+```
+
+```java
+// 100ms 待って取れなければあきらめる。取れたら 30 秒保持する
+try (RedisLockResult lock = RedisLock.tryLock("batch:daily", 100, 30000)) {
+
+	if (lock.status() != RedisLockStatus.Success) {
+		return;   // 誰かが動かしている
+	}
+
+	// ここが1台だけになる
+
+} catch (IOException ignore) {
+}
+```
+
+> [!WARN]
+> **取れなくても例外は飛びません。**`status()` を必ず見てください。
+> 見ないと「ロックしていないのに処理が進む」形になります。
+
+> [!TRAP]
+> **同じスレッドからは同じキーを取れてしまいます**（再入できるロックのため）。
+> 「もう誰かが持っているはず」を同じスレッドで確かめると、素通りします。
+
+> [!TRAP]
+> **`tryLock` の保持時間は延長されません。**30 秒と書いて処理が 40 秒かかると、
+> **途中で解放されて2台目が入ってきます。**
+> 引数なしの `RedisLock.lock(key)` は、持っている間ずっと延長されます（そのかわり待ち続けます）。
+
+Redis を設定していないときは、**黙って成功させずに例外**になります（要件 F-U-10）。
+「ロックが無いのに進んでしまった」を作らないためです。
+
+### DB だけでロックする
+
+Redis が無い場所では `DBLock` を使えます。**トランザクションの中で**、
+先に行を作ってから取ります。
+
+```java
+DBLock.create(db, "daily");           // 1回だけ
+...
+if (DBLock.lock(db, "daily")) {       // SELECT ... FOR UPDATE
+	// トランザクションが終わるまで1つだけ
+}
+```
+
+行が無ければ `false` です。解放は**トランザクションの終わり**で、明示的に外す口はありません。
+
+## 設定キー
+
+```conf
+cache {
+	type          = "db"     # db | memory | redis
+	temp_dir      = ""       # 大きい値を落とす場所。空なら一時ディレクトリ
+	memory.expire = 0        # memory のときだけ。秒。0 で無期限
+}
+
+redis {
+	host = ""                # 空なら「Redis 無し」
+	port = 6379
+	ssl  = false
+}
+```
+
+> [!NOTE]
+> `redis.host` が空なら **Redis 無し**です。アプリは起動します。
+> `cache.type = redis` にしていると起動時に警告が出て、使った時点で失敗します。
+
+
+
+---
+
+<!-- https://jimble.io/ja/codegen -->
+
+
+# マイグレーションとコード生成
+
+**スキーマが先、コードが後**です。SQL を書いて当てると、テーブル定義のクラスがそこから作られます。
+
+| いつ | ローカル | それ以外（CI・staging・本番） |
+| --- | --- | --- |
+| ビルド時 | `migrate` → `codegen` → `compileJava` | **`compileJava` だけ** |
+| 起動時 | 何もしない | **未適用のマイグレーションを当てる** |
+
+> [!NOTE]
+> **生成物はリポジトリにコミットします。**そうしないと、DB の無い環境でビルドできません。
+> ずれていないかは CI で `codegenCheck` が見ます。
+
+## マイグレーション
+
+`conf/migration/<スキーマ名>/` に SQL を置きます。
+
+```sql
+# --- !Ups
+
+CREATE TABLE `note` (
+	`id`         BIGINT UNSIGNED AUTO_INCREMENT COMMENT 'ID' PRIMARY KEY,
+	`title`      VARCHAR(200) NOT NULL COMMENT 'タイトル',
+	`created_at` DATETIME     NOT NULL COMMENT '作成日時'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='メモ';
+
+# --- !Downs
+
+DROP TABLE `note`;
+```
+
+```bash
+./gradlew migrate
+```
+
+> [!NOTE]
+> **上は MySQL の DDL です。**マイグレーションの SQL は<b>そのまま DB に流します</b>ので、
+> PostgreSQL なら PostgreSQL の書き方で書いてください
+> （`BIGINT UNSIGNED AUTO_INCREMENT` → `bigserial`、`DATETIME` → `timestamp`、
+> バッククォートは不要）。SQL ビルダーと違って、**ここは方言を吸収しません。**
+> 両方に配りたいときは[製品ごとに分けられます](#製品ごとに-sql-を分ける)。
+
+- ファイル名は自由。**名前の自然順**に当たります（`001_` を付けるのが分かりやすい）
+- `<スキーマ名>` は設定の `scheme`（無ければデータソース名）
+- **クラスパスから探します**。`conf/` をリソースに足しておいてください（[設定](./config)）
+
+### 1文ずつの切り分け
+
+1つのファイルに複数の文を書けます。「;」で切りますが、
+**文字列・識別子・コメントの中の「;」では切りません。**
+
+どこからどこまでがそれなのかは**製品で違う**ので、繋いでいる製品の決まりで読みます。
+
+| 書き方 | MySQL | PostgreSQL |
+|---|---|---|
+| `'a\'b'` の `\` | エスケープ | **ただの文字**（`E'a\'b'` のときだけエスケープ） |
+| `# ...` | 行コメント | コメントではない |
+| `1--2` | コメントではない（`--` のあとに空白が要る） | 行コメント |
+| `` `a` `` | 識別子の囲み | 囲みではない |
+| `$$ ... $$` | ただの文字 | 文字列（関数の本体や `DO` ブロック） |
+| `/* /* */ */` | 最初の `*/` で閉じる | 入れ子にできる |
+
+> [!TRAP]
+> **製品の決まりを取り違えると、切り分けが黙って変わります。**
+> `insert into t values ('c:\');` を MySQL の読み方で読むと、
+> `\'` がエスケープに見えて**文字列が閉じません**。
+> そこから先の SQL が全部この1文にくっつきます。
+
+コメントだけになった断片は捨てます（MySQL では「Query was empty」で落ちるためです）。
+ただし MySQL / MariaDB の `/*!40101 ... */` `/*M!100301 ... */` は
+**実行されるコメント**なので捨てません。
+
+> [!WARN]
+> **1文も取り出せなかったら失敗にします。**「全部コメントだった」を成功として通すと、
+> down のときに<b>テーブルは残ったまま履歴だけ消える</b>ことになります。
+
+### 記録と失敗
+
+| テーブル | 中身 |
+| --- | --- |
+| `migration` | 当てた SQL、ハッシュ、状態（`complete` / `up_error` / `down_error`） |
+| `migration_history` | **1文ごとの実行履歴**（種類・SQL・成否・日時） |
+
+失敗すると**そこで止まり、アプリは起動しません。**中途半端な状態でリクエストを受けないためです。
+失敗したことは `migration` に `up_error` として残り、次回は down → up をやり直します。
+
+> [!WARN]
+> **DDL はロールバックされません。**MariaDB / MySQL は `CREATE TABLE` などで暗黙にコミットします。
+> 1ファイルに複数の DDL を書くと、**途中まで当たった状態**で止まります。
+
+### 当て終わった SQL を書き換えない
+
+ハッシュを見ているので、**当たったあとに書き換えると失敗します。**
+
+```
+適用済みのマイグレーションが書き換えられています: 003_xxx.sql
+（down が無効なため巻き戻せません。新しい SQL ファイルを追加してください）
+```
+
+`migration.down = true`（既定は `false`）にすると、down → 新しい up でやり直します。
+**手で戻すコマンドはありません。**down が動くのは「ファイルが消えた」「ハッシュが変わった」の2つだけです。
+
+### 製品ごとに SQL を分ける
+
+MySQL と PostgreSQL で同じ DDL は書けません（`AUTO_INCREMENT` と `bigserial`、
+`ENGINE=InnoDB`、列コメントの書き方）。**ファイル名の接尾辞**で分けます。
+
+```
+conf/migration/blog_example/
+	001_create_post.mysql.sql        ← mysql / mariadb のときだけ
+	001_create_post.postgresql.sql   ← postgresql のときだけ
+	002_add_status.sql               ← 接尾辞なし = どちらでも
+```
+
+- 接尾辞は `db.<名前>.product` に書ける名前と同じものです（`mariadb` は `mysql` と同じ扱い）
+- **接尾辞の無いファイルはどの製品でも当たります。**両方で通る SQL は分けなくていいです
+- 飛ばしたファイルは起動ログに出ます
+
+```
+マイグレーション: 他の製品向けを飛ばしました（いまは postgresql）: 001_create_post.mysql.sql
+```
+
+適用済みは**ファイル名で**覚えているので、`001_create_post.mysql.sql` と
+`001_create_post.postgresql.sql` は別の記録になります。
+**置いてあるファイルは、他の製品向けでも「消えた」とは見ません**（down しません）。
+
+同じ版に、いまの製品で流れるファイルを2つ置くと落ちます
+（`001_x.mariadb.sql` と `001_x.mysql.sql` はどちらも MySQL で流れます）。
+
+> [!TRAP]
+> **すでに当てたファイルの名前を変えると、別のファイルになります。**
+> `001_create_post.sql` を `001_create_post.mysql.sql` に変えると、
+> 同じ SQL がもう一度流れて `Table 'post' already exists` になります。
+>
+> 名前でそれを見分けて止め、直し方を出します（**製品の接尾辞を落とした名前**で見るので、
+> 分けた先で中身が変わっていても分かります）。
+>
+> ```
+> マイグレーション SQL の名前が変わったようです（いまは mysql）:
+>   001_create_post.sql → 001_create_post.mysql.sql
+> 履歴の名前も変えてください。
+>   UPDATE migration SET name = '001_create_post.mysql.sql' WHERE name = '001_create_post.sql';
+>   UPDATE migration_history SET name = '001_create_post.mysql.sql' WHERE name = '001_create_post.sql';
+> ```
+>
+> **中身も変わっているときは `hash` も一緒に出ます**（その版はすでに当たっているので、
+> 当て直すのではなく記録を合わせます）。
+> 出てくる SQL は**その DB の製品のもの**です。もう片方の製品の DB では、
+> その製品向けのファイル名に読み替えてください。
+
+> [!WARN]
+> **いまの製品向けのファイルが無くなると止まります。**
+> `001_create_post.sql` を `001_create_post.postgresql.sql` にだけ変えると、
+> MySQL の DB では二度と読まれないファイルになります。
+> 黙って down せず、`mysql` 向けを置くか履歴を消すかを選ばせます。
+
+> [!WARN]
+> **`ALTER TABLE` で足した列の位置は製品で変わります。**
+> MySQL は `AFTER body` と書けますが、PostgreSQL は必ず末尾です。
+> 生成されるクラスの列の並びは**物理順**なので、
+> 同じスキーマでも製品によって並びが変わります（型も NULL 可否もコメントも同じです）。
+> **生成は主にする製品で行ってください。**`codegenCheck` も同じ製品で回します。
+
+### 複数のサーバーが同時に起動しても
+
+`db_lock` の行を `FOR UPDATE` で取ってから当てるので、**1台しか流れません。**
+待ちきれなかった側は起動に失敗します（`migration.lock_timeout_seconds`、既定 60 秒）。
+
+> [!NOTE]
+> ロック待ちのタイムアウトは**そのセッションだけ**に設定します（`SET SESSION`）。
+> サーバー全体の設定は変えません。
+
+### Java で書くマイグレーション
+
+SQL では書けない移行（既存データの詰め替えなど）はクラスで書きます。
+
+```java
+CodeMigration.add(new V20260901FillUserKana());
+Migration.install();
+```
+
+`versionYyyyMmDd()` の順に1回だけ走り、結果は `migration_code` に残ります。
+**クラスパスは走査しません**（原則2）。書いたら `add` してください。
+
+> [!TRAP]
+> **CLI の `migrate` はコードマイグレーションを走らせません。**
+> 登録がアプリのコードにあるためで、動くのは**アプリの起動時**だけです。
+
+## コード生成
+
+```bash
+./gradlew codegen
+```
+
+DB のスキーマから、データソースごとに3種類を作ります。
+
+| 生成物 | 置き場所 | 何に使うか |
+| --- | --- | --- |
+| スキーマクラス | `db/<データソース>/BlogExample.java` | `BlogExample.db()`、テーブル一覧 |
+| テーブルクラス | `db/<データソース>/table/post/Post.java` | `Post.id` などの `Column` |
+| 型付きアクセサ | `db/<データソース>/table_data/post/AbstractPostData.java` | `data.title("...").published(true)` |
+
+```java
+public class Post extends Table {
+
+	/* 記事ID */
+	public static final Column id = new Column(instance(), "id", long.class, false, null, true);
+
+	private static final List<Column> COLUMNS = List.of(id, title, body, published, created_at);
+}
+```
+
+列の一覧は**生成時に確定**します（実行時にリフレクションしません）。
+
+> [!WARN]
+> **生成先のディレクトリは毎回まるごと作り直します。**
+> `db/<データソース>/` の下に手で書いたファイルを置くと、**次の `codegen` で消えます。**
+> 生成物の先頭にも印が入ります。
+
+```java
+/*
+ * このファイルは jimble が作りました（codegen）。手で直さないでください。
+ * 直しても次の codegen で消えます。
+ */
+```
+
+### 型の対応
+
+| DB の型 | Java |
+| --- | --- |
+| `bigint` | `long` |
+| `tinyint` / `bool` | **`boolean`** |
+| `int` / `smallint` / `mediumint` | `int` |
+| `decimal` / `float` / `double` | `double` |
+| `datetime` / `date` / `timestamp` | `java.util.Date` |
+| `varchar` / `text` など | `String` |
+| `json` | `Data` |
+| そのほか（`blob` / `enum` など） | `String` |
+
+PostgreSQL では次も同じ扱いになります。
+
+| DB の型 | Java |
+| --- | --- |
+| `bigserial` | `long` |
+| `serial` / `smallserial` | `int` |
+| `numeric` / `real` / `double precision` | `double` |
+| `boolean` | `boolean` |
+| `jsonb` | `Data` |
+
+> [!TRAP]
+> **`tinyint` は桁数に関係なく `boolean`** です。`tinyint(4)` に 0/1 以外を入れているなら
+> `smallint` にしてください。
+> **`decimal` は `double`** になるので、金額の計算には向きません。
+
+### PostgreSQL のとき
+
+`db.xxx.product = postgresql` を書いておけば、**同じ `./gradlew codegen` が動きます**
+（[DB を使う](./db)）。読み方だけが変わり、生成されるクラスの形は同じです。
+
+いくつか、MySQL と揃わないところがあります。
+
+| もの | どうなるか |
+| --- | --- |
+| `bigserial` / `serial` | 連番として読みます（`nextval(...)` の既定値は出ません） |
+| **式インデックス** | `create unique index ... (lower(code))` のようなものは<b>一意キーに数えません</b>。列が取れないので、残った列だけで一意だと誤解しないためです |
+| **部分インデックス** | `where` 付きのものも<b>一意キーに数えません</b>。条件に合う行の中でしか一意でないからです |
+| 生成される `SchemaSQL` | その製品の DDL で書かれます（コメントは `comment on ...` として別に出ます） |
+
+> [!NOTE]
+> **カタログを引けなかったときは落とします。**黙って「テーブルが0件」として
+> 生成物を消してしまうと、原因が分からなくなるためです。
+
+### 生成しないテーブル
+
+jimble が自分で作るテーブル（`migration` / `db_cache` / `session` / `batch_*` など）は自動で外れます。
+**MQ のキュー表は名前をアプリが決める**ので、自分で書いてください。
+
+```conf
+codegen {
+	package        = "db"
+	exclude_tables = ["mq_blog", "mq_scheduler"]
+}
+```
+
+> [!NOTE]
+> ワイルドカードは使えません（`mq_*` とは書けません）。1つずつ並べてください。
+
+## 設定
+
+```conf
+migration {
+	on_startup            = "auto"   # auto | true | false。auto はローカル以外で当てる
+	down                  = false    # 巻き戻すか
+	lock_timeout_seconds  = 60
+	resource_dir          = "migration"
+}
+
+codegen {
+	package        = "db"
+	exclude_tables = []
+}
+```
+
+## CLI から
+
+Gradle が使えないところ（CI・本番）では CLI で同じことができます。
+
+```bash
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
+```
+
+設定も SQL も**クラスパスから**探します。
+Gradle のタスクは [Gradle プラグイン](./gradle) にまとめてあります。
+
+
+
+---
+
+<!-- https://jimble.io/ja/batch -->
+
+
+# バッチ
+
+## 書く
+
+```java
+public class PostCleanupBatch extends AbstractBatch {
+
+	@Override
+	public String batchName () { return "記事の掃除"; }
+
+	@Override
+	public boolean isScheduler () { return true; }
+
+	@Override
+	public String cron () {
+
+		// 毎日 3:15
+		return "15 3 * * *";
+
+	}
+
+	@Override
+	public void execute (BatchArgs args) {
+
+		int days = settings().getInt("days");
+
+		while (!isCancelOrder()) {
+			// 長い処理は中断指示を見る（要件 F-B-06）
+		}
+
+	}
+
+}
+```
+
+- `batchName()` は管理画面に出る名前です
+- `isScheduler()` が `true` のものだけ、スケジューラが拾います
+- `cron()` は5フィールドの cron 式です
+- `settings()` は DB に入れた設定（`defaultBatchSettings()` が初期値）です
+
+## 登録する
+
+走査はしないので、自分で登録します。
+
+```java
+BatchRegistry.add(PostCleanupBatch::new);
+
+// DB の一覧を、いま登録されているものに合わせる
+BatchRegistry.sync(DBUtil.getMainDB());
+```
+
+`sync` は、**コードから消えたバッチの行を `status = nothing` にします**（行は残すので履歴からたどれます）。
+
+> [!WARNING]
+> **`sync` は登録を済ませてから呼んでください。**
+> 「1つも登録されていない」は「全部消えた」として扱うので、
+> 登録し忘れたまま呼ぶと**全部の行が `nothing` になります**（スケジューラが何も回さなくなります）。
+> バッチを持たないアプリは呼ばないでください。
+>
+> **`batch_master` を別のアプリと共有しないでください。**
+> 消えた判定はクラス名で行うので、同じテーブルを見るアプリが2つあると
+> **お互いの行を `nothing` にし合います。**
+
+## 中断できるようにする
+
+```java
+while (!isCancelOrder()) {
+	// 1件ずつ処理する
+}
+```
+
+管理画面から中断を押すと `isCancelOrder()` が `true` になります。
+**長く回る処理では必ず見てください。** 見ていないバッチは止められません。
+
+## 一定件数ずつ読んでまとめて書く
+
+100万件を1つのトランザクションで抱えたくないときは `AbstractChunkBatch` を継承します。
+**読む → 加工する → まとめて書く**を繰り返し、`chunkSize()` 件ごとに確定します。
+
+```java
+public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
+
+	@Override public String batchName ()   { return "古い申請の書庫入れ"; }
+	@Override public boolean isScheduler () { return true; }
+	@Override public String cron ()        { return "0 4 * * *"; }
+	@Override public int chunkSize ()      { return 500; }
+
+	@Override
+	protected Iterator<Data> reader (BatchArgs args, DB db) {
+
+		// キー順に少しずつ読む
+		return KeyPagingReader.of("id", 0L, chunkSize(), (lastKey, limit) -> db.selectList("""
+				SELECT id, amount FROM request
+				WHERE status = ? AND id > ?
+				ORDER BY id ASC
+				LIMIT ?
+			""", "approved", lastKey, limit));
+
+	}
+
+	@Override
+	protected Data process (Data item) {
+
+		// 書かないものは null を返す（既定は素通し）
+		return item.getLong("amount") == 0 ? null : item;
+
+	}
+
+	@Override
+	protected void write (List<Data> items, DB db) {
+
+		for (Data item : items) {
+			db.update("UPDATE request SET status = 'archived' WHERE id = ?", item.getLong("id"));
+		}
+
+	}
+
+}
+```
+
+登録の仕方も、管理画面での見え方も、ふつうのバッチと同じです。
+
+- **1回の `write()` が1トランザクション**です。抜けた時点で確定します
+- **中断はかたまりの切れ目で見ます。**`isCancelOrder()` を自分で呼ぶ必要はありません
+- `execute()` は `final` です。手を入れるのは `reader()` / `process()` / `write()` の3つだけです
+
+### 途中で落ちたとき
+
+**そのかたまりだけ戻して、バッチ全体を失敗にします。**黙って次へ進むことはしません。
+
+どこまで確定したかは `batch_history.execute_info` に残ります。
+
+| キー | 中身 |
+|---|---|
+| `chunk_read` | 読んだ件数 |
+| `chunk_filtered` | `process()` が `null` を返してよけた件数 |
+| `chunk_written` | 確定した件数 |
+| `chunk_committed` | 確定したかたまりの数 |
+| `chunk_failed_at` | 何かたまり目で落ちたか |
+| `chunk_canceled` | 中断で抜けたか |
+
+`chunk_written` は **`batch.progress_seconds`（既定5秒）ごとに書き換わる**ので、
+走っている最中でも管理画面から「いま何件目か」が見えます。
+
+### 読む DB と書く DB は別です
+
+`reader()` に渡る `db` と `write()` に渡る `db` は**別のインスタンス**です。
+**渡されたものをそのまま使ってください。**
+
+`DBTransaction` を閉じるとコネクションがプールへ返るので、
+同じ `DB` で読んでいると**最初のかたまりを確定した時点で読みかけが死にます。**
+
+> [!TIP]
+> **カーソル（`selectListWithFetcher`）ではなく `KeyPagingReader` を勧めます。**
+> カーソルは開いているあいだ、ずっとコネクションを1本押さえます。
+> 数時間かかるバッチではそれが効いてきます。
+> ページングはページとページの間はコネクションを持ちません。
+
+`KeyPagingReader` に渡すキーは、**一意で、`ORDER BY` と揃っていて、走っているあいだ書き換わらない**列にしてください。
+キーが進まないまま満杯のページが返ってきたときは例外になります（黙って無限に回るより落ちたほうがよいためです）。
+
+> [!WARNING]
+> **`db.insert()` などは失敗しても例外を投げません。**
+> `db.isError()` に**その直前の1文**の結果が入るだけです。
+> `write()` の中で複数の文を流すなら、1文ごとに見るか、自分で例外を投げてください。
+
+## 二重起動
+
+同じバッチが同時に走る本数は `allowConcurrentExecutionCount()` で決まります。
+既定は1本です。前の実行がまだ終わっていなければ、次はスキップされます。
+
+サーバーが複数台でも、DB のテーブルで排他するので1本しか走りません。
+
+## 単体で走らせる
+
+バッチの入口は**自分で書きます**。起動の順番がそのファイルに全部出ます。
+
+```java
+public class BlogBatch {
+
+	public static void main (String[] args) {
+
+		DBUtil.load(Conf.conf().config(), BlogBatch.class);   // 1. DB
+		BatchTables.install(DBUtil.getMainDB());              // 2. バッチのテーブル
+
+		BatchRegistry.add(PostCleanupBatch::new);             // 3. 登録
+		BatchRegistry.sync(DBUtil.getMainDB());
+
+		BatchResult result = BatchExecutor.start(args);       // 4. 実行
+
+		DBUtil.stop();
+		System.exit(result.isExecuted() ? 0 : 1);
+
+	}
+
+}
+```
+
+```bash
+java -cp app.jar blog.BlogBatch env=local class=blog.batch.PostCleanupBatch days=30
+```
+
+`key=value` の形で渡したものが `args.cliArgs` に入ります。
+
+cron で回すなら `DbScheduler` を入口にした常駐プロセスを別に立てます。
+
+## 管理画面
+
+`jimble-batch-manager` を入れると、Web からバッチの一覧・実行・中断・履歴が見られます。
+
+```kotlin
+implementation("io.jimble:jimble-batch-manager:<版>")
+```
+
+```java
+install(BatchManagerController::new);
+```
+
+**認証は自分で付けてください。** `before` に置くだけです。
+何も付けないと誰でもバッチを起動できます。
+
+
+
+---
+
+<!-- https://jimble.io/ja/mq -->
+
+
+# MQ
+
+jimble の MQ は **DB のテーブルをキューにします**。
+別のミドルウェアは要りません。トランザクションを共有できるのが大きいところです。
+
+## 書く
+
+```java
+public class NoticeExecutor extends MqExecutor {
+
+	@Override
+	public String queueName () { return "mq_blog"; }
+
+	@Override
+	public String key () { return "notice"; }
+
+	@Override
+	public MqExecuteType executeType () { return MqExecuteType.short_time; }
+
+	@Override
+	public MqStatus execute (DB db, Data row) {
+
+		Data data = row.getDataOptional("data");
+
+		// ... 処理する
+
+		return MqStatus.completed;
+
+	}
+
+}
+```
+
+- `queueName()` はテーブル名です。キューごとにテーブルを分けます
+- `key()` は種別です。1つのテーブルに複数の種類を混ぜられます
+- `executeType()` は `short_time` / `long_time`。取り出し方が変わります
+- 戻り値が `MqStatus.completed` 以外なら、`maxRetry()` まで再実行されます
+
+## 積む
+
+```java
+try (DBTransaction transaction = new DBTransaction(db)) {
+
+	transaction.beginTransaction();
+
+	long id = db.insert(
+		SQL.insert(Post.instance())
+			.value(Post.title, request.getString("title"))
+			.value(Post.body, request.getString("body"))
+			.value(Post.image_name, request.getStringOptional("image_name"))
+			.value(Post.published, request.getBoolean("published"))
+			.value(Post.created_at, new Date())
+	);
+
+	if (id <= 0) {
+		transaction.rollbackEndTransaction();
+		return -1;
+	}
+
+	new NoticeExecutor().put(db, new Data()
+		.putData("post_id", id)
+		.putData("title", request.getString("title")));
+
+	transaction.commitEndTransaction();
+
+	/*
+	 * コミットしてから流す。
+	 * 先に流すと、ロールバックしたときに
+	 * 「入っていない記事のお知らせ」だけが届く。
+	 */
+	PostFeedHandler.notifyNewPost(request.getStringOptional("title"));
+
+	return id;
+
+}
+```
+
+`put()` は**トランザクションの中で呼びます**。
+同じ DB なので、ロールバックすれば積んだものも消えます。
+「メールだけ飛んで注文が入っていない」が起きません。
+
+時間を指定して積むこともできます。
+
+```java
+new NoticeExecutor().put(db, data, scheduledAt);
+```
+
+## 二重に実行される
+
+**同じメッセージが2回実行されることがあります。**
+処理の途中でプロセスが落ちたときなどです。
+
+なので、**何度やっても同じになるように書いてください**。
+
+- メールなら、送信済みの記録を見てから送る
+- 集計なら、足すのではなく入れ直す
+- 外部 API なら、冪等キーを付ける
+
+「ちょうど1回」は分散システムでは作れません。jimble はそのふりをしません。
+
+## 登録して回す
+
+```java
+// テーブルを用意する
+new MqQueue(NoticeExecutor.QUEUE_NAME).install();
+
+// Executor を登録する（クラスパス走査はしない）
+MqRegistry.add(NoticeExecutor::new);
+```
+
+取り出して回すのはバッチです。`MqWorkerBatch` のようなバッチを1つ作り、
+[バッチ](./batch) と同じように登録して cron で回します。
+
+
+
+---
+
+<!-- https://jimble.io/ja/sse -->
+
+
+# SSE（Server-Sent Events）
+
+サーバーから一方向にイベントを流します。WebSocket と違って、ただの HTTP です。
+プロキシもブラウザもそのまま通ります。
+
+```java
+get("/events", context -> {
+
+	try (SseStream sse = context.response().sse()) {
+
+		sse.send("progress", new Data().putData("percent", 10));
+		sse.send("done", new Data().putData("ok", true));
+
+	}
+
+});
+```
+
+クライアント側は `EventSource` です。
+
+```javascript
+const es = new EventSource("/events");
+es.addEventListener("progress", e => console.log(JSON.parse(e.data)));
+es.addEventListener("done", () => es.close());
+```
+
+## 進捗を送る
+
+```java
+get("/posts/reindex", context -> {
+
+	List<Data> posts = BlogApp.listPosts();
+
+	try (SseStream sse = context.response().sse()) {
+
+		sse.send("start", new Data().putData("total", posts.size()));
+
+		int done = 0;
+
+		for (Data row : posts) {
+
+			if (!sse.isOpen()) {
+				break;
+			}
+
+			Data post = row.extractTableData(Post.instance());
+			done++;
+
+			sse.send("progress", new Data()
+				.putData("done", done)
+				.putData("total", posts.size())
+				.putData("title", post.getString(Post.title)));
+
+		}
+
+		sse.send("done", new Data().putData("done", done));
+
+	}
+
+});
+```
+
+`sse()` を呼んだ時点で、次のヘッダが付きます。
+
+```
+Content-Type: text/event-stream
+Cache-Control: no-store
+X-Accel-Buffering: no
+```
+
+`X-Accel-Buffering: no` は nginx 対策です。これが無いと nginx が溜め込んでしまい、
+「全部終わってから一気に届く」になります。
+
+## 切断は分かりません
+
+**ここが SSE のいちばん大事なところです。**
+
+ブラウザを閉じても、helidon は切断を教えてくれません。
+書き込みは成功し続けるか、あるいは**永久にブロックします**（Java にはソケットの
+書き込みタイムアウトがありません）。実際に試したところ、4.8MB / 30秒 書けてしまうことも、
+8秒で完全に固まることもありました。
+
+なので jimble の `SseStream` は、**切断を待つのではなく寿命で区切ります**。
+
+```conf
+sse {
+	max_duration_seconds = 300   # 既定 5分
+	max_events           = 0     # 0 = 無制限
+	retry_millis         = 3000  # クライアントの再接続間隔
+}
+```
+
+```java
+// このルートだけ変える
+try (SseStream sse = context.response().sse(Duration.ofSeconds(30), 100)) {
+```
+
+`sse.isOpen()` は「まだ寿命が残っているか」を返します。
+**「クライアントが繋がっているか」ではありません。** ループの中で必ず見てください。
+
+```java
+for (Data row : rows) {
+
+	if (!sse.isOpen()) {
+		break;
+	}
+
+	sse.send("progress", ...);
+
+}
+```
+
+## 繋ぎ直し
+
+`EventSource` は切れたら自動で繋ぎ直します。`retry_millis` がその間隔です。
+
+**つまり、寿命で切れても勝手に繋ぎ直されます。**
+無限に続くストリームを作るのではなく、「5分ぶん流して切る、また繋がる」でよいです。
+
+やり直しの位置を伝えたいときは、イベントに `id` を付けてください。
+繋ぎ直しのときに `Last-Event-ID` ヘッダで返ってきます。
+
+## 使いどころ
+
+| 用途 | 向いているか |
+| --- | --- |
+| 進捗バー、ログの流し込み | 向いている |
+| 通知の配信 | 向いている |
+| 双方向のやりとり | [WebSocket](./websocket) へ |
+| 大量の同時接続を長時間 | 接続数ぶんスレッドを使う。仮想スレッドなので軽いが、寿命は短くする |
+
+
+
+---
+
+<!-- https://jimble.io/ja/websocket -->
+
+
+# WebSocket
+
+## 書く
+
+```java
+public class ChatHandler implements WsHandler {
+
+	@Override
+	public boolean onUpgrade (WsSession session) {
+
+		// 認証はここで通す。Cookie が読めるのはこの時点だけ。断ると 403
+		return "secret".equals(session.cookie("token"));
+
+	}
+
+	@Override
+	public void onMessage (WsContext context, String message) {
+
+		context.session().send("echo: " + message);
+
+	}
+
+}
+```
+
+## 登録する
+
+```java
+ws("/ws/posts", PostFeedHandler::new);
+```
+
+HTTP のルートと同じ場所に書きます。起動ログにも `WS /ws/posts` と出ます。
+
+渡すのは**インスタンスではなくコンストラクタ参照**です。
+接続ごとにハンドラが作られます。
+
+## 呼ばれる順番
+
+| メソッド | いつ |
+| --- | --- |
+| `onUpgrade(WsSession)` | HTTP から昇格する前。`false` を返すと 403 |
+| `onOpen(WsContext)` | 繋がったあと |
+| `onMessage(WsContext, String)` | テキストが来たとき |
+| `onBinary(WsContext, byte[])` | バイナリが来たとき |
+| `onClose(WsContext, int, String)` | 閉じたとき |
+| `onError(WsContext, Throwable)` | 落ちたとき |
+
+すべて `default` 実装があるので、要るものだけ書けば済みます。
+
+## 認証は onUpgrade で
+
+**Cookie が読めるのは `onUpgrade` の時点だけです。**
+昇格したあとは、もう HTTP のヘッダはありません。
+
+```java
+@Override
+public boolean onUpgrade (WsSession session) {
+
+	return "secret".equals(session.cookie("token"));
+
+}
+```
+
+`false` を返すと 403 で断ります。
+
+## メッセージごとに Context
+
+**1メッセージにつき `Context` が1つ作られます。**
+リクエストやバッチの1実行と同じ扱いです。
+
+つまり `onMessage` の中では、DB もセッションも普通に使えます。
+メッセージの処理が終われば、接続が続いていても DB 接続は返されます。
+
+```java
+public void onMessage (WsContext context, String message) {
+
+	Data request = Data.fromJsonString(message);
+
+	switch (request.getStringOptional("command")) {
+
+		case "latest" -> context.session().send(new Data()
+			.putData("type", "latest")
+			.putData("posts", titles()));
+
+		case "subscribe" -> {
+			SUBSCRIBERS.add(context.session());
+			context.session().send(new Data().putData("type", "subscribed"));
+		}
+
+		/*
+		 * 何が使えるのかを返す。
+		 * 黙って無視すると、クライアント側は
+		 * 「届いていないのか、コマンドが違うのか」が分からない。
+		 */
+		default -> context.session().send(new Data()
+			.putData("type", "error")
+			.putData("message", "知らないコマンドです")
+			.putData("commands", List.of("latest", "subscribe")));
+
+	}
+
+}
+```
+
+知らないコマンドを黙って捨てないでください。
+クライアント側からは「届いていないのか、コマンドが違うのか」が分かりません。
+
+## 他の接続へ送る
+
+繋がっているセッションを自分で持っておきます。
+
+```java
+private static final Set<WsSession> SUBSCRIBERS = ConcurrentHashMap.newKeySet();
+
+public static void notifyNewPost (String title) {
+
+	Data event = new Data().putData("type", "new_post").putData("title", title);
+
+	// send() が false なら、その接続はもう無い。そのまま外す
+	SUBSCRIBERS.removeIf(session -> !session.send(event));
+
+}
+```
+
+サーバーが複数台あるなら、この配り方では他の台に繋がっている人へ届きません。
+Redis の pub/sub などを間に入れてください。jimble はそこまでは持っていません。
+
+## SSE との使い分け
+
+クライアントから送るものが無いなら [SSE](./sse) のほうが簡単です。
+プロキシの設定も要らず、繋ぎ直しもブラウザがやってくれます。
+
+
+
+---
+
+<!-- https://jimble.io/ja/mcp -->
+
+
+# MCP
+
+アプリの機能を、AI から呼べる形で公開します。
+jimble が実装しているのは **2026-07-28** 版で、
+トランスポートは **Streamable HTTP** と **stdio** の2つです。
+
+## 公開するものを並べる
+
+```java
+public class BlogMcp extends McpController {
+
+	{
+```
+
+```java
+tool("search_posts", SearchPostsTool::new);
+tool("create_post", CreatePostTool::new);
+
+resource("blog://latest", LatestPostsResource::new);
+```
+
+```java
+	}
+
+}
+```
+
+```java
+install(BlogMcp::new);
+```
+
+**上から読めば、このサーバーが何を公開しているかが全部分かります。**
+注釈もクラスパスの走査もありません。Java の MCP 実装はたいてい注釈で宣言して
+起動時に走査しますが、それだと「どのクラスが拾われているか」が実行するまで分かりません。
+
+## ツールを書く
+
+```java
+public class GetWeatherTool implements McpTool {
+
+	@Override
+	public String description () {
+
+		// ここはモデルが読む。いつ使うか・何ができないかを書く
+		return "都市名から現在の天気を返す。過去や予報は返せない";
+
+	}
+
+	@Override
+	public JsonSchema inputSchema () {
+
+		return JsonSchema.object()
+			.string("city", "都市名").required();
+
+	}
+
+	@Override
+	public ToolResult call (WebContext context, Data arguments) {
+
+		String city = arguments.getString("city");
+
+		if (!isKnown(city)) {
+			// モデルが読んで直せる失敗は、例外ではなく isError で返す
+			return ToolResult.error("その都市は扱えません: %s".formatted(city));
+		}
+
+		return ToolResult.text(weatherOf(city));
+
+	}
+
+}
+```
+
+`description()` は**モデルが読みます**。人間向けのコメントではありません。
+いつ使うか、そして**何ができないか**を書いてください。
+「過去や予報は返せない」の一文が、無駄な呼び出しを減らします。
+
+入力の形は JSON Schema で宣言します。
+
+```java
+public JsonSchema inputSchema () {
+
+	return JsonSchema.object()
+		.string("title", "タイトル（%d 文字まで）".formatted(MAX_TITLE)).required()
+		.string("body", "本文")
+		.bool("published", "すぐ公開するか（既定は非公開）");
+
+}
+```
+
+## 失敗の返し方
+
+失敗には2種類あります。
+
+| どちらか | 返し方 |
+| --- | --- |
+| モデルが読んで直せる（引数が変、対象が無い） | `ToolResult.error("...")` |
+| 直せない（DB が落ちている、設定が無い） | 例外を投げる |
+
+`ToolResult.error()` は `isError` を立てて**正常な応答として**返します。
+モデルはそれを読んで、引数を変えてもう一度呼べます。
+例外にしてしまうと、モデルには「壊れた」としか見えません。
+
+## すでにある API をそのまま出す
+
+API を先に作って、あとから MCP でも提供することがあります。
+そのときツールの中に同じ処理をもう一度書くと、**必ずどちらかが古くなります**。
+
+`RouteTool` は、**登録済みのルートをそのままツールにします**。
+
+```java
+public class BlogMcp extends McpController {
+
+	{
+		tool("list_posts", RouteTool.of("GET", "/api/posts")
+			.description("記事の一覧を返す。page で頁を指定する")
+			.input(JsonSchema.object()
+				.integer("page", "ページ番号（1から）").min(1)));
+
+		tool("get_post", RouteTool.of("GET", "/api/posts/{id}")
+			.description("記事を1件返す")
+			.input(JsonSchema.object()
+				.string("id", "記事ID").required()));
+
+		tool("create_post", RouteTool.of("POST", "/api/posts")
+			.description("記事を1件登録する")
+			.input(JsonSchema.object()
+				.string("title", "題名").required()
+				.string("body", "本文").required()));
+	}
+
+}
+```
+
+HTTP は通りません。ディスパッチャが**そのルートを直接呼びます**。
+
+> [!note]
+> **`before` も `after` も効きます。**
+> 認証を `before` に置いている API は、MCP から呼んでも認証を通ります
+> （MCP リクエストのヘッダと Cookie をそのまま引き継ぎます）。
+> 内部専用の別経路を作らないので、**認証を足したときに片方だけ忘れる**ことがありません。
+
+### 引数がどこへ行くか
+
+| 引数 | 行き先 |
+| --- | --- |
+| パスの `{name}` と同じ名前 | パスに埋まる |
+| 残り（`GET` / `DELETE` / `HEAD`） | クエリ文字列 |
+| 残り（それ以外） | JSON の本文 |
+
+パスの `{name}` は `input(...)` に書いて `required()` を付けてください。
+書かないと、モデルは何を渡せばいいか分かりません。
+
+ワイルドカード（`/files/*`）を含むルートは**登録した時点で断ります**。
+埋める手立てが無いまま通すと、エラーも出ずに毎回 404 になるためです。
+
+### 結果がどうなるか
+
+| API が返したもの | ツールの結果 |
+| --- | --- |
+| 2xx で JSON のオブジェクト | `structuredContent` と本文テキストの両方 |
+| 2xx でそれ以外 | 本文テキスト |
+| 4xx | `isError`（**本文をそのまま渡す**） |
+| 5xx | `isError`（**本文は渡さない**） |
+
+4xx の本文は API がクライアントに読ませるために書いたものなので、
+そのままモデルに渡せば直せます（「その記事はありません: 999」）。
+
+5xx の本文は誰にも読ませるつもりで書かれていません。
+エラーハンドラ次第でスタックトレースが入るので、**渡しません**（ログには残ります）。
+
+### 気をつけること
+
+- アップロードを受ける API は呼べません（一時ファイルの持ち主が曖昧になるため、ファイルは空です）
+- 大きなファイルを返す API は、そのぶんメモリに載ります
+- 圧縮したまま返す API（`response().cache(...)`）は、読めないので `isError` になります
+
+> [!trap]
+> **ドメイン層を共有できるなら、そちらが先です。**
+> `RouteTool` は「検証・整形・権限まで含めて **API として組み上がったもの**を
+> そのまま出したい」ときの道具です。
+> 内側は**外側とは別のトランザクション**になるので、
+> 1つのツールで複数の API を呼んでまとめてコミットしたいときは使えません。
+
+### ツールを通さずに呼ぶ
+
+同じ仕組みは、ふつうのハンドラからも使えます。
+
+```java
+CallResponse response = context.dispatcher().call(context
+	, CallRequest.of("GET", "/api/posts").query("page", "2"));
+
+Data json = response.json();
+```
+
+入れ子には上限（8）があります。
+自分を呼ぶルートを作ると無限に潜るので、そこで止めて例外にします。
+
+## リソースとプロンプト
+
+```java
+resource("blog://latest", LatestPostsResource::new);
+prompt("summarize", SummarizePrompt::new);
+```
+
+リソースは読み取り専用のデータ、プロンプトは定型の指示です。
+
+## 標準入出力で動かす
+
+HTTP を立てずに、**クライアントにプロセスを起こしてもらう**形でも動きます。
+手元で使う道具や、ポートを開けたくないところで使います。
+
+```java
+public class BlogStdio {
+
+	public static void main (String[] args) throws Exception {
+
+		Bootstrap.load();
+
+		App app = new App();
+
+		McpStdio.run(app, app.mcp().registry());
+
+	}
+
+}
+```
+
+```json
+{
+	"mcpServers": {
+		"blog": {
+			"command": "java",
+			"args": ["-cp", "app.jar", "blog.BlogStdio"]
+		}
+	}
+}
+```
+
+**ポートは開きませんが、ルート表は組みます。**
+`RouteTool`（すでにある API をそのまま出すもの）も `before` の認証も、
+HTTP のときとまったく同じに動きます。
+
+アプリを渡さない `McpStdio.run(registry)` もあります。
+こちらは `RouteTool` が使えません（ルート表が無いので、呼ばれたらその旨を返します）。
+
+### 標準出力に何も書かないでください
+
+仕様は「**サーバーは標準出力に MCP のメッセージ以外を書いてはならない**」と決めています。
+ログが1行混ざるだけで、クライアントは「壊れた JSON が来た」として接続を切ります。
+
+`McpStdio.run` は、これを**気をつけて避けるのではなく、書けなくします**。
+本物の標準出力は `McpStdio` だけが持ち、`System.out` は標準エラーに差し替えます。
+アプリが `System.out.println` を書いても、logback がそこへ出しても、
+全部が標準エラーへ流れます（クライアントは標準エラーを無視してよいと決まっています）。
+
+**終わり方は標準入力が閉じたときです。** 開いている購読をきれいに閉じてから、
+`Shutdown` に預けたものを止めます。
+
+## 変わったことを知らせる
+
+クライアントは `subscriptions/listen` で購読を開きます。
+これは**終わらない要求**で、HTTP なら SSE、stdio なら同じ標準出力に流れます。
+
+アプリ側は、変わったときに1行呼ぶだけです。
+
+```java
+postDao.save(post);
+
+McpNotify.resourceUpdated("blog://posts/" + post.getId());
+```
+
+- **頼まれたものにしか届きません。** 購読していない URI は飛ばします
+- 誰も購読していなければ何も起きません
+- 開いた直後に `notifications/subscriptions/acknowledged` が返ります。
+  ここに**受け付けた種類だけ**が入るので、クライアントは頼んだものと突き合わせられます
+
+**流せるのはリソースの2つだけです**（`resources/updated` と `resources/list_changed`）。
+ツールとプロンプトは起動時に明示登録するので、動いているあいだに増えも減りもしません。
+「対応している」と答えて一生届かないほうが困るので、
+`toolsListChanged` を頼まれても `acknowledged` には入れません。
+
+## 一覧が多いとき
+
+`tools/list` などは、多いとページに分かれます。
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"resources/list","params":{"cursor":"..."}}
+```
+
+- 続きがあるときだけ `nextCursor` が付きます
+- **既定は 100 件です。** それ以下しか登録していないアプリの応答は今までと変わりません
+- カーソルは**中身を読まないでください**（不透明な文字列です）
+- **読めないカーソルは断ります**（`-32602`）。黙って先頭に戻すと、
+  クライアントは同じページを永遠に読み続けることになります
+
+```conf
+mcp {
+	page_size = 100
+}
+```
+
+## 口は1本
+
+HTTP で公開されるのは `POST /mcp` の1本だけです。
+
+- **GET も DELETE も 405 で断ります。** どちらも 2026-07-28 で仕様から消えました
+- **セッションはありません。** `Mcp-Session-Id` は使いません
+- **サーバーから要求は出しません。** 送るのは応答だけです
+
+パスを変えるなら設定します。
+
+```conf
+mcp {
+	path            = "/mcp"
+	name            = "blog"
+	version         = "1.0.0"
+	allowed_origins = ["https://example.com"]
+	page_size       = 100
+	instructions    = "記事の検索と投稿ができます"
+}
+```
+
+## Origin を必ず設定してください
+
+`allowed_origins` を設定しないと、`Origin` ヘッダの検査ができません。
+ブラウザから叩ける MCP サーバーは、**DNS リバインディングの的になります**。
+ローカルで動かすサーバーほど危険です（`localhost` は誰の手元にもあります）。
+
+## つなぐ
+
+```json
+{
+	"mcpServers": {
+		"blog": {
+			"type": "http",
+			"url": "http://localhost:9000/mcp"
+		}
+	}
+}
+```
+
+クライアントは最初に `server/discover` を投げて、
+話せる版と、そのサーバーが何を持っているかを見ます。
+**この呼び出しにだけは版のヘッダが要りません**（版を知るための呼び出しなので）。
+
+
+
+---
+
+<!-- https://jimble.io/ja/cli -->
+
+
+# jimble コマンド
+
+```
+使い方: jimble <コマンド>
+
+  new <name>              プロジェクトの雛形を作る
+  migrate                 未適用のマイグレーションを適用する
+  codegen <ソースルート>   テーブル定義のコードを生成する（例: src/main/java）
+  version                 版を表示する
+```
+
+## 入れる
+
+**jimble のリポジトリからビルドして、PATH に通します。**
+
+```bash
+git clone https://github.com/hidemikimura/jimble.git
+cd jimble
+./gradlew :jimble-cli:installDist
+export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
+```
+
+> [!NOTE]
+> **CLI は Maven Central にありますが、そのままでは起動できません**
+> （`io.jimble:jimble-cli` の jar に `Main-Class` を入れていないので、
+> `java -jar` では動きません）。リポジトリからビルドしてください。
+>
+> **CLI が無くても始められます。**`jimble new` が作るものは
+> [Gradle プラグイン](./gradle) の「まっさらから書く」に全文があります。
+> `migrate` と `codegen` は Gradle のタスク（`./gradlew migrate` / `./gradlew codegen`）でも走ります。
+
+```bash
+$ jimble version
+jimble 0.6.0-SNAPSHOT
+```
+
+毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
+
+```bash
+ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
+```
+
+> [!WARN]
+> **`java` として Java 25 が引ける必要があります。**
+> 起動スクリプトは `JAVA_HOME` か PATH の `java` を使うので、
+> 古い Java だと `UnsupportedClassVersionError` になります。
+> 生成したプロジェクトをビルドするのに **Gradle 9 以上**も要ります。
+
+> [!TRAP]
+> **jimble を直したら `installDist` をやり直してください。**
+> 動くのは `build/install/` にコピーされたほうなので、
+> **直しただけでは反映されません。**
+
+### 手元でビルドした jimble を使うとき
+
+`jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
+公開していない版（`0.6.0-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+
+```bash
+./gradlew publishToMavenLocal
+./gradlew -p gradle-plugin publishToMavenLocal
+```
+
+雛形の `settings.gradle.kts` は `mavenLocal()` を先に見るようにしてあります。
+公開済みの版だけを使うなら、これは要りません。
+
+## jimble new
+
+```bash
+jimble new my-blog
+```
+
+作られるもの:
+
+```
+my-blog/
+	settings.gradle.kts
+	build.gradle.kts
+	gradle.properties
+	.gitignore
+	README.md
+	src/main/java/myblog/App.java
+	src/main/jte/myblog/index.jte
+	conf/application.conf
+	conf/logback.xml
+	conf/migration/my_blog/001_create_note.sql.example
+```
+
+**空のディレクトリは作りません。** 使う段になってから作ってください。
+`.example` が付いているものは、名前を変えれば有効になります。
+
+名前の決まり:
+
+- 使えるのは英小文字・数字・`-`・`_` です
+- 先頭は英字です
+- **パッケージ名は英数字だけ残したもの**（`my-blog` → `myblog`）
+- **DB 名は英数字以外を `_` にしたもの**（`my-blog` → `my_blog`）
+- Java の予約語や、既にあるディレクトリ名は断られます
+
+理由はエラーメッセージに書いてあります。
+
+> [!NOTE]
+> **DB も Redis も要らないものが出ます。**手を入れずにビルドして起動できます。
+> 使うようになったら、`build.gradle.kts` と `application.conf` の
+> コメントを外していく形にしてあります。
+
+## 次にすること
+
+```bash
+cd my-blog
+gradle wrapper --gradle-version 9.7.1   # Gradle ラッパーを用意する（1回だけ）
+./gradlew run           # 起動する
+./gradlew jimbleRun     # ホットリロードで起動する
+```
+
+```
+$ curl http://localhost:9000/hello
+{"message":"hello, jimble"}
+```
+
+## migrate / codegen
+
+**プロジェクトの中では Gradle から呼びます。**
+
+```bash
+./gradlew migrate
+./gradlew codegen
+```
+
+`io.jimble.db` プラグインを入れておくと、`compileJava` の前に
+`migrate → codegen` が自動で繋がります。
+
+中身は [マイグレーションとコード生成](./codegen)、タスクと設定は
+[Gradle プラグイン](./gradle) を見てください。
+
+> [!TRAP]
+> **`jimble migrate` / `jimble codegen` を素で叩いても動きません。**
+> どちらも設定（`application.conf`）とマイグレーションの SQL を
+> **クラスパスから探す**ので、アプリのリソースが見えている必要があります。
+> CI や本番で Gradle が使えないところでは、jar をクラスパスに足して呼んでください。
+>
+> ```bash
+> java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+> ```
+
+## 版を確認する
+
+```bash
+jimble version
+```
+
+jar の `Implementation-Version` を読んでいます。
+**雛形が参照する jimble の版もこれ**です（手で書いていません）。
+
+
+
+---
+
+<!-- https://jimble.io/ja/gradle -->
+
+
+# Gradle プラグイン
+
+3つあります。**必要なものだけ入れてください。**
+
+| ID | 何をするか | 主なタスク |
+| --- | --- | --- |
+| `io.jimble.db` | マイグレーションとコード生成を `compileJava` の前に流す | `migrate` / `codegen` / `codegenCheck` |
+| `io.jimble.jte` | `src/main/jte` を `compileJava` の前に Java に変換する | `generateJte` |
+| `io.jimble.run` | 開発用のホットリロード | `jimbleRun` |
+
+```kotlin
+plugins {
+	application
+	id("io.jimble.jte") version "0.6.0"
+	id("io.jimble.run") version "0.6.0"
+	id("io.jimble.db")  version "0.6.0"
+}
+```
+
+**Plugin Portal には出していません。**Maven Central から取るので、
+`settings.gradle.kts` に置き場所を書いてください（`jimble new` の雛形には入っています）。
+
+```kotlin
+pluginManagement {
+	repositories {
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+```
+
+> [!NOTE]
+> プラグインは **Gradle デーモンの中**で動くので、バイトコードは Java 17 で出しています。
+> アプリ側（Java 25）とは別です。**Gradle は 9 以上**が要ります。
+
+## まっさらから書く
+
+`jimble new` を使わないなら、この2つを置けば動きます。
+**下は実際に動かして確かめたもの**です（`gradle build` で
+`migrate` → `codegen` → `compileJava` が繋がり、`gradle run` で起動します）。
+
+```kotlin
+// settings.gradle.kts
+pluginManagement {
+	repositories {
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = "memo"
+```
+
+```kotlin
+// build.gradle.kts
+plugins {
+	application
+	id("io.jimble.jte") version "0.6.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "0.6.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "0.6.0"   // DB を使うなら
+}
+
+repositories {
+	mavenCentral()
+}
+
+// jimble は Java 25 で作ってあります。これが無いと依存が解決できません
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+dependencies {
+	implementation("io.jimble:jimble-web:0.6.0")
+
+	testImplementation(platform("org.junit:junit-bom:5.11.4"))
+	testImplementation("org.junit.jupiter:junit-jupiter")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType<Test>().configureEach {
+	useJUnitPlatform()
+}
+
+// conf/ をリソースに足す。設定もマイグレーションもここから読みます（[設定](./config)）
+sourceSets {
+	main {
+		resources {
+			srcDir("conf")
+		}
+	}
+}
+
+application {
+	mainClass = "memo.App"
+}
+
+jimbleRun {
+	mainClass = "memo.App"
+}
+```
+
+> [!TRAP]
+> **ツールチェーンの指定は要ります。**書かないと、依存の解決の時点で止まります。
+>
+> ```
+> Dependency resolution is looking for a library compatible with JVM runtime version 21,
+> but 'io.jimble:jimble-web:0.6.0' is only compatible with JVM runtime version 25 or newer
+> ```
+
+## どれを依存に足すか
+
+**まとめて入るものは書かなくてよい**です（`jimble-web` を足せば `jimble-db` も `jimble-util` も付いてきます）。
+
+| 足すもの | 何が入るか | いっしょに付いてくるもの |
+| --- | --- | --- |
+| `io.jimble:jimble-web` | Web（Router / Context / Session / テンプレート） | `jimble-db` → `jimble-util` → `jimble-core` |
+| `io.jimble:jimble-db` | DB だけ（バッチや CLI から使うとき） | `jimble-util` → `jimble-core` |
+| `io.jimble:jimble-mq` | MQ | `jimble-db` |
+| `io.jimble:jimble-batch` | バッチ・DB スケジューラ | `jimble-db` / `jimble-mq` |
+| `io.jimble:jimble-batch-manager` | バッチ管理画面 | `jimble-web` / `jimble-batch` |
+| `io.jimble:jimble-mcp` | MCP サーバー | `jimble-web` |
+| `io.jimble:jimble-otel` | OpenTelemetry へトレースを出す（**足したときだけ 0.9MB 増えます**） | `jimble-core` |
+
+**DB のドライバは要りません**（MySQL / MariaDB と PostgreSQL は `jimble-db` が持っています）。
+
+## io.jimble.db
+
+```bash
+./gradlew migrate       # 未適用の SQL を当てる
+./gradlew codegen       # テーブル定義のクラスを作る（migrate のあと）
+./gradlew codegenCheck  # コミットされている生成物がスキーマと合うか見る
+```
+
+中身は [マイグレーションとコード生成](./codegen) を見てください。
+
+```kotlin
+jimble {
+	sourceRoot   = "src/main/java"   // 生成先
+	env          = "local"           // CLI に -Denv=... で渡る
+	autoGenerate = true              // compileJava の前に繋ぐか
+}
+```
+
+| プロパティ | 既定 |
+| --- | --- |
+| `sourceRoot` | `src/main/java` |
+| `env` | `-Pjimble.env` → 環境変数 `ENV` → `local` |
+| `autoGenerate` | `-Pjimble.autoGenerate` → **`env == "local"` なら true** |
+
+つまり**ローカルでだけ** `migrate → codegen → compileJava` が繋がります。
+CI では繋がらないので、コミットされた生成物でそのままコンパイルできます。
+
+```bash
+./gradlew build -Pjimble.autoGenerate=true    # CI でも繋ぎたいとき
+```
+
+> [!NOTE]
+> `migrate` と `codegen` は**毎回走ります**（up-to-date になりません）。
+> DB の状態は Gradle からは見えないためです。
+
+> [!TIP]
+> どちらも実体は CLI（`io.jimble.db.cli.JimbleDbCli`）を叩いているだけです。
+> **ロジックを Gradle 側に置いていない**ので、CI や本番では同じことを CLI で直接できます。
+
+> [!WARN]
+> クラスパスに**このプロジェクトのクラスは入りません**（リソースと依存だけ）。
+> 入れると `compileJava → codegen → compileJava` で循環します。
+> SQL も設定もリソース側にあるので、これで足ります。
+
+`codegenCheck` がずれを見つけると、こう言って落ちます。
+
+```
+コミットされている生成物がスキーマと一致しません（2 件）。codegen を実行してコミットしてください。
+  生成物が古いです: db/blog_example/table/post/Post.java
+  生成物が足りません: db/blog_example/table/tag/Tag.java
+```
+
+## io.jimble.jte
+
+`src/main/jte` の `.jte` を **Java に変換**します。コンパイルは `compileJava` がやるので、
+**テンプレートの型の間違いはビルドで落ちます**（[テンプレート](./view)）。
+
+| タスク | 入力 | 出力 |
+| --- | --- | --- |
+| `generateJte` | `src/main/jte` | `build/generated/sources/jte/main/java` |
+| `generateTestJte` | `src/test/jte`（**変えられません**） | `build/generated/sources/jte/test/java` |
+
+```kotlin
+jte {
+	sourceDirectory       = "src/main/jte"
+	packageName           = "gg.jte.generated.precompiled"
+	contentType           = "Html"    // Html | Plain
+	trimControlStructures = true
+	htmlCommentsPreserved = false
+}
+```
+
+> [!WARN]
+> `packageName` は**変えないでください。**jte の既定と揃えてあります。
+> ずらすと実行時にテンプレートが見つかりません。
+
+> [!NOTE]
+> 生成先は**毎回まるごと消してから**作ります。
+> 消したテンプレートの生成物が残ると、**消したはずのものがコンパイルを通って jar に入ります。**
+
+コンパイラ（`gg.jte:jte`）を持っているのはプラグインだけです。
+アプリの実行時クラスパスには `jte-runtime` しか入りません（要件 D-27）。
+
+## io.jimble.run
+
+```bash
+./gradlew jimbleRun
+```
+
+仕組みと注意は [ホットリロード](./hot-reload) にあります。ここは設定の一覧です。
+
+```kotlin
+jimbleRun {
+	mainClass = "my_blog.App"        // 必須
+}
+```
+
+| プロパティ | 既定 | 何を決めるか |
+| --- | --- | --- |
+| `mainClass` | **なし（必須）** | `main` を持つクラス |
+| `port` | `9000` | ブラウザが見るプロキシのポート |
+| `appPort` | `port + 100` | アプリが待ち受けるポート |
+| `env` | `"local"` | `jimble.env` として渡る |
+| `buildTasks` | `[":classes"]` | 変更時に流すタスク |
+| `watchDirs` | なし | 追加で見張る（ルートからの相対パス） |
+| `excludeDirs` | なし | 見張らない |
+| `watchExtensions` | `.java .jte .html .js .css .conf .xml .properties .yml .sql` | 見張る拡張子 |
+| `restartMode` | `"on_request"` | `on_request`（次のリクエストで） / `immediate`（保存したら） |
+| `quietMillis` | `300` | 変更が落ち着いたと見なす待ち |
+| `startTimeoutSeconds` | `60` | 起動を待つ上限 |
+| `args` | なし | `main` に渡す引数 |
+
+見張るのは `src` と `conf`（あれば）＋ `watchDirs` です。
+
+> [!TRAP]
+> **`restartMode` に書けない値を書くと落ちます。**
+> 前は黙って `on_request` に倒していたので、書き間違えても
+> 「設定したのに効かない」だけが残っていました。
+
+> [!NOTE]
+> `debug` や `jvmArgs` のプロパティは**ありません。**
+> アプリは Gradle と**同じ JVM**で動くので、IDE のデバッガがそのまま効きます。
+> ヒープを変えたいときは `gradle.properties` の `org.gradle.jvmargs` です。
+
+### ビルドに失敗したら
+
+止まりません。**ブラウザにそのまま出ます。**
+
+| 何が起きたか | ステータス |
+| --- | --- |
+| 作り直しに失敗した | **503**（Gradle の出力をそのまま） |
+| アプリに繋がらない | **502** |
+| `jimbleRun` の中で例外 | **500** |
+
+直して保存し、リロードすれば続きができます。
+
+> [!NOTE]
+> ビルドは `gradlew` を**子プロセスで**叩きます（動いているビルドの中から
+> 同じプロジェクトのタスクは呼べないため）。
+> `gradlew` が壊れていたら、理由を出して PATH の `gradle` に逃がします。
+
+
+
+---
+
+<!-- https://jimble.io/ja/hot-reload -->
+
+
+# ホットリロード
+
+```bash
+./gradlew jimbleRun
+```
+
+## 何が起きているか
+
+```
+ブラウザ ──▶ プロキシ（9000） ──▶ アプリ（9100・Gradle と同じ JVM）
+```
+
+1. `jimbleRun` が 9000 番でプロキシを立てる
+2. その裏でアプリを 9100 番（`port + 100`）で起動する
+3. ソースが変わったのを見つけたら印を付ける
+4. **次のリクエストが来たとき**にビルドして、アプリを入れ替える
+5. 入れ替わってからリクエストを流す
+
+**保存したそばからビルドはしません。** リクエストが来るまで待ちます。
+連続して保存しているあいだ、何度もビルドが走るのを避けるためです。
+
+## Gradle と同じ JVM で動きます
+
+**アプリは Gradle と同じプロセスの中で動きます。**
+IDE で `jimbleRun` を「デバッグ実行」すれば、**そのままアプリの
+ブレークポイントに止まります。** リモートデバッガを別に繋ぐ必要はありません。
+メソッド本体だけの変更なら、IntelliJ の HotSwap でそのまま差し替わります。
+
+入れ替えるときは、**新しいクラスローダを作って `main` を呼び直します。**
+古いほうは、止めてから捨てます。
+
+### Gradle の JVM が Java 25 である必要があります
+
+同じ JVM で動かすので、**ツールチェーンではなく Gradle デーモンの JVM**
+がアプリを動かします。古いと起動できません。起動時に見て、
+古ければ何を直せばよいかを言って止まります。
+
+- IntelliJ: 設定 &gt; ビルド、実行、デプロイ &gt; ビルドツール &gt; Gradle &gt; **Gradle JVM**
+- `gradle.properties`: `org.gradle.java.home=<Java 25 のパス>`
+
+### 止め方を預けてください
+
+プロセスを殺さないので、**アプリが立てたものは止めないと残ります。**
+残ったスケジューラや MQ ワーカーは、入れ替えたあとの新しいものと
+**二重に動きます**（同じジョブが2回走る）。
+
+jimble が立てるもの（サーバー・スケジューラ・DB のプール）は
+すでに預けてあります。自分で立てるものは書いてください。
+
+```java
+Shutdown.add("わたしのワーカー", worker::stop);
+```
+
+止まらなかったスレッドがあれば、名前を出して言います
+（同じ名前は1回だけ）。
+
+```
+[jimbleRun] 止まらなかったスレッドがあります: my-worker
+  同じ JVM で動かしているので、止めないものは残ります。
+  ...
+```
+
+### `System.exit()` を呼ばないでください
+
+アプリの `main` が `System.exit()` を呼ぶと、**Gradle ごと落ちます。**
+同じプロセスなので防ぎようがありません（Java 24 以降は `SecurityManager` がありません）。
+バッチの入口のように `System.exit()` を使うクラスは、`jimbleRun` の
+`mainClass` にしないでください。
+
+### 本番と同じではありません
+
+同じ JVM で入れ替えるので、`static` の状態が残ったり残らなかったりします。
+**「リロードしたときだけ落ちる」「リロードしたときだけ通る」が起こりえます。**
+おかしいと思ったら、`jimbleRun` を止めて起動し直してください。
+
+### 直列化フィルタは切っています
+
+helidon は起動のときに、**JVM 全体の Java 直列化フィルタ**を張ります
+（許可リストに無いクラスは読み戻さない、という守り）。
+同じ JVM で動かすので、これは **Gradle デーモンに張られます。**
+一度張ると外せないので、**アプリを止めてもデーモンに残ります。**
+
+残ったままだと、次のビルドがこれで落ちます。
+
+```
+Couldn't populate class org.gradle.api.services.BuildServiceParameters$None
+> filter status: REJECTED
+```
+
+**「1回目は動く。止めてもう1回動かすと起動しない」**という出かたをします。
+デーモンを作り直す（IDE の Gradle 同期、`gradle --stop`）と直るので、
+何が原因か分かりにくいところです。
+
+`jimbleRun` は、これを避けるために
+`helidon.serialFilter.missing.action` を `IGNORE` にしてからアプリを起動します。
+**切るのは `jimbleRun` のあいだだけです。** 本番はアプリが自分の JVM で
+動くので、helidon はいつもどおりフィルタを張ります。
+
+自分で `-Dhelidon.serialFilter.missing.action=...` を指定しているときは、
+そちらを尊重して何もしません。
+
+## ビルドが失敗したら
+
+エラーがそのままブラウザに出ます。ターミナルを見に行かなくて済みます。
+直して再読み込みすれば、またビルドが走ります。
+
+**アプリが落ちたままでも、プロキシは生きています。** ポートは変わりません。
+
+## 設定
+
+```kotlin
+jimbleRun {
+	// 要るのはこれだけ。ほかは既定がある
+	mainClass = "my_blog.App"
+
+	port    = 9000              // プロキシ（ブラウザが見るほう）
+	appPort = 9100              // アプリ。既定は port + 100
+	env     = "local"
+
+	buildTasks      = listOf(":my-blog:classes")
+	watchExtensions = listOf(".java", ".jte", ".conf")
+	excludeDirs     = listOf("build")
+
+	restartMode         = "on_request"   // on_request | immediate
+	quietMillis         = 300
+	startTimeoutSeconds = 60
+
+	args = listOf()
+}
+```
+
+`restartMode = "immediate"` にすると、保存した時点でビルドと入れ替えを始めます。
+待ち時間は減りますが、保存のたびに走ります。
+
+見張るディレクトリを足すなら `watchDirs`（ルートからの相対パス）です。
+プロパティの一覧は [Gradle プラグイン](./gradle) にまとめてあります。
+
+## 気をつけること
+
+- **`jimbleRun` は開発用です。** 本番では `./gradlew run` か、作った jar を直接動かします
+- **Gradle デーモンの JVM で動きます。** ヒープを変えたいときは
+  `gradle.properties` の `org.gradle.jvmargs` です（`jimbleRun { jvmArgs }` はありません）
+- 入れ替えを重ねると、止まらなかったスレッドのぶんだけメモリが増えます。
+  1日中つけっぱなしにして重くなったら、起動し直してください
+- `gradlew` があっても `gradle/wrapper/gradle-wrapper.properties` が無ければ、
+  ラッパーは壊れていると判断してシステムの `gradle` を使います
+
+
+
+---
+
+<!-- https://jimble.io/ja/testing -->
+
+
+# テスト
+
+jimble に**テスト専用のモジュールやアノテーションはありません。**
+JUnit 5 と `java.net.http.HttpClient` だけで書きます。
+
+道具はこれだけです。
+
+| やること | 使うもの |
+| --- | --- |
+| サーバーを立てる | `JimbleServer.start(app, 0)`（**ポート 0 で空いているところ**） |
+| 止める | `server.stop()` |
+| HTTP を投げる | JDK の `HttpClient` |
+| 設定を差し替える | `Conf.replace(config)` / `Conf.reload()` |
+| DB を使う | `DBUtil.load(...)` / `Migration.install()` / `DBUtil.stop()` |
+
+## 立てて、叩く
+
+**これが基本形です。** 実際に Helidon が起動するので、
+ルーティング・フィルタ・エラー処理・Content-Type まで通しで確かめられます。
+
+```java
+@BeforeAll
+static void startServer () {
+
+	server = JimbleServer.start(new SampleApp(), 0);
+	client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+
+}
+
+@AfterAll
+static void stopServer () {
+
+	if (server != null) {
+		server.stop();
+	}
+
+}
+
+/**
+ * リクエストを送る
+ */
+private static HttpResponse<String> request (String method, String path) throws Exception {
+
+	HttpRequest request = HttpRequest.newBuilder()
+		.uri(URI.create("http://127.0.0.1:" + server.port() + path))
+		.method(method, HttpRequest.BodyPublishers.noBody())
+		.timeout(Duration.ofSeconds(10))
+		.build();
+
+	return client.send(request, HttpResponse.BodyHandlers.ofString());
+
+}
+```
+
+ポートを `0` にするのが要点です。固定にすると、
+**他のテストと同時に走ったときだけ落ちます。**
+
+```java
+@Test
+void hello () throws Exception {
+	assertEquals("hello", request("GET", "/hello").body());
+}
+```
+
+> [!TIP]
+> `HttpClient` に `CookieManager` を持たせると、セッション・CSRF・Flash まで通ります。
+> リダイレクトを検証したいときは `followRedirects(HttpClient.Redirect.NEVER)` にしてください
+> （既定では追ってしまい、302 を見られません）。
+
+## HTTP を通さずにルータだけ叩く
+
+サーバーを立てずに `Dispatcher` を直接呼ぶこともできます。速いぶん、
+Helidon 側の挙動（ストリーム送信や圧縮）は確かめられません。
+
+```java
+private Fakes.FakeResponseSink dispatch (JimbleApp app, String method, String rawPath) {
+
+	Dispatcher dispatcher = new Dispatcher(app);
+	Fakes.FakeRequestSource source = new Fakes.FakeRequestSource(method, rawPath);
+	Fakes.FakeResponseSink sink = new Fakes.FakeResponseSink();
+
+	try (WebContext context = new WebContext(source, sink)) {
+		dispatcher.dispatch(context);
+		return sink;
+	}
+```
+
+> [!WARN]
+> `Fakes`（上のコードの `FakeRequestSource` / `FakeResponseSink`）は
+> **jimble のテストの中にあるもので、公開していません。**
+> アプリから同じことをするなら `RequestSource` / `ResponseSink` を自分で実装します。
+> 手間に見合うことは少ないので、**まずは上の「立てて、叩く」を使ってください。**
+
+## DB を使うテスト
+
+### 分ける
+
+DB が要るテストには印を付けて、**普段のビルドからは外します。**
+繋ぎ先が無い環境（CI やクローンした直後）でビルドが赤くなるのを避けるためです。
+
+```java
+@Tag("db")
+class PostIntegrationTest { ... }
+```
+
+アプリ側の `build.gradle.kts` にこう足します。
+
+```kotlin
+tasks.withType<Test>().configureEach {
+	useJUnitPlatform { excludeTags("db") }
+}
+
+tasks.register<Test>("dbTest") {
+	group = "verification"
+	testClassesDirs = sourceSets.test.get().output.classesDirs
+	classpath = sourceSets.test.get().runtimeClasspath
+	useJUnitPlatform { includeTags("db") }
+
+	// 設定を dbtest に切り替える
+	systemProperty("jimble.env", "dbtest")
+
+	// 前のテストが TRUNCATE した結果を見てしまわないよう、毎回走らせる
+	outputs.upToDateWhen { false }
+}
+```
+
+`conf/application.dbtest.conf` を置いて、繋ぎ先を書きます。
+**共通の設定を読むのは1行目の `include` です**（[設定](./config)）。
+
+```conf
+include "application.conf"
+
+db {
+	main {
+		url      = "jdbc:mariadb://127.0.0.1:3306/app_test"
+		url      = ${?TEST_DB_URL}
+	}
+}
+```
+
+### 立ち上げる
+
+```java
+@BeforeAll
+static void startServer () {
+
+	Conf.reload();
+
+	/*
+	 * <b>本番の入口と同じものを呼ぶ。</b>
+	 * ここでテストだけの用意を書くと、入口が変わったときに<b>テストだけ通る</b>。
+	 */
+	Bootstrap.load();
+
+	// ポート 0 で空いているところを使う。他のテストと衝突しない
+	server = JimbleServer.start(new BlogApp(), 0);
+
+	client = HttpClient.newBuilder()
+		.connectTimeout(Duration.ofSeconds(5))
+		.cookieHandler(new CookieManager())
+		.followRedirects(HttpClient.Redirect.NEVER)
+		.build();
+
+}
+```
+
+順番が決まっています。
+
+1. **`Conf.reload()`** — 環境（`jimble.env`）は最初に読まれた時点で決まっているので、読み直す
+2. `Migration.install()` — テーブルを作る
+3. `DBUtil.load(...)` — 接続する
+4. `JimbleServer.start(app, 0)`
+
+後始末は `@AfterAll` の `DBUtil.stop()`、
+各テストの前に `TRUNCATE TABLE ...` です。
+
+> [!TRAP]
+> **テストごとに自動でロールバックする仕組みはありません。**
+> 書いたものは残ります。`@BeforeEach` で消してください。
+
+### 並べて走らせない
+
+> [!WARN]
+> DB を使うテストを並列で走らせると、**あるテストの `TRUNCATE` が別のテストの行を消します。**
+> 「たまに落ちる」でしか出ないので、原因を追うのに時間を取られます。
+> Gradle の共有サービス（`maxParallelUsages = 1`）で直列にするのが確実です。
+
+## 設定を差し替える
+
+```java
+// 既存の設定に重ねる（ふつうはこちら）
+Conf.replace(ConfigFactory
+	.parseString("upload.max_file_size = 10")
+	.withFallback(Conf.conf().config()));
+```
+
+> [!TRAP]
+> `Conf.replace` は**グローバルで、元に戻す口がありません。**
+> 差し替えたテストは `@AfterEach` で `Conf.reload()` してください。
+> 忘れると、**あとから走ったテストだけが落ちます**（しかも実行順しだいで変わります）。
+
+## jimble 自身のテストを動かす
+
+```bash
+./gradlew build                 # DB 不要のぶん
+./gradlew :jimble-db:dbTest     # 実 MySQL / MariaDB を使うぶん
+./gradlew :jimble-db:pgTest     # 同じテストを実 PostgreSQL に流す
+```
+
+`dbTest` と `pgTest` は**まったく同じテスト**を走らせます。
+違うのは読む設定ファイル（`application.dbtest.conf` / `application.pgtest.conf`）だけで、
+後者に `product = "postgresql"` が入っています。
+**テストのコードは1行も変えていません。**
+
+繋ぎ先は環境変数で変えられます。
+
+```bash
+JIMBLE_TEST_DB_URL="jdbc:mariadb://127.0.0.1:3306/jimble_test" \
+JIMBLE_TEST_DB_USER=jimble \
+JIMBLE_TEST_DB_PASSWORD=jimble \
+  ./gradlew :jimble-db:dbTest
+
+JIMBLE_TEST_PG_URL="jdbc:postgresql://127.0.0.1:5432/jimble_test" \
+JIMBLE_TEST_PG_USER=jimble \
+JIMBLE_TEST_PG_PASSWORD=jimble \
+  ./gradlew :jimble-db:pgTest
+```
+
+これは **jimble 本体のテスト用**です。
+`examples/` のサンプルは **`JIMBLE_SAMPLE_DB_*` / `JIMBLE_SAMPLE_PG_*`** という別の名前を見ます。
+
+> [!NOTE]
+> **名前を分けているのは、混ぜると事故になるためです。**
+> 以前はサンプルも `JIMBLE_TEST_*` を見ていたので、
+> この環境変数を立てると<b>サンプルのマイグレーションが `jimble_test` に流れ込み</b>、
+> 履歴が混ざって<b>jimble 本体のマイグレーションテストが落ちて</b>いました。
+> 落ち方が「フレームワークの不具合」に見えるのが厄介なところでした。
+
+> [!NOTE]
+> `jimble new` が作る雛形には、まだテストの足場（JUnit の依存と `dbTest`）が入っていません。
+> 上のとおり手で足してください。
+
+
+
+---
+
+<!-- https://jimble.io/ja/config -->
+
+
+# 設定
+
+`conf/application.conf` に書きます。書式は HOCON です。
+
+## 置き場所
+
+**設定は `conf/` に置きます。**
+
+```
+conf/application.conf          設定
+conf/application.local.conf    環境別
+conf/migration/<スキーマ名>/   マイグレーション
+```
+
+`build.gradle.kts` で `conf` をリソースに足します。
+
+```kotlin
+sourceSets {
+	main {
+		resources {
+			srcDir("conf")
+		}
+	}
+}
+```
+
+こうすると **`conf/` の中身はそのまま jar に入ります。**
+`codegen` / `migrate` / `jimbleRun` / テストも、同じファイルをクラスパスから見ます。
+
+**jimble が読むのはクラスパスだけです。** jar の外は見ません。
+設定を変えたらビルドし直します。**動いている jar と設定が1対1になります。**
+
+**読むのは1ファイルだけです。**
+
+1. `application.<env>.conf` があれば**それ**
+2. 無ければ `application.conf`
+
+**どのファイルを読んだかは起動ログに出ます。**
+
+```
+設定: jar:file:/opt/app/app.jar!/application.prod.conf
+```
+
+## 環境で切り替える
+
+共通を読み込むのは**環境別ファイルの `include`** です。
+
+```conf
+# application.prod.conf
+include "application.conf"
+
+db {
+	main {
+		url = ${?DB_URL}
+	}
+}
+```
+
+```
+application.conf          共通
+application.prod.conf     本番。1行目で共通を読み、続きで上書きする
+```
+
+環境は `-Djimble.env=prod` で決まります。既定は `local` です。
+
+**jimble は裏で共通を足しません。** 足すと、`include` が効いているのか
+フレームワークが足しているのかが**ファイルを見ても分からなくなる**からです。
+読むファイルは1つ、続きは書いてあるとおりです。
+
+### include を書き忘れたら
+
+共通の設定が丸ごと落ちます。落ちたら起動時に名指しで言います。
+
+```
+設定: application.conf にしかないキーが読まれていません: cipher, session, server
+ / application.prod.conf の先頭に include "application.conf" を書いてください
+```
+
+## 秘密はファイルに書かない
+
+```conf
+db {
+	main_db {
+		url      = "jdbc:mariadb://127.0.0.1:3306/app"
+		url      = ${?DB_URL}
+		password = ""
+		password = ${?DB_PASSWORD}
+	}
+}
+```
+
+`${?ENV_NAME}` は「環境変数があれば上書き、無ければ前の行のまま」です。
+同じキーを2回書くのが正しい書き方です。
+
+## コメントは # か //
+
+**HOCON に `/* */` はありません。** 書くとこうなります。
+
+```
+Key '/' may not be followed by token: '*'
+```
+
+## 主なキー
+
+```conf
+server {
+	host        = ""         # 待ち受けるアドレス。空なら全部
+	port        = 9000
+	trust_proxy = false      # ロードバランサの後ろに置くまで false
+	max_request_size     = 10485760
+	max_header_size      = 16384
+	idle_timeout_seconds = 60
+	compression          = true
+	access_log           = true     # 切ると速くなるが、何が起きたか残らない
+	bot_access_log       = true
+	strict_routes        = false    # 一生呼ばれないルートを例外にする（CI では true に）
+
+	shutdown_grace_seconds   = 0    # 止め始めてから新規を断つまで
+	shutdown_timeout_seconds = 15   # 処理中を待つ上限
+}
+
+cookie {
+	secure           = true            # ローカルでは false（下を参照）
+	secret           = ${?COOKIE_SECRET}
+	previous_secrets = [${?COOKIE_SECRET_OLD}]   # 鍵の入れ替え中だけ
+}
+
+session {
+	store            = "none"     # none | db | redis | cookie
+	cookie_name      = "sid"
+	secret           = ${?SESSION_SECRET}        # store = cookie のとき必須
+	previous_secrets = [${?SESSION_SECRET_OLD}]  # 鍵の入れ替え中だけ
+}
+
+upload {
+	max_file_size  = 10485760   # 1ファイル（10MB）
+	max_total_size = 52428800   # 1リクエスト合計（50MB）
+	max_files      = 20
+	temp_dir       = ""         # 空なら java.io.tmpdir
+}
+
+auth {
+	lockout {
+		enabled       = true    # DB が無ければ何もしない
+		free_attempts = 3       # ここまでは待たされない（打ち間違い）
+		base_seconds  = 1       # 4回目から 1 → 2 → 4 …
+		max_seconds   = 300     # 待ち時間の上限
+		forget_hours  = 24      # これだけ間が空いたら数え直す
+	}
+
+	remember {
+		enabled       = true    # DB が無ければ何もしない
+		cookie_name   = "remember"
+		sliding_days  = 30      # 最後に使ってからこれだけ
+		absolute_days = 90      # 発行してからこれを超えたら、使っていても切れる
+		grace_seconds = 60      # 回した直後、古いほうも通す時間
+	}
+
+	oidc {
+		google {
+			issuer        = "https://accounts.google.com"
+			client_id     = ${?GOOGLE_CLIENT_ID}      # 環境変数から
+			client_secret = ${?GOOGLE_CLIENT_SECRET}  # 設定ファイルに書かない
+			redirect_uri  = "https://example.com/auth/google/callback"
+
+			# 省略できる。issuer から discovery で引く
+			# authorization_endpoint = "..."
+			# token_endpoint         = "..."
+			# jwks_uri               = "..."
+
+			scopes        = "openid email profile"
+			clock_skew    = 60      # 秒。時計のずれをどこまで許すか
+			discovery_ttl = 3600    # 秒。discovery と JWKS を持つ時間
+		}
+	}
+
+	mfa {
+		enabled         = true      # DB と secret_key が要る（下を参照）
+		issuer          = "jimble"  # 認証アプリの一覧に出る名前
+		digits          = 6         # 6 から変えない（多くのアプリが6桁しか出せない）
+		period          = 30        # 秒
+		window          = 1         # 前後いくつの窓まで許すか。広げるほど当たりも増える
+		recovery_codes  = 10        # 登録のときに出す数
+		pending_seconds = 300       # パスワードが通ってからコードを入れるまでの猶予
+
+		# 秘密鍵を暗号化する鍵。無ければ Mfa.enroll が断る。
+		# cipher.key を流用しないこと（下を参照）
+		secret_key      = ${?MFA_SECRET_KEY}
+	}
+}
+
+cipher {
+	# 移送してきたアプリの、暗号化済みパスワードハッシュを読むための鍵。
+	# 二要素認証には使わない（下を参照）
+	key = ${?CIPHER_KEY}   # 16 / 24 / 32 バイト
+	iv  = ${?CIPHER_IV}    # 16 バイト
+}
+
+rate_limit {
+	store   = "memory"       # memory | redis | db
+	enabled = true
+}
+
+cache {
+	type          = "db"     # db | memory | redis
+	temp_dir      = ""
+	memory.expire = 0        # memory のときだけ。秒
+}
+
+redis {
+	host = ""                # 空なら Redis 無し
+	port = 6379
+	ssl  = false
+}
+
+sse {
+	max_duration_seconds = 300
+	max_events           = 0
+	retry_millis         = 3000
+}
+
+mcp {
+	path            = "/mcp"
+	allowed_origins = []
+}
+
+migration {
+	# auto | true | false。auto はローカル以外で当てる
+	on_startup   = "auto"
+	resource_dir = "migration"
+}
+
+codegen {
+	package = "db"
+}
+```
+
+## cipher.key と auth.mfa.secret_key は別のもの
+
+**二要素認証に `cipher.key` を流用しないでください。**
+
+`hash.password.encrypt` の既定は **「`cipher.key` が設定されていれば true」**です。
+移送してきたアプリの保存済みハッシュが暗号化されているので、
+**鍵があるのに平文の BCrypt として照合すると全員入れなくなる**——それを避けるための既定です。
+
+このため、**いま平文の BCrypt を保存しているアプリが、二要素認証のために `cipher.key` を
+足すと、今度は逆向きに全員入れなくなります。**
+出るのは「IDかパスワードが違います」だけなので、設定を足したことと結び付きません。
+
+| | |
+| --- | --- |
+| `cipher.key` / `cipher.iv` | **移送してきたアプリの暗号化済みパスワードハッシュを読む**ためのもの。新しく暗号化するものには使いません（固定 IV で、改ざん検知もありません） |
+| `auth.mfa.secret_key` | **TOTP の秘密鍵を暗号化する**ためのもの。AES-256-GCM です |
+
+明示したいときは `hash.password.encrypt` を書いてください
+（**書けば既定は効きません**）。
+
+## trust_proxy は既定で false
+
+`true` にすると `X-Forwarded-For` を信じます。
+**ロードバランサの後ろに置くまでは `false` のままにしてください。**
+直接叩ける状態で `true` にすると、送信元 IP を誰でも偽れます。
+
+## cookie.secure は既定で true
+
+安全側が既定ですが、ローカルは http なのでブラウザが Cookie を返しません。
+セッションも CSRF も Flash も、エラーを出さずに効かなくなります。
+
+`env=local` かつ `secure = true` のときは、起動時に WARN が出ます。
+ローカル用の `application.conf` には `cookie { secure = false }` を入れて、
+**本番へ出すときに消してください**。
+
+## 起動ログで確認する
+
+```
+jimble 構成: env=local / session=none / cache=db / redis=なし / db=[blog_example]
+```
+
+読み込まれた設定が起動の1行目に出ます。
+「設定したつもりが効いていない」はここで気づけます。
+
+
+
+---
+
+<!-- https://jimble.io/ja/server -->
+
+
+# サーバー設定
+
+```conf
+server {
+	host                 = ""         # 待ち受けるアドレス。空なら全部
+	port                 = 9000
+	max_request_size     = 10485760   # リクエスト本文の上限（10MB）
+	max_header_size      = 16384      # ヘッダ全体の上限（16KB）
+	idle_timeout_seconds = 60
+	trust_proxy          = false      # X-Forwarded-* を信じるか
+	compression          = true       # 応答を gzip で返すか
+	access_log           = true       # アクセスログを出すか（[ログ](./log)）
+	bot_access_log       = true       # ボットのアクセスログを分けるか
+	strict_routes        = false      # 一生呼ばれないルートを例外にするか（CI では true に）
+
+	shutdown_grace_seconds   = 0      # 止め始めてから新規を断つまで（秒）
+	shutdown_timeout_seconds = 15     # 処理中を待つ上限（秒）
+}
+```
+
+**書かなければ上の既定で動きます。**いま何が効いているかは起動ログに出ます。
+
+```
+jimble を起動しました: http://localhost:9000
+サーバー設定: 待受=全部 / 本文上限=10485760byte / ヘッダ上限=16384byte / アイドル=60秒 / 圧縮=true / プロキシ信頼=false
+```
+
+## ポート
+
+**ポートだけはシステムプロパティでも指定できます。**コンテナで「設定ファイルは触らずポートだけ変える」ためです。
+
+```bash
+java -Djimble.server.port=8080 -jar app.jar
+```
+
+優先順は `-Djimble.server.port` &gt; `server.port` &gt; 9000 です。
+
+> [!TIP]
+> `JimbleServer.start(app, 0)` にすると**空いているポートを自動で取ります。**
+> テストはこれを使ってください（固定にすると、並べて走らせたときだけ落ちます）。
+> 実際のポートは `server.port()` で取れます。
+
+## 待ち受けるアドレス
+
+**空なら全部のアドレスで待ちます。**外から見えてはいけないものは絞ってください。
+
+```conf
+server { host = "127.0.0.1" }
+```
+
+> [!TIP]
+> 手元で動かす MCP サーバーはこれが要ります（[MCP](./mcp)）。
+> **ファイアウォールに頼ると、設定を忘れたときに黙って公開されます。**
+
+## 上限
+
+| | 上限 | 超えたら |
+| --- | --- | --- |
+| リクエスト本文 | `server.max_request_size`（10MB） | **413** |
+| ヘッダ全体 | `server.max_header_size`（16KB） | 接続ごと切られる |
+| 何もしない接続 | `server.idle_timeout_seconds`（60秒） | 閉じる |
+
+アップロードにはこれとは別の上限があります（[ファイルアップロード](./upload)）。
+
+> [!WARN]
+> **アップロードの合計上限（既定 50MB）より本文の上限（既定 10MB）のほうが小さい**ので、
+> 大きいものを受けるなら両方を上げてください。
+
+読み取り／書き込みのタイムアウトはありません。
+
+## プロキシの後ろに置く
+
+**既定では `X-Forwarded-*` を信じません。**信じるのは、前段のプロキシを必ず通ると分かってからです。
+
+```conf
+server { trust_proxy = true }
+```
+
+`true` にすると `proxyAddress()` が次の順で送信元を返します。
+
+1. `CF-Connecting-IP`
+2. `X-Real-IP`
+3. `X-Forwarded-For` の**先頭**
+4. どれも無ければ接続元
+
+> [!TRAP]
+> **`trust_proxy` を true にしても `address()` は変わりません。**
+> `address()` は常に**TCP の接続元**（＝ロードバランサ）です。
+> 送信元で判断するところは `proxyAddress()` を使ってください。
+
+> [!TRAP]
+> **ボット判定（`isBotAccess()`）は `address()` を見ます。**
+> プロキシの後ろでは、判定に使う IP がロードバランサのものになります。
+
+> [!TRAP]
+> **`scheme()` も `X-Forwarded-Proto` を見ません。**
+> TLS を前段で終端していると、アプリからは `http` に見えます。
+> リダイレクト先を組み立てるときに気をつけてください。
+
+> [!WARN]
+> **直接叩ける状態で `true` にしないでください。**
+> ヘッダは誰でも付けられるので、**送信元をいくらでも偽れます。**
+> 信頼する upstream を IP で絞る仕組みはありません（真偽値1つです）。
+
+## 圧縮
+
+`server.compression`（既定 `true`）で **on / off** します。
+何を圧縮するかはサーバー（Helidon）が `Accept-Encoding` を見て決めます。
+
+> [!NOTE]
+> **圧縮レベルや、種類ごとの除外はありません。**細かく制御したいときは前段でやってください。
+
+## ボットを弾く
+
+判定だけならアクセスログの分離で足ります（[ログ](./log)）。**弾く**なら宣言します。
+
+```java
+before(BotBlocker.forbidden());                          // 403 を返す
+before(BotBlocker.of(context -> context.response().redirect("/")));   // 好きに返す
+```
+
+> [!NOTE]
+> **既定の「弾く」動作は用意していません。**検索エンジンまで弾くと困るので、
+> 何を返すかはアプリが決める形にしてあります。
+
+## 無いもの
+
+| | |
+| --- | --- |
+| **TLS / HTTPS** | 前段（ロードバランサ・nginx）で終端してください |
+| **HTTP/2** | 依存に入れていません |
+| **ヘルスチェックのルート** | jimble は用意しません（下の「止める」を参照） |
+
+## 止める
+
+**いきなり止めません。**`stop()` はこの順に進みます。
+
+1. **「止め始めた」ことにする** — `Shutdown.isStopping()` が true になる。**普通のリクエストはまだ受ける**
+2. `server.shutdown_grace_seconds` 待つ（既定 0）
+3. **新しいリクエストを断つ**（503）
+4. 処理中のものが終わるのを `server.shutdown_timeout_seconds`（既定 15 秒）まで待つ
+5. サーバーを止める
+
+**SIGTERM を受けたら自動で走ります**（コンテナはこれを送って待ちます）。
+
+### ヘルスチェックを先に落とす
+
+jimble はヘルスチェックのルートを用意しません。**こう書いてください。**
+
+```java
+get("/health_check", context ->
+	context.response().send(Shutdown.isStopping() ? 503 : 200));
+```
+
+> [!TIP]
+> ロードバランサがこの台を外すまでには時間がかかります。
+> その間に来たリクエストを 503 にすると、**外から見たらエラー**です。
+> だから 1 と 3 の間に猶予を置けるようにしてあります。
+> ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → `shutdown_grace_seconds = 10`）を入れてください。
+
+> [!WARN]
+> **待ちきれなかったら、残ったまま止めます。**
+> そのときは `処理中のリクエストが N 件残ったまま停止します` が warn に出ます。
+> 止まらないほうが困る（コンテナに強制終了される）ためです。
+
+> [!NOTE]
+> 自分で立てたスレッドも一緒に止めたいなら `Shutdown.add(...)` に預けてください
+> （[実行モデル](./execution)）。
+
+## jimble をプロキシにする
+
+逆に、jimble から別のサーバーへ流すこともできます。
+
+```java
+install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
+```
+
+`X-Forwarded-For` は**既存の値に足します**（上書きしません）。
+タイムアウトは `proxy.connect_timeout_ms`（5秒）と `proxy.request_timeout_ms`（30秒）で、
+転送に失敗したら **502** を返します。
+
+
+
+---
+
+<!-- https://jimble.io/ja/log -->
+
+
+# ログ
+
+```java
+Log.info("起動しました");
+Log.warn("設定が足りません: %s".formatted(key));
+Log.debug("見つかりませんでした");
+Log.error(cause, "保存できませんでした: id=%d".formatted(id));
+```
+
+> [!WARN]
+> **`{}` のプレースホルダは使えません。**SLF4J の書式ではないので、
+> `Log.info("id={}", id)` と書いても `{}` のまま出ます。
+> `String.formatted(...)` で組み立ててください。
+
+> [!NOTE]
+> `Log.error(cause, "説明")` は、**メッセージが例外のもの**になります。
+> 書いた説明は構造化データのほうに入り、同梱のエンコーダが1行目に並べて出します。
+>
+> ```
+> [2026-09-07 13:12:19]-[main] error 保存できませんでした / java.lang.IllegalStateException: 書けません
+> ```
+
+## ロガーの名前
+
+| ロガー | 何が出るか |
+| --- | --- |
+| `access` | アクセスログ（1リクエストに1行） |
+| `access.bot` | ボットのアクセスログ |
+| `error` | `Log.error(...)` |
+| `io.jimble.util.log.Log` | `Log.info` / `warn` / `debug` / `trace` |
+| 任意の名前 | `Log.appInfo("my.audit", ...)` などで指定 |
+
+> [!TRAP]
+> `Log.info` などの**呼び出し元クラス名はロガー名になりません。**
+> いつも `io.jimble.util.log.Log` です。
+> 用途で分けたいときは `Log.appInfo("名前", ...)` を使ってください。
+
+## どのログにも必ず入るもの
+
+| キー | 中身 |
+| --- | --- |
+| `request_id` | 実行 ID（リクエストの外では `-`） |
+| `sql_execute_count` | そのリクエストで投げた SQL の本数 |
+| `sql_execute_time` | その合計時間（ミリ秒） |
+| `local_info` | **サーバー自身**の IP とホスト名 |
+
+**SQL の本数と時間がどのログにも入る**のが要点です。
+N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-O-02）。
+
+## アクセスログ
+
+**1リクエストに1行**、リクエストの終わりに出ます。**ルートに当たらなくても出ます**（404 も残る）。
+
+| キー | 中身 |
+| --- | --- |
+| `method` / `path` / `query` | リクエスト |
+| `status` | ステータスコード |
+| `elapsed` | 実行時間（ミリ秒） |
+| `matched` | ルートに当たったか |
+| `bot` | ボットと判定したか |
+
+```json
+{"logger_name":"access","level":"INFO","message":"GET /users/42 200",
+ "request_id":"m1abcd-xyz-1","sql_execute_count":2,"sql_execute_time":4.0,
+ "method":"GET","path":"/users/42","query":"","status":200,"elapsed":12.34,
+ "matched":true,"bot":false}
+```
+
+> [!TRAP]
+> **クライアントの IP と User-Agent は入っていません。**`local_info` はサーバー自身のものです。
+> 要るなら `Log.addFieldProvider(...)` で足してください。
+
+### ボットを分ける
+
+`server.bot_access_log`（既定 `true`）が有効なら、ボットの行は **`access.bot`** に出ます。
+判定は User-Agent の一覧（`crawler-user-agents`）との照合です。
+
+> [!TIP]
+> クローラは全体の何割にもなります。分けておくと、
+> **人のアクセスだけを数えられます。**同じところに出したいなら `false` にしてください。
+
+### 切る
+
+`server.access_log = false` で、1行も出さなくなります。
+
+```conf
+server {
+	access_log = false
+}
+```
+
+**1リクエストの中でいちばん大きいのがここです**（割り当ての約4割。約 3,400 byte）。
+切ると、行を組み立てる仕事も、ボット判定（User-Agent の照合）も止まります。
+秒あたりの本数は1割ほど変わります（10 コアの Mac・8接続で 52,537 → 57,030 rps）。
+**台によって違うので、切る前に自分の台で測ってください**
+（`jimble-load/load.sh` が、出す版と出さない版を並べて測ります）。
+
+**メトリクスとトレースは残ります。**切って消えるのはアクセスログだけです。
+
+> [!TRAP]
+> **既定は `true` のままにしてください。**切ると、
+> **後から「あのとき何が起きたか」を調べる手段が無くなります。**
+> 500 が出ていたことも、誰がどのパスを叩いたかも残りません。
+> 切るのは、**前段（ロードバランサや nginx）が同じ内容を残していて、
+> かつ実測して足りない**と分かったときだけです。
+
+## 実行 ID
+
+`36進の時刻-乱数-連番` で、リクエスト（や WebSocket のメッセージ、バッチ）ごとに1つ採番されます。
+持ち回りは `ScopedValue` で、**MDC は使っていません。**
+
+先頭が時刻なので、**ID を並べ替えると時系列になります。**
+
+> [!NOTE]
+> **レスポンスヘッダには出ません。**
+> 「この画面のエラーのログを探したい」を成り立たせるなら、
+> `after` で `context.response().setResponseHeader("X-Request-Id", context.executionId())` を自分で書いてください。
+
+## SQL のログ
+
+SQL の**本数と時間**は自動で数えます（上の表）。
+
+> [!WARN]
+> **SQL 文そのものとバインド値はログに出しません。**
+> 遅いクエリの閾値もありません。
+> 出したい場合は DB 側（`general_log` / `slow_query_log`）で見てください。
+
+`log.db = true` にすると、アプリが `DBLog.save(db, data)` で書いたものが
+`db_log` テーブルに入ります。**SQL を自動で記録する機能ではありません。**
+
+## logback の設定
+
+jimble は logback とエンコーダを持っていますが、**設定ファイルはアプリのものです。**
+`jimble new` の雛形は `conf/logback.xml` を作ります（`conf/` は jar に入ります）。
+
+```xml
+<configuration>
+
+	<!-- 人が読む形 -->
+	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d{HH:mm:ss.SSS} %-5level %logger{20} - %msg%n</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+	</appender>
+
+	<!-- 例外。スタックトレースを字下げして出す（jimble 同梱） -->
+	<appender name="error" class="ch.qos.logback.core.ConsoleAppender">
+		<target>System.err</target>
+		<encoder class="io.jimble.util.log.encoder.LogbackErrorEncoder"/>
+	</appender>
+
+	<!-- 機械が読む形。1行に1つの JSON（jimble 同梱） -->
+	<appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder class="io.jimble.util.log.encoder.LogbackJsonEncoder"/>
+	</appender>
+
+	<logger name="access" level="INFO" additivity="false">
+		<appender-ref ref="json"/>
+	</logger>
+
+	<logger name="access.bot" level="INFO" additivity="false">
+		<appender-ref ref="json"/>
+	</logger>
+
+	<logger name="error" level="ERROR" additivity="false">
+		<appender-ref ref="error"/>
+	</logger>
+
+	<root level="INFO">
+		<appender-ref ref="console"/>
+	</root>
+
+</configuration>
+```
+
+> [!TRAP]
+> **`access.bot` は `access` の子です。**`additivity="false"` を外すと、
+> ボットの行が**両方に出ます**（人のアクセスを数えているつもりで二重に数えます）。
+
+> [!WARN]
+> 設定ファイルを置かないと logback の既定になり、
+> **アクセスログもアプリのログも同じところに混ざります。**
+
+環境で分けたいときは、`logback.xml` の代わりに
+`-Dlogback.configurationFile=conf/logback.prod.xml` を渡してください。
+
+## テストで拾う
+
+```java
+@BeforeEach
+void captureLog () {
+
+	Log.sink((loggerName, level, message, data, throwable) ->
+		logs.add(new Entry(loggerName, level, message, data)));
+
+}
+
+@AfterEach
+void restoreLog () {
+
+	Log.resetSink();
+
+	// 設定を触るテストがあるので、必ず戻す（残すと後ろのテストが理由なく落ちる）
+	Conf.reload();
+
+}
+```
+
+`Log.sink(...)` は**全体を差し替えます**。`@AfterEach` で `Log.resetSink()` を忘れないでください。
+
+## メトリクス
+
+`Metrics.snapshot()` が、いまの値をまとめて返します。
+
+```java
+get("/metrics", context -> context.response().json(Metrics.snapshot()));
+```
+
+> [!WARN]
+> **jimble は `/metrics` のルートを用意しません。**外に晒すかどうか、認証を付けるかどうかは
+> アプリの都合なので、フレームワークが握ると閉じたいときに閉じられません
+> （[ヘルスチェック](./server)と同じ考え方です）。
+> 上の1行は**そのまま書くと誰でも見られます。**社内からだけ見せる、
+> 認証を通す、といった手当てをしてください。
+
+返る形はこうです。
+
+```json
+{
+  "counter": { "http.request": 1234, "http.status.2xx": 1230, "http.status.5xx": 4 },
+  "latency": {
+    "http.GET /posts/{id}": {
+      "count": 1200, "sum_ms": 4321.0, "max_ms": 812.3,
+      "p50_ms": 10, "p95_ms": 100, "p99_ms": 500,
+      "bucket": { "1": 300, "5": 700, "10": 150, "50": 40, "100": 8, "500": 1, "1000": 1, "5000": 0, "over": 0 }
+    }
+  },
+  "gauge": { "db.pool.main.active": 3, "db.pool.main.idle": 5 }
+}
+```
+
+### 何が勝手に入っているか
+
+| 名前 | 何 |
+| --- | --- |
+| `http.request` | リクエスト数 |
+| `http.status.2xx` … `5xx` | ステータスの百の位ごとの数 |
+| `http.GET /posts/{id}` | ルートごとのレイテンシの分布 |
+| `db.pool.<名前>.{active,idle,total,waiting}` | 接続プールの使用数 |
+| `mq.<キュー>.received` / `.completed` / `.error` … | MQ の件数（終わり方ごと） |
+| `mq.<キュー>` | MQ のレイテンシの分布 |
+
+### 自分で入れる
+
+```java
+Metrics.count("posts.created");
+Metrics.record("search.elapsed", elapsedNanos);
+Metrics.gauge("cache.size", () -> cache.size());
+```
+
+> [!TRAP]
+> **`Metrics.gauge(...)` に渡すものが I/O をしてはいけません。**
+> `Metrics.snapshot()` のたびに呼ばれるので、DB を触ると
+> **DB が詰まっているときに限ってメトリクスも取れなくなります**——いちばん見たいときに見えません。
+> MQ の滞留数（`MqQueue#pendingCount()`）を jimble が自動で登録していないのはこのためです。
+> 承知のうえで要るなら、自分で登録してください。
+>
+> ```java
+> Metrics.gauge("mq.notice.pending", () -> noticeQueue.pendingCount());
+> ```
+
+> [!WARN]
+> **利用者の入力を名前にしないでください。**`Metrics.count(request.path())` と書くと、
+> `/aaa` `/aab` … と叩かれるだけでヒープが埋まります。名前は **1000 種類**が上限で、
+> 超えると1回だけ警告を出して、それ以上は数えません（**そのあとは本物のルートも数えられません**）。
+> jimble 自身がレイテンシに生のパスではなく `GET /posts/{id}` を使い、
+> どのルートにも当たらなかったものを `(unmatched)` 1つにまとめているのも同じ理由です。
+
+> [!NOTE]
+> **分布は固定のバケット**（1 / 5 / 10 / 50 / 100 / 500 / 1000 / 5000ms ＋ あふれ）に数を入れるだけで、
+> ひとつひとつの値は覚えません。何件入れてもメモリは増えませんが、
+> **パーセンタイルは「入ったバケットの上限」まで**しか言えません（`p95_ms: 100` は「100ms 以下」）。
+> あふれに入ったぶんは実測の最大を返します。
+
+> [!NOTE]
+> `Metrics.reset()` は**テストのためのもの**です。動いているアプリで呼ぶと、それまで数えたものが消えます。
+
+## トレース
+
+サービスをまたいだ1本の流れを見る（要件 NF-O-05）。**使うときだけ依存が増えます。**
+
+```kotlin
+// build.gradle.kts
+implementation("io.jimble:jimble-otel:0.2.1")
+```
+
+```java
+public static void main (String[] args) {
+
+    JimbleOtel.install("my-app", "http://localhost:4318");
+
+    new JimbleServer(...).start();
+
+}
+```
+
+これだけで、次のものに自動で区間が付きます。
+
+| 区間 | 名前 | 種類 |
+| --- | --- | --- |
+| HTTP リクエスト | `GET /posts/{id}` | `server` |
+| SQL 1文 | `SELECT post` | `client` |
+| MQ に積む | `mq.put notice` | `producer` |
+| MQ を処理する | `mq notice` | `consumer` |
+| バッチ1回 | `batch 日次集計` | `internal` |
+
+アプリの中を細かく見たいところは自分で足せます。
+
+```java
+try (Span span = Tracing.start("画像の変換", SpanKind.internal)) {
+    span.attribute("file", name);
+    convert(file);
+}
+```
+
+> [!NOTE]
+> **足さないアプリは1 byte も増えません。**`jimble-core` が持っているのは口（`Tracer` / `Span`）だけで、
+> OpenTelemetry の実体は `jimble-otel` にあります。登録しないあいだ、`Tracing.start(...)` の費用は
+> **静的な変数を1つ読んで分岐するだけ**（実測で 1 回あたり 0 byte）です。
+
+### サービスをまたぐ
+
+入ってきた `traceparent`（W3C Trace Context）は**自動で引き継ぎます**。
+jimble の HTTP クライアントから出るときも**自動で付きます**。
+
+```java
+// 相手側のトレースが、こちらの続きとして繋がる
+new HttpGetExecutor("https://api.example.com/users").execute();
+```
+
+MQ も繋がります。**積んだリクエストと、何分もあとに別のプロセスで動いた処理が1本になります。**
+そのために `traceparent` をキューの行に持っています（`data` には入れません）。
+
+> [!WARN]
+> **MQ を使っているアプリは、キューのテーブルに列が1つ増えます**（`traceparent varchar(64)`）。
+> `MqTables.install(...)` が起動時に当てるので、手で流す必要はありません。
+
+それ以外の経路で外へ渡すときは自分で入れてください。
+
+```java
+String traceparent = Tracing.traceparent();   // トレースが無効なら null
+```
+
+### ログと突き合わせる
+
+トレースが有効なとき、**すべてのログに `trace_id` と `span_id` が入ります**。
+実行 ID（`request_id`）はそのままなので、いままでの集計は壊れません。
+
+```json
+{"request_id":"mttvgm93-10676dj-1","trace_id":"4bf92f35...","span_id":"00f067aa...", ...}
+```
+
+### 全部は拾わない
+
+流量が多いと送る先が持ちません。割合を渡してください。
+
+```java
+JimbleOtel.install("my-app", "http://localhost:4318", 0.1);   // 10 本に1本
+```
+
+> [!NOTE]
+> **拾うかどうかはトレース単位で決まります。**1本のトレースの途中だけ欠けることはありません。
+
+### 送り先
+
+OTLP の HTTP（`/v1/traces`）へ protobuf で送ります。OpenTelemetry Collector でも、
+Jaeger でも、Grafana Tempo でも、OTLP を受けるものなら何でも構いません。
+
+> [!TRAP]
+> **`/v1/traces` を付け忘れても動くようにしてあります。**付け忘れると 404 が返るだけで、
+> **ログにも出ずに何も届きません**。
+
+> [!NOTE]
+> 送信は **JDK の `HttpClient`** です。OpenTelemetry の既定（okhttp）は
+> okhttp 851KB ＋ okio 374KB ＋ kotlin-stdlib 1.7MB を連れてくるので、外してあります。
+> `jimble-otel` を足したときに増えるのは **0.9MB** です。
+
+### 自分で出す先を書く
+
+`Tracer` は 2 メソッドの interface です。標準出力に出す、社内の仕組みへ送る、
+テストで中身を見る、といったときは自分で書けます。テスト用の
+`RecordingTracer` は `jimble-core` に入っています。
+
+```java
+RecordingTracer tracer = new RecordingTracer();
+Tracing.use(tracer);
+
+// ... テストしたい処理 ...
+
+assertEquals("GET /posts/{id}", tracer.spans().get(0).name());
+```
+
+## 設定キー
+
+| キー | 既定 | 何をするか |
+| --- | --- | --- |
+| `server.access_log` | `true` | アクセスログを出す。`false` で1行も出さない |
+| `server.bot_access_log` | `true` | ボットのアクセスログを `access.bot` に分ける |
+| `log.db` | `false` | `DBLog.save(...)` を有効にする |
+
+> [!NOTE]
+> **ログのレベル・出力先・書式に設定キーはありません。**それは `logback.xml` の仕事です。
+
+日本語が化けるときは `-Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8` を付けてください
+（[本番で動かす](./deploy)）。
+
+
+
+---
+
+<!-- https://jimble.io/ja/deploy -->
+
+
+# 本番で動かす
+
+## jar を作る
+
+fat jar（依存も全部入り）にするのがいちばん簡単です。
+
+```kotlin
+plugins {
+	application
+	id("com.gradleup.shadow") version "<版>"
+}
+
+application {
+	mainClass = "my_blog.App"
+}
+
+tasks.shadowJar {
+	archiveFileName = "app.jar"
+	mergeServiceFiles()   // JDBC ドライバなどの META-INF/services が消えないように
+}
+```
+
+```bash
+./gradlew shadowJar     # build/libs/app.jar
+```
+
+## Web を起動する
+
+```bash
+java \
+  -Djimble.env=prod \
+  -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+  -jar app.jar
+```
+
+| 渡すもの | なぜ |
+| --- | --- |
+| `-Djimble.env=prod` | `application.prod.conf` を読み、`isProduction()` を true にします |
+| `-Dstdout.encoding` / `-Dstderr.encoding` | 付けないと `LANG` 未設定のコンテナで**日本語のログが化けます** |
+
+**`-Djimble.env` は JVM の引数です。**プログラム引数（`java -jar app.jar env=prod`）
+では効きません。
+
+## 設定はどこから読まれるか
+
+**jar の中だけです。**（`conf/` をリソースに足してあるので、jar に入っています。
+[設定](./config) を参照）
+
+```
+1. application.<env>.conf     ← あればこれだけ
+2. 無ければ application.conf
+```
+
+**読むのは1ファイルだけです。**共通を読み込むのは環境別ファイルの
+1行目に書く `include "application.conf"` です。
+書き忘れると共通の設定が落ちるので、**起動時に名指しで言います。**
+
+**jar の外の設定は読みません。**設定を変えたらビルドし直します。
+そのぶん、動いている jar と設定が1対1になり、
+「直したのに効かない」が起きません。
+環境ごとに変わる値（DB のパスワードなど）は次の節のとおり環境変数で渡します。
+
+**どれを読んだかは起動ログに出ます**（[設定](./config)）。
+
+## 秘密は環境変数で
+
+設定ファイルには `${?ENV_NAME}` だけ書き、値は環境変数で渡します。
+
+```bash
+export DB_PASSWORD='...'
+export COOKIE_SECRET='...'
+export CIPHER_KEY='...'
+java -Djimble.env=prod -jar app.jar
+```
+
+## バッチを動かす
+
+fat jar から起動クラスを指定して呼びます。
+
+```bash
+java \
+  -Djimble.env=prod \
+  -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+  -cp app.jar my_blog.batch.Batch \
+  class=my_blog.batch.PostCleanupBatch
+```
+
+`class=` がバッチのクラス名です。ほかの `key=value` はバッチの引数になります。
+
+**`env=prod` を引数で渡しても環境は変わりません。**
+設定はバッチの入口に来る前に読み終わっているためです。
+食い違っていたら、その場で止めて言います。
+
+```
+env=prod と指定されていますが、いま動いているのは env=local です。
+  env= では環境は変わりません（設定はここに来る前に読み終わっています）。
+  JVM の引数で渡してください。
+    java -Djimble.env=prod -cp app.jar <起動クラス> ...
+```
+
+## スケジューラを動かす
+
+cron でバッチを回すなら、スケジューラを常駐させます。
+
+```bash
+java -Djimble.env=prod -cp app.jar my_blog.batch.Batch \
+  class=my_blog.batch.SchedulerBatch
+```
+
+止めるまで動き続けます。`systemd` などに任せてください。
+**Web と同じプロセスで動かすこともできます**が、複数台に並べるときは
+`batch.scheduler_id` の扱いを決めてから にしてください。
+
+## 終了
+
+`SIGTERM` で終了処理が走ります（サーバー・スケジューラ・DB のプール）。
+`kill -9` はトランザクションが中途半端に残るので避けてください。
+
+## 起動したら確認すること
+
+起動ログの1行目あたりに構成が出ます。**思っていたものと合っているか**を見てください。
+
+```
+jimble 構成: env=prod / session=db / cache=db / redis=あり / db=[main] / パスワード暗号化=あり
+設定: jar:file:/opt/app/app.jar!/application.prod.conf, jar:file:/opt/app/app.jar!/application.conf
+```
+
+`env=local` になっていたら、`-Djimble.env` が渡っていません。
+
+
+
+---
+
+<!-- https://jimble.io/ja/pitfalls -->
+
+
+# 落とし穴
+
+落ちるバグは自分で見つかります。ここに集めたのは、**落ちないバグ**です。
+
+## ローカルで Cookie が効かない
+
+**症状**: セッションもログインも CSRF も Flash も、エラーなしで効かない。
+
+**原因**: `cookie.secure` の既定は `true` です。ローカルは http なので、
+ブラウザが Cookie を送り返しません。
+
+**対処**: ローカルの `application.conf` に入れます。本番では消します。
+
+```conf
+cookie {
+	secure = false
+}
+```
+
+起動時に WARN が出るので、ログを見てください。
+
+## ルートが登録されていない
+
+**症状**: 404 になる。コードには書いてある。
+
+**原因**: `install(SomeController::new)` を書き忘れています。
+jimble はクラスパスを走査しないので、書かないと登録されません。
+
+**対処**: 起動ログのルート一覧を見てください。無ければ登録されていません。
+
+## before が効いていない（同じパスなのに）
+
+`before` は**書いたブロックの中だけ**に効きます。パスには付きません。
+
+```java
+path("/admin", () -> {
+	before(requireAuth);
+	get("/users", ...);
+});
+
+install(() -> new SpaController("/admin", ...));   // ← 認証されない
+```
+
+同じ `/admin` でも、別の場所で登録したルートは別のブロックです。
+まとめたいなら、同じブロックに入れてください。
+
+逆の症状（**効いてほしくないのに効く**）は起きません。これが起きていたのが
+移行前の形で、`/admin` の SPA ログイン画面まで認証に捕まっていました。
+
+なお、**ルートが確定した後に `before` を足すと落ちます。**
+「足したのに効かない」を黙って通さないためです。
+ルート定義はコントローラの初期化ブロックの中で完結させてください。
+
+## request() から直接読むと、黙って空になる
+
+**症状**: フォームも JSON も送っているのに、値が取れない。例外は出ない。
+
+**原因**: `Request` も `Data` なので、こう書けてしまいます。
+
+```java
+context.request().getString("title")   // コンパイルは通る。null が返る
+```
+
+`Request` そのものには本文もクエリも入っていません。
+
+**対処**: `bodyAll()`（またはどこから来た値か決め打ちで `bodyJson()` など）を通します。
+
+```java
+Data input = context.request().bodyAll();
+String title = input.getString("title");
+```
+
+無いキーの `getString` は `null` です。**そのまま NOT NULL の列に入れると
+`Column 'title' cannot be null` になります。**
+
+## セッションが保存されていない
+
+**症状**: `put()` したのに次のリクエストで消えている。
+
+**原因**: `save()` を呼んでいません。自動保存はしません。
+
+```java
+context.session().put("user_id", 42);
+
+// 明示的に保存する（要件 F-S-02）。自動保存はしない
+context.session().save();
+```
+
+## select の結果が取れない
+
+**症状**: `row.getString("title")` が空。
+
+**原因**: 結果はテーブル名でネストしています。
+
+```java
+Data row = db.select(
+	SQL.select()
+		.from(Post.instance())
+		.where(Post.id.eq(1L))
+);
+
+// SELECT の結果はテーブル名でネストする（要件 F-D-02）
+String title = row.getData("post").getString("title");
+
+// Column で引けば、途中の文字列が出てこない
+String same = row.getString(Post.title);
+```
+
+`Column` で引けば間違えません。
+
+## DB のエラーに気づかない
+
+**症状**: 0件のはずがないのに0件。あるいは NPE。
+
+**原因**: DB のエラーは例外ではなく戻り値です。`select` は `null`、更新系は `-1`。
+
+```java
+try (DB db = BlogExample.db()) {
+
+	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
+
+	/*
+	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
+	 * select 系は null、更新系は -1。
+	 */
+	if (rows == null) {
+		Log.error("引けませんでした: " + db.getError());
+		return;
+	}
+
+}
+```
+
+## トランザクションが続いていない
+
+**症状**: `commit()` のあとの更新が、ロールバックしても戻らない。
+
+**原因**: これは移送元の話です。移送元の `commit()` はトランザクションを
+終わらせていたので、そこから先が自動コミットになっていました。
+jimble では `commit()` は終わらせません。終わらせるのは `commitEndTransaction()` です。
+
+**移送してきたコードを見るときは、`commit()` の後ろを確認してください。**
+
+## 「コミットもロールバックもされていない」が出る
+
+```
+ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+```
+
+**原因**: try-with-resources で囲まずに `beginTransaction()` して、途中で `return` しています。
+
+**対処**: 囲んでください。jimble は実行の終わりに拾ってロールバックしますが、
+それは事故の後始末であって、正しい書き方ではありません。
+
+## 入口によって用意されるテーブルが違う
+
+```
+{"error":"トランザクションのコミットに失敗しました。"}
+```
+
+**原因**: `MqQueue#install()` や `BatchTables.install()` を、**一部の入口でしか呼んでいない**。
+
+Web・バッチ・スケジューラで入口が分かれていると、それぞれが自分の分だけ用意しがちです。
+たとえば MQ のテーブルをバッチの入口でしか作っていないのに、
+**キューに積むのは Web** ということが起こります。
+
+やっかいなのは、**いちどでもバッチを動かしたマシンでは動いてしまう**ことです。
+手元では気づけず、まっさらな DB（CI や新しい環境）で初めて出ます。
+
+**対処**: **起動時に用意するものは1か所にまとめ、どの入口もそれを呼んでください。**
+
+```java
+public final class Bootstrap {
+
+	public static void load () {
+
+		Migration.install();                                  // DBUtil.load より前
+
+		// 繋がらなければ false。見ずに進むと、あとで DB の話をしない例外で落ちる
+		if (!DBUtil.load(Conf.conf().config(), Bootstrap.class)) {
+			throw new IllegalStateException("DB を読み込めませんでした");
+		}
+
+		BatchTables.install(DBUtil.getMainDB());
+		new MqQueue(NoticeExecutor.QUEUE_NAME).install();
+
+	}
+
+}
+```
+
+**テストからも同じものを呼んでください。**テストだけ別に用意すると、
+入口が変わったときに<b>テストだけ通る</b>状態になります。
+
+> [!TIP]
+> **まっさらな DB で1回流してみる**のがいちばん早い確認です。
+> `examples/blog` はこれで壊れているのが分かりました。
+
+## 製品を変えたら生成物の列順が変わる
+
+**症状**: 何も直していないのに `codegen` の差分が出る。列の並びだけが違う。
+
+**原因**: 生成される列の並びは**物理順**です。
+`ALTER TABLE ... ADD COLUMN` の位置が MySQL（`AFTER body` が書ける）と
+PostgreSQL（必ず末尾）で違うので、同じスキーマでも並びが変わります。
+
+**対処**: **生成は主にする製品で行ってください。**`codegenCheck` も同じ製品で回します。
+型も NULL 可否もコメントも一致するので、並び以外は変わりません。
+
+## SSE が届かない・全部まとめて届く
+
+**原因**: 間にいる nginx が溜め込んでいます。
+
+**対処**: jimble は `X-Accel-Buffering: no` を付けています。
+それでも駄目なら nginx 側で `proxy_buffering off;` を設定してください。
+
+## SSE のループが終わらない
+
+**原因**: `sse.isOpen()` を見ていません。
+
+`isOpen()` は**寿命が残っているか**を返します。切断は検出できません
+（helidon が教えてくれず、書き込みが永久にブロックすることがあります）。
+ループの中で必ず見てください。詳しくは [SSE](./sse) を読んでください。
+
+## WebSocket で Cookie が読めない
+
+**原因**: 昇格したあとに読もうとしています。
+HTTP のヘッダが見えるのは `onUpgrade` の時点だけです。
+
+**対処**: 認証は `onUpgrade` でやります。`false` を返せば 403 になります。
+
+## MQ が2回実行された
+
+**原因**: そういうものです。「ちょうど1回」は作れません。
+
+**対処**: 何度やっても同じになるように書いてください。詳しくは [MQ](./mq)。
+
+## HOCON のコメントで落ちる
+
+```
+Key '/' may not be followed by token: '*'
+```
+
+**原因**: `/* */` を使っています。HOCON のコメントは `#` か `//` です。
+
+## jimbleRun で「メイン・マニフェスト属性がありません」
+
+`gradle-wrapper.jar` に `Main-Class` がありません。**`gradlew` と `gradle-wrapper.jar` が
+食い違っています。**
+
+いまの `gradlew` はこう起動します。
+
+```sh
+exec java -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" ...
+```
+
+これには `Main-Class` を持つ JAR が要ります。古い（`-classpath` 前提の）JAR が
+残っていると、`gradlew` も JAR も見た目は揃っているのに動きません。
+
+```sh
+unzip -p gradle/wrapper/gradle-wrapper.jar META-INF/MANIFEST.MF
+# Main-Class: org.gradle.wrapper.GradleWrapperMain  ← これが無ければアウト
+```
+
+直すには、そのプロジェクトで一度流してください。
+
+```sh
+gradle wrapper --gradle-version 9.7.1
+```
+
+`jimbleRun` は作り直しのときに `./gradlew` を子プロセスで叩くので、
+**保存のたびにこれが出ます。** 壊れていると分かったときは
+理由を出して PATH の `gradle` に逃がすようにしてあるので、
+ホットリロード自体は続きます。
+
+## Gradle が起動しない
+
+```
+* What went wrong: 25.0.4
+```
+
+**原因**: Gradle 8 は Java 25 の上では動きません。
+（ツールチェーンとして Java 25 を使うのは 8 でもできますが、Gradle 自身が動きません）
+
+**対処**: Gradle 9 以上を使ってください。
+
+## Kotlin のコメントが入れ子になる
+
+`build.gradle.kts` のブロックコメントに `/*` が現れると、
+**そこから入れ子のコメントが始まります**（Kotlin のブロックコメントは入れ子にできます）。
+外側が閉じないまま、その下のコードが全部消えます。**エラーは出ません。**
+
+```kotlin
+/*
+ * docs/site/<言語>/*.md を読む     ← この /* が入れ子を開く
+ */
+tasks.register("site") { ... }      ← 登録されない。エラーも出ない
+```
+
+パスを書くときは `*` を避けるか、`//` を使ってください。
+
+## .gitignore の `docs/` が全階層に効く
+
+**症状**: 公開したリポジトリからテンプレートが消えている。
+
+**原因**: `.gitignore` に `docs/` と書くと、git は**どの階層の `docs/` にも**効かせます。
+`jimble-docs/src/main/jte/docs/` まで巻き込みます。
+
+**対処**: 先頭に `/` を付けて `/docs/` と書きます。
+
+## Gradle 9 で落ちるビルドスクリプト
+
+Gradle 8 では通り、9 で落ちるものがあります。
+
+| 書き方 | 何が起きるか |
+|---|---|
+| `val x by tasks.registering { }` | 9.6 で非推奨。Kotlin DSL では**コンパイルエラー**。`tasks.register("x") { }` にします |
+| `"...".formatted(...)` | Java 15 のメソッド。9.7 の Kotlin スクリプトからは**解決できません**。文字列テンプレートにします |
+
+**ビルドスクリプトは、実際に使うバージョンで一度は流してください。**
+
+
+
+---
+
+<!-- https://jimble.io/ja/util -->
+
+
+# ユーティリティ
+
+`jimble-util` には移送元から持ってきた道具が **約 28,000 行**入っています。
+ここは**地図**です。網羅ではなく「よく使うもの」と「引っかかるところ」を並べます。
+
+> [!NOTE]
+> **公開 API としての整理は Phase 2 です。**
+> パッケージの切り方も名前も、移送元のままのところが残っています。
+
+## Data
+
+`io.jimble.util.data.Data` は **`LinkedHashMap<String, Object>` の派生**です。
+リクエストも SELECT の結果も JSON もこれで扱います（[リクエストとレスポンス](./request-response)）。
+
+```java
+Data data = new Data();
+data.putData(SITE_ID, 1L);
+data.putData(SITE_NAME, "俺的まとめ");
+
+Data site = data.getData("site");
+
+assertEquals(1L, site.getLong("id"));
+assertEquals("俺的まとめ", site.getString("name"));
+```
+
+DB の値は**列（`Column`）で読み書き**します。列版は**テーブル名のネストを辿ります。**
+
+| | |
+| --- | --- |
+| `putData(Column, 値)` | **必ずネストを作る** |
+| `putDataTakeCare(Column, 値)` | 既存の形に合わせる（ネストが無ければ平ら） |
+| `flattenTable(Table)` / `extractTableData(Table)` | 平らにする / 取り出す。**無ければ `null`** |
+
+> [!TRAP]
+> **`getStringOptional` などの Optional 版は Data を書き換えます。**
+> 無ければ空文字を **`put` してから**返すので、読んだだけでキーが増えます。
+> JSON にして返す直前やループの中で呼ぶと、出力が変わります。
+
+> [!TRAP]
+> **「無い」と「0」が区別できません。**`getString` は `null`、
+> `getInt` は `0`、`getBoolean` は `false` を返します。
+> 区別したいときは `getIntObject` など **Object 版**か `isNull(key)` を使ってください。
+
+> [!NOTE]
+> **`toString()` は要約です**（キーと型だけ）。
+> ログに1行出しただけで中身が全部流れる／`Async` が読み込まれる、を防ぐためです。
+> JSON が要るときは `getJsonString()` を呼んでください。
+
+## JSON
+
+自前実装です（Jackson も Gson も使っていません）。
+
+```java
+Data nested = new Data();
+nested.put("title", "記事タイトル");
+
+Data data = new Data();
+data.put("name", "俺的まとめ");
+data.put("count", 3);
+data.put("feed", nested);
+data.put("tags", List.of("あ", "い"));
+
+String json = data.getJsonString();
+Data restored = Data.fromJsonString(json);
+
+assertEquals("俺的まとめ", restored.getString("name"));
+assertEquals(3, restored.getInt("count"));
+assertEquals("記事タイトル", restored.getData("feed").getString("title"));
+assertEquals(List.of("あ", "い"), restored.getStringList("tags"));
+```
+
+| やること | 書き方 |
+| --- | --- |
+| Data → 文字列 | `data.getJsonString()` / `getJsonString(true)`（整形） |
+| 文字列 → Data | `Data.fromJsonString(json)` |
+| 任意のオブジェクト | `Dson.encodes(obj)` / `Dson.decodes(json, Xxx.class)` |
+| ストリームに直接 | `data.outputJsonString(outputStream)` |
+| 組み立てずに逐次書く | `JsonHashWriter` / `JsonArrayWriter` |
+
+> [!WARN]
+> **`Dson.encodes` / `decodes`（static 版）は失敗しても `null` を返すだけ**です。
+> 理由が要るなら `new Dson()` を作り、`decode(...)` のあとに `isError()` /
+> `getErrorException()` を見てください。
+
+## 型変換
+
+`Convertor.convert(conf, src, 変換先.class)` が入口です。
+Bean ↔ `Data` ↔ Map ↔ List ↔ プリミティブが同じ1本を通ります。
+`data.convert(new MyBean())` も中身は同じものです。
+
+> [!TRAP]
+> **`Configration` は使い回さないでください。**変換の途中で階層カウンタと
+> 循環参照の記録が書き換わります。**1回の変換に1つ**作ります。
+
+## HTTP クライアント
+
+JDK の `HttpClient` の薄いラッパで、メソッドごとにクラスがあります。
+
+```java
+HttpGetExecutor res = new HttpGetExecutor()
+	.setUrl("https://example.com/api")
+	.addHeader("Accept", "application/json")
+	.setTimeout(5000)
+	.execute();
+
+if (res.isError) {
+	Log.error(res.errorException, "取得に失敗しました");
+	return;
+}
+
+Data json = res.getContentJson();
+```
+
+- POST は `HttpPostExecutor`。`addBodyForm(name, value)` / `setBodyJson(data)`
+- **ファイルを1つでも足すと multipart になります**（`addBodyForm(name, file, contentType)`）
+- プロキシは `setProxy(new HttpProxy(host, port, id, pass))`
+- **例外を投げません。**`isError` を見てください（DB と同じ流儀）
+
+> [!WARN]
+> **タイムアウトの既定は 30 秒**で、接続と応答の**両方に同じ値**が入ります。個別には指定できません。
+
+> [!TRAP]
+> **`setIgnoreSslError(true)` は JVM 全体に効きます。**
+> 証明書の検証を止めるシステムプロパティを立てるので、
+> **同じプロセスの他の通信も検証しなくなり、元に戻りません。**
+
+## CSV
+
+```java
+try (CsvReader reader = new CsvReader(new File("in.csv"))) {
+	while (reader.next()) {
+		String name = reader.getString("name");
+	}
+}
+```
+
+**1行ずつ読みます**（全部メモリに載せません）。書くほうは `CsvWriter#writeLine(Object...)`。
+
+> [!WARN]
+> **文字コードを省略すると、判定に失敗したときは Shift_JIS になります。**
+> UTF-8 と分かっているなら `new CsvReader(file, "UTF-8")` と書いてください。
+
+## XML
+
+`XmlParser.parse(file)` で `XmlData` の木にします（**全部メモリに載ります**）。
+組み立ては `XmlBuilder.build(xmlData)`。
+
+## ハッシュと暗号
+
+| やること | 使うもの |
+| --- | --- |
+| パスワード | `PasswordUtil.createHash` / `check`（[セッションと安全側の既定](./session-security)） |
+| 署名（改ざん検知） | `Signer.sign` / `unsign`（HMAC-SHA256） |
+| 暗号化 | **`Aead.encrypt` / `decrypt`**（AES-256-GCM） |
+| 短い ID | `Hashids` |
+| ハッシュ値 | `Hash.md5` / `sha256` / `sipHash` / `xxHash64` |
+
+> [!WARN]
+> **`CipherUtil`（AES/CBC）は IV が設定で固定**です。同じ平文が必ず同じ暗号文になり、
+> 改ざんも検知できません。移送元との互換のために残しています。
+> **新しく書くところは `Aead` を使ってください。**
+
+> [!TRAP]
+> **`Hashids` の既定インスタンスは salt が空です。**並びが推測できるので、
+> **見せたくない ID の隠蔽には使えません。**必要なら salt を指定して自分で作ってください。
+
+## DB に置く key-value
+
+```java
+DBValue.set(db, "last_imported_at", "2026-09-07");
+String value = DBValue.getString(db, "last_imported_at", "");
+```
+
+> [!TRAP]
+> **`get` は値が無いと既定値を書き込みます**（読むだけのつもりで INSERT が飛びます）。
+> 値は **250 文字まで**、消す API はありません。
+> キャッシュはプロセスごとなので、**他の台の `set` は伝わりません。**
+
+## そのほか
+
+| 分野 | クラス |
+| --- | --- |
+| 文字列 | `StringUtil`（置換・全半角・Base62・パスワード生成）/ `IcuUtil`（かな・全半角） |
+| 日時 | `DateUtil`（`java.util.Date` ベース。`getFrom` / `getTo` は「その日の 00:00:00 / 23:59:59」） |
+| URL | `UrlUtil` / `UrlBuilder`（ドメイン抽出・punycode・エンコード） |
+| 数値・パース | `Parse.parseInt` など（**失敗しても例外を投げません**） |
+| 正規表現 | `Patterns`（メール・URL・ドメイン・電話） |
+| ファイル | `FileUtil` / `IOUtil` / `FileCharDetecter`（文字コード判定） |
+| スレッド | `VirtualThreadManager` / `ThreadManager`（[実行モデル](./execution)） |
+| 計測 | `StopWatch` |
+
+> [!NOTE]
+> `Patterns` の TLD 一覧は**書き切りの文字列**です。新しい TLD は通りません。
+
+
+
+---
+
+<!-- https://jimble.io/ja/migration-jooby -->
+
+
+# jooby からの移行
+
+jimble のルーティング DSL は jooby に寄せてあります。
+**多くのルート定義はそのまま動きます。** 書き換えが要るのは、その周りです。
+
+## そのまま動くもの
+
+```java
+get("/posts", ctx -> ...);
+post("/posts", ctx -> ...);
+path("/admin", () -> { ... });
+before(...);
+after(...);
+```
+
+メソッド名は jooby と同じ小文字です。`path()` の入れ子も同じです。
+
+**ただし `before` / `after` / `error` の効く範囲が違います。**
+jooby はパスに付きますが、jimble は**書いたブロックの中だけ**に効きます。
+同じ `/admin` でも、別のブロックで登録したルートには効きません
+（[フィルタの効く範囲](./routing)）。
+「`/admin` 配下は全部認証」に頼っている場合は、`/admin` のルートが
+1か所にまとまっているか確かめてください。
+
+## 書き換えるもの
+
+### Context
+
+| jooby | jimble |
+| --- | --- |
+| `ctx.path("id").value()` | `context.route().variables().get("id")` |
+| `ctx.query("q").value()` | `context.request().bodyQuery().getString("q")` |
+| `ctx.form("name").value()` | `context.request().bodyForm().getString("name")` |
+| `ctx.body(Foo.class)` | `context.request().bodyJson()` → `Data` |
+| `ctx.send("text")` | `context.response().send("text")` |
+| `ctx.render(obj)` | `context.response().json(...)` / `.view(...)` |
+| `ctx.setResponseCode(201)` | `context.response().code(201)` |
+| `ctx.sessionOrNull()` | `context.session()` |
+
+jimble は**入力を型付きのクラスに詰め直しません**。`Data` のまま扱います。
+リフレクションでのバインドをやめたためです。値の検証は
+[ValidationRules](./validation) でやります。
+
+### DI をやめる
+
+```java
+// jooby
+@Inject
+public PostController (PostService service) { ... }
+```
+
+```java
+// jimble
+install(PostController::new);
+```
+
+依存は `new` するか、`static` のメソッドを呼びます。
+「差し替えたい」場合は、コンストラクタで渡してください。
+
+```java
+install(() -> new PostController(new PostService(db)));
+```
+
+### 注釈をやめる
+
+| jooby | jimble |
+| --- | --- |
+| `@GET @Path("/x")` | `get("/x", ...)` |
+| `@Transactional` | `try (DBTransaction transaction = ...)` |
+| `@Inject` | コンストラクタで渡す |
+
+### 起動
+
+```java
+// jooby
+public class App extends Jooby {
+	{ get("/", ctx -> "hello"); }
+	public static void main (String[] args) { runApp(args, App::new); }
+}
+```
+
+```java
+// jimble
+public class App extends JimbleApp {
+	{ get("/", context -> context.response().send("hello")); }
+	public static void main (String[] args) { JimbleServer.start(new App()); }
+}
+```
+
+**ハンドラは値を返しません。** `context.response()` に組み立てて送ります。
+戻り値でレンダリングを分岐させると、何が返るかがコードから読めなくなるためです。
+
+### 設定
+
+`application.conf` の書式は同じ HOCON です。**キーの名前が変わります。**
+
+| jooby | jimble |
+| --- | --- |
+| `server.port` | `server.port`（同じ） |
+| `application.env` | `-Djimble.env=<env>` |
+| `jooby.*` | 無くなりました |
+
+`jooby.*` のキーは**読まれません。エラーも出ません**。
+設定ファイルを持ってくるときは、必ず起動ログの構成行を確認してください。
+
+### テンプレート
+
+jooby の jte モジュールを使っていたなら、テンプレートはそのままです。
+`io.jimble.jte` プラグインに置き換えてください。
+
+渡すモデルは `Data` になります。`@param Data data` で受けます。
+
+## 移行の順番
+
+1. `build.gradle.kts` を差し替える（`io.jimble.jte` / `io.jimble.run`）
+2. `App.java` を `JimbleApp` にする。ルート定義は貼るだけ
+3. ハンドラの中を `context.request()` / `context.response()` に書き換える
+4. `@Inject` を `install()` とコンストラクタに置き換える
+5. `@Transactional` を `try (DBTransaction ...)` に置き換える
+6. 起動して、**ルート一覧と構成行を確認する**
+
+## 移行しなくてよいもの
+
+DB 層はそのままです。`SQL` / `Column` / `Table` / `Data` / `DB` の使い方は変わりません。
+生成されたテーブル定義のクラスも、そのまま使えます。
+
+
+
+---
+
+<!-- https://jimble.io/ja/security -->
+
+
+# セキュリティ
+
+## 脆弱性を見つけたら
+
+**公開の Issue を立てないでください。**
+
+GitHub の非公開報告から知らせてください。
+
+<https://github.com/hidemikimura/jimble/security/advisories/new>
+
+やりとりも修正も公表も、そのスレッドの中で完結します。
+**メールの窓口は用意していません。**受け口を1つにして、見落としを作らないためです。
+
+書いていただけると助かるもの。
+
+- どの版で起きるか（`0.3.0` など）
+- どのモジュールか（`jimble-web` など）
+- 再現の手順、できれば最小のコード
+- 何ができてしまうか
+
+## 受け取ったあと
+
+| | |
+| --- | --- |
+| 受領の返事 | **数日以内**。返事が無ければ届いていない可能性があります |
+| 修正の期限 | **約束していません**（個人で開発しているためです）。影響の大きいものから手を付けます |
+| 公表 | 直った版を出してから、GitHub Security Advisory として |
+| クレジット | **報告してくださった方のお名前を載せます**（不要と言われれば載せません） |
+
+## どの版が直るか
+
+**最新の版に修正を入れます。**古い版へのバックポートはしません。
+まだ 0.x なので、上げていただくのがいちばん早い道です。
+
+## 対象の範囲
+
+**対象になるもの** — Maven Central に公開している `io.jimble` のライブラリと Gradle プラグイン。
+
+**対象にならないもの。**
+
+- **`examples/` のサンプルアプリ。**説明のためのもので、本番に置くようには作っていません。
+  接続情報も鍵も既定値のままです。**そのまま動かさないでください**
+- このドキュメントサイトの見た目や内容
+- **依存ライブラリそのものの脆弱性。**Dependency graph と Dependabot で追いかけています。
+  ただし「jimble の使い方のせいでそこに手が届く」のであれば対象です
+- **設定でそうすると決めたもの。**`server.trust_proxy = true` にすれば `X-Forwarded-For` を
+  信じます（既定は `false`）。書いてあるとおりの動きは脆弱性ではありません
+
+> [!TRAP]
+> **ドキュメントと実装が食い違っているなら、それは脆弱性として扱います。**
+> 「そう書いてあるから安全だと思っていた」が、いちばん危ない読み違いです。
+
+## 自分のアプリを固くする
+
+jimble 側で用意しているものは、それぞれのページにあります。
+
+| 何を | どこに |
+| --- | --- |
+| セッションと CSRF、署名つき Cookie、鍵の入れ替え | [セッションとセキュリティ](./session-security) |
+| 流量制限と Bot 対策 | [流量制限](./ratelimit) |
+| プロキシヘッダを信じるかどうか | [サーバー](./server) |
+| エラー応答に内部情報を載せない | [エラー](./errors) |
+| 鍵と接続情報の置き場 | [設定](./config) |
+
+
+
+---
+
+<!-- https://jimble.io/ja/versioning -->
+
+
+# 版と互換性
+
+## いまは 0.x です
+
+**0.x のあいだは、マイナーを上げるときに壊れることがあります。**
+[Semantic Versioning](https://semver.org/lang/ja/) がそう定めていて（1.0 未満は安定を約束しない）、
+jimble もそのとおりに扱います。
+
+**1.0 からは、公開 API を壊す前に非推奨期間を1マイナー以上置きます。**
+
+| | 0.x（いま） | 1.0 以降 |
+| --- | --- | --- |
+| 公開 API を壊す | **マイナーで起きうる** | 非推奨期間を1マイナー以上置いてから、次のメジャーで消す |
+| 内部実装を変える | いつでも | いつでも |
+| CHANGELOG に書く | **必ず書く** | 必ず書く |
+
+> [!NOTE]
+> **0.x でも、黙って壊すことはしません。**
+> 約束していないのは「壊さないこと」であって、「知らせること」ではありません。
+> 壊れうる変更は必ず [CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md) の
+> **「変わったこと（挙動）」**に出します。上げる前にそこだけ読めば足ります。
+
+## どこまでが公開 API か
+
+**パッケージで線を引いています。**
+
+| | |
+| --- | --- |
+| **公開 API** | アプリを書くときに触るもの。`io.jimble.db`、`io.jimble.web.server`、`io.jimble.util.data` など |
+| **内部実装** | 入口クラスの内側でしかないもの。`io.jimble.db.sql.query.*`（`SQL` の内側）、`io.jimble.util.json.encoder`（`Dson` の内側）など |
+
+全部の一覧は
+[`docs/api-packages.txt`](https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt)
+にあります。
+
+> [!TRAP]
+> **`public` だから公開 API、ではありません。**
+> Java には「モジュールの外から見えるが、使ってほしくはない」を表す修飾子がないので、
+> **内部実装も `public` になっています**。触ってよいかは、上の一覧で見てください。
+
+**この一覧は古くなりません。**パッケージを増やして一覧に書き忘れると、
+`ApiSurfaceTest` が落ちます。サンプル（`examples/`）が内部パッケージを
+import していないかも、同じテストが見ています。
+
+## シグネチャは同じなのに、結果が変わるとき
+
+**ここがいちばん大事なところです。**
+
+jimble でこれまで実際に起きた壊れ方は、**ほとんどがシグネチャを変えない変更**でした——
+404 が 405 になる、`insertBatch` が `null` を返すようになる、
+中断したバッチの履歴が `completed` から `canceled` になる。
+どれもコンパイルは通るので、**上げた側は何も気づきません**。
+
+そこで**2つに分けて扱います。**
+
+| | 何をするか |
+| --- | --- |
+| **壊れていたのを直した** | **すぐ直します。**非推奨期間は置きません |
+| **仕様を変えた** | 1.0 以降は、**古い動きを1マイナーのあいだ残します** |
+
+**「壊れていた」に非推奨期間を置かないのは、置けないからです。**
+たとえば `insertBatch` は、SQL の揃っていないビルダーを混ぜると
+<b>値が横にずれて入っていました</b>。「1マイナーのあいだは、これまでどおり
+壊れたデータを書きます」とは言えません。
+
+どちらであっても、**CHANGELOG の「変わったこと（挙動）」には必ず出します。**
+「直した」に埋めて済ませることはしません。
+
+## 壊すときに何をするか
+
+1. **非推奨にする**（1.0 以降）。`@Deprecated(since = "1.2", forRemoval = true)` を付け、
+   javadoc に<b>代わりに何を使うか</b>を書きます
+2. **CHANGELOG に書く。**いつ消えるかも書きます
+3. **1マイナー以上あけてから消す。**消すのは次のメジャーです
+
+> [!TRAP]
+> **`@Deprecated` が付いていても、消えるまでは動きます。**
+> ビルドの警告が出るだけです。**警告を切らないでください**——
+> 消えたことに気づくのが、上げたあとになります。
+
+## 版を選ぶ
+
+**公開されているものは [Maven Central](https://repo.maven.apache.org/maven2/io/jimble/) にあります。**
+依存の座標と、そのまま動くビルドファイルは [Gradle プラグイン](./gradle) にあります。
+
+**このドキュメントサイトは、いちばん新しいリリースの内容です**（[版について](./index)）。
+

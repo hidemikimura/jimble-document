@@ -1,0 +1,62 @@
+# jimble
+
+> Java 25 と Helidon の上に載る、注釈もDIもリフレクションも使わない Web フレームワーク
+
+## はじめに
+
+- [jimble とは](https://jimble.io/ja/index.md): Java 25 と Helidon の上に載る、注釈もDIもリフレクションも使わない Web フレームワーク
+- [5分で最初のエンドポイント](https://jimble.io/ja/quickstart.md): jimble new から起動、ホットリロードまで
+- [考え方](https://jimble.io/ja/principles.md): 注釈なし・DIなし・起動時走査なし。なぜそうしたのか
+
+## 基本
+
+- [ルーティング](https://jimble.io/ja/routing.md): get / post / path / before / after / error とコントローラの分け方
+- [リクエストとレスポンス](https://jimble.io/ja/request-response.md): 入力の読み方、入れ子パラメータ、検証、返し方
+- [ファイルアップロード](https://jimble.io/ja/upload.md): multipart の受け取り、一時ファイル、上限、保存とダウンロード
+- [検証とページング](https://jimble.io/ja/validation.md): ValidationRule / ValidationExecutor と、page・per の読み方
+- [エラー処理](https://jimble.io/ja/errors.md): 例外・未マッチ・検証失敗。どこで拾われ、何が返るか
+- [テンプレート](https://jimble.io/ja/view.md): jte。コンパイルされるので型が効く
+- [静的ファイルと SPA](https://jimble.io/ja/assets.md): assets / SPA / MPA。jar の中から配る、ETag、書き換え
+- [セッションと安全側の既定](https://jimble.io/ja/session-security.md): セッション・CSRF・Flash・署名付き Cookie
+- [レートリミット](https://jimble.io/ja/ratelimit.md): ルートに宣言する。トークンバケット、メモリ / Redis / DB
+- [ログインと認可](https://jimble.io/ja/auth.md): before 1行と、ルート属性だけ。既定は「閉じている」
+- [実行モデル](https://jimble.io/ja/execution.md): リクエストごとに仮想スレッド。何がどのスレッドで動くか
+
+## データベース
+
+- [DB を使う](https://jimble.io/ja/db.md): データソースの設定、DB 製品の選び方、テーブル定義の生成、select の結果の形
+- [SQL DSL](https://jimble.io/ja/sql.md): SQL.select / insert / update / delete
+- [トランザクション](https://jimble.io/ja/transaction.md): try-with-resources で囲む。畳み忘れは実行の終わりに拾う
+- [遅延読み込みと先読み](https://jimble.io/ja/async.md): 参照された時点で引く。全部たどるなら IN 句1本にまとめる
+- [キャッシュとロック](https://jimble.io/ja/cache.md): DB / メモリ / Redis の差し替え、SQL 結果の自動無効化、分散ロック
+- [マイグレーションとコード生成](https://jimble.io/ja/codegen.md): SQL の当て方、生成されるクラス、いつ何が走るか
+
+## 実行基盤
+
+- [バッチ](https://jimble.io/ja/batch.md): cron で回る処理。中断指示、二重起動、管理画面
+- [MQ](https://jimble.io/ja/mq.md): DB をキューにする。二重実行される前提で書く
+
+## プロトコル
+
+- [SSE](https://jimble.io/ja/sse.md): 進捗を流す。切断は検出できないので、寿命で区切る
+- [WebSocket](https://jimble.io/ja/websocket.md): 双方向。1メッセージごとに Context が作られる
+- [MCP](https://jimble.io/ja/mcp.md): Model Context Protocol のサーバーを立てる（2026-07-28 / Streamable HTTP と stdio）
+
+## 開発
+
+- [jimble コマンド](https://jimble.io/ja/cli.md): 入れ方と、new / migrate / codegen
+- [Gradle プラグイン](https://jimble.io/ja/gradle.md): io.jimble.db / jte / run のタスクと設定
+- [ホットリロード](https://jimble.io/ja/hot-reload.md): ./gradlew jimbleRun。直したら次のリクエストで反映される
+- [テスト](https://jimble.io/ja/testing.md): 本物のサーバーを立てて叩く。DB を使うテストは分ける
+- [設定](https://jimble.io/ja/config.md): application.conf。環境別の上書きと、秘密の渡し方
+- [サーバー設定](https://jimble.io/ja/server.md): ポート・待ち受けアドレス・上限・プロキシ・圧縮
+- [ログ](https://jimble.io/ja/log.md): Log の使い方、アクセスログ、実行 ID、メトリクス、トレース、logback の設定
+- [本番で動かす](https://jimble.io/ja/deploy.md): jar の作り方と、起動するコマンド
+
+## そのほか
+
+- [落とし穴](https://jimble.io/ja/pitfalls.md): 黙って効かなくなるところ。先に読んでおくと1日得します
+- [ユーティリティ](https://jimble.io/ja/util.md): Data・JSON・HTTP クライアント・CSV・暗号。どこに何があるか
+- [jooby からの移行](https://jimble.io/ja/migration-jooby.md): 何がそのまま動き、何を書き換えるか
+- [セキュリティ](https://jimble.io/ja/security.md): 脆弱性の報告先と、受け取ったあとに何をするか
+- [版と互換性](https://jimble.io/ja/versioning.md): どこまでが公開 API か。いつ壊れうるか。壊すときに何をするか

@@ -332,15 +332,52 @@ batch the connection stays held until the execution ends.</p>
 </code></pre>
 <p>It starts one, runs the work you passed in, and sees it through <code>commitEndTransaction()</code>.
 If an exception is thrown, <code>close()</code> rolls back.</p>
-<h2 id="mixing-in-mq">Mixing in MQ<a class="anchor" href="#mixing-in-mq">#</a></h2>
-<p>You push onto the queue <strong>after the commit</strong>.</p>
-<pre class="code"><code class="lang-java">transaction.commitEndTransaction();
+<h2 id="what-leaves-the-process-and-what-goes-into-the-db">What leaves the process, and what goes into the DB<a class="anchor" href="#what-leaves-the-process-and-what-goes-into-the-db">#</a></h2>
+<p><strong>The two go on opposite sides of the commit.</strong> This one is easy to get backwards.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Where to call it</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Push onto the DB-backed queue</strong> (<a href="./mq">MQ</a>'s <code>put()</code>)</td>
+<td><strong>Inside the transaction</strong></td>
+<td>It is the same DB, so a rollback removes what you pushed</td>
+</tr>
+<tr>
+<td><strong>Anything that leaves the process</strong> (SSE, mail, an external API)</td>
+<td><strong>After the commit</strong></td>
+<td>It cannot be taken back, so publishing first is unrecoverable</td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
 
-PostFeedHandler.notifyNewPost(title);
+	transaction.beginTransaction();
+
+	<span class="h-k">long</span> id = db.insert(...);
+
+	<span class="h-k">new</span> NoticeExecutor().put(db, data);      <span class="h-c">// inside — it is a DB queue</span>
+
+	transaction.commitEndTransaction();
+
+}
+
+PostFeedHandler.notifyNewPost(title);        <span class="h-c">// outside — only after the commit</span>
 </code></pre>
-<p>Publish first and a rollback leaves you delivering &quot;a notice about an article that is not there&quot;.
-The other way round: pushing onto a DB-backed queue (<a href="./mq">MQ</a>) belongs <strong>inside the transaction</strong>.
-It is the same DB, so a rollback removes what you pushed along with everything else.</p>
+<p>Publish the outgoing one first and a rollback leaves you delivering <strong>&quot;a notice about an
+article that is not there&quot;.</strong></p>
+<p>Push the DB queue after the commit instead and <strong>whatever was in flight when the process
+died is silently gone</strong> — the article is there, and nobody is told about it.</p>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p><strong>The most reliable place for outgoing work is inside the queue.</strong> <code>put()</code> in the
+transaction and do the actual sending in <a href="./mq">MQ</a>'s <code>execute()</code>. Then <strong>you never have
+to think about which side of the commit you are on.</strong></p>
+</div>
 
 		</article>
 
@@ -361,7 +398,7 @@ It is the same DB, so a rollback removes what you pushed along with everything e
 			<li class="level-2"><a href="#forgetting-to-close">Forgetting to close</a></li>
 			<li class="level-2"><a href="#an-unclosed-db">An unclosed DB</a></li>
 			<li class="level-2"><a href="#the-short-form">The short form</a></li>
-			<li class="level-2"><a href="#mixing-in-mq">Mixing in MQ</a></li>
+			<li class="level-2"><a href="#what-leaves-the-process-and-what-goes-into-the-db">What leaves the process, and what goes into the DB</a></li>
 		</ul>
 	</nav>
 </div>

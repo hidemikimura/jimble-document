@@ -299,8 +299,11 @@ context.response().redirect(<span class="h-s">"/"</span>);                  <spa
 context.response().download(file, <span class="h-s">"報告書.xlsx"</span>);  <span class="h-c">// ダウンロード</span>
 context.response().code(<span class="h-n">201</span>).send();               <span class="h-c">// 本文なし</span>
 </code></pre>
-<p><code>json()</code> は組み立てるだけで、送るのは <code>send()</code> です。
-複数回 <code>json()</code> を呼ぶと、1つの JSON に足されていきます。</p>
+<p><code>json()</code> は組み立てるだけです。複数回呼ぶと、1つの JSON に足されていきます。</p>
+<p><strong><code>json()</code> のあとに <code>send()</code> を書く必要はありません。</strong>
+組み立てておけば、ディスパッチャが実行の終わりに送ります。
+<code>send()</code> を明示するのは、<strong>本文なしで終わらせたいとき</strong>（<code>code(204).send()</code>）や、
+テキストをそのまま返すときです。</p>
 <pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
 <h2 id="大きいものを流す">大きいものを流す<a class="anchor" href="#大きいものを流す">#</a></h2>
 <p>全部をメモリに載せたくないときは <code>outputStream()</code> を直接使います。</p>

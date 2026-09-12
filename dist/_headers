@@ -7,6 +7,15 @@
 /static/*
   Cache-Control: public, max-age=600
 
+# AI に読ませる素の文字（要件 NF-D-09）。
+# * は / をまたぐので、これだけで /ja/db.md も入る。
+# ブラウザで開いたときに「ダウンロード」にならないよう text/plain にする。
+/*.md
+  Content-Type: text/plain; charset=utf-8
+
+/*.txt
+  Content-Type: text/plain; charset=utf-8
+
 https://:project.workers.dev/*
   X-Robots-Tag: noindex
 

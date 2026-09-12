@@ -479,6 +479,298 @@ leave <strong>the real user locked out and the thief still in.</strong></p>
 cookie still works</strong> — which is the whole point of changing the password. It is also
 what &quot;log out everywhere&quot; is.</p>
 </div>
+<h2 id="sign-in-with-google-openid-connect">&quot;Sign in with Google&quot; (OpenID Connect)<a class="anchor" href="#sign-in-with-google-openid-connect">#</a></h2>
+<pre class="code"><code class="lang-java">{
+	before(Auth::guard);
+
+	<span class="h-c">// both are "no login needed, but a session is"</span>
+	get(<span class="h-s">"/auth/google"</span>, Oidc.start(<span class="h-s">"google"</span>))
+		.attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+
+	get(<span class="h-s">"/auth/google/callback"</span>, Oidc.callback(<span class="h-s">"google"</span>, App::findOrCreate))
+		.attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+}
+
+<span class="h-c">// Map whoever turned up to one of your users. Return null to refuse them</span>
+<span class="h-k">private</span> <span class="h-k">static</span> Principal findOrCreate (OidcUser user) {
+
+	Data staff = findByOidcKey(user.key());        <span class="h-c">// "google:1234567890"</span>
+
+	<span class="h-k">return</span> staff.isEmpty() ? <span class="h-k">null</span>
+		: Principal.of(staff.getLong(<span class="h-s">"id"</span>), staff.getString(<span class="h-s">"name"</span>), staff.getString(<span class="h-s">"role"</span>));
+
+}
+</code></pre>
+<p>Settings live under <code>auth.oidc.&lt;name&gt;.*</code> (<a href="./config">Configuration</a>). <strong>Put <code>client_secret</code>
+in the environment</strong>, never in the file. Leave the endpoints out and they are <strong>discovered</strong>
+(<code>issuer</code> + <code>/.well-known/openid-configuration</code>). <strong>Not at startup</strong> — that would stop the
+app from booting while the provider is down.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not add <code>Auth.NO_SESSION</code>.</strong> The <code>state</code>, the <code>nonce</code> and the PKCE verifier all live
+in the session, so with it <strong>nothing is there when they come back</strong>.</p>
+<p><code>Auth.PUBLIC</code> you do need — this is the path people take before they are logged in.</p>
+</div>
+<h3 id="authorization-code--pkce-only">Authorization code + PKCE only<a class="anchor" href="#authorization-code--pkce-only">#</a></h3>
+<p>There is no implicit flow. <code>start</code> puts a <strong>state, a nonce and a PKCE verifier</strong> in the
+session; <code>callback</code> checks them.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>What it stops</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state</code></td>
+<td><strong>Login CSRF</strong> — making you follow the attacker's code so <strong>you end up logged into their account</strong></td>
+</tr>
+<tr>
+<td><code>nonce</code></td>
+<td><strong>Replay of an ID token</strong> that was captured once</td>
+</tr>
+<tr>
+<td><strong>PKCE</strong> (S256)</td>
+<td><strong>A stolen authorization code</strong> — without the verifier it cannot be exchanged</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>state</code> is <strong>discarded as it is read</strong>: being single-use is the whole point.</p>
+<h3 id="verifying-the-id-token">Verifying the ID token<a class="anchor" href="#verifying-the-id-token">#</a></h3>
+<p><strong>No external library.</strong> The <code>n</code>/<code>e</code> (RSA) and <code>x</code>/<code>y</code> (EC) a JWKS returns go back to a
+public key through the JDK's <code>KeyFactory</code>, and <code>java.security.Signature</code> does the
+verification.</p>
+<p>Here is what is checked. <strong>Every one of them passes silently if you simply do not look.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>alg</code></td>
+<td><strong>The header is not trusted.</strong> Only the RS/ES entries in the table are accepted. <code>none</code> means &quot;an empty signature counts as verified&quot;; <code>HS256</code> means <strong>handing the public key over as a shared secret, so anyone can sign</strong></td>
+</tr>
+<tr>
+<td><code>kid</code></td>
+<td>Picks the key. If the JWKS entry declares an <code>alg</code>, it has to match</td>
+</tr>
+<tr>
+<td><code>iss</code></td>
+<td><strong>Exact match.</strong> A prefix match lets <code>https://accounts.google.com.evil.jp</code> through</td>
+</tr>
+<tr>
+<td><code>aud</code></td>
+<td>Must contain us. <strong>If there is more than one, <code>azp</code> too</strong> — otherwise a token minted for another client can be walked in</td>
+</tr>
+<tr>
+<td><code>exp</code> / <code>iat</code> / <code>nbf</code></td>
+<td>With a clock-skew allowance. <strong>Tokens issued in the future are refused</strong></td>
+</tr>
+<tr>
+<td><code>nonce</code></td>
+<td>Must match the one we sent</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The reason is never returned.</strong> Answering &quot;nonce mismatch&quot; <strong>lets someone measure how far
+they got</strong>. It goes in the log; the response is 401.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A matching email does not link to an existing user.</strong> The only lookup key is
+<code>provider + sub</code> (<code>user.key()</code>).</p>
+<p>Linking on email automatically means <strong>one provider that does not verify email addresses
+is enough to take over an account</strong>. To attach a provider to an existing account, make the
+user do it <strong>explicitly while already logged in</strong>.</p>
+<p><code>user.emailVerified()</code> is there to read, but <strong>whether to believe it is your call</strong>.</p>
+</div>
+<h3 id="what-this-does-not-do">What this does not do<a class="anchor" href="#what-this-does-not-do">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Store access tokens</td>
+<td>No. This ends at &quot;who logged in&quot;. To call an external API, keep the token yourself (storage, encryption, revocation and incremental consent all come with it)</td>
+</tr>
+<tr>
+<td>Make jimble an authorization server</td>
+<td>Not offered</td>
+</tr>
+<tr>
+<td>Register the routes for you</td>
+<td>No. You write <code>get(&quot;/auth/google&quot;, ...)</code> yourself (<a href="./principles">Principles</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="two-factor-authentication-totp">Two-factor authentication (TOTP)<a class="anchor" href="#two-factor-authentication-totp">#</a></h2>
+<p>Once the password is right, <strong>hold the login back</strong> and ask for the code.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// after the password checks out</span>
+<span class="h-k">if</span> (Mfa.isActive(staff.getLong(<span class="h-s">"id"</span>))) {
+	Mfa.pending(context, principal);        <span class="h-c">// not logged in; just parked in the session</span>
+	context.response().redirect(<span class="h-s">"/login/code"</span>);
+	<span class="h-k">return</span>;
+}
+
+Auth.login(context, principal);
+</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// POST /login/code</span>
+<span class="h-k">if</span> (!Mfa.complete(context, request.getString(<span class="h-s">"code"</span>))) {
+	context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"That code is not right"</span>);
+}
+
+context.response().redirect(Mfa.isPending(context) ? <span class="h-s">"/login/code"</span> : <span class="h-s">"/"</span>);
+</code></pre>
+<p>When <code>complete</code> returns true it has <strong>already called <code>Auth.login</code></strong> for you.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Until the code is in, they are not logged in.</strong> <code>Auth.principal(context)</code> returns
+<code>Principal.ANONYMOUS</code> and every route other than <code>/login/code</code> refuses them.</p>
+<p>Which means <strong><code>/login/code</code> needs <code>Auth.PUBLIC</code></strong> — it is a path people take before they
+are logged in. Do not add <code>Auth.NO_SESSION</code>: the half-way user lives in the session.</p>
+</div>
+<h3 id="enrolling">Enrolling<a class="anchor" href="#enrolling">#</a></h3>
+<pre class="code"><code class="lang-java">Mfa.Enrollment enrollment = Mfa.enroll(staffId, <span class="h-s">"member1@example.com"</span>);
+
+<span class="h-c">// show enrollment.uri() as a QR code (otpauth://totp/...)</span>
+<span class="h-c">// show enrollment.recoveryCodes() this once and never again</span>
+</code></pre>
+<p><strong><code>enroll</code> alone does not turn it on.</strong> After the code is in their authenticator, take the
+digits it shows and call <code>Mfa.activate(staffId, code)</code>.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">if</span> (!Mfa.activate(staffId, request.getString(<span class="h-s">"code"</span>))) {
+	context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"That code does not match. Try again"</span>);
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The two steps exist so that nobody gets locked out.</strong> Turning it on at <code>enroll</code> time
+means <strong>anyone whose QR scan silently failed can never get back in.</strong></p>
+</div>
+<h3 id="the-secret-is-stored-encrypted">The secret is stored encrypted<a class="anchor" href="#the-secret-is-stored-encrypted">#</a></h3>
+<p><strong><code>enroll</code> throws if <code>auth.mfa.secret_key</code> is not configured.</strong></p>
+<p>A TOTP secret is not like a password hash. A hash costs work to break; <strong>a leaked secret
+produces valid codes immediately.</strong> Stored in the clear it turns into &quot;we have 2FA, and one
+database leak walks through all of it&quot;.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not reuse <code>cipher.key</code> for this.</strong> The default of <code>hash.password.encrypt</code> is
+<strong>&quot;true if <code>cipher.key</code> is set&quot;</strong> — because a migrated app's stored hashes are encrypted.</p>
+<p>So an app storing plain BCrypt today that sets <code>cipher.key</code> to get 2FA will find <strong>every
+stored password read as ciphertext, and nobody can log in.</strong> All the user sees is &quot;wrong
+id or password&quot;, so there is nothing to trace it back from. <strong>That is why the key is
+separate.</strong></p>
+</div>
+<h3 id="recovery-codes">Recovery codes<a class="anchor" href="#recovery-codes">#</a></h3>
+<p>Phones get lost. This is the way back.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where they appear</td>
+<td>Only in the return value of <code>enroll</code>. <strong>The DB keeps SHA-256 only</strong></td>
+</tr>
+<tr>
+<td>How many</td>
+<td>10 (<code>auth.mfa.recovery_codes</code>)</td>
+</tr>
+<tr>
+<td>Using one</td>
+<td>Type it into the same code box. <code>verify</code> tries the authenticator first, then these</td>
+</tr>
+<tr>
+<td>After use</td>
+<td><strong>It is gone.</strong> Each one works once</td>
+</tr>
+<tr>
+<td>How many are left</td>
+<td><code>Mfa.remainingRecoveryCodes(userId)</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Running out is not announced.</strong> Whether to show the count is your call.</p>
+<h3 id="against-brute-force">Against brute force<a class="anchor" href="#against-brute-force">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Slowing down</td>
+<td>The same <code>Lockout</code> machinery (keyed <code>mfa:&lt;user id&gt;</code>). <strong>Six digits is a million guesses — unthrottled, a day is enough</strong></td>
+</tr>
+<tr>
+<td>The shape</td>
+<td>Three free attempts, then 1 → 2 → 4 … seconds, capped at 300. Over the cap the answer is <strong>429</strong></td>
+</tr>
+<tr>
+<td>Window</td>
+<td>One step either way (<code>auth.mfa.window</code>). <strong>Widening it widens the target</strong> — at 10 there are 21 winning codes</td>
+</tr>
+<tr>
+<td>Reuse</td>
+<td><strong>A code that worked will not work again in its window.</strong> That stops someone reusing one they watched being typed</td>
+</tr>
+<tr>
+<td>Grace</td>
+<td>300 seconds between the password and the code (<code>auth.mfa.pending_seconds</code>). After that, <strong>start over</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="turning-it-off">Turning it off<a class="anchor" href="#turning-it-off">#</a></h3>
+<pre class="code"><code class="lang-java">post(<span class="h-s">"/mfa/disable"</span>, Mfa2::disable).attribute(Auth.FULL_AUTH, <span class="h-k">true</span>);
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Prove who they are before calling <code>Mfa.disable</code>.</strong> A loose path here lets <strong>whoever
+stole the cookie remove the second factor</strong> — which is the whole of it. Put
+<code>attribute(Auth.FULL_AUTH, true)</code> on the route so only someone who <strong>just typed the
+password</strong> can get there.</p>
+</div>
+<h3 id="what-it-is-and-what-it-is-not">What it is, and what it is not<a class="anchor" href="#what-it-is-and-what-it-is-not">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scheme</td>
+<td>TOTP (RFC 6238 over RFC 4226). HMAC-SHA1, 6 digits, 30 seconds — <strong>the one shape every authenticator app reads</strong></td>
+</tr>
+<tr>
+<td>Storage</td>
+<td><code>auth_mfa</code> and <code>auth_mfa_recovery</code>. <strong>A DB is required</strong> (without one, <code>enroll</code> throws)</td>
+</tr>
+<tr>
+<td>QR images</td>
+<td>Not drawn. You get <code>enrollment.uri()</code> and render it yourself (no new dependency)</td>
+</tr>
+<tr>
+<td>SMS / email</td>
+<td>No. SIM swaps take SMS codes</td>
+</tr>
+<tr>
+<td>WebAuthn / passkeys</td>
+<td>Not yet</td>
+</tr>
+<tr>
+<td>&quot;Trusted devices&quot;</td>
+<td>No. remember-me is the nearby thing, and <strong>it is a different thing</strong> — that one replaces the password</td>
+</tr>
+</tbody>
+</table>
+<p>A working one is in <code>examples/approval-auth</code> — login, code, enrollment and turning it off.</p>
 <h2 id="basic-auth">Basic auth<a class="anchor" href="#basic-auth">#</a></h2>
 <p>Operational endpoints can use Basic auth
 (<a href="./request-response">Requests and responses</a>).</p>
@@ -488,7 +780,7 @@ what &quot;log out everywhere&quot; is.</p>
 	get(<span class="h-s">"/whoami"</span>, Ops::whoami);
 });
 </code></pre>
-<h2 id="what-this-does-not-do">What this does not do<a class="anchor" href="#what-this-does-not-do">#</a></h2>
+<h2 id="what-this-does-not-do-2">What this does not do<a class="anchor" href="#what-this-does-not-do-2">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -510,7 +802,7 @@ what &quot;log out everywhere&quot; is.</p>
 <td><strong>Deliberately not offered.</strong> You cannot revoke one, and it adds key management. If you need API auth, use an opaque token held in the DB</td>
 </tr>
 <tr>
-<td>OAuth / OIDC / SAML</td>
+<td>SAML</td>
 <td>Not yet</td>
 </tr>
 <tr>
@@ -546,8 +838,19 @@ what &quot;log out everywhere&quot; is.</p>
 			<li class="level-2"><a href="#staying-logged-in-remember-me">Staying logged in (remember-me)</a></li>
 			<li class="level-3"><a href="#a-stolen-cookie-still-cannot-change-the-password">A stolen cookie still cannot change the password</a></li>
 			<li class="level-3"><a href="#theft-shows-up">Theft shows up</a></li>
+			<li class="level-2"><a href="#sign-in-with-google-openid-connect">"Sign in with Google" (OpenID Connect)</a></li>
+			<li class="level-3"><a href="#authorization-code--pkce-only">Authorization code + PKCE only</a></li>
+			<li class="level-3"><a href="#verifying-the-id-token">Verifying the ID token</a></li>
+			<li class="level-3"><a href="#what-this-does-not-do">What this does not do</a></li>
+			<li class="level-2"><a href="#two-factor-authentication-totp">Two-factor authentication (TOTP)</a></li>
+			<li class="level-3"><a href="#enrolling">Enrolling</a></li>
+			<li class="level-3"><a href="#the-secret-is-stored-encrypted">The secret is stored encrypted</a></li>
+			<li class="level-3"><a href="#recovery-codes">Recovery codes</a></li>
+			<li class="level-3"><a href="#against-brute-force">Against brute force</a></li>
+			<li class="level-3"><a href="#turning-it-off">Turning it off</a></li>
+			<li class="level-3"><a href="#what-it-is-and-what-it-is-not">What it is, and what it is not</a></li>
 			<li class="level-2"><a href="#basic-auth">Basic auth</a></li>
-			<li class="level-2"><a href="#what-this-does-not-do">What this does not do</a></li>
+			<li class="level-2"><a href="#what-this-does-not-do-2">What this does not do</a></li>
 		</ul>
 	</nav>
 </div>

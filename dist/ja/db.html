@@ -437,7 +437,12 @@ String same = row.getString(Post.title);</code></pre>
 <p><strong>SELECT の結果はテーブル名でネストします。</strong>
 <code>post</code> と <code>comment</code> を join したとき、両方に <code>id</code> があっても衝突しません。</p>
 <p><code>Column</code> で引けば、文字列のキーがコードに出てきません。
-<code>row.extractTableData(Post.instance())</code> で、1テーブルぶんだけ取り出せます。</p>
+<code>row.getData(Post.instance())</code> で、1テーブルぶんを<strong>平らにして</strong>取り出せます。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>extractTableData</code> は平らにしません。</strong><code>{post: {...}}</code> を<b>ネストしたまま</b>返すので、
+そのまま JSON にすると<strong>入れ子が1段残ります</strong>。
+平らにしたいときは <code>getData(テーブル)</code> か <code>flattenTable(テーブル)</code> です。</p>
+</div>
 <h2 id="エラーの見方">エラーの見方<a class="anchor" href="#エラーの見方">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 

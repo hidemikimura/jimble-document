@@ -336,6 +336,45 @@ auth {
 		absolute_days = <span class="h-n">90</span>      <span class="h-c"># past this it expires even if still in use</span>
 		grace_seconds = <span class="h-n">60</span>      <span class="h-c"># how long the old one still works after a rotation</span>
 	}
+
+	oidc {
+		google {
+			issuer        = <span class="h-s">"https://accounts.google.com"</span>
+			client_id     = ${?GOOGLE_CLIENT_ID}      <span class="h-c"># from the environment</span>
+			client_secret = ${?GOOGLE_CLIENT_SECRET}  <span class="h-c"># never in the file</span>
+			redirect_uri  = <span class="h-s">"https://example.com/auth/google/callback"</span>
+
+			<span class="h-c"># optional - discovered from the issuer</span>
+			<span class="h-c"># authorization_endpoint = "..."</span>
+			<span class="h-c"># token_endpoint         = "..."</span>
+			<span class="h-c"># jwks_uri               = "..."</span>
+
+			scopes        = <span class="h-s">"openid email profile"</span>
+			clock_skew    = <span class="h-n">60</span>      <span class="h-c"># seconds of clock drift to tolerate</span>
+			discovery_ttl = <span class="h-n">3600</span>    <span class="h-c"># seconds to keep discovery and JWKS</span>
+		}
+	}
+
+	mfa {
+		enabled         = <span class="h-k">true</span>      <span class="h-c"># needs a DB and secret_key (below)</span>
+		issuer          = <span class="h-s">"jimble"</span>  <span class="h-c"># the name shown in the authenticator app</span>
+		digits          = <span class="h-n">6</span>         <span class="h-c"># leave it at 6; most apps show nothing else</span>
+		period          = <span class="h-n">30</span>        <span class="h-c"># seconds</span>
+		window          = <span class="h-n">1</span>         <span class="h-c"># steps either way. Widening it widens the target</span>
+		recovery_codes  = <span class="h-n">10</span>        <span class="h-c"># how many are handed out at enrollment</span>
+		pending_seconds = <span class="h-n">300</span>       <span class="h-c"># grace between the password and the code</span>
+
+		<span class="h-c"># encrypts the TOTP secrets. Without it Mfa.enroll refuses.</span>
+		<span class="h-c"># Do NOT reuse cipher.key here (see below)</span>
+		secret_key      = ${?MFA_SECRET_KEY}
+	}
+}
+
+cipher {
+	<span class="h-c"># reads the already-encrypted password hashes of a migrated app.</span>
+	<span class="h-c"># Not used by two-factor auth (see below)</span>
+	key = ${?CIPHER_KEY}   <span class="h-c"># 16 / 24 / 32 bytes</span>
+	iv  = ${?CIPHER_IV}    <span class="h-c"># 16 bytes</span>
 }
 
 rate_limit {
@@ -376,6 +415,34 @@ codegen {
 	<span class="h-k">package</span> = <span class="h-s">"db"</span>
 }
 </code></pre>
+<h2 id="cipherkey-and-authmfasecret_key-are-different-keys"><code>cipher.key</code> and <code>auth.mfa.secret_key</code> are different keys<a class="anchor" href="#cipherkey-and-authmfasecret_key-are-different-keys">#</a></h2>
+<p><strong>Do not reuse <code>cipher.key</code> for two-factor auth.</strong></p>
+<p>The default of <code>hash.password.encrypt</code> is <strong>&quot;true if <code>cipher.key</code> is set&quot;</strong>. A migrated
+app's stored hashes are encrypted, so <strong>having the key but checking against plain BCrypt
+would lock everyone out</strong> — that default exists to prevent it.</p>
+<p>Which means an app storing plain BCrypt today that adds <code>cipher.key</code> <strong>to get 2FA locks
+everyone out the other way.</strong> All it says is &quot;wrong id or password&quot;, so nothing points back
+at the setting that was added.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cipher.key</code> / <code>cipher.iv</code></td>
+<td>Reads the <strong>already-encrypted password hashes of a migrated app</strong>. Not for anything new — fixed IV, no tamper detection</td>
+</tr>
+<tr>
+<td><code>auth.mfa.secret_key</code></td>
+<td>Encrypts <strong>TOTP secrets</strong>. AES-256-GCM</td>
+</tr>
+</tbody>
+</table>
+<p>Set <code>hash.password.encrypt</code> explicitly to say which you mean (<strong>an explicit value wins over
+the default</strong>).</p>
 <h2 id="trust_proxy-is-false-by-default">trust_proxy is false by default<a class="anchor" href="#trust_proxy-is-false-by-default">#</a></h2>
 <p>Set it to <code>true</code> and <code>X-Forwarded-For</code> is trusted.
 <strong>Leave it <code>false</code> until the application sits behind a load balancer.</strong>
@@ -415,6 +482,7 @@ Put <code>cookie { secure = false }</code> in your local <code>application.conf<
 			<li class="level-2"><a href="#do-not-write-secrets-in-the-file">Do not write secrets in the file</a></li>
 			<li class="level-2"><a href="#comments-are--or-">Comments are # or //</a></li>
 			<li class="level-2"><a href="#the-main-keys">The main keys</a></li>
+			<li class="level-2"><a href="#cipherkey-and-authmfasecret_key-are-different-keys">cipher.key and auth.mfa.secret_key are different keys</a></li>
 			<li class="level-2"><a href="#trust_proxy-is-false-by-default">trust_proxy is false by default</a></li>
 			<li class="level-2"><a href="#cookiesecure-is-true-by-default">cookie.secure is true by default</a></li>
 			<li class="level-2"><a href="#check-it-in-the-startup-log">Check it in the startup log</a></li>

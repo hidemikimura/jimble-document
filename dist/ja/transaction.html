@@ -331,15 +331,53 @@
 </code></pre>
 <p>始めて、渡した処理を走らせて、<code>commitEndTransaction()</code> まで済ませます。
 例外が出れば <code>close()</code> がロールバックします。</p>
-<h2 id="mq-と混ぜるとき">MQ と混ぜるとき<a class="anchor" href="#mq-と混ぜるとき">#</a></h2>
-<p>キューに積むのは<strong>コミットしてからです</strong>。</p>
-<pre class="code"><code class="lang-java">transaction.commitEndTransaction();
+<h2 id="外へ出すものとdb-に積むもの">外へ出すものと、DB に積むもの<a class="anchor" href="#外へ出すものとdb-に積むもの">#</a></h2>
+<p>**どちらの中で呼ぶかが逆になります。**ここは間違えやすいところです。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>どこで呼ぶか</th>
+<th>なぜ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DB のキューへ積む</strong>（<a href="./mq">MQ</a> の <code>put()</code>）</td>
+<td><strong>トランザクションの中</strong></td>
+<td>同じ DB なので、ロールバックすれば積んだものも消えます</td>
+</tr>
+<tr>
+<td><strong>外へ出す</strong>（SSE・メール送信・外部 API）</td>
+<td><strong>コミットしたあと</strong></td>
+<td>戻せないので、先に流すと取り返しがつきません</td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
 
-PostFeedHandler.notifyNewPost(title);
+	transaction.beginTransaction();
+
+	<span class="h-k">long</span> id = db.insert(...);
+
+	<span class="h-k">new</span> NoticeExecutor().put(db, data);      <span class="h-c">// ← 中で積む（DB のキュー）</span>
+
+	transaction.commitEndTransaction();
+
+}
+
+PostFeedHandler.notifyNewPost(title);        <span class="h-c">// ← 外へ出すのはコミットしてから</span>
 </code></pre>
-<p>先に流すと、ロールバックしたときに「入っていない記事のお知らせ」だけが届きます。
-逆に、DB のキュー（<a href="./mq">MQ</a>）へ積むのは<strong>トランザクションの中</strong>です。
-同じ DB なので、ロールバックすれば積んだものも消えます。</p>
+<p>外へ出すものを先に流すと、ロールバックしたときに
+<strong>「入っていない記事のお知らせ」だけが届きます。</strong></p>
+<p>逆に、DB のキューをコミット後に積むと、<strong>積む直前に落ちたぶんが黙って消えます</strong>——
+記事は入っているのに、お知らせは誰も知らない状態になります。</p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><strong>外へ出す処理は、キューの中でやるのがいちばん確実です。</strong>
+トランザクションの中で <code>put()</code> して、実際の送信は
+<a href="./mq">MQ</a> の <code>execute()</code> に書きます。こうすると、
+<b>「どちらの中で呼ぶか」を考えなくてよくなります。</b></p>
+</div>
 
 		</article>
 
@@ -360,7 +398,7 @@ PostFeedHandler.notifyNewPost(title);
 			<li class="level-2"><a href="#畳み忘れ">畳み忘れ</a></li>
 			<li class="level-2"><a href="#閉じ忘れた-db">閉じ忘れた DB</a></li>
 			<li class="level-2"><a href="#短く書く">短く書く</a></li>
-			<li class="level-2"><a href="#mq-と混ぜるとき">MQ と混ぜるとき</a></li>
+			<li class="level-2"><a href="#外へ出すものとdb-に積むもの">外へ出すものと、DB に積むもの</a></li>
 		</ul>
 	</nav>
 </div>

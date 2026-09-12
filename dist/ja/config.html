@@ -328,6 +328,45 @@ auth {
 		absolute_days = <span class="h-n">90</span>      <span class="h-c"># 発行してからこれを超えたら、使っていても切れる</span>
 		grace_seconds = <span class="h-n">60</span>      <span class="h-c"># 回した直後、古いほうも通す時間</span>
 	}
+
+	oidc {
+		google {
+			issuer        = <span class="h-s">"https://accounts.google.com"</span>
+			client_id     = ${?GOOGLE_CLIENT_ID}      <span class="h-c"># 環境変数から</span>
+			client_secret = ${?GOOGLE_CLIENT_SECRET}  <span class="h-c"># 設定ファイルに書かない</span>
+			redirect_uri  = <span class="h-s">"https://example.com/auth/google/callback"</span>
+
+			<span class="h-c"># 省略できる。issuer から discovery で引く</span>
+			<span class="h-c"># authorization_endpoint = "..."</span>
+			<span class="h-c"># token_endpoint         = "..."</span>
+			<span class="h-c"># jwks_uri               = "..."</span>
+
+			scopes        = <span class="h-s">"openid email profile"</span>
+			clock_skew    = <span class="h-n">60</span>      <span class="h-c"># 秒。時計のずれをどこまで許すか</span>
+			discovery_ttl = <span class="h-n">3600</span>    <span class="h-c"># 秒。discovery と JWKS を持つ時間</span>
+		}
+	}
+
+	mfa {
+		enabled         = <span class="h-k">true</span>      <span class="h-c"># DB と secret_key が要る（下を参照）</span>
+		issuer          = <span class="h-s">"jimble"</span>  <span class="h-c"># 認証アプリの一覧に出る名前</span>
+		digits          = <span class="h-n">6</span>         <span class="h-c"># 6 から変えない（多くのアプリが6桁しか出せない）</span>
+		period          = <span class="h-n">30</span>        <span class="h-c"># 秒</span>
+		window          = <span class="h-n">1</span>         <span class="h-c"># 前後いくつの窓まで許すか。広げるほど当たりも増える</span>
+		recovery_codes  = <span class="h-n">10</span>        <span class="h-c"># 登録のときに出す数</span>
+		pending_seconds = <span class="h-n">300</span>       <span class="h-c"># パスワードが通ってからコードを入れるまでの猶予</span>
+
+		<span class="h-c"># 秘密鍵を暗号化する鍵。無ければ Mfa.enroll が断る。</span>
+		<span class="h-c"># cipher.key を流用しないこと（下を参照）</span>
+		secret_key      = ${?MFA_SECRET_KEY}
+	}
+}
+
+cipher {
+	<span class="h-c"># 移送してきたアプリの、暗号化済みパスワードハッシュを読むための鍵。</span>
+	<span class="h-c"># 二要素認証には使わない（下を参照）</span>
+	key = ${?CIPHER_KEY}   <span class="h-c"># 16 / 24 / 32 バイト</span>
+	iv  = ${?CIPHER_IV}    <span class="h-c"># 16 バイト</span>
 }
 
 rate_limit {
@@ -368,6 +407,34 @@ codegen {
 	<span class="h-k">package</span> = <span class="h-s">"db"</span>
 }
 </code></pre>
+<h2 id="cipherkey-と-authmfasecret_key-は別のもの">cipher.key と auth.mfa.secret_key は別のもの<a class="anchor" href="#cipherkey-と-authmfasecret_key-は別のもの">#</a></h2>
+<p><strong>二要素認証に <code>cipher.key</code> を流用しないでください。</strong></p>
+<p><code>hash.password.encrypt</code> の既定は **「<code>cipher.key</code> が設定されていれば true」**です。
+移送してきたアプリの保存済みハッシュが暗号化されているので、
+<strong>鍵があるのに平文の BCrypt として照合すると全員入れなくなる</strong>——それを避けるための既定です。</p>
+<p>このため、<strong>いま平文の BCrypt を保存しているアプリが、二要素認証のために <code>cipher.key</code> を
+足すと、今度は逆向きに全員入れなくなります。</strong>
+出るのは「IDかパスワードが違います」だけなので、設定を足したことと結び付きません。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cipher.key</code> / <code>cipher.iv</code></td>
+<td><strong>移送してきたアプリの暗号化済みパスワードハッシュを読む</strong>ためのもの。新しく暗号化するものには使いません（固定 IV で、改ざん検知もありません）</td>
+</tr>
+<tr>
+<td><code>auth.mfa.secret_key</code></td>
+<td><strong>TOTP の秘密鍵を暗号化する</strong>ためのもの。AES-256-GCM です</td>
+</tr>
+</tbody>
+</table>
+<p>明示したいときは <code>hash.password.encrypt</code> を書いてください
+（<strong>書けば既定は効きません</strong>）。</p>
 <h2 id="trust_proxy-は既定で-false">trust_proxy は既定で false<a class="anchor" href="#trust_proxy-は既定で-false">#</a></h2>
 <p><code>true</code> にすると <code>X-Forwarded-For</code> を信じます。
 <strong>ロードバランサの後ろに置くまでは <code>false</code> のままにしてください。</strong>
@@ -405,6 +472,7 @@ codegen {
 			<li class="level-2"><a href="#秘密はファイルに書かない">秘密はファイルに書かない</a></li>
 			<li class="level-2"><a href="#コメントは--か-">コメントは # か //</a></li>
 			<li class="level-2"><a href="#主なキー">主なキー</a></li>
+			<li class="level-2"><a href="#cipherkey-と-authmfasecret_key-は別のもの">cipher.key と auth.mfa.secret_key は別のもの</a></li>
 			<li class="level-2"><a href="#trust_proxy-は既定で-false">trust_proxy は既定で false</a></li>
 			<li class="level-2"><a href="#cookiesecure-は既定で-true">cookie.secure は既定で true</a></li>
 			<li class="level-2"><a href="#起動ログで確認する">起動ログで確認する</a></li>

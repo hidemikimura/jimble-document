@@ -445,7 +445,12 @@ String same = row.getString(Post.title);</code></pre>
 <p><strong>A SELECT result nests under the table name.</strong>
 Join <code>post</code> and <code>comment</code> and the <code>id</code> on each side does not collide.</p>
 <p>Query with <code>Column</code> and no string keys show up in your code.
-<code>row.extractTableData(Post.instance())</code> pulls out one table's worth.</p>
+<code>row.getData(Post.instance())</code> pulls out one table's worth, <strong>flattened</strong>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>extractTableData</code> does not flatten.</strong> It returns <code>{post: {...}}</code> <strong>still nested</strong>, so
+serialising that to JSON <strong>leaves one level of nesting in</strong>. To flatten, use
+<code>getData(table)</code> or <code>flattenTable(table)</code>.</p>
+</div>
 <h2 id="reading-errors">Reading errors<a class="anchor" href="#reading-errors">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 

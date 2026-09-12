@@ -1,0 +1,15 @@
+# jimble
+
+> Java の Web アプリケーションフレームワーク。注釈も DI も使わない。
+> A web framework for Java. No annotations, no dependency injection.
+
+## Docs
+
+- [ja](https://jimble.io/ja/llms.txt): 38 pages. Full text: https://jimble.io/ja/llms-full.txt
+- [en](https://jimble.io/en/llms.txt): 38 pages. Full text: https://jimble.io/en/llms-full.txt
+
+## Notes
+
+- Every page is also served as Markdown at the same path with a `.md` suffix
+  (for example https://jimble.io/ja/routing.md).
+- Source: https://github.com/hidemikimura/jimble

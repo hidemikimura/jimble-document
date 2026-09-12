@@ -1,0 +1,62 @@
+# jimble
+
+> A web framework on Java 25 and Helidon, with no annotations, no DI, and no reflection
+
+## Getting started
+
+- [What jimble is](https://jimble.io/en/index.md): A web framework on Java 25 and Helidon, with no annotations, no DI, and no reflection
+- [Your first endpoint in 5 minutes](https://jimble.io/en/quickstart.md): From jimble new to a running server with hot reload
+- [Principles](https://jimble.io/en/principles.md): No annotations, no DI, no startup scanning — and why
+
+## Basics
+
+- [Routing](https://jimble.io/en/routing.md): get / post / path / before / after / error, and how to split up controllers
+- [Request and response](https://jimble.io/en/request-response.md): Reading input, nested parameters, validation, and how to send a response
+- [File upload](https://jimble.io/en/upload.md): Receiving multipart, temp files, limits, saving and downloading
+- [Validation and paging](https://jimble.io/en/validation.md): ValidationRule / ValidationExecutor, and how page and per are read
+- [Error handling](https://jimble.io/en/errors.md): Exceptions, misses, validation failures. Where each is caught and what comes back
+- [Templates](https://jimble.io/en/view.md): jte. It compiles, so your types hold
+- [Static files and SPA](https://jimble.io/en/assets.md): assets / SPA / MPA. Serving from inside the jar, ETag, rewriting
+- [Sessions and safe defaults](https://jimble.io/en/session-security.md): Sessions, CSRF, flash, and signed cookies
+- [Login and authorization](https://jimble.io/en/auth.md): One line of before, plus route attributes. Closed by default
+- [Rate limiting](https://jimble.io/en/ratelimit.md): Declared on the route. Token bucket, memory / Redis / DB
+- [Execution model](https://jimble.io/en/execution.md): One virtual thread per request. What runs on which thread
+
+## Database
+
+- [Using the DB](https://jimble.io/en/db.md): Configuring a data source, choosing a DB product, generating table definitions, and the shape of a select result
+- [SQL DSL](https://jimble.io/en/sql.md): SQL.select / insert / update / delete
+- [Transactions](https://jimble.io/en/transaction.md): Wrap it in try-with-resources. A missed close is caught at the end of the execution
+- [Lazy loading and prefetch](https://jimble.io/en/async.md): Fetched at the moment it is referenced. When you walk the whole tree, roll it into one IN clause
+- [Cache and locks](https://jimble.io/en/cache.md): Swapping between DB / memory / Redis, automatic invalidation of SQL results, and distributed locks
+- [Migrations and code generation](https://jimble.io/en/codegen.md): How SQL is applied, what classes are generated, and when each thing runs
+
+## Runtime
+
+- [Batch](https://jimble.io/en/batch.md): Jobs that run on cron. Cancel requests, double starts, the admin screen
+- [MQ](https://jimble.io/en/mq.md): The DB is the queue. Write for a message that will run twice
+
+## Protocols
+
+- [SSE](https://jimble.io/en/sse.md): Stream progress. You cannot detect a disconnect, so bound it by lifetime
+- [WebSocket](https://jimble.io/en/websocket.md): Two-way. One Context per message
+- [MCP](https://jimble.io/en/mcp.md): Stand up a Model Context Protocol server (2026-07-28 / Streamable HTTP and stdio)
+
+## Development
+
+- [The jimble command](https://jimble.io/en/cli.md): Installing it, and new / migrate / codegen
+- [Gradle plugins](https://jimble.io/en/gradle.md): Tasks and settings for io.jimble.db / jte / run
+- [Hot reload](https://jimble.io/en/hot-reload.md): ./gradlew jimbleRun. Make a change and the next request picks it up
+- [Testing](https://jimble.io/en/testing.md): Start a real server and hit it. Keep the DB tests separate
+- [Configuration](https://jimble.io/en/config.md): application.conf. Per-environment overrides, and how to pass secrets
+- [Server configuration](https://jimble.io/en/server.md): Port, listen address, limits, proxies, compression
+- [Logging](https://jimble.io/en/log.md): How to use Log, access logs, execution IDs, metrics, tracing, configuring logback
+- [Running in production](https://jimble.io/en/deploy.md): How to build the jar, and the command that starts it
+
+## More
+
+- [Traps](https://jimble.io/en/pitfalls.md): The places that go quiet instead of failing. Read this first and save yourself a day
+- [Utilities](https://jimble.io/en/util.md): Data, JSON, HTTP client, CSV, crypto. Where to find what
+- [Migrating from jooby](https://jimble.io/en/migration-jooby.md): What works as it is, and what you have to rewrite
+- [Security](https://jimble.io/en/security.md): Where to report a vulnerability, and what happens after we get it
+- [Versions and compatibility](https://jimble.io/en/versioning.md): What counts as public API, when it can break, and what we do before breaking it
