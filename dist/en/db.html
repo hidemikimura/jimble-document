@@ -478,6 +478,53 @@ serialising that to JSON <strong>leaves one level of nesting in</strong>. To fla
 <p>DB errors come back as return values, not exceptions.
 <code>select</code> returns <code>null</code>, <code>insert</code> returns <code>-1</code>, <code>update</code> / <code>delete</code> return <code>-1</code>.
 The reason is in <code>db.getError()</code>.</p>
+<h3 id="telling-no-rows-apart-from-could-not-read">Telling &quot;no rows&quot; apart from &quot;could not read&quot;<a class="anchor" href="#telling-no-rows-apart-from-could-not-read">#</a></h3>
+<p><code>null</code> from <code>select</code> has <strong>two meanings</strong>.</p>
+<pre class="code"><code class="lang-java">Data user = db.select(sql, id);
+<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> nobody; }   <span class="h-c">// ← taken even when the DB cannot be read</span>
+</code></pre>
+<p>Written this way, <strong>the day the DB goes down your app answers &quot;no such user&quot;.</strong>
+No exception, nothing in the log (because <code>isError()</code> was never checked).</p>
+<p>There are two ways to tell them apart.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 1. Check isError(), as before</span>
+Data user = db.select(sql, id);
+<span class="h-k">if</span> (db.isError()) { <span class="h-k">throw</span> ...; }
+<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> nobody; }
+
+<span class="h-c">// 2. Have it thrown for you (since 1.1)</span>
+Data user = db.selectOrThrow(sql, id);
+<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> nobody; }   <span class="h-c">// null means "no rows", nothing else</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>selectOrThrow</code></td>
+<td>One row. <strong><code>null</code> means &quot;no rows&quot; only</strong>. <code>SqlExecuteException</code> if it cannot be read</td>
+</tr>
+<tr>
+<td><code>selectListOrThrow</code></td>
+<td>Rows. <strong>Empty list for no rows</strong>. <code>SqlExecuteException</code> if it cannot be read</td>
+</tr>
+<tr>
+<td><code>insertKey</code></td>
+<td><strong>The generated key only</strong>. <code>SqlExecuteException</code> if there is no generated column, or the insert failed</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The return value of <code>insert</code> also carries two meanings.</strong>
+It is the generated key when one comes back, and <strong>the number of rows inserted</strong> when one does not.
+Whether <code>1</code> means &quot;inserted id=1&quot; or &quot;inserted 1 row&quot;
+<strong>depends on whether the table has a generated column</strong>——
+<strong>add one auto-increment column and the meaning changes without touching the caller.</strong></p>
+<p>Use <code>insertKey</code> for the key and <code>insertNoReturnKey</code> for the count.</p>
+</div>
 <h2 id="migrations">Migrations<a class="anchor" href="#migrations">#</a></h2>
 <p>Put them in <code>conf/migration/&lt;schema name&gt;/001_xxx.sql</code>.</p>
 <pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
@@ -525,6 +572,7 @@ gets generated are all in
 			<li class="level-2"><a href="#generate-table-definitions">Generate table definitions</a></li>
 			<li class="level-2"><a href="#selecting">Selecting</a></li>
 			<li class="level-2"><a href="#reading-errors">Reading errors</a></li>
+			<li class="level-3"><a href="#telling-no-rows-apart-from-could-not-read">Telling "no rows" apart from "could not read"</a></li>
 			<li class="level-2"><a href="#migrations">Migrations</a></li>
 		</ul>
 	</nav>

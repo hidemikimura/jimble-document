@@ -470,6 +470,53 @@ String same = row.getString(Post.title);</code></pre>
 <p>DB のエラーは例外ではなく戻り値で返ります。
 <code>select</code> 系は <code>null</code>、<code>insert</code> は <code>-1</code>、<code>update</code> / <code>delete</code> は <code>-1</code> です。
 理由は <code>db.getError()</code> に入っています。</p>
+<h3 id="1件も無かったと読めなかったを見分ける">「1件も無かった」と「読めなかった」を見分ける<a class="anchor" href="#1件も無かったと読めなかったを見分ける">#</a></h3>
+<p><code>select</code> の <code>null</code> には<strong>2つの意味</strong>があります。</p>
+<pre class="code"><code class="lang-java">Data user = db.select(sql, id);
+<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> 誰でもない; }   <span class="h-c">// ← DB が読めなくても、ここを通ります</span>
+</code></pre>
+<p>これだと <strong>DB が落ちた日に「そんな利用者はいません」と答えます。</strong>
+例外も出ませんし、ログにも残りません（<code>isError()</code> を見ていないので）。</p>
+<p>見分ける書き方は2つあります。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 1. これまでどおり isError() を見る</span>
+Data user = db.select(sql, id);
+<span class="h-k">if</span> (db.isError()) { <span class="h-k">throw</span> ...; }
+<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> 誰でもない; }
+
+<span class="h-c">// 2. 読めなければ投げてもらう（1.1 から）</span>
+Data user = db.selectOrThrow(sql, id);
+<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> 誰でもない; }   <span class="h-c">// null は「1件も無かった」だけ</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>戻り値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>selectOrThrow</code></td>
+<td>1件。<strong><code>null</code> は「1件も無かった」だけ</strong>。読めなければ <code>SqlExecuteException</code></td>
+</tr>
+<tr>
+<td><code>selectListOrThrow</code></td>
+<td>複数件。<strong>0件は空リスト</strong>。読めなければ <code>SqlExecuteException</code></td>
+</tr>
+<tr>
+<td><code>insertKey</code></td>
+<td><strong>採番された値だけ</strong>。採番列が無いか、入らなければ <code>SqlExecuteException</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>insert</code> の戻り値も2つの意味を持ちます。</strong>
+採番された値が取れればその値、取れなければ<strong>入った件数</strong>です。
+<code>1</code> が「id=1 を入れた」なのか「1件入った」なのかは、
+<strong>その表に採番列があるかどうかで決まります</strong>——
+<strong>採番列を1本足しただけで、呼ぶ側を触っていないのに意味が変わります。</strong></p>
+<p>採番値がほしいなら <code>insertKey</code>、件数がほしいなら <code>insertNoReturnKey</code> です。</p>
+</div>
 <h2 id="マイグレーション">マイグレーション<a class="anchor" href="#マイグレーション">#</a></h2>
 <p><code>conf/migration/&lt;スキーマ名&gt;/001_xxx.sql</code> に置きます。</p>
 <pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
@@ -516,6 +563,7 @@ DROP TABLE `note`;
 			<li class="level-2"><a href="#テーブル定義を生成する">テーブル定義を生成する</a></li>
 			<li class="level-2"><a href="#引く">引く</a></li>
 			<li class="level-2"><a href="#エラーの見方">エラーの見方</a></li>
+			<li class="level-3"><a href="#1件も無かったと読めなかったを見分ける">「1件も無かった」と「読めなかった」を見分ける</a></li>
 			<li class="level-2"><a href="#マイグレーション">マイグレーション</a></li>
 		</ul>
 	</nav>

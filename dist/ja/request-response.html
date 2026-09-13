@@ -263,6 +263,45 @@ String title = input.getString(<span class="h-s">"title"</span>);
 読んだだけでキーが増えるので、JSON にして返す直前やループの中では使わないでください
 （<a href="./util">ユーティリティ</a>）。</p>
 </div>
+<h2 id="ヘッダと-cookie同じ名前が2つ来たとき">ヘッダと Cookie（同じ名前が2つ来たとき）<a class="anchor" href="#ヘッダと-cookie同じ名前が2つ来たとき">#</a></h2>
+<p><code>context.request().source()</code> から読めます。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>headers()</code></td>
+<td>ヘッダ。キーは小文字。<strong>同じ名前が2行で来たら <code>&quot;, &quot;</code> で繋ぎます</strong>（<code>Cookie</code> だけ <code>&quot;; &quot;</code>）</td>
+</tr>
+<tr>
+<td><code>cookies()</code></td>
+<td>Cookie。<strong>同じ名前が2つ来たら先頭だけ</strong>です</td>
+</tr>
+<tr>
+<td><code>headerValues()</code></td>
+<td>ヘッダ。<strong>繋ぐ前</strong>（<code>Map&lt;String, List&lt;String&gt;&gt;</code>）</td>
+</tr>
+<tr>
+<td><code>cookieValues()</code></td>
+<td>Cookie。<strong>捨てる前</strong>（<code>Map&lt;String, List&lt;String&gt;&gt;</code>）</td>
+</tr>
+</tbody>
+</table>
+<p>ふつうは <code>headers()</code> / <code>cookies()</code> で足ります。
+<strong>2行で来たことそのものを知りたいとき</strong>だけ <code>...Values()</code> です。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>同じ名前の Cookie は2つ来ることがあります。</strong>
+別のパスやドメインに同じ名前で置かれた場合です。
+<strong>どちらが先頭になるかは Cookie の仕様では決まっていません。</strong></p>
+<p>セッション ID でこれが起きると、<strong>ログインが不定期に外れます</strong>——
+例外は出ませんし、次のリクエストでは直っていることがあります。
+jimble は<strong>2本以上来たら警告を出します</strong>（値は出しません）。
+ログに出たら、<code>Path</code> / <code>Domain</code> を揃えて置き直してください。</p>
+</div>
 <h2 id="入れ子のパラメータ">入れ子のパラメータ<a class="anchor" href="#入れ子のパラメータ">#</a></h2>
 <p><code>.</code> と <code>[ ]</code> のどちらでも入れ子にできます。</p>
 <pre class="code"><code class="lang-text">user.name=taro
@@ -335,6 +374,7 @@ context.response().code(<span class="h-n">201</span>).send();               <spa
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#入力を読む">入力を読む</a></li>
+			<li class="level-2"><a href="#ヘッダと-cookie同じ名前が2つ来たとき">ヘッダと Cookie（同じ名前が2つ来たとき）</a></li>
 			<li class="level-2"><a href="#入れ子のパラメータ">入れ子のパラメータ</a></li>
 			<li class="level-2"><a href="#検証する">検証する</a></li>
 			<li class="level-2"><a href="#返す">返す</a></li>

@@ -247,6 +247,26 @@ That is to avoid writing on every request that only ever read.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="cleaning-up-expired-sessions">Cleaning up expired sessions<a class="anchor" href="#cleaning-up-expired-sessions">#</a></h3>
+<p>Only the <code>db</code> store <strong>accumulates rows</strong> (Redis has TTLs, and cookies are not stored server-side at all).
+Call the cleanup from a batch.</p>
+<pre class="code"><code class="lang-java">SessionStores.defaultStore().cleanupExpired();
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not write <code>SessionStores.db().cleanupExpired()</code>.</strong>
+It keeps working the day you switch the setting to Redis——
+it simply goes on cleaning the DB session table, with no exception and no warning.
+Redis expires its own keys, so <strong>nobody notices that what you meant to clean has changed.</strong></p>
+<p>Call it through <code>defaultStore()</code> and it is correct whatever the store is
+(a store with nothing to clean returns <code>0</code>).</p>
+</div>
+<h3 id="writing-your-own-store">Writing your own store<a class="anchor" href="#writing-your-own-store">#</a></h3>
+<p>Implement <code>SessionStore</code> and swap it in once at startup.</p>
+<pre class="code"><code class="lang-java">SessionStores.replace(<span class="h-k">new</span> MemcachedSessionStore());
+</code></pre>
+<p><code>context.sessionStore(...)</code> applies to <strong>that request only</strong>.
+Use <code>replace</code> when you want it to be the application-wide default——
+specifying it route by route means <strong>the one route you forget reads from somewhere else.</strong></p>
 <h3 id="regenerate-the-session-id-on-login">Regenerate the session id on login<a class="anchor" href="#regenerate-the-session-id-on-login">#</a></h3>
 <p><strong>Call <code>regenerateId()</code> as soon as the login succeeds.</strong></p>
 <pre class="code"><code class="lang-java">context.session().regenerateId();          <span class="h-c">// new id, same contents</span>
@@ -492,6 +512,8 @@ For anything new, use <code>Aead</code> (AES-256-GCM).</p>
 		<p class="section">On this page</p>
 		<ul>
 			<li class="level-2"><a href="#sessions">Sessions</a></li>
+			<li class="level-3"><a href="#cleaning-up-expired-sessions">Cleaning up expired sessions</a></li>
+			<li class="level-3"><a href="#writing-your-own-store">Writing your own store</a></li>
 			<li class="level-3"><a href="#regenerate-the-session-id-on-login">Regenerate the session id on login</a></li>
 			<li class="level-2"><a href="#csrf">CSRF</a></li>
 			<li class="level-2"><a href="#flash">Flash</a></li>

@@ -263,6 +263,45 @@ String title = input.getString(<span class="h-s">"title"</span>);
 puts that empty string into the <code>Data</code>.</strong> Reading alone adds keys, so do not call it
 just before serialising to JSON or inside a loop (<a href="./util">Utilities</a>).</p>
 </div>
+<h2 id="headers-and-cookies-when-the-same-name-arrives-twice">Headers and cookies (when the same name arrives twice)<a class="anchor" href="#headers-and-cookies-when-the-same-name-arrives-twice">#</a></h2>
+<p>Read them from <code>context.request().source()</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>headers()</code></td>
+<td>Headers, keys lower-cased. <strong>Two lines with the same name are joined with <code>&quot;, &quot;</code></strong> (<code>Cookie</code> uses <code>&quot;; &quot;</code>)</td>
+</tr>
+<tr>
+<td><code>cookies()</code></td>
+<td>Cookies. <strong>If the same name arrives twice, only the first</strong></td>
+</tr>
+<tr>
+<td><code>headerValues()</code></td>
+<td>Headers, <strong>before joining</strong> (<code>Map&lt;String, List&lt;String&gt;&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>cookieValues()</code></td>
+<td>Cookies, <strong>before discarding</strong> (<code>Map&lt;String, List&lt;String&gt;&gt;</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><code>headers()</code> / <code>cookies()</code> is normally enough.
+Reach for <code>...Values()</code> only when <strong>the fact that it arrived twice</strong> is what you need.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The same cookie name can arrive twice.</strong>
+It happens when the same name is set on a different path or domain.
+<strong>Which one comes first is not decided by the cookie spec.</strong></p>
+<p>When this happens to a session ID, <strong>logins drop out at random</strong>——
+no exception is raised, and the next request may look fine.
+jimble <strong>warns when two or more arrive</strong> (it does not log the values).
+If you see that warning, line up <code>Path</code> / <code>Domain</code> and set the cookie again.</p>
+</div>
 <h2 id="nested-parameters">Nested parameters<a class="anchor" href="#nested-parameters">#</a></h2>
 <p>You can nest with either <code>.</code> or <code>[ ]</code>.</p>
 <pre class="code"><code class="lang-text">user.name=taro
@@ -334,6 +373,7 @@ Inside an <code>after</code> filter or an <code>error</code> handler, check that
 		<p class="section">On this page</p>
 		<ul>
 			<li class="level-2"><a href="#reading-input">Reading input</a></li>
+			<li class="level-2"><a href="#headers-and-cookies-when-the-same-name-arrives-twice">Headers and cookies (when the same name arrives twice)</a></li>
 			<li class="level-2"><a href="#nested-parameters">Nested parameters</a></li>
 			<li class="level-2"><a href="#validating">Validating</a></li>
 			<li class="level-2"><a href="#sending-a-response">Sending a response</a></li>

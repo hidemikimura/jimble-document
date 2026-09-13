@@ -689,6 +689,30 @@ Data json = response.json();
 > 読んだだけでキーが増えるので、JSON にして返す直前やループの中では使わないでください
 > （[ユーティリティ](./util)）。
 
+## ヘッダと Cookie（同じ名前が2つ来たとき）
+
+`context.request().source()` から読めます。
+
+| メソッド | 中身 |
+| --- | --- |
+| `headers()` | ヘッダ。キーは小文字。**同じ名前が2行で来たら `", "` で繋ぎます**（`Cookie` だけ `"; "`） |
+| `cookies()` | Cookie。**同じ名前が2つ来たら先頭だけ**です |
+| `headerValues()` | ヘッダ。**繋ぐ前**（`Map<String, List<String>>`） |
+| `cookieValues()` | Cookie。**捨てる前**（`Map<String, List<String>>`） |
+
+ふつうは `headers()` / `cookies()` で足ります。
+**2行で来たことそのものを知りたいとき**だけ `...Values()` です。
+
+> [!TRAP]
+> **同じ名前の Cookie は2つ来ることがあります。**
+> 別のパスやドメインに同じ名前で置かれた場合です。
+> **どちらが先頭になるかは Cookie の仕様では決まっていません。**
+>
+> セッション ID でこれが起きると、**ログインが不定期に外れます**——
+> 例外は出ませんし、次のリクエストでは直っていることがあります。
+> jimble は**2本以上来たら警告を出します**（値は出しません）。
+> ログに出たら、`Path` / `Domain` を揃えて置き直してください。
+
 ## 入れ子のパラメータ
 
 `.` と `[ ]` のどちらでも入れ子にできます。
@@ -1871,6 +1895,36 @@ session {
 | `db` | サーバーが複数台。DB がある |
 | `redis` | サーバーが複数台。速さが要る |
 | `cookie` | サーバーに何も置きたくない。中身は署名される |
+
+### 期限切れを掃除する
+
+`db` の保存先だけは**自分で溜め込みます**（Redis は TTL が消し、Cookie はそもそも置いていません）。
+掃除はバッチから呼んでください。
+
+```java
+SessionStores.defaultStore().cleanupExpired();
+```
+
+> [!TRAP]
+> **`SessionStores.db().cleanupExpired()` と書かないでください。**
+> 設定を Redis に変えた日も**そのまま動きます**——
+> DB のセッション表だけを掃除しつづけるだけで、例外も警告も出ません。
+> Redis のほうは TTL が消すので**誰も困らないまま、掃除するつもりの対象が入れ替わっています。**
+>
+> `defaultStore()` から呼べば、保存先が何であっても正しくなります
+> （掃除の要らない保存先は `0` を返します）。
+
+### 自分で保存先を書く
+
+`SessionStore` を実装して、起動時に1回差し替えます。
+
+```java
+SessionStores.replace(new MemcachedSessionStore());
+```
+
+`context.sessionStore(...)` は**そのリクエストだけ**です。
+アプリ全体の既定にしたいときは `replace` を使ってください——
+ルートごとに指定して回ると、**1本でも書き忘れたルートが別の場所を読みます。**
 
 ### ログインしたらセッション ID を振り直す
 
@@ -3162,6 +3216,47 @@ try (DB db = BlogExample.db()) {
 DB のエラーは例外ではなく戻り値で返ります。
 `select` 系は `null`、`insert` は `-1`、`update` / `delete` は `-1` です。
 理由は `db.getError()` に入っています。
+
+### 「1件も無かった」と「読めなかった」を見分ける
+
+`select` の `null` には**2つの意味**があります。
+
+```java
+Data user = db.select(sql, id);
+if (user == null) { return 誰でもない; }   // ← DB が読めなくても、ここを通ります
+```
+
+これだと **DB が落ちた日に「そんな利用者はいません」と答えます。**
+例外も出ませんし、ログにも残りません（`isError()` を見ていないので）。
+
+見分ける書き方は2つあります。
+
+```java
+// 1. これまでどおり isError() を見る
+Data user = db.select(sql, id);
+if (db.isError()) { throw ...; }
+if (user == null) { return 誰でもない; }
+
+// 2. 読めなければ投げてもらう（1.1 から）
+Data user = db.selectOrThrow(sql, id);
+if (user == null) { return 誰でもない; }   // null は「1件も無かった」だけ
+```
+
+| メソッド | 戻り値 |
+| --- | --- |
+| `selectOrThrow` | 1件。**`null` は「1件も無かった」だけ**。読めなければ `SqlExecuteException` |
+| `selectListOrThrow` | 複数件。**0件は空リスト**。読めなければ `SqlExecuteException` |
+| `insertKey` | **採番された値だけ**。採番列が無いか、入らなければ `SqlExecuteException` |
+
+> [!TRAP]
+> **`insert` の戻り値も2つの意味を持ちます。**
+> 採番された値が取れればその値、取れなければ**入った件数**です。
+> `1` が「id=1 を入れた」なのか「1件入った」なのかは、
+> **その表に採番列があるかどうかで決まります**——
+> **採番列を1本足しただけで、呼ぶ側を触っていないのに意味が変わります。**
+>
+> 採番値がほしいなら `insertKey`、件数がほしいなら `insertNoReturnKey` です。
+
 
 ## マイグレーション
 
@@ -5686,7 +5781,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.0.2-SNAPSHOT
+jimble 1.1.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -5709,7 +5804,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`1.0.2-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`1.1.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -5827,9 +5922,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.0.1"
-	id("io.jimble.run") version "1.0.1"
-	id("io.jimble.db")  version "1.0.1"
+	id("io.jimble.jte") version "1.1.0"
+	id("io.jimble.run") version "1.1.0"
+	id("io.jimble.db")  version "1.1.0"
 }
 ```
 
@@ -5871,9 +5966,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.0.1"   // src/main/jte を使うなら
-	id("io.jimble.run") version "1.0.1"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "1.0.1"   // DB を使うなら
+	id("io.jimble.jte") version "1.1.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "1.1.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "1.1.0"   // DB を使うなら
 }
 
 repositories {
@@ -5888,7 +5983,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.0.1")
+	implementation("io.jimble:jimble-web:1.1.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -5922,7 +6017,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.0.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.1.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか

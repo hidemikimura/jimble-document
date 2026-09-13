@@ -699,6 +699,30 @@ versions (`getIntObject` and friends) or `isNull(key)`. See [Utilities](./util).
 > puts that empty string into the `Data`.** Reading alone adds keys, so do not call it
 > just before serialising to JSON or inside a loop ([Utilities](./util)).
 
+## Headers and cookies (when the same name arrives twice)
+
+Read them from `context.request().source()`.
+
+| Method | What it holds |
+| --- | --- |
+| `headers()` | Headers, keys lower-cased. **Two lines with the same name are joined with `", "`** (`Cookie` uses `"; "`) |
+| `cookies()` | Cookies. **If the same name arrives twice, only the first** |
+| `headerValues()` | Headers, **before joining** (`Map<String, List<String>>`) |
+| `cookieValues()` | Cookies, **before discarding** (`Map<String, List<String>>`) |
+
+`headers()` / `cookies()` is normally enough.
+Reach for `...Values()` only when **the fact that it arrived twice** is what you need.
+
+> [!TRAP]
+> **The same cookie name can arrive twice.**
+> It happens when the same name is set on a different path or domain.
+> **Which one comes first is not decided by the cookie spec.**
+>
+> When this happens to a session ID, **logins drop out at random**——
+> no exception is raised, and the next request may look fine.
+> jimble **warns when two or more arrive** (it does not log the values).
+> If you see that warning, line up `Path` / `Domain` and set the cookie again.
+
 ## Nested parameters
 
 You can nest with either `.` or `[ ]`.
@@ -1879,6 +1903,36 @@ session {
 | `db` | Several servers. You have a DB |
 | `redis` | Several servers. You need the speed |
 | `cookie` | You want to keep nothing on the server. The contents are signed |
+
+### Cleaning up expired sessions
+
+Only the `db` store **accumulates rows** (Redis has TTLs, and cookies are not stored server-side at all).
+Call the cleanup from a batch.
+
+```java
+SessionStores.defaultStore().cleanupExpired();
+```
+
+> [!TRAP]
+> **Do not write `SessionStores.db().cleanupExpired()`.**
+> It keeps working the day you switch the setting to Redis——
+> it simply goes on cleaning the DB session table, with no exception and no warning.
+> Redis expires its own keys, so **nobody notices that what you meant to clean has changed.**
+>
+> Call it through `defaultStore()` and it is correct whatever the store is
+> (a store with nothing to clean returns `0`).
+
+### Writing your own store
+
+Implement `SessionStore` and swap it in once at startup.
+
+```java
+SessionStores.replace(new MemcachedSessionStore());
+```
+
+`context.sessionStore(...)` applies to **that request only**.
+Use `replace` when you want it to be the application-wide default——
+specifying it route by route means **the one route you forget reads from somewhere else.**
 
 ### Regenerate the session id on login
 
@@ -3196,6 +3250,47 @@ try (DB db = BlogExample.db()) {
 DB errors come back as return values, not exceptions.
 `select` returns `null`, `insert` returns `-1`, `update` / `delete` return `-1`.
 The reason is in `db.getError()`.
+
+### Telling "no rows" apart from "could not read"
+
+`null` from `select` has **two meanings**.
+
+```java
+Data user = db.select(sql, id);
+if (user == null) { return nobody; }   // ← taken even when the DB cannot be read
+```
+
+Written this way, **the day the DB goes down your app answers "no such user".**
+No exception, nothing in the log (because `isError()` was never checked).
+
+There are two ways to tell them apart.
+
+```java
+// 1. Check isError(), as before
+Data user = db.select(sql, id);
+if (db.isError()) { throw ...; }
+if (user == null) { return nobody; }
+
+// 2. Have it thrown for you (since 1.1)
+Data user = db.selectOrThrow(sql, id);
+if (user == null) { return nobody; }   // null means "no rows", nothing else
+```
+
+| Method | Returns |
+| --- | --- |
+| `selectOrThrow` | One row. **`null` means "no rows" only**. `SqlExecuteException` if it cannot be read |
+| `selectListOrThrow` | Rows. **Empty list for no rows**. `SqlExecuteException` if it cannot be read |
+| `insertKey` | **The generated key only**. `SqlExecuteException` if there is no generated column, or the insert failed |
+
+> [!TRAP]
+> **The return value of `insert` also carries two meanings.**
+> It is the generated key when one comes back, and **the number of rows inserted** when one does not.
+> Whether `1` means "inserted id=1" or "inserted 1 row"
+> **depends on whether the table has a generated column**——
+> **add one auto-increment column and the meaning changes without touching the caller.**
+>
+> Use `insertKey` for the key and `insertNoReturnKey` for the count.
+
 
 ## Migrations
 
@@ -5802,7 +5897,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.0.2-SNAPSHOT
+jimble 1.1.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -5826,7 +5921,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`1.0.2-SNAPSHOT`, say),
+was built from**. If that version is not published (`1.1.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -5948,9 +6043,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.0.1"
-	id("io.jimble.run") version "1.0.1"
-	id("io.jimble.db")  version "1.0.1"
+	id("io.jimble.jte") version "1.1.0"
+	id("io.jimble.run") version "1.1.0"
+	id("io.jimble.db")  version "1.1.0"
 }
 ```
 
@@ -5993,9 +6088,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.0.1"   // if you use src/main/jte
-	id("io.jimble.run") version "1.0.1"   // if you want hot reload
-	id("io.jimble.db")  version "1.0.1"   // if you use a database
+	id("io.jimble.jte") version "1.1.0"   // if you use src/main/jte
+	id("io.jimble.run") version "1.1.0"   // if you want hot reload
+	id("io.jimble.db")  version "1.1.0"   // if you use a database
 }
 
 repositories {
@@ -6010,7 +6105,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.0.1")
+	implementation("io.jimble:jimble-web:1.1.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6044,7 +6139,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.0.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.1.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on

@@ -247,6 +247,26 @@ context.session().save();</code></pre>
 </tr>
 </tbody>
 </table>
+<h3 id="期限切れを掃除する">期限切れを掃除する<a class="anchor" href="#期限切れを掃除する">#</a></h3>
+<p><code>db</code> の保存先だけは<strong>自分で溜め込みます</strong>（Redis は TTL が消し、Cookie はそもそも置いていません）。
+掃除はバッチから呼んでください。</p>
+<pre class="code"><code class="lang-java">SessionStores.defaultStore().cleanupExpired();
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>SessionStores.db().cleanupExpired()</code> と書かないでください。</strong>
+設定を Redis に変えた日も<strong>そのまま動きます</strong>——
+DB のセッション表だけを掃除しつづけるだけで、例外も警告も出ません。
+Redis のほうは TTL が消すので<strong>誰も困らないまま、掃除するつもりの対象が入れ替わっています。</strong></p>
+<p><code>defaultStore()</code> から呼べば、保存先が何であっても正しくなります
+（掃除の要らない保存先は <code>0</code> を返します）。</p>
+</div>
+<h3 id="自分で保存先を書く">自分で保存先を書く<a class="anchor" href="#自分で保存先を書く">#</a></h3>
+<p><code>SessionStore</code> を実装して、起動時に1回差し替えます。</p>
+<pre class="code"><code class="lang-java">SessionStores.replace(<span class="h-k">new</span> MemcachedSessionStore());
+</code></pre>
+<p><code>context.sessionStore(...)</code> は<strong>そのリクエストだけ</strong>です。
+アプリ全体の既定にしたいときは <code>replace</code> を使ってください——
+ルートごとに指定して回ると、<strong>1本でも書き忘れたルートが別の場所を読みます。</strong></p>
 <h3 id="ログインしたらセッション-id-を振り直す">ログインしたらセッション ID を振り直す<a class="anchor" href="#ログインしたらセッション-id-を振り直す">#</a></h3>
 <p><strong>ログインが通った直後に <code>regenerateId()</code> を呼んでください。</strong></p>
 <pre class="code"><code class="lang-java">context.session().regenerateId();          <span class="h-c">// ID が変わる。中身は残る</span>
@@ -483,6 +503,8 @@ cipher {
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#セッション">セッション</a></li>
+			<li class="level-3"><a href="#期限切れを掃除する">期限切れを掃除する</a></li>
+			<li class="level-3"><a href="#自分で保存先を書く">自分で保存先を書く</a></li>
 			<li class="level-3"><a href="#ログインしたらセッション-id-を振り直す">ログインしたらセッション ID を振り直す</a></li>
 			<li class="level-2"><a href="#csrf">CSRF</a></li>
 			<li class="level-2"><a href="#flash">Flash</a></li>
