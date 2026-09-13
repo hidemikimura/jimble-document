@@ -208,24 +208,22 @@
 	<main id="main">
 		<article>
 			<h1 id="versions-and-compatibility">Versions and compatibility<a class="anchor" href="#versions-and-compatibility">#</a></h1>
-<h2 id="we-are-on-0x">We are on 0.x<a class="anchor" href="#we-are-on-0x">#</a></h2>
-<p><strong>While we are on 0.x, a minor release can break things.</strong>
-<a href="https://semver.org/">Semantic Versioning</a> says so itself — below 1.0 nothing is promised —
-and jimble takes it at its word.</p>
-<p><strong>From 1.0, breaking a public API is preceded by a deprecation period of at least one minor.</strong></p>
+<h2 id="we-are-on-10">We are on 1.0<a class="anchor" href="#we-are-on-10">#</a></h2>
+<p><strong>Breaking a public API is preceded by a deprecation period of at least one minor.</strong>
+jimble follows <a href="https://semver.org/">Semantic Versioning</a> at its word.</p>
 <table>
 <thead>
 <tr>
 <th></th>
-<th>0.x (now)</th>
-<th>1.0 onwards</th>
+<th>0.x (up to 0.6)</th>
+<th>1.0 onwards (now)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Breaking a public API</td>
-<td><strong>Can happen in a minor</strong></td>
-<td>Deprecated for at least one minor, then removed in the next major</td>
+<td>Could happen in a minor</td>
+<td><strong>Deprecated for at least one minor, then removed in the next major</strong></td>
 </tr>
 <tr>
 <td>Changing internals</td>
@@ -234,17 +232,25 @@ and jimble takes it at its word.</p>
 </tr>
 <tr>
 <td>Writing it in the CHANGELOG</td>
-<td><strong>Always</strong></td>
+<td>Always</td>
 <td>Always</td>
 </tr>
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>Even on 0.x, nothing breaks silently.</strong>
-What is not promised is that things will not break — not that you will not be told.
-Anything that can break you goes in the <strong>&quot;変わったこと（挙動）&quot; (behaviour changes)</strong>
-section of the <a href="https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md">CHANGELOG</a>.
-Reading that section alone is enough before you upgrade.</p>
+<p><strong>Nothing breaks silently.</strong>
+Anything that can break you goes in the <strong>&quot;上げる前に見るところ&quot; (read before upgrading)</strong>
+and <strong>&quot;変わったこと（挙動）&quot; (behaviour changes)</strong> sections of the
+<a href="https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md">CHANGELOG</a>.
+Reading those alone is enough before you upgrade.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A promise starting also means some things can no longer be fixed.</strong>
+Return types, record components, public fields, abstract methods on an <code>interface</code>, <code>final</code> —
+<strong>a deprecation period saves none of them</strong> (you cannot keep the old one and add the new one
+under the same name).
+Before 1.0 we read through all 103 public packages and 4,514 signatures and dealt with them
+(<a href="https://github.com/hidemikimura/jimble/blob/main/docs/design-1.0.md">docs/design-1.0.md</a>).</p>
 </div>
 <h2 id="what-counts-as-public-api">What counts as public API<a class="anchor" href="#what-counts-as-public-api">#</a></h2>
 <p><strong>The line is drawn per package.</strong></p>
@@ -262,20 +268,51 @@ Reading that section alone is enough before you upgrade.</p>
 </tr>
 <tr>
 <td><strong>Internal</strong></td>
-<td>What only exists inside an entry-point class: <code>io.jimble.db.sql.query.*</code> (inside <code>SQL</code>), <code>io.jimble.util.json.encoder</code> (inside <code>Dson</code>) and so on</td>
+<td>What only exists inside an entry-point class: <code>io.jimble.db.internal.sql.query.*</code> (inside <code>SQL</code>), <code>io.jimble.util.internal.json.encoder</code> (inside <code>Dson</code>) and so on</td>
+</tr>
+<tr>
+<td><strong>Preview</strong></td>
+<td><strong>Tracks an outside specification, so the promise below does not cover it.</strong> Right now that is only <code>io.jimble.mcp.*</code></td>
 </tr>
 </tbody>
 </table>
 <p>The full list is in
 <a href="https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt"><code>docs/api-packages.txt</code></a>.</p>
+<p><strong>The name says it.</strong></p>
+<blockquote>
+<p><strong>Everything under <code>io.jimble.&lt;module&gt;.internal</code> is internal.</strong></p>
+</blockquote>
+<p>If <code>internal</code> appears in an <code>import</code>, that is something you must not touch.</p>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong><code>public</code> does not mean public API.</strong> Java has no modifier for &quot;visible outside the
-module but not meant for you&quot;, so <strong>internals are <code>public</code> too</strong>. Whether you may
-touch something is decided by the list above, not by the keyword.</p>
+module but not meant for you&quot;, so <strong>internals are <code>public</code> too</strong>. The <code>internal</code> in the
+name, and the list above, are the line — not the keyword.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Names you write in a config file, or type on a command line, are public API.</strong>
+<code>io.jimble.util.log.encoder.LogbackJsonEncoder</code> in your <code>logback.xml</code>, and
+<code>io.jimble.db.cli.JimbleDbCli</code> in a CI job that does not use Gradle, <strong>break your
+setup if we move them</strong> even though nothing imports them. That is why they are not
+under <code>internal</code>.</p>
 </div>
 <p><strong>The list does not go stale.</strong> Add a package and forget to classify it and
 <code>ApiSurfaceTest</code> fails. The same test checks that the samples under <code>examples/</code> do not
 import anything internal.</p>
+<h3 id="preview--deliberately-outside-the-promise">Preview — deliberately outside the promise<a class="anchor" href="#preview--deliberately-outside-the-promise">#</a></h3>
+<p><strong><code>io.jimble.mcp.*</code> is not covered by &quot;one minor of deprecation before anything breaks&quot;,
+even at 1.0.</strong></p>
+<p><a href="./mcp">MCP</a> has published <strong>five revisions in two years, every one of them breaking</strong>
+(2026-07-28 dropped sessions and the GET stream). jimble's policy is to <strong>name the
+revision it implements and implement exactly one</strong>, so every time the spec moves, the
+choice is <strong>break the public API or stop tracking the spec</strong>. Putting it inside the
+promise means it can never track the spec again.</p>
+<p>The revision in force is readable as <strong><code>McpProtocol.version()</code></strong>. It is a method rather
+than a constant because <strong><code>public static final String</code> is inlined into your application's
+bytecode</strong> — as a constant, upgrading jimble would leave your build holding the old
+revision string, with no warning.</p>
+<p>If you use <code>io.jimble.mcp.*</code>, <strong>read the
+<a href="https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md">CHANGELOG</a> before
+upgrading</strong>. Breaks are always written there.</p>
 <h2 id="when-the-signature-is-the-same-but-the-result-changes">When the signature is the same but the result changes<a class="anchor" href="#when-the-signature-is-the-same-but-the-result-changes">#</a></h2>
 <p><strong>This is the part that matters most.</strong></p>
 <p>Almost every way jimble has actually broken people so far <strong>left the signatures alone</strong> —
@@ -337,8 +374,9 @@ The dependency coordinates and a build file that works as it stands are on the
 	<nav class="toc" aria-label="On this page">
 		<p class="section">On this page</p>
 		<ul>
-			<li class="level-2"><a href="#we-are-on-0x">We are on 0.x</a></li>
+			<li class="level-2"><a href="#we-are-on-10">We are on 1.0</a></li>
 			<li class="level-2"><a href="#what-counts-as-public-api">What counts as public API</a></li>
+			<li class="level-3"><a href="#preview--deliberately-outside-the-promise">Preview — deliberately outside the promise</a></li>
 			<li class="level-2"><a href="#when-the-signature-is-the-same-but-the-result-changes">When the signature is the same but the result changes</a></li>
 			<li class="level-2"><a href="#what-breaking-looks-like">What breaking looks like</a></li>
 			<li class="level-2"><a href="#choosing-a-version">Choosing a version</a></li>

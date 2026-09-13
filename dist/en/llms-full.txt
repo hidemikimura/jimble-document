@@ -388,6 +388,54 @@ HTTP/1.1 405 Method Not Allowed
 Allow: GET
 ```
 
+## Variations of the same path
+
+**A trailing slash and repeated slashes have always been ignored.**
+`/a/b`, `/a/b/`, `/a//b` and `//a/b` are **all the same route**.
+
+They are only ignored, though, so **the same content answers 200 at several URLs**.
+Caches, search engines and path-based ACLs in front of you all **count those separately**.
+To settle on one:
+
+```conf
+router {
+	redirect_to_canonical = true    # 301 from /a/ and //a to /a
+}
+```
+
+> [!NOTE]
+> **Only `GET` and `HEAD` are redirected.**
+> A 301 on a `POST` makes **the browser drop the body and retry as `GET`** —
+> the submission simply disappears — so `POST` is served where it is.
+> The query string is carried over.
+
+**Matching can also ignore case.**
+
+```conf
+router {
+	ignore_case = true              # /ADMIN reaches the /admin route
+}
+```
+
+Only the **fixed parts written in the route** are compared loosely.
+For `/Users/{id}` that is `Users`; **the value bound to `{id}` is passed through untouched**,
+so an ID that contains capitals (a Hashid, say) is never quietly lowercased.
+
+> [!WARN]
+> **This can disagree with whatever sits in front of you.**
+> `/ADMIN` now reaches the `/admin` route, so
+> **a proxy ACL or a `before` hook that compares path strings only guards one spelling**.
+> Turn `redirect_to_canonical` on as well — it **301s to the spelling written in the route**,
+> so your application only ever sees one of them.
+
+> [!NOTE]
+> **Two routes that differ only in case fail at startup** (when `ignore_case` is on).
+> With both `/Admin` and `/admin` registered there is **no way to say which one wins**,
+> and if only one of them carries the auth check, the loose one can be the one that answers.
+
+`context.request().path()` gives you **the same shape the router saw** (slashes fixed).
+When you need the path exactly as it arrived, use `rawPath()`.
+
 ## Grouping
 
 ```java
@@ -482,6 +530,16 @@ if (context.route().route().attribute(NO_AUTH)) {
 
 An `AttributeKey` carries a default. Routes without the attribute get that default,
 so you never write a `null` check.
+
+> [!TIP]
+> **A key is the instance you created.**
+> Hold one in a `static final` field and reuse it.
+> Another key created with the same name is a *different* key, so writing through
+> one and reading through the other gives you the default.
+>
+> **Creating a key with the same name as a framework key (`Auth.PUBLIC`, say) does not
+> take over its slot.** It does make the two indistinguishable in logs, though, so
+> two keys sharing a name **fail at startup** — rename one.
 
 ### Setting it for a whole block
 
@@ -749,9 +807,9 @@ for (Object value : context.request().bodyFile().values()) {
 		for (Object item : list) {
 			UploadFile uploadFile = (UploadFile) item;
 			received.add("%s:%s:%d".formatted(
-				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
-			received.add("content=" + read(uploadFile.file.toPath()));
-			tempFiles.add(uploadFile.file.toPath());
+				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
+			received.add("content=" + read(uploadFile.file().toPath()));
+			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
 }
@@ -794,8 +852,8 @@ If the process dies they stay behind, and we leave that to the OS cleaning out i
 
 ```conf
 upload {
-	max_file_size  = 10485760   # per file. 10MB by default
-	max_total_size = 52428800   # per request, in total. 50MB by default
+	max_file_size  = 10MiB       # per file
+	max_total_size = 10MiB       # per request, in total
 	max_files      = 20         # how many
 	temp_dir       = ""         # empty means java.io.tmpdir
 }
@@ -816,8 +874,9 @@ Size is checked **as the data is read**. Measure it after taking everything in
 and you have already written the excess to disk.
 
 > [!WARN]
-> **`server.max_request_size` (10MB by default) bites first.**
-> `upload.max_total_size` defaults to 50MB, so **out of the box, 50MB never arrives.**
+> **`server.max_request_size` (10MiB by default) bites first.**
+> If `upload.max_total_size` is larger, **startup fails** — the server cuts the body
+> first, so the limit you wrote could never be reached.
 > If you want to allow large uploads, raise both.
 
 ## Saving
@@ -829,16 +888,16 @@ private static String saveImage (WebContext context) throws Exception {
 
 	UploadFile uploadFile = firstFile(context);
 
-	if (uploadFile == null || uploadFile.fileSize <= 0) {
+	if (uploadFile == null || uploadFile.fileSize() <= 0) {
 		return null;
 	}
 
-	String extension = extensionOf(uploadFile.fileName);
+	String extension = extensionOf(uploadFile.fileName());
 
 	if (!ALLOWED_EXTENSIONS.contains(extension)) {
 		throw new io.jimble.web.http.HttpException(
 			400, "受け付けられない形式です: %s（%s のみ）"
-				.formatted(uploadFile.fileName, String.join(" ", ALLOWED_EXTENSIONS)));
+				.formatted(uploadFile.fileName(), String.join(" ", ALLOWED_EXTENSIONS)));
 	}
 
 	Path dir = Path.of(UPLOAD_DIR);
@@ -850,7 +909,7 @@ private static String saveImage (WebContext context) throws Exception {
 	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
 	 * 残したいものはここで移す。
 	 */
-	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+	Files.copy(uploadFile.file().toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
 
 	return saved;
 
@@ -948,9 +1007,25 @@ They run in the order you stacked them and **stop at the first failure** (one er
 > `textLengthMax(100)` means "at most 100 characters, if there is a value";
 > an empty string or `null` is not an error. **Always write required as `empty()`.**
 
+> [!NOTE]
+> **Format checks are matched against the whole value.**
+> `email()`, `url()`, `domain()`, `regex(...)` and `characterType(...)`
+> do **not** pass just because something plausible appears somewhere inside —
+> `hello a@example.com there` fails `email()`.
+> `regex("[0-9]{4}")` means "the whole value is four digits",
+> so **wrap it in `.*` when you want a partial match.**
+
+> [!NOTE]
+> **`bool()` accepts only `true` / `false` / `1` / `0`** (case does not matter).
+> `yes` fails — **the reading side uses the same spellings**, so widening this
+> means someone who answered "yes" gets stored as `false`.
+
 > [!WARN]
-> `regex(...)` uses **`find` (a partial match)**, not `matches`.
-> When you want it to cover the whole value, write `^` and `$` yourself.
+> **`date()` and `date(format)` only check that the value can be read.**
+> `2026-13-01` (month 13), `2026-02-31` (Feb 31st) and
+> `2026-09-12x` (trailing junk) all **pass**.
+> `date()` goes through the same shared conversion as database reads and request binding.
+> **To check that the date is real, stack a `regex(...)` on it or write a `custom(...)`.**
 
 ## Binding rules to columns
 
@@ -1120,8 +1195,9 @@ Paging paging = context.request().paging();
 | --- | --- |
 | Keys it reads | `page` / `per` |
 | Defaults | `page = 1`, `per = 10` |
-| Everything | `per=all` (no LIMIT is added) |
-| Renaming the keys | `paging.page` / `paging.per` (configuration) |
+| Cap | `paging.max_per` (200 by default). **A larger request is rounded down to it** |
+| Everything | `per=all`. **The cap still applies, so 200 rows by default** (`paging.max_per = 0` for a real "everything") |
+| Renaming the keys | `paging.name_page` / `paging.name_per` (configuration) |
 | A non-numeric value | Ignored; the default is used |
 
 Write `context.request().paging(20)` to change the default used when no `per` arrives.
@@ -1134,8 +1210,8 @@ paging.load(request("2", "10"), 0);
 
 SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
 
-assertEquals(10, response.list.size(), "1ページ分だけ取れていない");
-assertEquals(TOTAL, response.rowCount, "総件数が LIMIT に影響されている");
+assertEquals(10, response.list().size(), "1ページ分だけ取れていない");
+assertEquals(TOTAL, response.rowCount(), "総件数が LIMIT に影響されている");
 
 assertEquals(TOTAL, paging.totalCount());
 assertEquals(3, paging.maxPage(), "25 件を 10 件ずつなら 3 ページ");
@@ -1858,6 +1934,11 @@ Put `Csrf::verify` in a `before` and the routes below it are protected.
 
 Take the token with `context.request().csrfToken()` and put it in a hidden form field.
 
+**The token lives for `csrf.max_age` (one day by default).** Up to 0.6.x it rode on
+`cookie.max_age` (one year by default), so shortening `cookie.max_age` for your own reasons
+**shortened the CSRF token with it** — and all you got back was a 403 saying the token was
+missing.
+
 ## Flash
 
 Something you hand to the redirect target exactly once.
@@ -1927,6 +2008,30 @@ cookie {
 
 **With no key set, signing is off entirely.** Nothing throws, cookies read and write as usual,
 and there is no sign that it is not working — so we warn about it at startup.
+
+### Turning signing on later
+
+> [!TRAP]
+> **The moment `cookie.secret` is set for the first time, every cookie already out there is
+> thrown away at once** — `sid`, `csrf_token`, `remember`, flash. **Everyone is logged out
+> and every form returns 403.** Nothing throws and nothing is logged, because discarding a
+> cookie whose signature does not check out is the correct behaviour.
+
+**Give yourself a migration window.**
+
+```conf
+cookie {
+	secret          = ${?COOKIE_SECRET}
+	accept_unsigned = true    # only until the changeover is done
+}
+```
+
+While `accept_unsigned` is true, **unsigned cookies are read too**. Writing signs from the
+start, so **leaving it alone replaces them**.
+
+**Turn it back off once they are replaced.** Leave it on and **a cookie with its signature
+stripped keeps working**, which is the whole thing you turned signing on to stop. The count
+of unsigned cookies let through is `cookie.unsigned` — **wait until it reaches 0**.
 
 ## Rotating a key
 
@@ -2015,7 +2120,7 @@ if (PasswordUtil.check(input, user.getString("password"))) {
 ```conf
 hash {
 	password {
-		# Default: true when cipher.key is set, false when it is not
+		# If you set cipher.*, you must set this too (startup fails otherwise)
 		encrypt = true
 		pepper  = ${?PASSWORD_PEPPER}
 	}
@@ -2307,7 +2412,8 @@ leave **the real user locked out and the thief still in.**
 	get("/auth/google", Oidc.start("google"))
 		.attribute(Auth.PUBLIC, true);
 
-	get("/auth/google/callback", Oidc.callback("google", App::findOrCreate))
+	// third argument: the code screen. Pass it if you use two-factor auth
+	get("/auth/google/callback", Oidc.callback("google", App::findOrCreate, "/login/code"))
 		.attribute(Auth.PUBLIC, true);
 }
 
@@ -2375,6 +2481,18 @@ they got**. It goes in the log; the response is 401.
 > user do it **explicitly while already logged in**.
 >
 > `user.emailVerified()` is there to read, but **whether to believe it is your call**.
+
+### Using it with two-factor auth
+
+**Pass the path of the code screen as the third argument.**
+
+With it, someone who has two-factor auth enabled and arrives through "Sign in with Google"
+is parked with `Mfa.pending` and sent to that screen — exactly as on the password path.
+
+> [!TRAP]
+> **Without it, that person cannot get in** (they get a 401).
+> In 0.6.0 they were **silently logged in**, so **choosing "Sign in with Google" skipped
+> the second factor entirely.** Refusing beats waving them through (fixed in 1.0).
 
 ### What this does not do
 
@@ -2448,13 +2566,13 @@ produces valid codes immediately.** Stored in the clear it turns into "we have 2
 database leak walks through all of it".
 
 > [!TRAP]
-> **Do not reuse `cipher.key` for this.** The default of `hash.password.encrypt` is
-> **"true if `cipher.key` is set"** — because a migrated app's stored hashes are encrypted.
+> **Do not reuse `cipher.key` for this.** Setting `cipher.*` means
+> **`hash.password.encrypt` must be set too, or startup fails.**
 >
-> So an app storing plain BCrypt today that sets `cipher.key` to get 2FA will find **every
-> stored password read as ciphertext, and nobody can log in.** All the user sees is "wrong
-> id or password", so there is nothing to trace it back from. **That is why the key is
-> separate.**
+> An app storing plain BCrypt today that sets `cipher.key` for 2FA and writes
+> `encrypt = true` will find **every stored password read as ciphertext, and nobody can
+> log in.** All the user sees is "wrong id or password", so there is nothing to trace it
+> back from. **That is why the key is separate** — use `auth.mfa.secret_key` for 2FA.
 
 ### Recovery codes
 
@@ -2478,7 +2596,7 @@ Phones get lost. This is the way back.
 | The shape | Three free attempts, then 1 → 2 → 4 … seconds, capped at 300. Over the cap the answer is **429** |
 | Window | One step either way (`auth.mfa.window`). **Widening it widens the target** — at 10 there are 21 winning codes |
 | Reuse | **A code that worked will not work again in its window.** That stops someone reusing one they watched being typed |
-| Grace | 300 seconds between the password and the code (`auth.mfa.pending_seconds`). After that, **start over** |
+| Grace | 300 seconds between the password and the code (`auth.mfa.pending`). After that, **start over** |
 
 ### Turning it off
 
@@ -2726,7 +2844,7 @@ Virtual threads grow without limit. **What runs out first is DB connections.**
 > has not gone back to the pool.
 > Hold something open in that state for a long time — SSE, say — and **you eat one
 > pool slot per person.**
-> With `maximumPoolSize = 10`, ten people exhaust it, and the eleventh gets neither
+> With `maximum_pool_size = 10`, ten people exhaust it, and the eleventh gets neither
 > "slow" nor "an error" but **a wait for a connection that just sits there.**
 
 This is why you do not write an infinite loop in an SSE handler.
@@ -2793,7 +2911,7 @@ db {
 		password = ""
 		password = ${?DB_PASSWORD}
 
-		maximumPoolSize      = 10
+		maximum_pool_size      = 10
 		connection_pool_type = "hikari"
 	}
 }
@@ -2872,6 +2990,16 @@ SQL.select().from(Post.instance()).where(Post.id.eq(1L));
 
 Each data source can name a different product (MySQL for the main one,
 PostgreSQL for reporting, and so on).
+
+> [!NOTE]
+> **Only MySQL (MariaDB) and PostgreSQL are supported.**
+> An unknown name **fails at startup** — falling back to MySQL silently would send
+> backtick-quoted SQL to an application written for PostgreSQL.
+>
+> **There is no hook for adding your own dialect** (`Dialect` is `sealed`). A dialect
+> has 40-odd methods, one per SQL function, so **every function jimble adds would
+> break an outside implementation.** If you need another product, ask for it to be
+> added to the framework.
 
 ### What you cannot write for a given product
 
@@ -3138,6 +3266,17 @@ SQL.select(Post.id, Post.title).from(Post.instance())
 ```
 
 Call `where` more than once and the conditions are joined with AND.
+
+> [!NOTE]
+> **`contains`, `starts_with` and `ends_with` look for the text you passed, literally.**
+> A `50%` typed into a search box is looked up as the string **`50%`**, not as "anything starting with 50",
+> and `a_c` does not match `abc` (`%` and `_` are escaped and an `ESCAPE '!'` clause is added).
+> **When you want to write the `%` yourself, use `like(...)`** — that one passes the value through as-is.
+
+> [!NOTE]
+> **`in(...)` takes a `List` or an array**, including primitive arrays such as `long[]` and `int[]`.
+> **An empty list (or `null`) fails while the SQL is being built** — `IN ()` is broken SQL, and
+> collapsing it to `IN (NULL)` **matches no row and quietly returns nothing**.
 
 ## Joins
 
@@ -3565,6 +3704,69 @@ DBTransaction.transaction(db, transaction -> {
 It starts one, runs the work you passed in, and sees it through `commitEndTransaction()`.
 If an exception is thrown, `close()` rolls back.
 
+## An error inside means no commit
+
+**The DB layer returns errors as return values, not exceptions**
+([Principles](./principles)). So when `db.update(...)` inside returns `-1`,
+**the block still finishes as if nothing went wrong.**
+
+```java
+DBTransaction.transaction(db, transaction -> {
+	db.insert(...);          // fine
+	db.update(...);          // -1. No exception
+	db.insert(...);          // fine
+});
+```
+
+**This does not commit.** If anything inside the transaction recorded an error,
+`commitEndTransaction()` rolls back and throws `CodeException` (`DB_004`).
+
+> [!TRAP]
+> **Up to 0.6.0 it committed.** And because the framework calls `rollback()` inside the
+> failing statement, **everything up to that point was rolled back and everything after it
+> was committed.** No exception, no log — nobody sees that half the data went in.
+
+`db.isError()` answers **only for the statement just before it**. The commit decision looks
+at the whole transaction, so **one successful statement after a failure does not hide it.**
+
+### Branching on an error and carrying on
+
+**Call `rollback()` first, then write the other path.**
+
+```java
+db.beginTransaction();
+
+insert(...);
+db.commit();                 // confirmed. The transaction continues
+
+update(...);                 // this failed
+
+if (db.isError()) {
+	db.rollback();           // settle it
+	insertFallback(...);     // write the other way
+}
+
+db.commitEndTransaction();
+```
+
+**`rollback()` also clears the carried-over error.** Without that, the `commit()` after your
+rewrite would refuse, saying an error is still outstanding.
+
+> [!TRAP]
+> **Whether statements after a failure go through depends on the product.**
+>
+> | | After a failed statement |
+> | --- | --- |
+> | PostgreSQL | **Refused** until `ROLLBACK` (`current transaction is aborted, ...`) |
+> | MySQL | **They run.** One failed statement does not abort the transaction |
+>
+> **Lean on neither.** What jimble promises is only this: **the commit is refused and not one
+> row survives.** After a failure, `rollback()` before you write anything else.
+>
+> **0.6.x hid the difference.** Every statement's `catch` called `rollback()` on the spot, so
+> on both products it *looked* like you could carry on — while **everything before the
+> failure had been thrown away.** That was the partial commit.
+
 ## What leaves the process, and what goes into the DB
 
 **The two go on opposite sides of the commit.** This one is easy to get backwards.
@@ -3645,6 +3847,15 @@ post.getJsonString();   // ← here it fires
 
 `AsyncData` behaves as a `Data` and `AsyncList` as a `List`, so once loaded they are
 ordinary data.
+
+**Touching one loads it — reading or writing.** `get` and `size` of course, but also
+`put` / `remove` / `add` / `clear` / `computeIfAbsent` / `putFirst`.
+
+> [!NOTE]
+> **Up to 0.6.x the write side did not trigger a load.** Calling `remove("id")` on an
+> unloaded node removed a key from an *empty* map, and the value came back the moment
+> someone read it. An `add` before the load was **overwritten and lost**. Nothing
+> crashed and nothing was logged, so the first sign was someone reporting a wrong result.
 
 ## What you can look at without triggering a load
 
@@ -3920,7 +4131,7 @@ cache.remove("top:posts");
 | `has(key, group)` / `remove(key)` / `removeGroup(group)` | |
 
 > [!NOTE]
-> **Values over 256KB are spilled to a file** (gzipped, `cache.temp_dir`).
+> **Values over 256KiB are spilled to a file** (gzipped, `cache.temp_dir`).
 > `CacheData#hasContentFile()` becomes true, and you can hand it straight to
 > `context.response().cache(data)` to return it as `Content-Encoding: gzip`.
 > There is no mechanism to delete older generations of those files, so keep an
@@ -4383,7 +4594,7 @@ Two files for the same version that both run on the current product is an error
 
 The row in `db_lock` is taken with `FOR UPDATE` before anything is applied, so
 **only one machine runs.** The one that could not wait long enough fails to start
-(`migration.lock_timeout_seconds`, 60 seconds by default).
+(`migration.lock_timeout`, 60 seconds by default).
 
 > [!NOTE]
 > The lock wait timeout is set **for that session only** (`SET SESSION`).
@@ -4520,7 +4731,7 @@ codegen {
 migration {
 	on_startup            = "auto"   # auto | true | false. auto applies them everywhere but locally
 	down                  = false    # whether to roll back
-	lock_timeout_seconds  = 60
+	lock_timeout  = 1m
 	resource_dir          = "migration"
 }
 
@@ -4623,6 +4834,27 @@ while (!isCancelOrder()) {
 
 Press cancel on the admin screen and `isCancelOrder()` turns `true`.
 **In anything long-running, always check it.** A batch that never looks cannot be stopped.
+**Always check it in anything long-running.** A batch that never looks cannot be stopped.
+
+From code that does not extend `AbstractBatch` (a domain-layer call, say), the same signal
+is reachable through the context.
+
+```java
+BatchContext context = Context.current(BatchContext.class);
+
+for (Data row : rows) {
+	if (context.isCancelOrdered()) { break; }
+	// ...
+}
+```
+
+**Both read the same order.** The DB is consulted only once per
+`batch.cancel_check`, so calling it every iteration is fine.
+
+> [!TRAP]
+> **Up to 0.6.0 `BatchContext.isCancelOrdered()` was always false.** The cancel decision
+> lived on `AbstractBatch` and nothing was wired to the context. No exception, no warning —
+> **you find out when you press cancel in production** (wired up in 1.0).
 
 ## Reading a batch of rows at a time
 
@@ -4691,7 +4923,7 @@ How far it got is recorded in `batch_history.execute_info`.
 | `chunk_failed_at` | which chunk it failed on |
 | `chunk_canceled` | whether it stopped on a cancel |
 
-`chunk_written` is rewritten **every `batch.progress_seconds` (5 by default)**,
+`chunk_written` is rewritten **every `batch.progress` (5 by default)**,
 so the admin screen shows how far along a running batch is.
 
 ### The reading DB and the writing DB are different
@@ -4984,9 +5216,9 @@ So jimble's `SseStream` **does not wait for a disconnect. It bounds the stream b
 
 ```conf
 sse {
-	max_duration_seconds = 300   # default 5 minutes
+	max_duration = 5m   # default 5 minutes
 	max_events           = 0     # 0 = unlimited
-	retry_millis         = 3000  # how long the client waits before reconnecting
+	retry         = 3s  # how long the client waits before reconnecting
 }
 ```
 
@@ -5012,7 +5244,7 @@ for (Data row : rows) {
 
 ## Reconnecting
 
-`EventSource` reconnects on its own when the stream breaks. `retry_millis` is the interval.
+`EventSource` reconnects on its own when the stream breaks. `retry` is the interval.
 
 **Which means the client comes straight back when you cut it at the end of its lifetime.**
 Do not build a stream that runs forever. "Stream for five minutes, cut, get reconnected" is fine.
@@ -5570,7 +5802,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 0.6.0-SNAPSHOT
+jimble 1.0.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -5594,7 +5826,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`0.6.0-SNAPSHOT`, say),
+was built from**. If that version is not published (`1.0.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -5716,9 +5948,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "0.6.0"
-	id("io.jimble.run") version "0.6.0"
-	id("io.jimble.db")  version "0.6.0"
+	id("io.jimble.jte") version "1.0.0"
+	id("io.jimble.run") version "1.0.0"
+	id("io.jimble.db")  version "1.0.0"
 }
 ```
 
@@ -5761,9 +5993,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "0.6.0"   // if you use src/main/jte
-	id("io.jimble.run") version "0.6.0"   // if you want hot reload
-	id("io.jimble.db")  version "0.6.0"   // if you use a database
+	id("io.jimble.jte") version "1.0.0"   // if you use src/main/jte
+	id("io.jimble.run") version "1.0.0"   // if you want hot reload
+	id("io.jimble.db")  version "1.0.0"   // if you use a database
 }
 
 repositories {
@@ -5778,7 +6010,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:0.6.0")
+	implementation("io.jimble:jimble-web:1.0.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -5812,7 +6044,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:0.6.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.0.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -6515,62 +6747,133 @@ this.
 Key '/' may not be followed by token: '*'
 ```
 
-## The main keys
+## Every key
+
+**Everything jimble reads is here.** A key that is not in this list is a key jimble does
+not read — a typo is silently ignored. The values shown are the **defaults**, so leave out
+anything you are not changing.
+
+> [!NOTE]
+> **Durations and sizes carry their unit in the value** (`30m`, `200ms`, `10MiB`).
+> **A bare number fails at startup** — that is what stops `assets.max_age = 3600000` from
+> going through as forty-one days. The units are `ns`, `us`, `ms`, `s`, `m`, `h`, `d`
+> and `B`, `KiB`, `MiB`, `GiB`.
+
+> [!TRAP]
+> **`MB` is a power of 1000 and `MiB` a power of 1024** (HOCON's rule).
+> `10MB` is 10,000,000 bytes; `10MiB` is 10,485,760.
+> **What you write is what you get** — either is fine, but they are not the same number
+> when you compare against a default.
 
 ```conf
 server {
-	host        = ""         # the address to listen on. empty means all of them
-	port        = 9000
-	trust_proxy = false      # false until it sits behind a load balancer
-	max_request_size     = 10485760
-	max_header_size      = 16384
-	idle_timeout_seconds = 60
-	compression          = true
-	access_log           = true     # turning it off is faster, but nothing is left behind
-	bot_access_log       = true
-	strict_routes        = false    # throw on routes nothing can reach (turn this on in CI)
+	host                 = ""       # the address to listen on. empty means all of them
+	port                 = 9000
+	max_request_size     = 10MiB    # cap on the request body
+	max_header_size      = 16KiB    # cap on all headers together
+	idle_timeout         = 60s      # how long a connection doing nothing is kept
+	compression          = true     # gzip responses
+	trust_proxy          = false    # false until it sits behind a load balancer (see below)
+	access_log           = true     # turning it off is faster, and leaves no trace
+	bot_access_log       = true     # keep bot access logs separate
+	strict_routes        = false    # make unreachable routes an error (true in CI)
+	shutdown_grace       = 0s       # from "start stopping" to refusing new requests
+	shutdown_timeout     = 15s      # how long in-flight requests are waited for
+	backlog              = 1024     # connections the OS holds while accept catches up
+	write_queue_length   = 0        # length of the response write queue; 0/1 means "no queue"
+	smart_async_writes   = false    # with a queue, write inline while it is not busy
+}
 
-	shutdown_grace_seconds   = 0    # from starting the stop until new requests are refused
-	shutdown_timeout_seconds = 15   # how long to wait for work in flight
+metrics {
+	enabled = true                  # whether to record metrics
+}
+
+router {
+	ignore_case           = false   # whether to match paths case-insensitively
+	redirect_to_canonical = false   # whether to 301 to the canonical URL
 }
 
 cookie {
-	secure           = true            # false locally (see below)
-	secret           = ${?COOKIE_SECRET}
-	previous_secrets = [${?COOKIE_SECRET_OLD}]   # only while rotating
+	secure           = true                      # HTTPS only. false locally (see below)
+	http_only        = true                      # not readable from JavaScript
+	same_site        = "lax"                     # none | strict | lax
+	domain           = ""                        # empty means the issuing domain
+	max_age          = 365d                      # 0 or less for a session cookie
+	secret           = ${?COOKIE_SECRET}         # signing key. empty means no signing
+	previous_secrets = [${?COOKIE_SECRET_OLD}]   # only while a key is being rotated
+	accept_unsigned  = false                     # true only while signing is being turned on
+}
+
+csrf {
+	max_age = 1d    # how long a token lives. separate from cookie.max_age
 }
 
 session {
-	store            = "none"     # none | db | redis | cookie
+	store            = "none"                     # none | db | redis | cookie
+	timeout          = 30m
 	cookie_name      = "sid"
-	secret           = ${?SESSION_SECRET}        # required when store = cookie
-	previous_secrets = [${?SESSION_SECRET_OLD}]  # only while rotating
+	table            = "session"                  # when store = db
+	secret           = ${?SESSION_SECRET}         # required when store = cookie
+	previous_secrets = [${?SESSION_SECRET_OLD}]   # only while a key is being rotated
 }
 
 upload {
-	max_file_size  = 10485760   # per file (10MB)
-	max_total_size = 52428800   # per request in total (50MB)
-	max_files      = 20
-	temp_dir       = ""         # empty means java.io.tmpdir
+	max_file_size  = 10MiB   # per file
+	max_total_size = 10MiB   # per request, in total (keep it level with server.max_request_size)
+	max_files      = 20      # files per request
+	temp_dir       = ""      # empty means java.io.tmpdir
+}
+
+assets {
+	max_age           = 0s      # Cache-Control max-age
+	immutable_max_age = 365d    # files treated as immutable (js / css)
+	if_modified_since = true    # honour If-Modified-Since
+	etag              = true    # use ETag / If-None-Match
+}
+
+template {
+	package      = "gg.jte.generated.precompiled"   # output of precompilation
+	content_type = "text/html; charset=utf-8"
+}
+
+paging {
+	name_page = "page"   # request parameter NAME for the page number (not a count)
+	name_per  = "per"    # request parameter NAME for the row count
+	max_per   = 200      # cap per page. applies to per=all too (0 for no cap)
 }
 
 auth {
 	lockout {
-		enabled       = true    # does nothing without a DB
-		free_attempts = 3       # no wait up to here (typos)
-		base_seconds  = 1       # from the 4th: 1 -> 2 -> 4 ...
-		max_seconds   = 300     # the longest wait
-		forget_hours  = 24      # start counting again after this gap
+		enabled       = true    # does nothing without a database
+		free_attempts = 3       # nobody waits up to here (mistyping)
+		base          = 1s      # from the fourth: 1 → 2 → 4 …
+		max           = 5m      # cap on the wait
+		forget        = 24h     # this long without a failure resets the count
 	}
 
 	remember {
-		enabled       = true    # does nothing without a DB
-		cookie_name   = "remember"
-		sliding_days  = 30      # from when it was last used
-		absolute_days = 90      # past this it expires even if still in use
-		grace_seconds = 60      # how long the old one still works after a rotation
+		enabled     = true         # does nothing without a database
+		cookie_name = "remember"
+		sliding     = 30d          # measured from last use
+		absolute    = 90d          # past this it expires even if still in use
+		grace       = 60s          # right after rotation, the old one still passes
 	}
 
+	mfa {
+		enabled        = true      # needs a database and secret_key (see below)
+		issuer         = ""        # the name shown in the authenticator app
+		digits         = 6         # leave it at 6 (most apps only show six)
+		period         = 30        # seconds. an RFC 6238 parameter, so a plain number here
+		window         = 1         # steps either side. wider accepts more guesses too
+		recovery_codes = 10        # how many are shown at enrolment
+		pending        = 5m        # from password accepted to code entered
+
+		# Encrypts the TOTP secret. Mfa.enroll refuses without it.
+		# Do not reuse cipher.key (see below)
+		secret_key     = ${?MFA_SECRET_KEY}
+	}
+
+	# One block per provider. The name (google) is what you pass to Oidc.callback
 	oidc {
 		google {
 			issuer        = "https://accounts.google.com"
@@ -6578,75 +6881,202 @@ auth {
 			client_secret = ${?GOOGLE_CLIENT_SECRET}  # never in the file
 			redirect_uri  = "https://example.com/auth/google/callback"
 
-			# optional - discovered from the issuer
+			# Optional — discovery reads them from issuer
 			# authorization_endpoint = "..."
 			# token_endpoint         = "..."
 			# jwks_uri               = "..."
 
 			scopes        = "openid email profile"
-			clock_skew    = 60      # seconds of clock drift to tolerate
-			discovery_ttl = 3600    # seconds to keep discovery and JWKS
+			clock_skew    = 60      # seconds of clock drift accepted
+			discovery_ttl = 3600    # seconds discovery and JWKS are held
 		}
-	}
-
-	mfa {
-		enabled         = true      # needs a DB and secret_key (below)
-		issuer          = "jimble"  # the name shown in the authenticator app
-		digits          = 6         # leave it at 6; most apps show nothing else
-		period          = 30        # seconds
-		window          = 1         # steps either way. Widening it widens the target
-		recovery_codes  = 10        # how many are handed out at enrollment
-		pending_seconds = 300       # grace between the password and the code
-
-		# encrypts the TOTP secrets. Without it Mfa.enroll refuses.
-		# Do NOT reuse cipher.key here (see below)
-		secret_key      = ${?MFA_SECRET_KEY}
 	}
 }
 
 cipher {
-	# reads the already-encrypted password hashes of a migrated app.
-	# Not used by two-factor auth (see below)
+	# Reads the already-encrypted password hashes of a migrated app.
+	# Not for two-factor auth (see below)
 	key = ${?CIPHER_KEY}   # 16 / 24 / 32 bytes
 	iv  = ${?CIPHER_IV}    # 16 bytes
 }
 
+hash {
+	password {
+		# If you set cipher.*, you must set this too (startup fails otherwise)
+		encrypt = false
+		pepper  = ${?PASSWORD_PEPPER}   # mixed into the hash. cannot be rotated
+	}
+}
+
 rate_limit {
-	store   = "memory"       # memory | redis | db
 	enabled = true
+	store   = "db"     # db | memory | redis
 }
 
 cache {
-	type          = "db"     # db | memory | redis
-	temp_dir      = ""
-	memory.expire = 0        # memory only. seconds
+	type          = "db"    # db | memory | redis
+	temp_dir      = ""      # where the files go
+	memory.expire = 0s      # memory only. 0 never expires
+}
+
+sql_cache {
+	enabled = false
+	store   = "memory"   # memory | redis | db
+	ttl     = 5m
+	max     = 10000      # cap on entries (memory only)
 }
 
 redis {
-	host = ""                # empty means no Redis
+	host = ""        # empty means no Redis
 	port = 6379
 	ssl  = false
+
+	settings {
+		connection_timeout      = 10s
+		timeout                 = 3s      # how long to wait for a command to answer
+		connection_minimum_idle = 24
+		connection_pool_size    = 64
+		retry_attempts          = 3
+		retry_minimum_interval  = 500ms
+		retry_maximum_interval  = 2s
+		idle_connection_timeout = 10s
+
+		subscription_connection_minimum_idle_size = 1
+		subscription_connection_pool_size         = 50
+	}
+}
+
+db {
+	# Drop all-null tables from the result.
+	# Not a data source name, so it goes at this level
+	remove_all_null_table_data = false
+
+	# One block per data source. The name (blog) becomes the name of the DB class
+	blog {
+		main     = true                    # use as the main data source
+		driver   = "com.mysql.cj.jdbc.Driver"
+		url      = "jdbc:mysql://127.0.0.1:3306/blog"
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		product  = "mysql"                 # mysql | mariadb | postgresql | postgres | pgsql
+		schema   = ""                      # empty means the block's name. spelled scheme before
+
+		maximum_pool_size     = 10         # largest the pool gets
+		minimum_idle          = 1          # connections always kept open
+		fetch_size            = 100        # rows fetched at a time
+		idle_timeout          = 10m        # how long an unused connection is kept
+		max_lifetime          = 30m        # how long one connection lives
+		connection_timeout    = 30s        # cap on waiting for a connection
+		keepalive_time        = 30s        # liveness check interval
+		connection_init_sql   = ""         # SQL run right after connecting
+		connection_test_query = ""         # SQL used for the liveness check
+		connection_pool_type  = "hikari"   # hikari | agroal
+		transaction_isolation = ""         # isolation level
+		create_database_sql   = ""         # SQL used to create the database when missing
+		long_connection_log   = false      # log connections held a long time
+		long_connection_time  = 0s         # what counts as "a long time"
+
+		# Read-only connection. Left out, reads go to the same place as writes
+		read { url = "jdbc:mysql://127.0.0.1:3307/blog" }
+
+		# Shards. Same keys as above
+		subs {
+			shard1 { url = "jdbc:mysql://127.0.0.1:3308/blog" }
+		}
+	}
+}
+
+db_sticky {
+	use = false   # after a write, send reads in the same request to the write side
+}
+
+log {
+	db = false    # log SQL
+}
+
+async {
+	prefetch {
+		on_response = false   # prefetch automatically before the response is sent
+		max_depth   = 5       # cap on prefetch passes
+	}
+}
+
+migration {
+	on_startup   = "auto"        # auto | true | false. auto applies outside local
+	down         = false         # run down migrations
+	lock_timeout = 60s           # how long to wait for the lock
+	resource_dir = "migration"   # resource directory holding the SQL files
+}
+
+codegen {
+	package        = "db"   # package the generated code goes in
+	exclude_tables = []     # tables left out of code generation
+}
+
+mq {
+	poll_min          = 10ms   # wait when the queue is not empty
+	poll_max          = 1s     # wait when the queue is empty (grows)
+	retry_backoff     = 10s    # interval between retries (doubles each time)
+	retry_backoff_max = 10m
+	stale             = 10m    # this long as running counts as dead
+
+	# Threads per execution type. Left out, each type's own default is used
+	thread_count {
+		short_time = 2
+		long_time  = 8
+	}
+}
+
+scheduler {
+	reload_interval = 10s             # how often batch_master is re-read
+	tick_interval   = 1s              # how often cron is checked
+	exit_check      = 3s              # how often a stop order is checked for
+	execute_threads = 10              # threads that run batches (0 for unlimited)
+	queue_name      = "mq_scheduler"
+}
+
+batch {
+	scheduler_id = ""     # identifier for this instance. empty means the host name
+	heartbeat    = 3s     # how often it says it is still running
+	alive        = 10s    # this long without an update stops counting as alive
+	cancel_check = 3s     # how often a cancel order is checked for
+	progress     = 5s     # how often a chunk batch writes progress to the history
+	all_stop     = 1h     # how long the stop-everything flag stays in force
+}
+
+batch_manager {
+	enabled  = false                    # an empty user or password means no screen at all
+	path     = "/batch-manager"
+	realm    = "jimble batch manager"
+	username = ${?BATCH_MANAGER_USER}
+	password = ${?BATCH_MANAGER_PASSWORD}
+}
+
+proxy {
+	connect_timeout = 5s     # cap on connecting to the target
+	request_timeout = 30s    # cap on waiting for the answer
 }
 
 sse {
-	max_duration_seconds = 300
-	max_events           = 0
-	retry_millis         = 3000
+	max_duration = 5m    # how long one stream may stay open (0 or less: unlimited)
+	max_events   = 0     # cap on events sent (0 or less: unlimited)
+	retry        = 3s    # how long before a disconnected client reconnects
 }
 
 mcp {
 	path            = "/mcp"
-	allowed_origins = []
+	name            = "jimble"    # server name
+	version         = "0.1.0"     # server version (not the MCP spec revision)
+	instructions    = ""          # instructions for the model (returned by server/discover)
+	page_size       = 100         # rows per page in listings
+	allowed_origins = []          # allowed origins
 }
 
-migration {
-	# auto | true | false. auto applies them everywhere but locally
-	on_startup   = "auto"
-	resource_dir = "migration"
-}
+jimble {
+	io.buffer_size       = 256KiB   # read/write unit when sending files
+	read_only_container  = false    # running in a container you cannot write to
 
-codegen {
-	package = "db"
+	# server.port also takes -Djimble.server.port=8080 (the system property wins)
 }
 ```
 
@@ -6654,21 +7084,24 @@ codegen {
 
 **Do not reuse `cipher.key` for two-factor auth.**
 
-The default of `hash.password.encrypt` is **"true if `cipher.key` is set"**. A migrated
-app's stored hashes are encrypted, so **having the key but checking against plain BCrypt
-would lock everyone out** — that default exists to prevent it.
+**If you set `cipher.*`, you must also set `hash.password.encrypt`.** Leave it out and
+startup fails.
 
-Which means an app storing plain BCrypt today that adds `cipher.key` **to get 2FA locks
-everyone out the other way.** All it says is "wrong id or password", so nothing points back
-at the setting that was added.
+The default used to be "true if `cipher.key` *and* `cipher.iv` are both set". So an app
+that added only `cipher.key` stayed at false and **flipped the moment `cipher.iv` was
+added** — stored BCrypt hashes were then read as encrypted and **everyone was locked
+out**. All it says is "wrong id or password", so nothing points back at the setting that
+was added.
+
+**No default is decided by a distant key.** If you want encryption, say so.
 
 | | |
 | --- | --- |
 | `cipher.key` / `cipher.iv` | Reads the **already-encrypted password hashes of a migrated app**. Not for anything new — fixed IV, no tamper detection |
 | `auth.mfa.secret_key` | Encrypts **TOTP secrets**. AES-256-GCM |
 
-Set `hash.password.encrypt` explicitly to say which you mean (**an explicit value wins over
-the default**).
+An app with no `cipher.*` at all needs no setting, exactly as before (BCrypt only, no
+encryption).
 
 ## trust_proxy is false by default
 
@@ -6709,18 +7142,56 @@ The configuration that was loaded appears on the first line at startup.
 server {
 	host                 = ""         # Address to listen on. Empty means all of them
 	port                 = 9000
-	max_request_size     = 10485760   # Limit on the request body (10MB)
-	max_header_size      = 16384      # Limit on the headers as a whole (16KB)
-	idle_timeout_seconds = 60
+	max_request_size     = 10485760   # Limit on the request body (10MiB)
+	max_header_size      = 16384      # Limit on the headers as a whole (16KiB)
+	idle_timeout = 60s
 	trust_proxy          = false      # Whether to believe X-Forwarded-*
 	compression          = true       # Whether to gzip responses
 	access_log           = true       # Whether to write the access log ([Logging](./log))
 	bot_access_log       = true       # Whether to split out the bot access log
 	strict_routes        = false      # Throw on routes nothing can reach (turn this on in CI)
 
-	shutdown_grace_seconds   = 0      # From "start stopping" to refusing new requests (seconds)
-	shutdown_timeout_seconds = 15     # How long to wait for in-flight work (seconds)
+	shutdown_grace   = 0s      # From "start stopping" to refusing new requests (seconds)
+	shutdown_timeout = 15s     # How long to wait for in-flight work (seconds)
+
+	backlog            = 1024  # Connections the OS holds while accept catches up
+	write_queue_length = 0     # Length of the response write queue; 0/1 means "no queue"
+	smart_async_writes = false # With a queue, write inline while it is not busy
 }
+```
+
+## Accepting connections and writing responses
+
+**`backlog`** is the number of connections **the OS holds for you** while accept catches up.
+Past that, **the OS turns callers away** — it never reaches the application, so
+**not a single line appears in your log**.
+Raise it for bursty traffic (just after a restart, a campaign, a wave of reconnects);
+**it does not make anything faster**. It only lets the backlog wait instead of being refused.
+
+> [!NOTE]
+> **The OS has its own ceiling** (`somaxconn` on Linux).
+> Raising this does nothing if that one is lower.
+
+**`write_queue_length`** is the length of the queue responses are written through.
+**At 0 or 1 there is no queue** and the response is written inline (the default).
+At 2 or more, another thread does the writing, so **your handler can move on while a slow
+client is still being written to**. What is queued **sits in memory**, though — a bigger
+queue is not a faster server.
+
+**`smart_async_writes`** chooses, when there is a queue, between "always queue" and
+"**write inline while the queue is idle, switch to queueing when it gets busy**".
+
+> [!WARN]
+> **`smart_async_writes` does nothing on its own.**
+> Helidon does not read it unless `write_queue_length` is **2 or more** (there is no queue otherwise).
+> **Leaving `write_queue_length` at 0 or 1 while setting `smart_async_writes = true` fails at startup** —
+> silently ignoring it would leave you with a setting that "is on but changes nothing".
+
+The startup log says which one was chosen.
+
+```
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く）
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く）
 ```
 
 **Write nothing and you get the defaults above.** What is actually in effect is printed in the startup log.
@@ -6761,15 +7232,16 @@ server { host = "127.0.0.1" }
 
 | | Limit | When it is exceeded |
 | --- | --- | --- |
-| Request body | `server.max_request_size` (10MB) | **413** |
-| Headers as a whole | `server.max_header_size` (16KB) | the connection is cut |
-| A connection doing nothing | `server.idle_timeout_seconds` (60 seconds) | closed |
+| Request body | `server.max_request_size` (10MiB) | **413** |
+| Headers as a whole | `server.max_header_size` (16KiB) | the connection is cut |
+| A connection doing nothing | `server.idle_timeout` (60 seconds) | closed |
 
 Uploads have a separate limit of their own ([File upload](./upload)).
 
 > [!WARN]
-> **The body limit (10MB by default) is smaller than the total upload limit (50MB by default)**,
-> so raise both if you are going to accept large things.
+> **`upload.max_total_size` larger than `server.max_request_size` fails at startup**
+> — the body is cut here first, so the larger limit could never be reached.
+> Raise both if you are going to accept large things (both default to 10MiB).
 
 There are no read or write timeouts.
 
@@ -6841,9 +7313,9 @@ before(BotBlocker.of(context -> context.response().redirect("/")));   // return 
 **It does not stop dead.** `stop()` goes in this order.
 
 1. **Mark itself as stopping** — `Shutdown.isStopping()` becomes true. **Ordinary requests are still served**
-2. Wait `server.shutdown_grace_seconds` (default 0)
+2. Wait `server.shutdown_grace` (default 0)
 3. **Refuse new requests** (503)
-4. Wait for the in-flight ones to finish, up to `server.shutdown_timeout_seconds` (default 15 seconds)
+4. Wait for the in-flight ones to finish, up to `server.shutdown_timeout` (default 15 seconds)
 5. Stop the server
 
 **On SIGTERM this runs by itself** (that is what a container sends, and then it waits).
@@ -6861,7 +7333,7 @@ get("/health_check", context ->
 > It takes the load balancer a while to pull this machine out of rotation.
 > Answer 503 to the requests that arrive in the meantime and **from the outside that is an error.**
 > That is why there is room to wait between step 1 and step 3.
-> Put in the health check interval × the failure count (2 seconds × 3, say → `shutdown_grace_seconds = 10`).
+> Put in the health check interval × the failure count (2 seconds × 3, say → `shutdown_grace = 10s`).
 
 > [!WARN]
 > **If the wait runs out, it stops with work still in flight.**
@@ -6881,7 +7353,7 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 ```
 
 `X-Forwarded-For` is **appended to the existing value** (not overwritten).
-The timeouts are `proxy.connect_timeout_ms` (5 seconds) and `proxy.request_timeout_ms` (30 seconds),
+The timeouts are `proxy.connect_timeout` (5 seconds) and `proxy.request_timeout` (30 seconds),
 and a forward that fails returns **502**.
 
 
@@ -6983,12 +7455,22 @@ server {
 }
 ```
 
-**This is the largest single piece of a request** (about 40% of what it allocates — around 3,400 bytes).
+**This is the largest single piece of a request** (about half of what it allocates — around 1,965 bytes).
 Turning it off stops both the work of building the line and the bot judgement
-(matching the User-Agent). Requests per second move by around 10%
-(52,537 → 57,030 on a 10-core Mac at 8 connections).
-**That figure varies by machine, so measure it on yours before turning it off**
-(`jimble-load/load.sh` measures the two side by side).
+(matching the User-Agent).
+
+How much requests per second move is decided mostly by **how you write `logback.xml`.**
+Measured on a 2-core machine at 1 connection (D-172), jimble with the access log off runs at
+**94% of raw Helidon** — jimble's own overhead barely shows up at all.
+From there, **building the line costs -10% (+10µs at p50)** and
+**writing that line out as JSON costs -29% (+110µs at p50)**.
+So most of the price is not jimble; it is logback writing synchronously.
+Before turning the log off, look at **how it is written**
+(wrap it in an `AsyncAppender`, send it somewhere else, drop some fields).
+
+**That figure varies by machine, so measure it on yours**
+(`jimble-load/load.sh` puts raw Helidon, the log written, the log built but discarded,
+and the log off side by side).
 
 **Metrics and tracing stay.** The access log is the only thing that goes.
 
@@ -7178,6 +7660,31 @@ Metrics.gauge("cache.size", () -> cache.size());
 > [!NOTE]
 > `Metrics.reset()` is **for tests**. Calling it in a running application throws away everything counted so far.
 
+### What it costs, and turning it off
+
+**Recording itself costs 0 bytes and 58ns** (measured). The memory it holds grows with the
+number of **distinct names**, a few dozen to a few hundred bytes each — **not with how often you count**.
+
+> [!TRAP]
+> **The expensive part is the name.**
+> ```java
+> Metrics.count("http.status.%dxx".formatted(code / 100));   // over 1000 bytes
+> ```
+> Building it with `String.format` on every request costs **more than all of the counting put together**.
+> **Build names once and reuse them** — inside jimble, a route's name is built when the route is registered.
+
+To turn it off:
+
+```conf
+metrics {
+	enabled = false
+}
+```
+
+`count`, `record` and `gauge` all become no-ops and `Metrics.snapshot()` stays empty.
+**It will not make anything faster** (there was hardly any cost to begin with). The reason to
+turn it off is that an application which never exposes the numbers has **no use for them**.
+
 ## Tracing
 
 Follow one request across services (requirement NF-O-05). **You only pay for it if you use it.**
@@ -7300,6 +7807,7 @@ assertEquals("GET /posts/{id}", tracer.spans().get(0).name());
 | `server.access_log` | `true` | Writes the access log. `false` writes nothing at all |
 | `server.bot_access_log` | `true` | Splits the bot access log out into `access.bot` |
 | `log.db` | `false` | Enables `DBLog.save(...)` |
+| `metrics.enabled` | `true` | Record metrics. `false` leaves `snapshot()` empty |
 
 > [!NOTE]
 > **There are no configuration keys for log level, destination, or format.** That is `logback.xml`'s job.
@@ -7356,6 +7864,27 @@ java \
 
 **`-Djimble.env` is a JVM argument.** As a program argument (`java -jar app.jar env=prod`)
 it does nothing.
+
+### Environment names
+
+**The short forms work for the checks too.** What you wrote is used **only for the file name**.
+
+| What you may write | Check | File read |
+| --- | --- | --- |
+| `local` / `dev` / `development` | `isLocal()` | `application.<what you wrote>.conf` |
+| `staging` / `stg` / `stage` | `isStaging()` | same |
+| `production` / `prod` / `prd` | `isProduction()` | same |
+
+Case does not matter.
+
+> [!TRAP]
+> **A name that is not in the table matches none of the checks.**
+> Misspell it as `producton` and both `isLocal()` and `isProduction()` are false.
+> **A warning is logged once at startup** — silently falling back to `local` would let
+> **a production machine call itself local** and keep running.
+>
+> For the record, **`-Djimble.env=prod` used to leave `isProduction()` false** (fixed in 1.0):
+> the check only matched the literal `production`.
 
 ## Where the configuration is read from
 
@@ -8205,26 +8734,31 @@ What jimble gives you lives on the pages for each topic.
 
 # Versions and compatibility
 
-## We are on 0.x
+## We are on 1.0
 
-**While we are on 0.x, a minor release can break things.**
-[Semantic Versioning](https://semver.org/) says so itself — below 1.0 nothing is promised —
-and jimble takes it at its word.
+**Breaking a public API is preceded by a deprecation period of at least one minor.**
+jimble follows [Semantic Versioning](https://semver.org/) at its word.
 
-**From 1.0, breaking a public API is preceded by a deprecation period of at least one minor.**
-
-| | 0.x (now) | 1.0 onwards |
+| | 0.x (up to 0.6) | 1.0 onwards (now) |
 | --- | --- | --- |
-| Breaking a public API | **Can happen in a minor** | Deprecated for at least one minor, then removed in the next major |
+| Breaking a public API | Could happen in a minor | **Deprecated for at least one minor, then removed in the next major** |
 | Changing internals | Any time | Any time |
-| Writing it in the CHANGELOG | **Always** | Always |
+| Writing it in the CHANGELOG | Always | Always |
 
 > [!NOTE]
-> **Even on 0.x, nothing breaks silently.**
-> What is not promised is that things will not break — not that you will not be told.
-> Anything that can break you goes in the **"変わったこと（挙動）" (behaviour changes)**
-> section of the [CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md).
-> Reading that section alone is enough before you upgrade.
+> **Nothing breaks silently.**
+> Anything that can break you goes in the **"上げる前に見るところ" (read before upgrading)**
+> and **"変わったこと（挙動）" (behaviour changes)** sections of the
+> [CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md).
+> Reading those alone is enough before you upgrade.
+
+> [!TRAP]
+> **A promise starting also means some things can no longer be fixed.**
+> Return types, record components, public fields, abstract methods on an `interface`, `final` —
+> **a deprecation period saves none of them** (you cannot keep the old one and add the new one
+> under the same name).
+> Before 1.0 we read through all 103 public packages and 4,514 signatures and dealt with them
+> ([docs/design-1.0.md](https://github.com/hidemikimura/jimble/blob/main/docs/design-1.0.md)).
 
 ## What counts as public API
 
@@ -8233,19 +8767,53 @@ and jimble takes it at its word.
 | | |
 | --- | --- |
 | **Public API** | What you touch when writing an application: `io.jimble.db`, `io.jimble.web.server`, `io.jimble.util.data` and so on |
-| **Internal** | What only exists inside an entry-point class: `io.jimble.db.sql.query.*` (inside `SQL`), `io.jimble.util.json.encoder` (inside `Dson`) and so on |
+| **Internal** | What only exists inside an entry-point class: `io.jimble.db.internal.sql.query.*` (inside `SQL`), `io.jimble.util.internal.json.encoder` (inside `Dson`) and so on |
+| **Preview** | **Tracks an outside specification, so the promise below does not cover it.** Right now that is only `io.jimble.mcp.*` |
 
 The full list is in
 [`docs/api-packages.txt`](https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt).
 
+**The name says it.**
+
+> **Everything under `io.jimble.<module>.internal` is internal.**
+
+If `internal` appears in an `import`, that is something you must not touch.
+
 > [!TRAP]
 > **`public` does not mean public API.** Java has no modifier for "visible outside the
-> module but not meant for you", so **internals are `public` too**. Whether you may
-> touch something is decided by the list above, not by the keyword.
+> module but not meant for you", so **internals are `public` too**. The `internal` in the
+> name, and the list above, are the line — not the keyword.
+
+> [!NOTE]
+> **Names you write in a config file, or type on a command line, are public API.**
+> `io.jimble.util.log.encoder.LogbackJsonEncoder` in your `logback.xml`, and
+> `io.jimble.db.cli.JimbleDbCli` in a CI job that does not use Gradle, **break your
+> setup if we move them** even though nothing imports them. That is why they are not
+> under `internal`.
 
 **The list does not go stale.** Add a package and forget to classify it and
 `ApiSurfaceTest` fails. The same test checks that the samples under `examples/` do not
 import anything internal.
+
+### Preview — deliberately outside the promise
+
+**`io.jimble.mcp.*` is not covered by "one minor of deprecation before anything breaks",
+even at 1.0.**
+
+[MCP](./mcp) has published **five revisions in two years, every one of them breaking**
+(2026-07-28 dropped sessions and the GET stream). jimble's policy is to **name the
+revision it implements and implement exactly one**, so every time the spec moves, the
+choice is **break the public API or stop tracking the spec**. Putting it inside the
+promise means it can never track the spec again.
+
+The revision in force is readable as **`McpProtocol.version()`**. It is a method rather
+than a constant because **`public static final String` is inlined into your application's
+bytecode** — as a constant, upgrading jimble would leave your build holding the old
+revision string, with no warning.
+
+If you use `io.jimble.mcp.*`, **read the
+[CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md) before
+upgrading**. Breaks are always written there.
 
 ## When the signature is the same but the result changes
 

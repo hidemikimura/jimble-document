@@ -285,7 +285,7 @@ cache.remove(<span class="h-s">"top:posts"</span>);
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">補足</p>
-<p><strong>256KB を超える値はファイルに落ちます</strong>（gzip、<code>cache.temp_dir</code>）。
+<p><strong>256KiB を超える値はファイルに落ちます</strong>（gzip、<code>cache.temp_dir</code>）。
 <code>CacheData#hasContentFile()</code> が true になり、そのまま
 <code>context.response().cache(data)</code> で <code>Content-Encoding: gzip</code> として返せます。
 古い世代のファイルを消す仕組みは無いので、置き場は定期的に見てください。</p>

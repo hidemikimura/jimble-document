@@ -6,18 +6,54 @@
 server {
 	host                 = ""         # 待ち受けるアドレス。空なら全部
 	port                 = 9000
-	max_request_size     = 10485760   # リクエスト本文の上限（10MB）
-	max_header_size      = 16384      # ヘッダ全体の上限（16KB）
-	idle_timeout_seconds = 60
+	max_request_size     = 10485760   # リクエスト本文の上限（10MiB）
+	max_header_size      = 16384      # ヘッダ全体の上限（16KiB）
+	idle_timeout = 60s
 	trust_proxy          = false      # X-Forwarded-* を信じるか
 	compression          = true       # 応答を gzip で返すか
 	access_log           = true       # アクセスログを出すか（[ログ](./log)）
 	bot_access_log       = true       # ボットのアクセスログを分けるか
 	strict_routes        = false      # 一生呼ばれないルートを例外にするか（CI では true に）
 
-	shutdown_grace_seconds   = 0      # 止め始めてから新規を断つまで（秒）
-	shutdown_timeout_seconds = 15     # 処理中を待つ上限（秒）
+	shutdown_grace   = 0s      # 止め始めてから新規を断つまで（秒）
+	shutdown_timeout = 15s     # 処理中を待つ上限（秒）
+
+	backlog            = 1024  # 受け付け待ちの接続を OS に持たせる数
+	write_queue_length = 0     # 応答を書き出す列の長さ。0/1 は「列を作らない」
+	smart_async_writes = false # 列があるとき、空いていればその場で書く
 }
+```
+
+## 接続の受け付けと書き出し
+
+**`backlog`** は、受け付けが追いつかないあいだ **OS が代わりに持ってくれる接続の数**です。
+超えた分は **OS が断ちます**——アプリまで届かないので、**ログには1行も出ません**。
+上げるのは「短時間にどっと来る」使い方（起動直後・キャンペーン・再接続の集中）で、
+**捌く速さは変わりません**。詰まりを待たせるだけです。
+
+> [!NOTE]
+> **OS 側の上限にも頭を押さえられます**（Linux の `somaxconn`）。
+> ここを大きくしても、そちらが小さければそちらで切られます。
+
+**`write_queue_length`** は、応答を書き出す列の長さです。
+**0 か 1 なら列を作らず**、その場で書き切ります（既定）。
+2 以上にすると別のスレッドが書き出すので、**遅い相手に書いているあいだ、処理のほうが先に進めます**。
+ただし**列に積んだ分はメモリに載る**ので、大きくすれば速くなるものではありません。
+
+**`smart_async_writes`** は、列があるときに
+「いつも列に積む」か「**空いていればその場で書き、混んできたら列に積む**」かの切り替えです。
+
+> [!WARN]
+> **`smart_async_writes` は単独では効きません。**
+> `write_queue_length` が **2 以上**でないと、helidon はこの値を読みません（列が無いからです）。
+> **`write_queue_length` が 0 か 1 のまま `smart_async_writes = true` と書くと、起動時に落ちます**——
+> 黙って無視すると、「効いているのに速くならない」としか見えなくなるためです。
+
+いま何が選ばれたかは起動ログに出ます。
+
+```
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く）
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く）
 ```
 
 **書かなければ上の既定で動きます。**いま何が効いているかは起動ログに出ます。
@@ -58,15 +94,16 @@ server { host = "127.0.0.1" }
 
 | | 上限 | 超えたら |
 | --- | --- | --- |
-| リクエスト本文 | `server.max_request_size`（10MB） | **413** |
-| ヘッダ全体 | `server.max_header_size`（16KB） | 接続ごと切られる |
-| 何もしない接続 | `server.idle_timeout_seconds`（60秒） | 閉じる |
+| リクエスト本文 | `server.max_request_size`（10MiB） | **413** |
+| ヘッダ全体 | `server.max_header_size`（16KiB） | 接続ごと切られる |
+| 何もしない接続 | `server.idle_timeout`（60秒） | 閉じる |
 
 アップロードにはこれとは別の上限があります（[ファイルアップロード](./upload)）。
 
 > [!WARN]
-> **アップロードの合計上限（既定 50MB）より本文の上限（既定 10MB）のほうが小さい**ので、
-> 大きいものを受けるなら両方を上げてください。
+> **`upload.max_total_size` が `server.max_request_size` を超えていると起動時に落ちます。**
+> 本文は先にこちらで切られるので、超えた分には届かないためです。
+> 大きいものを受けるなら、**両方を上げてください**（既定はどちらも 10MiB）。
 
 読み取り／書き込みのタイムアウトはありません。
 
@@ -138,9 +175,9 @@ before(BotBlocker.of(context -> context.response().redirect("/")));   // 好き�
 **いきなり止めません。**`stop()` はこの順に進みます。
 
 1. **「止め始めた」ことにする** — `Shutdown.isStopping()` が true になる。**普通のリクエストはまだ受ける**
-2. `server.shutdown_grace_seconds` 待つ（既定 0）
+2. `server.shutdown_grace` 待つ（既定 0）
 3. **新しいリクエストを断つ**（503）
-4. 処理中のものが終わるのを `server.shutdown_timeout_seconds`（既定 15 秒）まで待つ
+4. 処理中のものが終わるのを `server.shutdown_timeout`（既定 15 秒）まで待つ
 5. サーバーを止める
 
 **SIGTERM を受けたら自動で走ります**（コンテナはこれを送って待ちます）。
@@ -158,7 +195,7 @@ get("/health_check", context ->
 > ロードバランサがこの台を外すまでには時間がかかります。
 > その間に来たリクエストを 503 にすると、**外から見たらエラー**です。
 > だから 1 と 3 の間に猶予を置けるようにしてあります。
-> ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → `shutdown_grace_seconds = 10`）を入れてください。
+> ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → `shutdown_grace = 10s`）を入れてください。
 
 > [!WARN]
 > **待ちきれなかったら、残ったまま止めます。**
@@ -178,6 +215,6 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 ```
 
 `X-Forwarded-For` は**既存の値に足します**（上書きしません）。
-タイムアウトは `proxy.connect_timeout_ms`（5秒）と `proxy.request_timeout_ms`（30秒）で、
+タイムアウトは `proxy.connect_timeout`（5秒）と `proxy.request_timeout`（30秒）で、
 転送に失敗したら **502** を返します。
 

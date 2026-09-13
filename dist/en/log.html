@@ -344,12 +344,20 @@ The judgement is a match against a User-Agent list (<code>crawler-user-agents</c
 	access_log = <span class="h-k">false</span>
 }
 </code></pre>
-<p><strong>This is the largest single piece of a request</strong> (about 40% of what it allocates — around 3,400 bytes).
+<p><strong>This is the largest single piece of a request</strong> (about half of what it allocates — around 1,965 bytes).
 Turning it off stops both the work of building the line and the bot judgement
-(matching the User-Agent). Requests per second move by around 10%
-(52,537 → 57,030 on a 10-core Mac at 8 connections).
-<strong>That figure varies by machine, so measure it on yours before turning it off</strong>
-(<code>jimble-load/load.sh</code> measures the two side by side).</p>
+(matching the User-Agent).</p>
+<p>How much requests per second move is decided mostly by <strong>how you write <code>logback.xml</code>.</strong>
+Measured on a 2-core machine at 1 connection (D-172), jimble with the access log off runs at
+<strong>94% of raw Helidon</strong> — jimble's own overhead barely shows up at all.
+From there, <strong>building the line costs -10% (+10µs at p50)</strong> and
+<strong>writing that line out as JSON costs -29% (+110µs at p50)</strong>.
+So most of the price is not jimble; it is logback writing synchronously.
+Before turning the log off, look at <strong>how it is written</strong>
+(wrap it in an <code>AsyncAppender</code>, send it somewhere else, drop some fields).</p>
+<p><strong>That figure varies by machine, so measure it on yours</strong>
+(<code>jimble-load/load.sh</code> puts raw Helidon, the log written, the log built but discarded,
+and the log off side by side).</p>
 <p><strong>Metrics and tracing stay.</strong> The access log is the only thing that goes.</p>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>Leave the default at <code>true</code>.</strong> With it off,
@@ -533,6 +541,24 @@ Samples in the overflow bucket report the observed maximum instead.</p>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p><code>Metrics.reset()</code> is <strong>for tests</strong>. Calling it in a running application throws away everything counted so far.</p>
 </div>
+<h3 id="what-it-costs-and-turning-it-off">What it costs, and turning it off<a class="anchor" href="#what-it-costs-and-turning-it-off">#</a></h3>
+<p><strong>Recording itself costs 0 bytes and 58ns</strong> (measured). The memory it holds grows with the
+number of <strong>distinct names</strong>, a few dozen to a few hundred bytes each — <strong>not with how often you count</strong>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The expensive part is the name.</strong></p>
+<pre class="code"><code class="lang-java">Metrics.count(<span class="h-s">"http.status.%dxx"</span>.formatted(code / <span class="h-n">100</span>));   <span class="h-c">// over 1000 bytes</span>
+</code></pre>
+<p>Building it with <code>String.format</code> on every request costs <strong>more than all of the counting put together</strong>.
+<strong>Build names once and reuse them</strong> — inside jimble, a route's name is built when the route is registered.</p>
+</div>
+<p>To turn it off:</p>
+<pre class="code"><code class="lang-conf">metrics {
+	enabled = <span class="h-k">false</span>
+}
+</code></pre>
+<p><code>count</code>, <code>record</code> and <code>gauge</code> all become no-ops and <code>Metrics.snapshot()</code> stays empty.
+<strong>It will not make anything faster</strong> (there was hardly any cost to begin with). The reason to
+turn it off is that an application which never exposes the numbers has <strong>no use for them</strong>.</p>
 <h2 id="tracing">Tracing<a class="anchor" href="#tracing">#</a></h2>
 <p>Follow one request across services (requirement NF-O-05). <strong>You only pay for it if you use it.</strong></p>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
@@ -669,6 +695,11 @@ assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<spa
 <td><code>false</code></td>
 <td>Enables <code>DBLog.save(...)</code></td>
 </tr>
+<tr>
+<td><code>metrics.enabled</code></td>
+<td><code>true</code></td>
+<td>Record metrics. <code>false</code> leaves <code>snapshot()</code> empty</td>
+</tr>
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">Note</p>
@@ -704,6 +735,7 @@ assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<spa
 			<li class="level-2"><a href="#metrics">Metrics</a></li>
 			<li class="level-3"><a href="#what-you-get-without-asking">What you get without asking</a></li>
 			<li class="level-3"><a href="#adding-your-own">Adding your own</a></li>
+			<li class="level-3"><a href="#what-it-costs-and-turning-it-off">What it costs, and turning it off</a></li>
 			<li class="level-2"><a href="#tracing">Tracing</a></li>
 			<li class="level-3"><a href="#across-services">Across services</a></li>
 			<li class="level-3"><a href="#joining-logs-to-traces">Joining logs to traces</a></li>

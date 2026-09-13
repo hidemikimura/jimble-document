@@ -331,6 +331,70 @@
 </code></pre>
 <p>始めて、渡した処理を走らせて、<code>commitEndTransaction()</code> まで済ませます。
 例外が出れば <code>close()</code> がロールバックします。</p>
+<h2 id="エラーが出ていたらコミットしません">エラーが出ていたらコミットしません<a class="anchor" href="#エラーが出ていたらコミットしません">#</a></h2>
+<p><strong>jimble の DB はエラーを例外ではなく戻り値で返します</strong>（<a href="./principles">原則</a>）。
+つまり中の <code>db.update(...)</code> が <code>-1</code> を返しても、<strong>処理は正常に終わったように見えます。</strong></p>
+<pre class="code"><code class="lang-java">DBTransaction.transaction(db, transaction -&gt; {
+	db.insert(...);          <span class="h-c">// 通った</span>
+	db.update(...);          <span class="h-c">// -1。例外は出ない</span>
+	db.insert(...);          <span class="h-c">// 通った</span>
+});
+</code></pre>
+<p>**この形はコミットしません。**トランザクションの中で1度でもエラーが出ていたら、
+<code>commitEndTransaction()</code> はロールバックして <code>CodeException</code>（<code>DB_004</code>）を投げます。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**0.6.0 まではコミットしていました。**しかも失敗した文の中で枠組みが <code>rollback()</code> を呼ぶので、
+<strong>そこまでの文は巻き戻り、そこから先の文だけがコミットされる</strong>という壊れ方でした。
+例外もログも出ないので、<strong>データが半分だけ入ったことに誰も気づけません</strong>。</p>
+</div>
+<p><code>db.isError()</code> は<strong>直前の1文についてだけ</strong>答えます。
+コミットしてよいかの判断はトランザクション全体を見ているので、
+<strong>失敗のあとに成功する文が1つあっても素通りしません。</strong></p>
+<h3 id="エラーを見て分岐して続けたいとき">エラーを見て、分岐して続けたいとき<a class="anchor" href="#エラーを見て分岐して続けたいとき">#</a></h3>
+<p><strong>いったん <code>rollback()</code> してから書き直します。</strong></p>
+<pre class="code"><code class="lang-java">db.beginTransaction();
+
+insert(...);
+db.commit();                 <span class="h-c">// ここまでは確定。トランザクションは続く</span>
+
+update(...);                 <span class="h-c">// 失敗した</span>
+
+<span class="h-k">if</span> (db.isError()) {
+	db.rollback();           <span class="h-c">// 決着を付ける</span>
+	insertFallback(...);     <span class="h-c">// 別の道で書き直す</span>
+}
+
+db.commitEndTransaction();
+</code></pre>
+<p>**<code>rollback()</code> はエラーの持ち越しも畳みます。**畳まないと、
+書き直したあとの <code>commit()</code> が「まだエラーが出ている」と言って断ります。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>失敗のあとの文が通るかどうかは、製品によって違います。</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>失敗のあとの文</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PostgreSQL</td>
+<td><strong>通りません。</strong><code>ROLLBACK</code> するまで全部断ります（<code>current transaction is aborted, ...</code>）</td>
+</tr>
+<tr>
+<td>MySQL</td>
+<td>**通ります。**1文の失敗ではトランザクションを中断しません</td>
+</tr>
+</tbody>
+</table>
+<p>**どちらにも寄りかからないでください。**jimble が約束するのは
+「<strong>コミットは拒まれ、1行も残らない</strong>」ところまでです。
+失敗したら、<strong>続けて書く前に <code>rollback()</code> してください</strong>。</p>
+<p>**0.6.x はこの違いを隠していました。**各文の <code>catch</code> がその場で <code>rollback()</code> を呼んでいたので、
+<strong>どちらの製品でも続けて書けているように見えて、実は前の文が全部消えていました</strong>——
+それが部分コミットの正体です。</p>
+</div>
 <h2 id="外へ出すものとdb-に積むもの">外へ出すものと、DB に積むもの<a class="anchor" href="#外へ出すものとdb-に積むもの">#</a></h2>
 <p>**どちらの中で呼ぶかが逆になります。**ここは間違えやすいところです。</p>
 <table>
@@ -398,6 +462,8 @@ PostFeedHandler.notifyNewPost(title);        <span class="h-c">// ← 外へ出�
 			<li class="level-2"><a href="#畳み忘れ">畳み忘れ</a></li>
 			<li class="level-2"><a href="#閉じ忘れた-db">閉じ忘れた DB</a></li>
 			<li class="level-2"><a href="#短く書く">短く書く</a></li>
+			<li class="level-2"><a href="#エラーが出ていたらコミットしません">エラーが出ていたらコミットしません</a></li>
+			<li class="level-3"><a href="#エラーを見て分岐して続けたいとき">エラーを見て、分岐して続けたいとき</a></li>
 			<li class="level-2"><a href="#外へ出すものとdb-に積むもの">外へ出すものと、DB に積むもの</a></li>
 		</ul>
 	</nav>

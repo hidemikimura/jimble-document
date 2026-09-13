@@ -229,6 +229,17 @@ Pass columns to pick them.</p>
 .where(Post.id.<span class="h-k">in</span>(List.of(<span class="h-n">1L</span>, <span class="h-n">2L</span>, <span class="h-n">3L</span>)))
 </code></pre>
 <p>Call <code>where</code> more than once and the conditions are joined with AND.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong><code>contains</code>, <code>starts_with</code> and <code>ends_with</code> look for the text you passed, literally.</strong>
+A <code>50%</code> typed into a search box is looked up as the string <strong><code>50%</code></strong>, not as &quot;anything starting with 50&quot;,
+and <code>a_c</code> does not match <code>abc</code> (<code>%</code> and <code>_</code> are escaped and an <code>ESCAPE '!'</code> clause is added).
+<strong>When you want to write the <code>%</code> yourself, use <code>like(...)</code></strong> — that one passes the value through as-is.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong><code>in(...)</code> takes a <code>List</code> or an array</strong>, including primitive arrays such as <code>long[]</code> and <code>int[]</code>.
+<strong>An empty list (or <code>null</code>) fails while the SQL is being built</strong> — <code>IN ()</code> is broken SQL, and
+collapsing it to <code>IN (NULL)</code> <strong>matches no row and quietly returns nothing</strong>.</p>
+</div>
 <h2 id="joins">Joins<a class="anchor" href="#joins">#</a></h2>
 <pre class="code"><code class="lang-java">SQL.select()
 	.from(Post.instance())

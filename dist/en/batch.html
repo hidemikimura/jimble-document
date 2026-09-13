@@ -268,7 +268,24 @@ same table will <strong>set each other's rows to <code>nothing</code>.</strong><
 }
 </code></pre>
 <p>Press cancel on the admin screen and <code>isCancelOrder()</code> turns <code>true</code>.
-<strong>In anything long-running, always check it.</strong> A batch that never looks cannot be stopped.</p>
+<strong>In anything long-running, always check it.</strong> A batch that never looks cannot be stopped.
+<strong>Always check it in anything long-running.</strong> A batch that never looks cannot be stopped.</p>
+<p>From code that does not extend <code>AbstractBatch</code> (a domain-layer call, say), the same signal
+is reachable through the context.</p>
+<pre class="code"><code class="lang-java">BatchContext context = Context.current(BatchContext.<span class="h-k">class</span>);
+
+<span class="h-k">for</span> (Data row : rows) {
+	<span class="h-k">if</span> (context.isCancelOrdered()) { <span class="h-k">break</span>; }
+	<span class="h-c">// ...</span>
+}
+</code></pre>
+<p><strong>Both read the same order.</strong> The DB is consulted only once per
+<code>batch.cancel_check</code>, so calling it every iteration is fine.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Up to 0.6.0 <code>BatchContext.isCancelOrdered()</code> was always false.</strong> The cancel decision
+lived on <code>AbstractBatch</code> and nothing was wired to the context. No exception, no warning —
+<strong>you find out when you press cancel in production</strong> (wired up in 1.0).</p>
+</div>
 <h2 id="reading-a-batch-of-rows-at-a-time">Reading a batch of rows at a time<a class="anchor" href="#reading-a-batch-of-rows-at-a-time">#</a></h2>
 <p>When you don't want to hold a million rows in one transaction, extend <code>AbstractChunkBatch</code>.
 It repeats <strong>read → process → write in bulk</strong>, committing every <code>chunkSize()</code> items.</p>
@@ -354,7 +371,7 @@ It repeats <strong>read → process → write in bulk</strong>, committing every
 </tr>
 </tbody>
 </table>
-<p><code>chunk_written</code> is rewritten <strong>every <code>batch.progress_seconds</code> (5 by default)</strong>,
+<p><code>chunk_written</code> is rewritten <strong>every <code>batch.progress</code> (5 by default)</strong>,
 so the admin screen shows how far along a running batch is.</p>
 <h3 id="the-reading-db-and-the-writing-db-are-different">The reading DB and the writing DB are different<a class="anchor" href="#the-reading-db-and-the-writing-db-are-different">#</a></h3>
 <p>The <code>db</code> handed to <code>reader()</code> and the <code>db</code> handed to <code>write()</code> are <strong>different instances</strong>.

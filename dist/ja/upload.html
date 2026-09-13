@@ -221,9 +221,9 @@
 		<span class="h-k">for</span> (Object item : list) {
 			UploadFile uploadFile = (UploadFile) item;
 			received.add(<span class="h-s">"%s:%s:%d"</span>.formatted(
-				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
-			received.add(<span class="h-s">"content="</span> + read(uploadFile.file.toPath()));
-			tempFiles.add(uploadFile.file.toPath());
+				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
+			received.add(<span class="h-s">"content="</span> + read(uploadFile.file().toPath()));
+			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
 }</code></pre>
@@ -296,8 +296,8 @@
 <h2 id="上限">上限<a class="anchor" href="#上限">#</a></h2>
 <p><strong>設定を書かなくても上限は掛かります</strong>（要件 NF-S-05）。</p>
 <pre class="code"><code class="lang-conf">upload {
-	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># 1ファイル。既定 10MB</span>
-	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># 1リクエスト合計。既定 50MB</span>
+	max_file_size  = <span class="h-n">10MiB</span>       <span class="h-c"># 1ファイル</span>
+	max_total_size = <span class="h-n">10MiB</span>       <span class="h-c"># 1リクエスト合計</span>
 	max_files      = <span class="h-n">20</span>         <span class="h-c"># 件数</span>
 	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># 空なら java.io.tmpdir</span>
 }
@@ -328,9 +328,12 @@
 <p>サイズは<strong>読みながら</strong>見ています。全部受け取ってから測ると、
 上限を超えた分までディスクに書いてしまうからです。</p>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
-<p><strong><code>server.max_request_size</code>（既定 10MB）のほうが先に効きます。</strong>
-<code>upload.max_total_size</code> の既定は 50MB なので、<strong>そのままでは 50MB は届きません。</strong>
-大きいものを許すなら、両方を上げてください。</p>
+<p><strong><code>server.max_request_size</code> のほうが先に効きます。</strong>
+<code>upload.max_total_size</code> がそれを超えていると、<strong>起動時に落ちます</strong>——
+先にサーバー側で切られるので、書いた上限に届かないためです。
+大きいものを許すなら、<strong>両方を上げてください</strong>。</p>
+<p>0.6.x までは既定が 50MiB と 10MiB で<strong>食い違っていました</strong>（そのままでは 50MiB は届きません）。
+いまはどちらも 10MiB です。</p>
 </div>
 <h2 id="保存する">保存する<a class="anchor" href="#保存する">#</a></h2>
 <p><strong>保存のヘルパはありません。</strong><code>uploadFile.file</code> を JDK の <code>Files</code> で写します。</p>
@@ -338,16 +341,16 @@
 
 	UploadFile uploadFile = firstFile(context);
 
-	<span class="h-k">if</span> (uploadFile == <span class="h-k">null</span> || uploadFile.fileSize &lt;= <span class="h-n">0</span>) {
+	<span class="h-k">if</span> (uploadFile == <span class="h-k">null</span> || uploadFile.fileSize() &lt;= <span class="h-n">0</span>) {
 		<span class="h-k">return</span> <span class="h-k">null</span>;
 	}
 
-	String extension = extensionOf(uploadFile.fileName);
+	String extension = extensionOf(uploadFile.fileName());
 
 	<span class="h-k">if</span> (!ALLOWED_EXTENSIONS.contains(extension)) {
 		<span class="h-k">throw</span> <span class="h-k">new</span> io.jimble.web.http.HttpException(
 			<span class="h-n">400</span>, <span class="h-s">"受け付けられない形式です: %s（%s のみ）"</span>
-				.formatted(uploadFile.fileName, String.join(<span class="h-s">" "</span>, ALLOWED_EXTENSIONS)));
+				.formatted(uploadFile.fileName(), String.join(<span class="h-s">" "</span>, ALLOWED_EXTENSIONS)));
 	}
 
 	Path dir = Path.of(UPLOAD_DIR);
@@ -359,7 +362,7 @@
 	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
 	 * 残したいものはここで移す。
 	 */</span>
-	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+	Files.copy(uploadFile.file().toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
 
 	<span class="h-k">return</span> saved;
 

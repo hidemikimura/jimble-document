@@ -305,6 +305,10 @@ context.session().save();                  <span class="h-c">// ← ここで新
 <p><code>Csrf::verify</code> を <code>before</code> に置くと、その下のルートが守られます。
 <code>GET</code> <code>HEAD</code> <code>OPTIONS</code> <code>TRACE</code> は素通しです（<code>Csrf.SAFE_METHODS</code>）。</p>
 <p>トークンは <code>context.request().csrfToken()</code> で取り、フォームの hidden に入れます。</p>
+<p><strong>トークンの寿命は <code>csrf.max_age</code>（既定 1 日）です。</strong>
+0.6.x までは <code>cookie.max_age</code>（既定 1 年）に相乗りしていたので、
+アプリが自分の都合で <code>cookie.max_age</code> を短くすると
+<strong>CSRF トークンも一緒に短くなり</strong>、出るのは「CSRF トークンがありません」の 403 だけでした。</p>
 <h2 id="flash">Flash<a class="anchor" href="#flash">#</a></h2>
 <p>リダイレクトの先へ1回だけ渡すものです。</p>
 <pre class="code"><code class="lang-java">context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"保存しました"</span>);
@@ -348,6 +352,23 @@ String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
 </code></pre>
 <p><strong>鍵を設定しないと、署名の機能が丸ごと効きません。</strong> 例外は出ず、Cookie は普通に読み書きできるので、
 効いていないことに気づく手がかりがありません。起動時に警告を出しています。</p>
+<h3 id="あとから署名を入れるとき">あとから署名を入れるとき<a class="anchor" href="#あとから署名を入れるとき">#</a></h3>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>cookie.secret</code> を初めて設定した瞬間、いま配ってある Cookie が全部いっぺんに捨てられます。</strong>
+<code>sid</code> も <code>csrf_token</code> も <code>remember</code> も flash もです——<strong>全員ログアウト、フォームは 403</strong>。
+<strong>例外もログも出ません</strong>（署名の合わない Cookie を捨てるのは、正しい動きだからです）。</p>
+</div>
+<p><strong>移行期間を作ってください。</strong></p>
+<pre class="code"><code class="lang-conf">cookie {
+	secret          = ${?COOKIE_SECRET}
+	accept_unsigned = <span class="h-k">true</span>    <span class="h-c"># ← 入れ替えが済むまでの間だけ</span>
+}
+</code></pre>
+<p><code>accept_unsigned = true</code> の間は、<strong>署名の無い Cookie も読みます</strong>。
+書くほうは最初から署名するので、<strong>放っておけば署名つきに入れ替わります</strong>。</p>
+<p>**入れ替わったら false に戻してください。**戻さないと、
+<strong>署名を外した Cookie が通り続ける</strong>ので、署名を入れた意味がなくなります。
+通した回数は <code>cookie.unsigned</code> に出ます——<strong>これが 0 になってから</strong>戻します。</p>
 <h2 id="鍵を入れ替える">鍵を入れ替える<a class="anchor" href="#鍵を入れ替える">#</a></h2>
 <p><strong>鍵は入れ替えられます。誰もログアウトしません。</strong></p>
 <p>新しい鍵を <code>secret</code> に、いままでの鍵を <code>previous_secrets</code> に書きます。
@@ -425,7 +446,7 @@ Cookie の寿命（<code>cookie.max_age</code>。既定は1年）が過ぎれば
 </code></pre>
 <pre class="code"><code class="lang-conf">hash {
 	password {
-		<span class="h-c"># 既定は cipher.key があれば true、無ければ false</span>
+		<span class="h-c"># cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）</span>
 		encrypt = <span class="h-k">true</span>
 		pepper  = ${?PASSWORD_PEPPER}
 	}
@@ -467,6 +488,7 @@ cipher {
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookie-の既定は-secure--true">Cookie の既定は secure = true</a></li>
 			<li class="level-2"><a href="#cookie">Cookie</a></li>
+			<li class="level-3"><a href="#あとから署名を入れるとき">あとから署名を入れるとき</a></li>
 			<li class="level-2"><a href="#鍵を入れ替える">鍵を入れ替える</a></li>
 			<li class="level-3"><a href="#いつ-3-に進めるか">いつ 3 に進めるか</a></li>
 			<li class="level-3"><a href="#自分で書いた-cookie-は自分で書き直してください">自分で書いた Cookie は自分で書き直してください</a></li>

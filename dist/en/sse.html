@@ -271,9 +271,9 @@ and you get &quot;nothing, nothing, nothing, then everything at once when it is 
 4.8MB over 30 seconds into nothing, sometimes it locked up solid after 8 seconds.</p>
 <p>So jimble's <code>SseStream</code> <strong>does not wait for a disconnect. It bounds the stream by lifetime.</strong></p>
 <pre class="code"><code class="lang-conf">sse {
-	max_duration_seconds = <span class="h-n">300</span>   <span class="h-c"># default 5 minutes</span>
+	max_duration = <span class="h-n">5m</span>   <span class="h-c"># default 5 minutes</span>
 	max_events           = <span class="h-n">0</span>     <span class="h-c"># 0 = unlimited</span>
-	retry_millis         = <span class="h-n">3000</span>  <span class="h-c"># how long the client waits before reconnecting</span>
+	retry         = <span class="h-n">3s</span>  <span class="h-c"># how long the client waits before reconnecting</span>
 }
 </code></pre>
 <pre class="code"><code class="lang-java"><span class="h-c">// change it for this route only</span>
@@ -292,7 +292,7 @@ and you get &quot;nothing, nothing, nothing, then everything at once when it is 
 }
 </code></pre>
 <h2 id="reconnecting">Reconnecting<a class="anchor" href="#reconnecting">#</a></h2>
-<p><code>EventSource</code> reconnects on its own when the stream breaks. <code>retry_millis</code> is the interval.</p>
+<p><code>EventSource</code> reconnects on its own when the stream breaks. <code>retry</code> is the interval.</p>
 <p><strong>Which means the client comes straight back when you cut it at the end of its lifetime.</strong>
 Do not build a stream that runs forever. &quot;Stream for five minutes, cut, get reconnected&quot; is fine.</p>
 <p>To tell the client where to pick up again, put an <code>id</code> on your events.

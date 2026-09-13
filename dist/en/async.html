@@ -255,6 +255,14 @@ post.getJsonString();   <span class="h-c">// ← here it fires</span>
 </table>
 <p><code>AsyncData</code> behaves as a <code>Data</code> and <code>AsyncList</code> as a <code>List</code>, so once loaded they are
 ordinary data.</p>
+<p><strong>Touching one loads it — reading or writing.</strong> <code>get</code> and <code>size</code> of course, but also
+<code>put</code> / <code>remove</code> / <code>add</code> / <code>clear</code> / <code>computeIfAbsent</code> / <code>putFirst</code>.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Up to 0.6.x the write side did not trigger a load.</strong> Calling <code>remove(&quot;id&quot;)</code> on an
+unloaded node removed a key from an <em>empty</em> map, and the value came back the moment
+someone read it. An <code>add</code> before the load was <strong>overwritten and lost</strong>. Nothing
+crashed and nothing was logged, so the first sign was someone reporting a wrong result.</p>
+</div>
 <h2 id="what-you-can-look-at-without-triggering-a-load">What you can look at without triggering a load<a class="anchor" href="#what-you-can-look-at-without-triggering-a-load">#</a></h2>
 <pre class="code"><code class="lang-java">list.isLoaded()       <span class="h-c">// already loaded?</span>
 list.isLoadFailed()   <span class="h-c">// did it fail?</span>

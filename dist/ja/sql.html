@@ -228,6 +228,17 @@
 .where(Post.id.<span class="h-k">in</span>(List.of(<span class="h-n">1L</span>, <span class="h-n">2L</span>, <span class="h-n">3L</span>)))
 </code></pre>
 <p><code>where</code> を複数回呼ぶと AND で繋がります。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>contains</code> / <code>starts_with</code> / <code>ends_with</code> は、渡した文字を「文字として」探します。</strong>
+検索欄に打たれた <code>50%</code> は「50 で始まる何か」ではなく <strong><code>50%</code> という文字列</strong>として探し、
+<code>a_c</code> は <code>abc</code> に当たりません（<code>%</code> <code>_</code> を逃がし、<code>ESCAPE '!'</code> を付けています）。
+<strong><code>%</code> を自分で書きたいときは <code>like(...)</code> を使ってください</strong>——あちらは値をそのまま渡します。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>in(...)</code> には <code>List</code> でも配列でも渡せます。</strong><code>long[]</code> や <code>int[]</code> のような素の配列も通ります。
+<strong>空の一覧（と <code>null</code>）は組み立て時に落ちます</strong>——<code>IN ()</code> は壊れた SQL で、
+<code>IN (NULL)</code> に潰すと<strong>どの行にも当たらないまま 0 件が返る</strong>ためです。</p>
+</div>
 <h2 id="結合">結合<a class="anchor" href="#結合">#</a></h2>
 <pre class="code"><code class="lang-java">SQL.select()
 	.from(Post.instance())

@@ -283,60 +283,130 @@ this.</p>
 <p><strong>HOCON has no <code>/* */</code>.</strong> Write one and you get this.</p>
 <pre class="code"><code class="lang-text">Key '/' may not be followed by token: '*'
 </code></pre>
-<h2 id="the-main-keys">The main keys<a class="anchor" href="#the-main-keys">#</a></h2>
+<h2 id="every-key">Every key<a class="anchor" href="#every-key">#</a></h2>
+<p><strong>Everything jimble reads is here.</strong> A key that is not in this list is a key jimble does
+not read — a typo is silently ignored. The values shown are the <strong>defaults</strong>, so leave out
+anything you are not changing.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Durations and sizes carry their unit in the value</strong> (<code>30m</code>, <code>200ms</code>, <code>10MiB</code>).
+<strong>A bare number fails at startup</strong> — that is what stops <code>assets.max_age = 3600000</code> from
+going through as forty-one days. The units are <code>ns</code>, <code>us</code>, <code>ms</code>, <code>s</code>, <code>m</code>, <code>h</code>, <code>d</code>
+and <code>B</code>, <code>KiB</code>, <code>MiB</code>, <code>GiB</code>.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>MB</code> is a power of 1000 and <code>MiB</code> a power of 1024</strong> (HOCON's rule).
+<code>10MB</code> is 10,000,000 bytes; <code>10MiB</code> is 10,485,760.
+<strong>What you write is what you get</strong> — either is fine, but they are not the same number
+when you compare against a default.</p>
+</div>
 <pre class="code"><code class="lang-conf">server {
-	host        = <span class="h-s">""</span>         <span class="h-c"># the address to listen on. empty means all of them</span>
-	port        = <span class="h-n">9000</span>
-	trust_proxy = <span class="h-k">false</span>      <span class="h-c"># false until it sits behind a load balancer</span>
-	max_request_size     = <span class="h-n">10485760</span>
-	max_header_size      = <span class="h-n">16384</span>
-	idle_timeout_seconds = <span class="h-n">60</span>
-	compression          = <span class="h-k">true</span>
-	access_log           = <span class="h-k">true</span>     <span class="h-c"># turning it off is faster, but nothing is left behind</span>
-	bot_access_log       = <span class="h-k">true</span>
-	strict_routes        = <span class="h-k">false</span>    <span class="h-c"># throw on routes nothing can reach (turn this on in CI)</span>
+	host                 = <span class="h-s">""</span>       <span class="h-c"># the address to listen on. empty means all of them</span>
+	port                 = <span class="h-n">9000</span>
+	max_request_size     = <span class="h-n">10MiB</span>    <span class="h-c"># cap on the request body</span>
+	max_header_size      = <span class="h-n">16KiB</span>    <span class="h-c"># cap on all headers together</span>
+	idle_timeout         = <span class="h-n">60s</span>      <span class="h-c"># how long a connection doing nothing is kept</span>
+	compression          = <span class="h-k">true</span>     <span class="h-c"># gzip responses</span>
+	trust_proxy          = <span class="h-k">false</span>    <span class="h-c"># false until it sits behind a load balancer (see below)</span>
+	access_log           = <span class="h-k">true</span>     <span class="h-c"># turning it off is faster, and leaves no trace</span>
+	bot_access_log       = <span class="h-k">true</span>     <span class="h-c"># keep bot access logs separate</span>
+	strict_routes        = <span class="h-k">false</span>    <span class="h-c"># make unreachable routes an error (true in CI)</span>
+	shutdown_grace       = <span class="h-n">0s</span>       <span class="h-c"># from "start stopping" to refusing new requests</span>
+	shutdown_timeout     = <span class="h-n">15s</span>      <span class="h-c"># how long in-flight requests are waited for</span>
+	backlog              = <span class="h-n">1024</span>     <span class="h-c"># connections the OS holds while accept catches up</span>
+	write_queue_length   = <span class="h-n">0</span>        <span class="h-c"># length of the response write queue; 0/1 means "no queue"</span>
+	smart_async_writes   = <span class="h-k">false</span>    <span class="h-c"># with a queue, write inline while it is not busy</span>
+}
 
-	shutdown_grace_seconds   = <span class="h-n">0</span>    <span class="h-c"># from starting the stop until new requests are refused</span>
-	shutdown_timeout_seconds = <span class="h-n">15</span>   <span class="h-c"># how long to wait for work in flight</span>
+metrics {
+	enabled = <span class="h-k">true</span>                  <span class="h-c"># whether to record metrics</span>
+}
+
+router {
+	ignore_case           = <span class="h-k">false</span>   <span class="h-c"># whether to match paths case-insensitively</span>
+	redirect_to_canonical = <span class="h-k">false</span>   <span class="h-c"># whether to 301 to the canonical URL</span>
 }
 
 cookie {
-	secure           = <span class="h-k">true</span>            <span class="h-c"># false locally (see below)</span>
-	secret           = ${?COOKIE_SECRET}
-	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># only while rotating</span>
+	secure           = <span class="h-k">true</span>                      <span class="h-c"># HTTPS only. false locally (see below)</span>
+	http_only        = <span class="h-k">true</span>                      <span class="h-c"># not readable from JavaScript</span>
+	same_site        = <span class="h-s">"lax"</span>                     <span class="h-c"># none | strict | lax</span>
+	domain           = <span class="h-s">""</span>                        <span class="h-c"># empty means the issuing domain</span>
+	max_age          = <span class="h-n">365d</span>                      <span class="h-c"># 0 or less for a session cookie</span>
+	secret           = ${?COOKIE_SECRET}         <span class="h-c"># signing key. empty means no signing</span>
+	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># only while a key is being rotated</span>
+	accept_unsigned  = <span class="h-k">false</span>                     <span class="h-c"># true only while signing is being turned on</span>
+}
+
+csrf {
+	max_age = <span class="h-n">1d</span>    <span class="h-c"># how long a token lives. separate from cookie.max_age</span>
 }
 
 session {
-	store            = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	store            = <span class="h-s">"none"</span>                     <span class="h-c"># none | db | redis | cookie</span>
+	timeout          = <span class="h-n">30m</span>
 	cookie_name      = <span class="h-s">"sid"</span>
-	secret           = ${?SESSION_SECRET}        <span class="h-c"># required when store = cookie</span>
-	previous_secrets = [${?SESSION_SECRET_OLD}]  <span class="h-c"># only while rotating</span>
+	table            = <span class="h-s">"session"</span>                  <span class="h-c"># when store = db</span>
+	secret           = ${?SESSION_SECRET}         <span class="h-c"># required when store = cookie</span>
+	previous_secrets = [${?SESSION_SECRET_OLD}]   <span class="h-c"># only while a key is being rotated</span>
 }
 
 upload {
-	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># per file (10MB)</span>
-	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># per request in total (50MB)</span>
-	max_files      = <span class="h-n">20</span>
-	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># empty means java.io.tmpdir</span>
+	max_file_size  = <span class="h-n">10MiB</span>   <span class="h-c"># per file</span>
+	max_total_size = <span class="h-n">10MiB</span>   <span class="h-c"># per request, in total (keep it level with server.max_request_size)</span>
+	max_files      = <span class="h-n">20</span>      <span class="h-c"># files per request</span>
+	temp_dir       = <span class="h-s">""</span>      <span class="h-c"># empty means java.io.tmpdir</span>
+}
+
+assets {
+	max_age           = <span class="h-n">0s</span>      <span class="h-c"># Cache-Control max-age</span>
+	immutable_max_age = <span class="h-n">365d</span>    <span class="h-c"># files treated as immutable (js / css)</span>
+	if_modified_since = <span class="h-k">true</span>    <span class="h-c"># honour If-Modified-Since</span>
+	etag              = <span class="h-k">true</span>    <span class="h-c"># use ETag / If-None-Match</span>
+}
+
+template {
+	<span class="h-k">package</span>      = <span class="h-s">"gg.jte.generated.precompiled"</span>   <span class="h-c"># output of precompilation</span>
+	content_type = <span class="h-s">"text/html; charset=utf-8"</span>
+}
+
+paging {
+	name_page = <span class="h-s">"page"</span>   <span class="h-c"># request parameter NAME for the page number (not a count)</span>
+	name_per  = <span class="h-s">"per"</span>    <span class="h-c"># request parameter NAME for the row count</span>
+	max_per   = <span class="h-n">200</span>      <span class="h-c"># cap per page. applies to per=all too (0 for no cap)</span>
 }
 
 auth {
 	lockout {
-		enabled       = <span class="h-k">true</span>    <span class="h-c"># does nothing without a DB</span>
-		free_attempts = <span class="h-n">3</span>       <span class="h-c"># no wait up to here (typos)</span>
-		base_seconds  = <span class="h-n">1</span>       <span class="h-c"># from the 4th: 1 -&gt; 2 -&gt; 4 ...</span>
-		max_seconds   = <span class="h-n">300</span>     <span class="h-c"># the longest wait</span>
-		forget_hours  = <span class="h-n">24</span>      <span class="h-c"># start counting again after this gap</span>
+		enabled       = <span class="h-k">true</span>    <span class="h-c"># does nothing without a database</span>
+		free_attempts = <span class="h-n">3</span>       <span class="h-c"># nobody waits up to here (mistyping)</span>
+		base          = <span class="h-n">1s</span>      <span class="h-c"># from the fourth: 1 → 2 → 4 …</span>
+		max           = <span class="h-n">5m</span>      <span class="h-c"># cap on the wait</span>
+		forget        = <span class="h-n">24h</span>     <span class="h-c"># this long without a failure resets the count</span>
 	}
 
 	remember {
-		enabled       = <span class="h-k">true</span>    <span class="h-c"># does nothing without a DB</span>
-		cookie_name   = <span class="h-s">"remember"</span>
-		sliding_days  = <span class="h-n">30</span>      <span class="h-c"># from when it was last used</span>
-		absolute_days = <span class="h-n">90</span>      <span class="h-c"># past this it expires even if still in use</span>
-		grace_seconds = <span class="h-n">60</span>      <span class="h-c"># how long the old one still works after a rotation</span>
+		enabled     = <span class="h-k">true</span>         <span class="h-c"># does nothing without a database</span>
+		cookie_name = <span class="h-s">"remember"</span>
+		sliding     = <span class="h-n">30d</span>          <span class="h-c"># measured from last use</span>
+		absolute    = <span class="h-n">90d</span>          <span class="h-c"># past this it expires even if still in use</span>
+		grace       = <span class="h-n">60s</span>          <span class="h-c"># right after rotation, the old one still passes</span>
 	}
 
+	mfa {
+		enabled        = <span class="h-k">true</span>      <span class="h-c"># needs a database and secret_key (see below)</span>
+		issuer         = <span class="h-s">""</span>        <span class="h-c"># the name shown in the authenticator app</span>
+		digits         = <span class="h-n">6</span>         <span class="h-c"># leave it at 6 (most apps only show six)</span>
+		period         = <span class="h-n">30</span>        <span class="h-c"># seconds. an RFC 6238 parameter, so a plain number here</span>
+		window         = <span class="h-n">1</span>         <span class="h-c"># steps either side. wider accepts more guesses too</span>
+		recovery_codes = <span class="h-n">10</span>        <span class="h-c"># how many are shown at enrolment</span>
+		pending        = <span class="h-n">5m</span>        <span class="h-c"># from password accepted to code entered</span>
+
+		<span class="h-c"># Encrypts the TOTP secret. Mfa.enroll refuses without it.</span>
+		<span class="h-c"># Do not reuse cipher.key (see below)</span>
+		secret_key     = ${?MFA_SECRET_KEY}
+	}
+
+	<span class="h-c"># One block per provider. The name (google) is what you pass to Oidc.callback</span>
 	oidc {
 		google {
 			issuer        = <span class="h-s">"https://accounts.google.com"</span>
@@ -344,85 +414,214 @@ auth {
 			client_secret = ${?GOOGLE_CLIENT_SECRET}  <span class="h-c"># never in the file</span>
 			redirect_uri  = <span class="h-s">"https://example.com/auth/google/callback"</span>
 
-			<span class="h-c"># optional - discovered from the issuer</span>
+			<span class="h-c"># Optional — discovery reads them from issuer</span>
 			<span class="h-c"># authorization_endpoint = "..."</span>
 			<span class="h-c"># token_endpoint         = "..."</span>
 			<span class="h-c"># jwks_uri               = "..."</span>
 
 			scopes        = <span class="h-s">"openid email profile"</span>
-			clock_skew    = <span class="h-n">60</span>      <span class="h-c"># seconds of clock drift to tolerate</span>
-			discovery_ttl = <span class="h-n">3600</span>    <span class="h-c"># seconds to keep discovery and JWKS</span>
+			clock_skew    = <span class="h-n">60</span>      <span class="h-c"># seconds of clock drift accepted</span>
+			discovery_ttl = <span class="h-n">3600</span>    <span class="h-c"># seconds discovery and JWKS are held</span>
 		}
-	}
-
-	mfa {
-		enabled         = <span class="h-k">true</span>      <span class="h-c"># needs a DB and secret_key (below)</span>
-		issuer          = <span class="h-s">"jimble"</span>  <span class="h-c"># the name shown in the authenticator app</span>
-		digits          = <span class="h-n">6</span>         <span class="h-c"># leave it at 6; most apps show nothing else</span>
-		period          = <span class="h-n">30</span>        <span class="h-c"># seconds</span>
-		window          = <span class="h-n">1</span>         <span class="h-c"># steps either way. Widening it widens the target</span>
-		recovery_codes  = <span class="h-n">10</span>        <span class="h-c"># how many are handed out at enrollment</span>
-		pending_seconds = <span class="h-n">300</span>       <span class="h-c"># grace between the password and the code</span>
-
-		<span class="h-c"># encrypts the TOTP secrets. Without it Mfa.enroll refuses.</span>
-		<span class="h-c"># Do NOT reuse cipher.key here (see below)</span>
-		secret_key      = ${?MFA_SECRET_KEY}
 	}
 }
 
 cipher {
-	<span class="h-c"># reads the already-encrypted password hashes of a migrated app.</span>
-	<span class="h-c"># Not used by two-factor auth (see below)</span>
+	<span class="h-c"># Reads the already-encrypted password hashes of a migrated app.</span>
+	<span class="h-c"># Not for two-factor auth (see below)</span>
 	key = ${?CIPHER_KEY}   <span class="h-c"># 16 / 24 / 32 bytes</span>
 	iv  = ${?CIPHER_IV}    <span class="h-c"># 16 bytes</span>
 }
 
+hash {
+	password {
+		<span class="h-c"># If you set cipher.*, you must set this too (startup fails otherwise)</span>
+		encrypt = <span class="h-k">false</span>
+		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># mixed into the hash. cannot be rotated</span>
+	}
+}
+
 rate_limit {
-	store   = <span class="h-s">"memory"</span>       <span class="h-c"># memory | redis | db</span>
 	enabled = <span class="h-k">true</span>
+	store   = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
 }
 
 cache {
-	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
-	temp_dir      = <span class="h-s">""</span>
-	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory only. seconds</span>
+	type          = <span class="h-s">"db"</span>    <span class="h-c"># db | memory | redis</span>
+	temp_dir      = <span class="h-s">""</span>      <span class="h-c"># where the files go</span>
+	memory.expire = <span class="h-n">0s</span>      <span class="h-c"># memory only. 0 never expires</span>
+}
+
+sql_cache {
+	enabled = <span class="h-k">false</span>
+	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
+	ttl     = <span class="h-n">5m</span>
+	max     = <span class="h-n">10000</span>      <span class="h-c"># cap on entries (memory only)</span>
 }
 
 redis {
-	host = <span class="h-s">""</span>                <span class="h-c"># empty means no Redis</span>
+	host = <span class="h-s">""</span>        <span class="h-c"># empty means no Redis</span>
 	port = <span class="h-n">6379</span>
 	ssl  = <span class="h-k">false</span>
+
+	settings {
+		connection_timeout      = <span class="h-n">10s</span>
+		timeout                 = <span class="h-n">3s</span>      <span class="h-c"># how long to wait for a command to answer</span>
+		connection_minimum_idle = <span class="h-n">24</span>
+		connection_pool_size    = <span class="h-n">64</span>
+		retry_attempts          = <span class="h-n">3</span>
+		retry_minimum_interval  = <span class="h-n">500ms</span>
+		retry_maximum_interval  = <span class="h-n">2s</span>
+		idle_connection_timeout = <span class="h-n">10s</span>
+
+		subscription_connection_minimum_idle_size = <span class="h-n">1</span>
+		subscription_connection_pool_size         = <span class="h-n">50</span>
+	}
+}
+
+db {
+	<span class="h-c"># Drop all-null tables from the result.</span>
+	<span class="h-c"># Not a data source name, so it goes at this level</span>
+	remove_all_null_table_data = <span class="h-k">false</span>
+
+	<span class="h-c"># One block per data source. The name (blog) becomes the name of the DB class</span>
+	blog {
+		main     = <span class="h-k">true</span>                    <span class="h-c"># use as the main data source</span>
+		driver   = <span class="h-s">"com.mysql.cj.jdbc.Driver"</span>
+		url      = <span class="h-s">"jdbc:mysql://127.0.0.1:3306/blog"</span>
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		product  = <span class="h-s">"mysql"</span>                 <span class="h-c"># mysql | mariadb | postgresql | postgres | pgsql</span>
+		schema   = <span class="h-s">""</span>                      <span class="h-c"># empty means the block's name. spelled scheme before</span>
+
+		maximum_pool_size     = <span class="h-n">10</span>         <span class="h-c"># largest the pool gets</span>
+		minimum_idle          = <span class="h-n">1</span>          <span class="h-c"># connections always kept open</span>
+		fetch_size            = <span class="h-n">100</span>        <span class="h-c"># rows fetched at a time</span>
+		idle_timeout          = <span class="h-n">10m</span>        <span class="h-c"># how long an unused connection is kept</span>
+		max_lifetime          = <span class="h-n">30m</span>        <span class="h-c"># how long one connection lives</span>
+		connection_timeout    = <span class="h-n">30s</span>        <span class="h-c"># cap on waiting for a connection</span>
+		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># liveness check interval</span>
+		connection_init_sql   = <span class="h-s">""</span>         <span class="h-c"># SQL run right after connecting</span>
+		connection_test_query = <span class="h-s">""</span>         <span class="h-c"># SQL used for the liveness check</span>
+		connection_pool_type  = <span class="h-s">"hikari"</span>   <span class="h-c"># hikari | agroal</span>
+		transaction_isolation = <span class="h-s">""</span>         <span class="h-c"># isolation level</span>
+		create_database_sql   = <span class="h-s">""</span>         <span class="h-c"># SQL used to create the database when missing</span>
+		long_connection_log   = <span class="h-k">false</span>      <span class="h-c"># log connections held a long time</span>
+		long_connection_time  = <span class="h-n">0s</span>         <span class="h-c"># what counts as "a long time"</span>
+
+		<span class="h-c"># Read-only connection. Left out, reads go to the same place as writes</span>
+		read { url = <span class="h-s">"jdbc:mysql://127.0.0.1:3307/blog"</span> }
+
+		<span class="h-c"># Shards. Same keys as above</span>
+		subs {
+			shard1 { url = <span class="h-s">"jdbc:mysql://127.0.0.1:3308/blog"</span> }
+		}
+	}
+}
+
+db_sticky {
+	use = <span class="h-k">false</span>   <span class="h-c"># after a write, send reads in the same request to the write side</span>
+}
+
+log {
+	db = <span class="h-k">false</span>    <span class="h-c"># log SQL</span>
+}
+
+async {
+	prefetch {
+		on_response = <span class="h-k">false</span>   <span class="h-c"># prefetch automatically before the response is sent</span>
+		max_depth   = <span class="h-n">5</span>       <span class="h-c"># cap on prefetch passes</span>
+	}
+}
+
+migration {
+	on_startup   = <span class="h-s">"auto"</span>        <span class="h-c"># auto | true | false. auto applies outside local</span>
+	down         = <span class="h-k">false</span>         <span class="h-c"># run down migrations</span>
+	lock_timeout = <span class="h-n">60s</span>           <span class="h-c"># how long to wait for the lock</span>
+	resource_dir = <span class="h-s">"migration"</span>   <span class="h-c"># resource directory holding the SQL files</span>
+}
+
+codegen {
+	<span class="h-k">package</span>        = <span class="h-s">"db"</span>   <span class="h-c"># package the generated code goes in</span>
+	exclude_tables = []     <span class="h-c"># tables left out of code generation</span>
+}
+
+mq {
+	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># wait when the queue is not empty</span>
+	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># wait when the queue is empty (grows)</span>
+	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># interval between retries (doubles each time)</span>
+	retry_backoff_max = <span class="h-n">10m</span>
+	stale             = <span class="h-n">10m</span>    <span class="h-c"># this long as running counts as dead</span>
+
+	<span class="h-c"># Threads per execution type. Left out, each type's own default is used</span>
+	thread_count {
+		short_time = <span class="h-n">2</span>
+		long_time  = <span class="h-n">8</span>
+	}
+}
+
+scheduler {
+	reload_interval = <span class="h-n">10s</span>             <span class="h-c"># how often batch_master is re-read</span>
+	tick_interval   = <span class="h-n">1s</span>              <span class="h-c"># how often cron is checked</span>
+	exit_check      = <span class="h-n">3s</span>              <span class="h-c"># how often a stop order is checked for</span>
+	execute_threads = <span class="h-n">10</span>              <span class="h-c"># threads that run batches (0 for unlimited)</span>
+	queue_name      = <span class="h-s">"mq_scheduler"</span>
+}
+
+batch {
+	scheduler_id = <span class="h-s">""</span>     <span class="h-c"># identifier for this instance. empty means the host name</span>
+	heartbeat    = <span class="h-n">3s</span>     <span class="h-c"># how often it says it is still running</span>
+	alive        = <span class="h-n">10s</span>    <span class="h-c"># this long without an update stops counting as alive</span>
+	cancel_check = <span class="h-n">3s</span>     <span class="h-c"># how often a cancel order is checked for</span>
+	progress     = <span class="h-n">5s</span>     <span class="h-c"># how often a chunk batch writes progress to the history</span>
+	all_stop     = <span class="h-n">1h</span>     <span class="h-c"># how long the stop-everything flag stays in force</span>
+}
+
+batch_manager {
+	enabled  = <span class="h-k">false</span>                    <span class="h-c"># an empty user or password means no screen at all</span>
+	path     = <span class="h-s">"/batch-manager"</span>
+	realm    = <span class="h-s">"jimble batch manager"</span>
+	username = ${?BATCH_MANAGER_USER}
+	password = ${?BATCH_MANAGER_PASSWORD}
+}
+
+proxy {
+	connect_timeout = <span class="h-n">5s</span>     <span class="h-c"># cap on connecting to the target</span>
+	request_timeout = <span class="h-n">30s</span>    <span class="h-c"># cap on waiting for the answer</span>
 }
 
 sse {
-	max_duration_seconds = <span class="h-n">300</span>
-	max_events           = <span class="h-n">0</span>
-	retry_millis         = <span class="h-n">3000</span>
+	max_duration = <span class="h-n">5m</span>    <span class="h-c"># how long one stream may stay open (0 or less: unlimited)</span>
+	max_events   = <span class="h-n">0</span>     <span class="h-c"># cap on events sent (0 or less: unlimited)</span>
+	retry        = <span class="h-n">3s</span>    <span class="h-c"># how long before a disconnected client reconnects</span>
 }
 
 mcp {
 	path            = <span class="h-s">"/mcp"</span>
-	allowed_origins = []
+	name            = <span class="h-s">"jimble"</span>    <span class="h-c"># server name</span>
+	version         = <span class="h-s">"0.1.0"</span>     <span class="h-c"># server version (not the MCP spec revision)</span>
+	instructions    = <span class="h-s">""</span>          <span class="h-c"># instructions for the model (returned by server/discover)</span>
+	page_size       = <span class="h-n">100</span>         <span class="h-c"># rows per page in listings</span>
+	allowed_origins = []          <span class="h-c"># allowed origins</span>
 }
 
-migration {
-	<span class="h-c"># auto | true | false. auto applies them everywhere but locally</span>
-	on_startup   = <span class="h-s">"auto"</span>
-	resource_dir = <span class="h-s">"migration"</span>
-}
+jimble {
+	io.buffer_size       = <span class="h-n">256KiB</span>   <span class="h-c"># read/write unit when sending files</span>
+	read_only_container  = <span class="h-k">false</span>    <span class="h-c"># running in a container you cannot write to</span>
 
-codegen {
-	<span class="h-k">package</span> = <span class="h-s">"db"</span>
+	<span class="h-c"># server.port also takes -Djimble.server.port=8080 (the system property wins)</span>
 }
 </code></pre>
 <h2 id="cipherkey-and-authmfasecret_key-are-different-keys"><code>cipher.key</code> and <code>auth.mfa.secret_key</code> are different keys<a class="anchor" href="#cipherkey-and-authmfasecret_key-are-different-keys">#</a></h2>
 <p><strong>Do not reuse <code>cipher.key</code> for two-factor auth.</strong></p>
-<p>The default of <code>hash.password.encrypt</code> is <strong>&quot;true if <code>cipher.key</code> is set&quot;</strong>. A migrated
-app's stored hashes are encrypted, so <strong>having the key but checking against plain BCrypt
-would lock everyone out</strong> — that default exists to prevent it.</p>
-<p>Which means an app storing plain BCrypt today that adds <code>cipher.key</code> <strong>to get 2FA locks
-everyone out the other way.</strong> All it says is &quot;wrong id or password&quot;, so nothing points back
-at the setting that was added.</p>
+<p><strong>If you set <code>cipher.*</code>, you must also set <code>hash.password.encrypt</code>.</strong> Leave it out and
+startup fails.</p>
+<p>The default used to be &quot;true if <code>cipher.key</code> <em>and</em> <code>cipher.iv</code> are both set&quot;. So an app
+that added only <code>cipher.key</code> stayed at false and <strong>flipped the moment <code>cipher.iv</code> was
+added</strong> — stored BCrypt hashes were then read as encrypted and <strong>everyone was locked
+out</strong>. All it says is &quot;wrong id or password&quot;, so nothing points back at the setting that
+was added.</p>
+<p><strong>No default is decided by a distant key.</strong> If you want encryption, say so.</p>
 <table>
 <thead>
 <tr>
@@ -441,8 +640,8 @@ at the setting that was added.</p>
 </tr>
 </tbody>
 </table>
-<p>Set <code>hash.password.encrypt</code> explicitly to say which you mean (<strong>an explicit value wins over
-the default</strong>).</p>
+<p>An app with no <code>cipher.*</code> at all needs no setting, exactly as before (BCrypt only, no
+encryption).</p>
 <h2 id="trust_proxy-is-false-by-default">trust_proxy is false by default<a class="anchor" href="#trust_proxy-is-false-by-default">#</a></h2>
 <p>Set it to <code>true</code> and <code>X-Forwarded-For</code> is trusted.
 <strong>Leave it <code>false</code> until the application sits behind a load balancer.</strong>
@@ -481,7 +680,7 @@ Put <code>cookie { secure = false }</code> in your local <code>application.conf<
 			<li class="level-3"><a href="#if-you-forget-the-include">If you forget the include</a></li>
 			<li class="level-2"><a href="#do-not-write-secrets-in-the-file">Do not write secrets in the file</a></li>
 			<li class="level-2"><a href="#comments-are--or-">Comments are # or //</a></li>
-			<li class="level-2"><a href="#the-main-keys">The main keys</a></li>
+			<li class="level-2"><a href="#every-key">Every key</a></li>
 			<li class="level-2"><a href="#cipherkey-and-authmfasecret_key-are-different-keys">cipher.key and auth.mfa.secret_key are different keys</a></li>
 			<li class="level-2"><a href="#trust_proxy-is-false-by-default">trust_proxy is false by default</a></li>
 			<li class="level-2"><a href="#cookiesecure-is-true-by-default">cookie.secure is true by default</a></li>

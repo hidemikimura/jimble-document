@@ -404,7 +404,7 @@ MySQL は <code>AFTER body</code> と書けますが、PostgreSQL は必ず末�
 </div>
 <h3 id="複数のサーバーが同時に起動しても">複数のサーバーが同時に起動しても<a class="anchor" href="#複数のサーバーが同時に起動しても">#</a></h3>
 <p><code>db_lock</code> の行を <code>FOR UPDATE</code> で取ってから当てるので、<strong>1台しか流れません。</strong>
-待ちきれなかった側は起動に失敗します（<code>migration.lock_timeout_seconds</code>、既定 60 秒）。</p>
+待ちきれなかった側は起動に失敗します（<code>migration.lock_timeout</code>、既定 60 秒）。</p>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p>ロック待ちのタイムアウトは<strong>そのセッションだけ</strong>に設定します（<code>SET SESSION</code>）。
 サーバー全体の設定は変えません。</p>
@@ -597,7 +597,7 @@ Migration.install();
 <pre class="code"><code class="lang-conf">migration {
 	on_startup            = <span class="h-s">"auto"</span>   <span class="h-c"># auto | true | false。auto はローカル以外で当てる</span>
 	down                  = <span class="h-k">false</span>    <span class="h-c"># 巻き戻すか</span>
-	lock_timeout_seconds  = <span class="h-n">60</span>
+	lock_timeout  = <span class="h-n">1m</span>
 	resource_dir          = <span class="h-s">"migration"</span>
 }
 

@@ -380,6 +380,54 @@ HTTP/1.1 405 Method Not Allowed
 Allow: GET
 ```
 
+## パスの揺れ
+
+**末尾のスラッシュと連続したスラッシュは、前から無視します。**
+`/a/b` `/a/b/` `/a//b` `//a/b` は**すべて同じルート**です。
+
+ただし**無視するだけなので、同じ内容が複数の URL で 200 を返します**。
+キャッシュも検索エンジンも前段の ACL も、それらを**別の URL として数えます**。
+1つに寄せたいときは:
+
+```conf
+router {
+	redirect_to_canonical = true    # /a/ や //a を /a へ 301
+}
+```
+
+> [!NOTE]
+> **寄せるのは `GET` と `HEAD` だけです。**
+> `POST` を 301 で返すと、**ブラウザが本文を落として `GET` に化けます**——
+> 送ったつもりの登録が消えるので、`POST` はそのまま受けます。
+> クエリ文字列は付けたまま寄せます。
+
+**大文字小文字を区別しないこともできます。**
+
+```conf
+router {
+	ignore_case = true              # /ADMIN も /admin のルートに当たる
+}
+```
+
+見ないのは**ルートに書いた固定の部分だけ**です。
+`/Users/{id}` なら `Users` のところだけを同一視し、**`{id}` に入る値はそのまま渡します**——
+大文字を含む ID（Hashids など）を勝手に小文字にしないためです。
+
+> [!WARN]
+> **前段と食い違うことがあります。**
+> `/ADMIN` が `/admin` のルートに当たるようになるので、
+> **プロキシの ACL や `before` フックがパス文字列で判定していると、そちらだけすり抜けます**。
+> `redirect_to_canonical` を一緒に入れてください——
+> **ルートに書いた綴りへ 301 で寄せる**ので、アプリには1つの綴りしか来なくなります。
+
+> [!NOTE]
+> **綴りだけ違うルートを2本書くと、起動時に落ちます**（`ignore_case` が有効なときだけ）。
+> `/Admin` と `/admin` の両方があると**どちらに当たるか決められない**うえ、
+> **片方にだけ認証を書いていたら緩いほうに当たりえます**。
+
+`context.request().path()` は、**ルーターが見たのと同じ形**（スラッシュを直したもの）を返します。
+受け取ったままのパスが要るときは `rawPath()` を使ってください。
+
 ## まとめる
 
 ```java
@@ -473,6 +521,16 @@ if (context.route().route().attribute(NO_AUTH)) {
 
 `AttributeKey` は既定値を持ちます。付いていないルートでは既定値が返るので、
 `null` の判定が要りません。
+
+> [!TIP]
+> **キーは「作ったインスタンスそのもの」です。**
+> `static final` で1つだけ持って、それを使い回してください。
+> 同じ名前で別に `new` したものは**別のキー**なので、
+> 片方に入れてもう片方から読むと既定値が返ります。
+>
+> **枠組みのキー（`Auth.PUBLIC` など）と同じ名前で作っても、枠を奪うことはありません。**
+> ただし**ログでは見分けが付かない**ので、
+> 同じ名前のキーが2つあると**起動時に落ちます**——名前を変えてください。
 
 ### ブロック単位で付ける
 
@@ -740,9 +798,9 @@ for (Object value : context.request().bodyFile().values()) {
 		for (Object item : list) {
 			UploadFile uploadFile = (UploadFile) item;
 			received.add("%s:%s:%d".formatted(
-				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
-			received.add("content=" + read(uploadFile.file.toPath()));
-			tempFiles.add(uploadFile.file.toPath());
+				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
+			received.add("content=" + read(uploadFile.file().toPath()));
+			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
 }
@@ -785,8 +843,8 @@ for (Object value : context.request().bodyFile().values()) {
 
 ```conf
 upload {
-	max_file_size  = 10485760   # 1ファイル。既定 10MB
-	max_total_size = 52428800   # 1リクエスト合計。既定 50MB
+	max_file_size  = 10MiB       # 1ファイル
+	max_total_size = 10MiB       # 1リクエスト合計
 	max_files      = 20         # 件数
 	temp_dir       = ""         # 空なら java.io.tmpdir
 }
@@ -804,9 +862,13 @@ upload {
 上限を超えた分までディスクに書いてしまうからです。
 
 > [!WARN]
-> **`server.max_request_size`（既定 10MB）のほうが先に効きます。**
-> `upload.max_total_size` の既定は 50MB なので、**そのままでは 50MB は届きません。**
-> 大きいものを許すなら、両方を上げてください。
+> **`server.max_request_size` のほうが先に効きます。**
+> `upload.max_total_size` がそれを超えていると、**起動時に落ちます**——
+> 先にサーバー側で切られるので、書いた上限に届かないためです。
+> 大きいものを許すなら、**両方を上げてください**。
+>
+> 0.6.x までは既定が 50MiB と 10MiB で**食い違っていました**（そのままでは 50MiB は届きません）。
+> いまはどちらも 10MiB です。
 
 ## 保存する
 
@@ -817,16 +879,16 @@ private static String saveImage (WebContext context) throws Exception {
 
 	UploadFile uploadFile = firstFile(context);
 
-	if (uploadFile == null || uploadFile.fileSize <= 0) {
+	if (uploadFile == null || uploadFile.fileSize() <= 0) {
 		return null;
 	}
 
-	String extension = extensionOf(uploadFile.fileName);
+	String extension = extensionOf(uploadFile.fileName());
 
 	if (!ALLOWED_EXTENSIONS.contains(extension)) {
 		throw new io.jimble.web.http.HttpException(
 			400, "受け付けられない形式です: %s（%s のみ）"
-				.formatted(uploadFile.fileName, String.join(" ", ALLOWED_EXTENSIONS)));
+				.formatted(uploadFile.fileName(), String.join(" ", ALLOWED_EXTENSIONS)));
 	}
 
 	Path dir = Path.of(UPLOAD_DIR);
@@ -838,7 +900,7 @@ private static String saveImage (WebContext context) throws Exception {
 	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
 	 * 残したいものはここで移す。
 	 */
-	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+	Files.copy(uploadFile.file().toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
 
 	return saved;
 
@@ -936,9 +998,25 @@ ValidationRule rule = new ValidationRule()
 > `textLengthMax(100)` は「入っているなら 100 文字以内」という意味で、
 > 空文字や `null` はエラーにしません。**必須は必ず `empty()` で書いてください。**
 
+> [!NOTE]
+> **形の検証は、値の全体と突き合わせます。**
+> `email()` `url()` `domain()` `regex(...)` `characterType(...)` は、
+> **中にそれらしい文字列が入っているだけでは通りません**——
+> `こんにちは a@example.com です` は `email()` で落ちます。
+> `regex("[0-9]{4}")` は「全体が4桁の数字」の意味なので、
+> **部分一致させたいときは `.*` で挟んでください。**
+
+> [!NOTE]
+> **`bool()` が通すのは `true` / `false` / `1` / `0` だけです**（大小は問いません）。
+> `yes` や `はい` は落ちます——**読み出し側が同じ規則で読む**ので、
+> ここを広げると「はい」と答えた人が `false` として保存されます。
+
 > [!WARN]
-> `regex(...)` は `matches` ではなく **`find`（部分一致）** です。
-> 全体に効かせたいときは `^` と `$` を自分で書いてください。
+> **`date()` と `date(format)` は「読めるかどうか」しか見ていません。**
+> `2026-13-01`（13月）も `2026-02-31`（2月31日）も、
+> `2026-09-12x`（後ろにゴミ）も **通ります**。
+> `date()` は DB の読み出しやリクエスト変換と同じ共通変換を通っているためです。
+> **暦として正しいことまで見たいときは、`regex(...)` を重ねるか `custom(...)` を書いてください。**
 
 ## 列にまとめる
 
@@ -1108,8 +1186,9 @@ Paging paging = context.request().paging();
 | --- | --- |
 | 読むキー | `page` / `per` |
 | 既定 | `page = 1`、`per = 10` |
-| 全件 | `per=all`（LIMIT を付けません） |
-| キー名の変更 | `paging.page` / `paging.per`（設定） |
+| 上限 | `paging.max_per`（既定 200）。**超える指定は上限に丸めます** |
+| 全件 | `per=all`。**上限が効くので、既定では 200 件までです**（`paging.max_per = 0` で本当に全件） |
+| キー名の変更 | `paging.name_page` / `paging.name_per`（設定） |
 | 数値でない値 | 無視して既定を使います |
 
 `context.request().paging(20)` と書けば、`per` が来ていないときの既定を変えられます。
@@ -1122,8 +1201,8 @@ paging.load(request("2", "10"), 0);
 
 SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
 
-assertEquals(10, response.list.size(), "1ページ分だけ取れていない");
-assertEquals(TOTAL, response.rowCount, "総件数が LIMIT に影響されている");
+assertEquals(10, response.list().size(), "1ページ分だけ取れていない");
+assertEquals(TOTAL, response.rowCount(), "総件数が LIMIT に影響されている");
 
 assertEquals(TOTAL, paging.totalCount());
 assertEquals(3, paging.maxPage(), "25 件を 10 件ずつなら 3 ページ");
@@ -1848,6 +1927,11 @@ path("/form", () -> {
 
 トークンは `context.request().csrfToken()` で取り、フォームの hidden に入れます。
 
+**トークンの寿命は `csrf.max_age`（既定 1 日）です。**
+0.6.x までは `cookie.max_age`（既定 1 年）に相乗りしていたので、
+アプリが自分の都合で `cookie.max_age` を短くすると
+**CSRF トークンも一緒に短くなり**、出るのは「CSRF トークンがありません」の 403 だけでした。
+
 ## Flash
 
 リダイレクトの先へ1回だけ渡すものです。
@@ -1912,6 +1996,29 @@ cookie {
 
 **鍵を設定しないと、署名の機能が丸ごと効きません。** 例外は出ず、Cookie は普通に読み書きできるので、
 効いていないことに気づく手がかりがありません。起動時に警告を出しています。
+
+### あとから署名を入れるとき
+
+> [!TRAP]
+> **`cookie.secret` を初めて設定した瞬間、いま配ってある Cookie が全部いっぺんに捨てられます。**
+> `sid` も `csrf_token` も `remember` も flash もです——**全員ログアウト、フォームは 403**。
+> **例外もログも出ません**（署名の合わない Cookie を捨てるのは、正しい動きだからです）。
+
+**移行期間を作ってください。**
+
+```conf
+cookie {
+	secret          = ${?COOKIE_SECRET}
+	accept_unsigned = true    # ← 入れ替えが済むまでの間だけ
+}
+```
+
+`accept_unsigned = true` の間は、**署名の無い Cookie も読みます**。
+書くほうは最初から署名するので、**放っておけば署名つきに入れ替わります**。
+
+**入れ替わったら false に戻してください。**戻さないと、
+**署名を外した Cookie が通り続ける**ので、署名を入れた意味がなくなります。
+通した回数は `cookie.unsigned` に出ます——**これが 0 になってから**戻します。
 
 ## 鍵を入れ替える
 
@@ -1999,7 +2106,7 @@ if (PasswordUtil.check(input, user.getString("password"))) {
 ```conf
 hash {
 	password {
-		# 既定は cipher.key があれば true、無ければ false
+		# cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）
 		encrypt = true
 		pepper  = ${?PASSWORD_PEPPER}
 	}
@@ -2388,7 +2495,8 @@ Cookie には **`selector:validator`** の2つが入っていて、
 	get("/auth/google", Oidc.start("google"))
 		.attribute(Auth.PUBLIC, true);
 
-	get("/auth/google/callback", Oidc.callback("google", App::findOrCreate))
+	// 第3引数はコードを入れる画面。二要素認証を使うなら渡す
+	get("/auth/google/callback", Oidc.callback("google", App::findOrCreate, "/login/code"))
 		.attribute(Auth.PUBLIC, true);
 }
 
@@ -2455,6 +2563,19 @@ JDK の `KeyFactory` で公開鍵に戻せて、署名の検証も `java.securit
 > **ログイン済みの状態で明示的に「連携する」**操作をさせてください。
 >
 > `user.emailVerified()` は見られますが、**それを信じるかどうかはアプリの判断**です。
+
+### 二要素認証と一緒に使うとき
+
+**コードを入れる画面のパスを、第3引数で渡してください。**
+
+渡しておくと、二要素認証を有効にしている人が「Google でログイン」から来たときに、
+パスワードで入るときと同じように `Mfa.pending` へ倒してその画面へ飛ばします。
+
+> [!TRAP]
+> **渡さないと、その人は入れません**（401 になります）。
+> 0.6.0 では**黙ってログインさせていた**ので、
+> **「Google でログイン」を選ぶだけで二要素が飛んでいました**。
+> 素通りさせるくらいなら入れないほうがよい、という判断です（1.0）。
 
 ### やらないこと
 
@@ -2530,13 +2651,12 @@ TOTP の秘密鍵は、パスワードのハッシュとは違います。
 
 > [!TRAP]
 > **`cipher.key` を流用しないでください。**
-> `hash.password.encrypt` の既定は **「`cipher.key` があれば true」**です
-> （移送してきたアプリの保存済みハッシュが暗号化されているため）。
+> `cipher.*` を書くと、**`hash.password.encrypt` も書かないと起動しません**。
 >
-> つまり、**いま平文の BCrypt を保存しているアプリが、二要素認証のために `cipher.key` を
-> 設定すると、保存済みのパスワードが「暗号化済み」として読まれて全員入れなくなります。**
-> 返るのは「IDかパスワードが違います」だけなので、原因に辿り着けません。
-> **鍵を分けてあるのはこのためです。**
+> **いま平文の BCrypt を保存しているアプリが、二要素認証のために `cipher.key` を
+> 設定して `encrypt = true` と書くと、保存済みのパスワードが「暗号化済み」として読まれ、
+> 全員入れなくなります。** 返るのは「IDかパスワードが違います」だけです。
+> **鍵を分けてあるのはこのためです**——二要素には `auth.mfa.secret_key` を使ってください。
 
 ### 回復コード
 
@@ -2560,7 +2680,7 @@ TOTP の秘密鍵は、パスワードのハッシュとは違います。
 | 待たせ方 | 3回までは待たせず、そのあと 1 → 2 → 4 … 秒。上限 300 秒。超えたら **429** |
 | 窓 | 前後1つ（`auth.mfa.window`）。**広げるほど当たりも増えます**——10 にすると当たりが 21 通りぶんになります |
 | 使い回し | **一度通ったコードは、その窓が終わるまで通りません。**同じコードを覗き見て入れ直す手を止めます |
-| 猶予 | パスワードが通ってからコードまで 300 秒（`auth.mfa.pending_seconds`）。過ぎたら**はじめからやり直し**です |
+| 猶予 | パスワードが通ってからコードまで 300 秒（`auth.mfa.pending`）。過ぎたら**はじめからやり直し**です |
 
 ### やめるとき
 
@@ -2699,7 +2819,7 @@ post("/save", () -> new SaveExecutor());
 > [!TRAP]
 > トランザクションの中や `selectListWithFetcher` の途中は、接続をプールに返していません。
 > その状態で SSE のように長く繋ぐと、**人数分だけプールを食います。**
-> `maximumPoolSize = 10` なら10人で尽き、11人目は「遅い」でも「エラー」でもなく
+> `maximum_pool_size = 10` なら10人で尽き、11人目は「遅い」でも「エラー」でもなく
 > **接続待ちで止まったまま**になります。
 
 SSE で無限ループを書かないのはこのためです。
@@ -2765,7 +2885,7 @@ db {
 		password = ""
 		password = ${?DB_PASSWORD}
 
-		maximumPoolSize      = 10
+		maximum_pool_size      = 10
 		connection_pool_type = "hikari"
 	}
 }
@@ -2840,6 +2960,16 @@ SQL.select().from(Post.instance()).where(Post.id.eq(1L));
 ```
 
 データソースごとに違う製品を書けます（メインは MySQL、集計用は PostgreSQL、など）。
+
+> [!NOTE]
+> **対応している製品は MySQL（MariaDB）と PostgreSQL の2つだけです。**
+> 知らない名前を書くと**起動時に落ちます**——黙って MySQL に倒すと、
+> PostgreSQL のつもりで書いたアプリに**バッククォートの SQL が飛びます**。
+>
+> **自前の方言を足す口はありません**（`Dialect` は `sealed` です）。
+> 方言には SQL 関数ごとのメソッドが 40 以上あり、
+> **jimble が関数を1つ足すたびに、外の実装が壊れる**ためです。
+> 対応してほしい製品があれば、枠組みに足す形で受け付けます。
 
 ### その製品で書けないもの
 
@@ -3100,6 +3230,17 @@ SQL.select(Post.id, Post.title).from(Post.instance())
 ```
 
 `where` を複数回呼ぶと AND で繋がります。
+
+> [!NOTE]
+> **`contains` / `starts_with` / `ends_with` は、渡した文字を「文字として」探します。**
+> 検索欄に打たれた `50%` は「50 で始まる何か」ではなく **`50%` という文字列**として探し、
+> `a_c` は `abc` に当たりません（`%` `_` を逃がし、`ESCAPE '!'` を付けています）。
+> **`%` を自分で書きたいときは `like(...)` を使ってください**——あちらは値をそのまま渡します。
+
+> [!NOTE]
+> **`in(...)` には `List` でも配列でも渡せます。**`long[]` や `int[]` のような素の配列も通ります。
+> **空の一覧（と `null`）は組み立て時に落ちます**——`IN ()` は壊れた SQL で、
+> `IN (NULL)` に潰すと**どの行にも当たらないまま 0 件が返る**ためです。
 
 ## 結合
 
@@ -3518,6 +3659,70 @@ DBTransaction.transaction(db, transaction -> {
 始めて、渡した処理を走らせて、`commitEndTransaction()` まで済ませます。
 例外が出れば `close()` がロールバックします。
 
+## エラーが出ていたらコミットしません
+
+**jimble の DB はエラーを例外ではなく戻り値で返します**（[原則](./principles)）。
+つまり中の `db.update(...)` が `-1` を返しても、**処理は正常に終わったように見えます。**
+
+```java
+DBTransaction.transaction(db, transaction -> {
+	db.insert(...);          // 通った
+	db.update(...);          // -1。例外は出ない
+	db.insert(...);          // 通った
+});
+```
+
+**この形はコミットしません。**トランザクションの中で1度でもエラーが出ていたら、
+`commitEndTransaction()` はロールバックして `CodeException`（`DB_004`）を投げます。
+
+> [!TRAP]
+> **0.6.0 まではコミットしていました。**しかも失敗した文の中で枠組みが `rollback()` を呼ぶので、
+> **そこまでの文は巻き戻り、そこから先の文だけがコミットされる**という壊れ方でした。
+> 例外もログも出ないので、**データが半分だけ入ったことに誰も気づけません**。
+
+`db.isError()` は**直前の1文についてだけ**答えます。
+コミットしてよいかの判断はトランザクション全体を見ているので、
+**失敗のあとに成功する文が1つあっても素通りしません。**
+
+### エラーを見て、分岐して続けたいとき
+
+**いったん `rollback()` してから書き直します。**
+
+```java
+db.beginTransaction();
+
+insert(...);
+db.commit();                 // ここまでは確定。トランザクションは続く
+
+update(...);                 // 失敗した
+
+if (db.isError()) {
+	db.rollback();           // 決着を付ける
+	insertFallback(...);     // 別の道で書き直す
+}
+
+db.commitEndTransaction();
+```
+
+**`rollback()` はエラーの持ち越しも畳みます。**畳まないと、
+書き直したあとの `commit()` が「まだエラーが出ている」と言って断ります。
+
+> [!TRAP]
+> **失敗のあとの文が通るかどうかは、製品によって違います。**
+>
+> | | 失敗のあとの文 |
+> | --- | --- |
+> | PostgreSQL | **通りません。**`ROLLBACK` するまで全部断ります（`current transaction is aborted, ...`） |
+> | MySQL | **通ります。**1文の失敗ではトランザクションを中断しません |
+>
+> **どちらにも寄りかからないでください。**jimble が約束するのは
+> 「**コミットは拒まれ、1行も残らない**」ところまでです。
+> 失敗したら、**続けて書く前に `rollback()` してください**。
+>
+> **0.6.x はこの違いを隠していました。**各文の `catch` がその場で `rollback()` を呼んでいたので、
+> **どちらの製品でも続けて書けているように見えて、実は前の文が全部消えていました**——
+> それが部分コミットの正体です。
+
 ## 外へ出すものと、DB に積むもの
 
 **どちらの中で呼ぶかが逆になります。**ここは間違えやすいところです。
@@ -3599,6 +3804,17 @@ post.getJsonString();   // ← ここで飛ぶ
 
 `AsyncData` は `Data`、`AsyncList` は `List` として振る舞うので、
 読み込んだあとは普通のデータです。
+
+**触れば読みます——読む側も、書き換える側もです。**
+`get` や `size` はもちろん、`put` / `remove` / `add` / `clear` /
+`computeIfAbsent` / `putFirst` のような**書き換える口も**読み込みを起こします。
+
+> [!NOTE]
+> **0.6.x までは、書き換える口が読み込みを起こしていませんでした。**
+> 未読み込みのまま `remove("id")` すると**空のマップから消す**ことになり、
+> あとで誰かが読んだ瞬間に**消したはずの値が戻ってきました**。
+> `add` した1件が、読み込みで**上書きされて消える**という形もありました。
+> 落ちも警告も出ないので、気づけるのは**結果がおかしいと言われたとき**だけです。
 
 ## 読み込みを起こさずに見られるもの
 
@@ -3866,7 +4082,7 @@ cache.remove("top:posts");
 | `has(key, group)` / `remove(key)` / `removeGroup(group)` | |
 
 > [!NOTE]
-> **256KB を超える値はファイルに落ちます**（gzip、`cache.temp_dir`）。
+> **256KiB を超える値はファイルに落ちます**（gzip、`cache.temp_dir`）。
 > `CacheData#hasContentFile()` が true になり、そのまま
 > `context.response().cache(data)` で `Content-Encoding: gzip` として返せます。
 > 古い世代のファイルを消す仕組みは無いので、置き場は定期的に見てください。
@@ -4283,7 +4499,7 @@ conf/migration/blog_example/
 ### 複数のサーバーが同時に起動しても
 
 `db_lock` の行を `FOR UPDATE` で取ってから当てるので、**1台しか流れません。**
-待ちきれなかった側は起動に失敗します（`migration.lock_timeout_seconds`、既定 60 秒）。
+待ちきれなかった側は起動に失敗します（`migration.lock_timeout`、既定 60 秒）。
 
 > [!NOTE]
 > ロック待ちのタイムアウトは**そのセッションだけ**に設定します（`SET SESSION`）。
@@ -4410,7 +4626,7 @@ codegen {
 migration {
 	on_startup            = "auto"   # auto | true | false。auto はローカル以外で当てる
 	down                  = false    # 巻き戻すか
-	lock_timeout_seconds  = 60
+	lock_timeout  = 1m
 	resource_dir          = "migration"
 }
 
@@ -4513,6 +4729,26 @@ while (!isCancelOrder()) {
 管理画面から中断を押すと `isCancelOrder()` が `true` になります。
 **長く回る処理では必ず見てください。** 見ていないバッチは止められません。
 
+`AbstractBatch` を継承していないところ（呼び出した先の Domain 層など）からは、
+コンテキスト越しに同じものが見られます。
+
+```java
+BatchContext context = Context.current(BatchContext.class);
+
+for (Data row : rows) {
+	if (context.isCancelOrdered()) { break; }
+	// ...
+}
+```
+
+**どちらも同じ指示を見ています。**DB を引くのは
+`batch.cancel_check` に1回だけなので、ループの中で毎回呼んで構いません。
+
+> [!TRAP]
+> **0.6.0 まで `BatchContext.isCancelOrdered()` は常に false でした。**
+> 中断の判定は `AbstractBatch` の側にあり、コンテキストには何も繋がっていませんでした。
+> 例外も警告も出ないので、**本番で中断ボタンを押すまで分かりません**（1.0 で繋ぎました）。
+
 ## 一定件数ずつ読んでまとめて書く
 
 100万件を1つのトランザクションで抱えたくないときは `AbstractChunkBatch` を継承します。
@@ -4580,7 +4816,7 @@ public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
 | `chunk_failed_at` | 何かたまり目で落ちたか |
 | `chunk_canceled` | 中断で抜けたか |
 
-`chunk_written` は **`batch.progress_seconds`（既定5秒）ごとに書き換わる**ので、
+`chunk_written` は **`batch.progress`（既定5秒）ごとに書き換わる**ので、
 走っている最中でも管理画面から「いま何件目か」が見えます。
 
 ### 読む DB と書く DB は別です
@@ -4873,9 +5109,9 @@ X-Accel-Buffering: no
 
 ```conf
 sse {
-	max_duration_seconds = 300   # 既定 5分
+	max_duration = 5m   # 既定 5分
 	max_events           = 0     # 0 = 無制限
-	retry_millis         = 3000  # クライアントの再接続間隔
+	retry         = 3s  # クライアントの再接続間隔
 }
 ```
 
@@ -4901,7 +5137,7 @@ for (Data row : rows) {
 
 ## 繋ぎ直し
 
-`EventSource` は切れたら自動で繋ぎ直します。`retry_millis` がその間隔です。
+`EventSource` は切れたら自動で繋ぎ直します。`retry` がその間隔です。
 
 **つまり、寿命で切れても勝手に繋ぎ直されます。**
 無限に続くストリームを作るのではなく、「5分ぶん流して切る、また繋がる」でよいです。
@@ -5450,7 +5686,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 0.6.0-SNAPSHOT
+jimble 1.0.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -5473,7 +5709,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`0.6.0-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`1.0.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -5591,9 +5827,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "0.6.0"
-	id("io.jimble.run") version "0.6.0"
-	id("io.jimble.db")  version "0.6.0"
+	id("io.jimble.jte") version "1.0.0"
+	id("io.jimble.run") version "1.0.0"
+	id("io.jimble.db")  version "1.0.0"
 }
 ```
 
@@ -5635,9 +5871,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "0.6.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "0.6.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "0.6.0"   // DB を使うなら
+	id("io.jimble.jte") version "1.0.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "1.0.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "1.0.0"   // DB を使うなら
 }
 
 repositories {
@@ -5652,7 +5888,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:0.6.0")
+	implementation("io.jimble:jimble-web:1.0.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -5686,7 +5922,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:0.6.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.0.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -6358,62 +6594,133 @@ db {
 Key '/' may not be followed by token: '*'
 ```
 
-## 主なキー
+## 設定キー
+
+**ここに出ているのが、jimble が読むキーの全部です。**
+出ていないキーは読みません（打ち間違いは黙って無視されます）。
+値は**既定値**なので、変えないものは書かなくて構いません。
+
+> [!NOTE]
+> **時間と大きさは、単位を値に書きます**（`30m` / `200ms` / `10MiB`）。
+> **素の数値は起動時に落ちます**——`assets.max_age = 3600000` のような取り違えを、
+> 黙って通さないためです。使えるのは
+> `ns` / `us` / `ms` / `s` / `m` / `h` / `d` と、`B` / `KiB` / `MiB` / `GiB` です。
+
+> [!TRAP]
+> **`MB` は 1000 の3乗、`MiB` は 1024 の3乗です**（HOCON の決まり）。
+> `10MB` は 10,000,000 バイトで、`10MiB` は 10,485,760 バイトです。
+> **書いたとおりに解釈します**——どちらでも構いませんが、
+> 既定値と比べるときは違うものだと思ってください。
 
 ```conf
 server {
-	host        = ""         # 待ち受けるアドレス。空なら全部
-	port        = 9000
-	trust_proxy = false      # ロードバランサの後ろに置くまで false
-	max_request_size     = 10485760
-	max_header_size      = 16384
-	idle_timeout_seconds = 60
-	compression          = true
+	host                 = ""       # 待ち受けるアドレス。空なら全部
+	port                 = 9000
+	max_request_size     = 10MiB    # リクエスト本文の上限
+	max_header_size      = 16KiB    # ヘッダ全体の上限
+	idle_timeout         = 60s      # 何もしない接続を閉じるまで
+	compression          = true     # 応答を gzip で返すか
+	trust_proxy          = false    # ロードバランサの後ろに置くまで false（下を参照）
 	access_log           = true     # 切ると速くなるが、何が起きたか残らない
-	bot_access_log       = true
+	bot_access_log       = true     # ボットのアクセスログを分けるか
 	strict_routes        = false    # 一生呼ばれないルートを例外にする（CI では true に）
+	shutdown_grace       = 0s       # 止め始めてから新規を断つまで
+	shutdown_timeout     = 15s      # 処理中を待つ上限
+	backlog              = 1024     # 受け付け待ちの接続を OS に持たせる数
+	write_queue_length   = 0        # 応答を書き出す列の長さ。0/1 は「列を作らない」
+	smart_async_writes   = false    # 列があるとき、空いていればその場で書く
+}
 
-	shutdown_grace_seconds   = 0    # 止め始めてから新規を断つまで
-	shutdown_timeout_seconds = 15   # 処理中を待つ上限
+metrics {
+	enabled = true                  # メトリクスを数えるか
+}
+
+router {
+	ignore_case           = false   # パスの大文字小文字を区別しないか
+	redirect_to_canonical = false   # 正規の URL へ 301 で寄せるか
 }
 
 cookie {
-	secure           = true            # ローカルでは false（下を参照）
-	secret           = ${?COOKIE_SECRET}
+	secure           = true                      # HTTPS のみ。ローカルでは false（下を参照）
+	http_only        = true                      # JavaScript から読めない
+	same_site        = "lax"                     # none | strict | lax
+	domain           = ""                        # 空なら発行元ドメイン
+	max_age          = 365d                      # 0 以下でセッション Cookie
+	secret           = ${?COOKIE_SECRET}         # 署名鍵。空なら署名しない
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # 鍵の入れ替え中だけ
+	accept_unsigned  = false                     # 署名を入れる移行期間だけ true にする
+}
+
+csrf {
+	max_age = 1d    # トークンの寿命。cookie.max_age とは別
 }
 
 session {
-	store            = "none"     # none | db | redis | cookie
+	store            = "none"                     # none | db | redis | cookie
+	timeout          = 30m
 	cookie_name      = "sid"
-	secret           = ${?SESSION_SECRET}        # store = cookie のとき必須
-	previous_secrets = [${?SESSION_SECRET_OLD}]  # 鍵の入れ替え中だけ
+	table            = "session"                  # store = db のとき
+	secret           = ${?SESSION_SECRET}         # store = cookie のとき必須
+	previous_secrets = [${?SESSION_SECRET_OLD}]   # 鍵の入れ替え中だけ
 }
 
 upload {
-	max_file_size  = 10485760   # 1ファイル（10MB）
-	max_total_size = 52428800   # 1リクエスト合計（50MB）
-	max_files      = 20
-	temp_dir       = ""         # 空なら java.io.tmpdir
+	max_file_size  = 10MiB   # 1ファイル
+	max_total_size = 10MiB   # 1リクエスト合計（server.max_request_size と揃える）
+	max_files      = 20      # 1リクエストのファイル数
+	temp_dir       = ""      # 空なら java.io.tmpdir
+}
+
+assets {
+	max_age           = 0s      # Cache-Control の max-age
+	immutable_max_age = 365d    # 不変扱い（js / css）のファイル
+	if_modified_since = true    # If-Modified-Since を見るか
+	etag              = true    # ETag / If-None-Match を使うか
+}
+
+template {
+	package      = "gg.jte.generated.precompiled"   # 事前コンパイルの出力先
+	content_type = "text/html; charset=utf-8"
+}
+
+paging {
+	name_page = "page"   # ページ番号のリクエストパラメータ名（件数ではない）
+	name_per  = "per"    # 取得件数のリクエストパラメータ名
+	max_per   = 200      # 1ページの上限。per=all にも効く（0 で上限なし）
 }
 
 auth {
 	lockout {
 		enabled       = true    # DB が無ければ何もしない
 		free_attempts = 3       # ここまでは待たされない（打ち間違い）
-		base_seconds  = 1       # 4回目から 1 → 2 → 4 …
-		max_seconds   = 300     # 待ち時間の上限
-		forget_hours  = 24      # これだけ間が空いたら数え直す
+		base          = 1s      # 4回目から 1 → 2 → 4 …
+		max           = 5m      # 待ち時間の上限
+		forget        = 24h     # これだけ間が空いたら数え直す
 	}
 
 	remember {
-		enabled       = true    # DB が無ければ何もしない
-		cookie_name   = "remember"
-		sliding_days  = 30      # 最後に使ってからこれだけ
-		absolute_days = 90      # 発行してからこれを超えたら、使っていても切れる
-		grace_seconds = 60      # 回した直後、古いほうも通す時間
+		enabled     = true         # DB が無ければ何もしない
+		cookie_name = "remember"
+		sliding     = 30d          # 最後に使ってからこれだけ
+		absolute    = 90d          # 発行してからこれを超えたら、使っていても切れる
+		grace       = 60s          # 回した直後、古いほうも通す時間
 	}
 
+	mfa {
+		enabled        = true      # DB と secret_key が要る（下を参照）
+		issuer         = ""        # 認証アプリの一覧に出る名前
+		digits         = 6         # 6 から変えない（多くのアプリが6桁しか出せない）
+		period         = 30        # 秒。RFC 6238 のパラメータなので、ここだけ数値
+		window         = 1         # 前後いくつの窓まで許すか。広げるほど当たりも増える
+		recovery_codes = 10        # 登録のときに出す数
+		pending        = 5m        # パスワードが通ってからコードを入れるまでの猶予
+
+		# 秘密鍵を暗号化する鍵。無ければ Mfa.enroll が断る。
+		# cipher.key を流用しないこと（下を参照）
+		secret_key     = ${?MFA_SECRET_KEY}
+	}
+
+	# プロバイダごとに1ブロック。名前（google）は Oidc.callback に渡す名前
 	oidc {
 		google {
 			issuer        = "https://accounts.google.com"
@@ -6431,20 +6738,6 @@ auth {
 			discovery_ttl = 3600    # 秒。discovery と JWKS を持つ時間
 		}
 	}
-
-	mfa {
-		enabled         = true      # DB と secret_key が要る（下を参照）
-		issuer          = "jimble"  # 認証アプリの一覧に出る名前
-		digits          = 6         # 6 から変えない（多くのアプリが6桁しか出せない）
-		period          = 30        # 秒
-		window          = 1         # 前後いくつの窓まで許すか。広げるほど当たりも増える
-		recovery_codes  = 10        # 登録のときに出す数
-		pending_seconds = 300       # パスワードが通ってからコードを入れるまでの猶予
-
-		# 秘密鍵を暗号化する鍵。無ければ Mfa.enroll が断る。
-		# cipher.key を流用しないこと（下を参照）
-		secret_key      = ${?MFA_SECRET_KEY}
-	}
 }
 
 cipher {
@@ -6454,42 +6747,183 @@ cipher {
 	iv  = ${?CIPHER_IV}    # 16 バイト
 }
 
+hash {
+	password {
+		# cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）
+		encrypt = false
+		pepper  = ${?PASSWORD_PEPPER}   # ハッシュに混ぜる秘密。入れ替えられない
+	}
+}
+
 rate_limit {
-	store   = "memory"       # memory | redis | db
 	enabled = true
+	store   = "db"     # db | memory | redis
 }
 
 cache {
-	type          = "db"     # db | memory | redis
-	temp_dir      = ""
-	memory.expire = 0        # memory のときだけ。秒
+	type          = "db"    # db | memory | redis
+	temp_dir      = ""      # ファイルを置くところ
+	memory.expire = 0s      # memory のときだけ。0 で無期限
+}
+
+sql_cache {
+	enabled = false
+	store   = "memory"   # memory | redis | db
+	ttl     = 5m
+	max     = 10000      # 件数の上限（memory のみ）
 }
 
 redis {
-	host = ""                # 空なら Redis 無し
+	host = ""        # 空なら Redis 無し
 	port = 6379
 	ssl  = false
+
+	settings {
+		connection_timeout      = 10s
+		timeout                 = 3s      # コマンドの応答を待つ上限
+		connection_minimum_idle = 24
+		connection_pool_size    = 64
+		retry_attempts          = 3
+		retry_minimum_interval  = 500ms
+		retry_maximum_interval  = 2s
+		idle_connection_timeout = 10s
+
+		subscription_connection_minimum_idle_size = 1
+		subscription_connection_pool_size         = 50
+	}
+}
+
+db {
+	# 全部 null のテーブルを結果から落とすか。
+	# データソースの名前ではないので、この位置に書く
+	remove_all_null_table_data = false
+
+	# データソースごとに1ブロック。名前（blog）が DB クラスの名前になる
+	blog {
+		main     = true                    # 主データソースにするか
+		driver   = "com.mysql.cj.jdbc.Driver"
+		url      = "jdbc:mysql://127.0.0.1:3306/blog"
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		product  = "mysql"                 # mysql | mariadb | postgresql | postgres | pgsql
+		schema   = ""                      # 空ならブロックの名前。以前は scheme という綴りだった
+
+		maximum_pool_size     = 10         # プールの最大
+		minimum_idle          = 1          # 常に開けておく数
+		fetch_size            = 100        # 一度に取り出す行数
+		idle_timeout          = 10m        # 使っていない接続を閉じるまで
+		max_lifetime          = 30m        # 1本の接続の寿命
+		connection_timeout    = 30s        # 接続を待つ上限
+		keepalive_time        = 30s        # 生存確認の間隔
+		connection_init_sql   = ""         # 接続直後に流す SQL
+		connection_test_query = ""         # 生存確認の SQL
+		connection_pool_type  = "hikari"   # hikari | agroal
+		transaction_isolation = ""         # 分離レベル
+		create_database_sql   = ""         # 無ければ作るときの SQL
+		long_connection_log   = false      # 長く握った接続をログに出すか
+		long_connection_time  = 0s         # それを「長い」とみなす時間
+
+		# 読み取り専用の接続。書かなければ上と同じところを読む
+		read { url = "jdbc:mysql://127.0.0.1:3307/blog" }
+
+		# シャード。中身は上と同じキー
+		subs {
+			shard1 { url = "jdbc:mysql://127.0.0.1:3308/blog" }
+		}
+	}
+}
+
+db_sticky {
+	use = false   # 書いたあと、同じリクエストの読みを書き側に寄せるか
+}
+
+log {
+	db = false    # SQL をログに残すか
+}
+
+async {
+	prefetch {
+		on_response = false   # レスポンスを送る前に自動で先読みするか
+		max_depth   = 5       # 先読みの周回の上限
+	}
+}
+
+migration {
+	on_startup   = "auto"        # auto | true | false。auto はローカル以外で当てる
+	down         = false         # down を実行するか
+	lock_timeout = 60s           # ロック待ちの上限
+	resource_dir = "migration"   # SQL ファイルのリソースディレクトリ
+}
+
+codegen {
+	package        = "db"   # 生成先パッケージ
+	exclude_tables = []     # 生成対象から外すテーブル
+}
+
+mq {
+	poll_min          = 10ms   # キューが空でないときの待ち
+	poll_max          = 1s     # キューが空のときの待ち（だんだん伸びる）
+	retry_backoff     = 10s    # リトライの間隔（回を追うごとに倍）
+	retry_backoff_max = 10m
+	stale             = 10m    # これだけ running のままなら落ちたとみなす
+
+	# 実行種別ごとのスレッド数。書かなければ種別ごとの既定
+	thread_count {
+		short_time = 2
+		long_time  = 8
+	}
+}
+
+scheduler {
+	reload_interval = 10s             # batch_master を読み直す間隔
+	tick_interval   = 1s              # cron を確かめる間隔
+	exit_check      = 3s              # 止められていないか確かめる間隔
+	execute_threads = 10              # バッチを走らせるスレッド数（0 で無制限）
+	queue_name      = "mq_scheduler"
+}
+
+batch {
+	scheduler_id = ""     # このインスタンスの識別子。空ならホスト名
+	heartbeat    = 3s     # 実行中であることを知らせる間隔
+	alive        = 10s    # これだけ更新が無ければ「実行中ではない」とみなす
+	cancel_check = 3s     # 中断指示を見にいく間隔
+	progress     = 5s     # チャンクバッチが進み具合を履歴に書く間隔
+	all_stop     = 1h     # 全停止フラグが効く時間
+}
+
+batch_manager {
+	enabled  = false                    # 利用者名かパスワードが空だと画面が生えない
+	path     = "/batch-manager"
+	realm    = "jimble batch manager"
+	username = ${?BATCH_MANAGER_USER}
+	password = ${?BATCH_MANAGER_PASSWORD}
+}
+
+proxy {
+	connect_timeout = 5s     # 転送先に繋ぐまでの上限
+	request_timeout = 30s    # 応答を待つ上限
 }
 
 sse {
-	max_duration_seconds = 300
-	max_events           = 0
-	retry_millis         = 3000
+	max_duration = 5m    # 1本を張っていられる上限（0 以下で無制限）
+	max_events   = 0     # 送れる件数の上限（0 以下で無制限）
+	retry        = 3s    # 切れたクライアントがどれだけ後で繋ぎ直すか
 }
 
 mcp {
 	path            = "/mcp"
-	allowed_origins = []
+	name            = "jimble"    # サーバーの名前
+	version         = "0.1.0"     # サーバーの版（MCP の仕様の版ではない）
+	instructions    = ""          # モデルへの手引き（server/discover で返す）
+	page_size       = 100         # 一覧の1ページの件数
+	allowed_origins = []          # 許すオリジン
 }
 
-migration {
-	# auto | true | false。auto はローカル以外で当てる
-	on_startup   = "auto"
-	resource_dir = "migration"
-}
+jimble {
+	io.buffer_size       = 256KiB   # ファイルを送るときの読み書き単位
+	read_only_container  = false    # 書き込めないコンテナで動かすか
 
-codegen {
-	package = "db"
+	# server.port は -Djimble.server.port=8080 でも指定できる（システムプロパティが優先）
 }
 ```
 
@@ -6497,21 +6931,24 @@ codegen {
 
 **二要素認証に `cipher.key` を流用しないでください。**
 
-`hash.password.encrypt` の既定は **「`cipher.key` が設定されていれば true」**です。
-移送してきたアプリの保存済みハッシュが暗号化されているので、
-**鍵があるのに平文の BCrypt として照合すると全員入れなくなる**——それを避けるための既定です。
+**`cipher.*` を書いたら、`hash.password.encrypt` も必ず書いてください。**
+書いていないと**起動時に落ちます**。
 
-このため、**いま平文の BCrypt を保存しているアプリが、二要素認証のために `cipher.key` を
-足すと、今度は逆向きに全員入れなくなります。**
+以前は「`cipher.key` と `cipher.iv` の両方が揃っていれば true」という既定でした。
+つまり **`cipher.key` だけ足したアプリは false のまま**で、
+**あとから `cipher.iv` を足した瞬間に反転しました**——
+保存済みの BCrypt が「暗号化済み」として読まれ、**全員入れなくなります**。
 出るのは「IDかパスワードが違います」だけなので、設定を足したことと結び付きません。
+
+**離れたキーで決まる既定は置きません。**暗号化を使うなら、そう書いてもらいます。
 
 | | |
 | --- | --- |
 | `cipher.key` / `cipher.iv` | **移送してきたアプリの暗号化済みパスワードハッシュを読む**ためのもの。新しく暗号化するものには使いません（固定 IV で、改ざん検知もありません） |
 | `auth.mfa.secret_key` | **TOTP の秘密鍵を暗号化する**ためのもの。AES-256-GCM です |
 
-明示したいときは `hash.password.encrypt` を書いてください
-（**書けば既定は効きません**）。
+`cipher.*` をまったく書いていないアプリは、これまでどおり何も書かなくて構いません
+（暗号化なし、BCrypt だけ）。
 
 ## trust_proxy は既定で false
 
@@ -6550,18 +6987,54 @@ jimble 構成: env=local / session=none / cache=db / redis=なし / db=[blog_exa
 server {
 	host                 = ""         # 待ち受けるアドレス。空なら全部
 	port                 = 9000
-	max_request_size     = 10485760   # リクエスト本文の上限（10MB）
-	max_header_size      = 16384      # ヘッダ全体の上限（16KB）
-	idle_timeout_seconds = 60
+	max_request_size     = 10485760   # リクエスト本文の上限（10MiB）
+	max_header_size      = 16384      # ヘッダ全体の上限（16KiB）
+	idle_timeout = 60s
 	trust_proxy          = false      # X-Forwarded-* を信じるか
 	compression          = true       # 応答を gzip で返すか
 	access_log           = true       # アクセスログを出すか（[ログ](./log)）
 	bot_access_log       = true       # ボットのアクセスログを分けるか
 	strict_routes        = false      # 一生呼ばれないルートを例外にするか（CI では true に）
 
-	shutdown_grace_seconds   = 0      # 止め始めてから新規を断つまで（秒）
-	shutdown_timeout_seconds = 15     # 処理中を待つ上限（秒）
+	shutdown_grace   = 0s      # 止め始めてから新規を断つまで（秒）
+	shutdown_timeout = 15s     # 処理中を待つ上限（秒）
+
+	backlog            = 1024  # 受け付け待ちの接続を OS に持たせる数
+	write_queue_length = 0     # 応答を書き出す列の長さ。0/1 は「列を作らない」
+	smart_async_writes = false # 列があるとき、空いていればその場で書く
 }
+```
+
+## 接続の受け付けと書き出し
+
+**`backlog`** は、受け付けが追いつかないあいだ **OS が代わりに持ってくれる接続の数**です。
+超えた分は **OS が断ちます**——アプリまで届かないので、**ログには1行も出ません**。
+上げるのは「短時間にどっと来る」使い方（起動直後・キャンペーン・再接続の集中）で、
+**捌く速さは変わりません**。詰まりを待たせるだけです。
+
+> [!NOTE]
+> **OS 側の上限にも頭を押さえられます**（Linux の `somaxconn`）。
+> ここを大きくしても、そちらが小さければそちらで切られます。
+
+**`write_queue_length`** は、応答を書き出す列の長さです。
+**0 か 1 なら列を作らず**、その場で書き切ります（既定）。
+2 以上にすると別のスレッドが書き出すので、**遅い相手に書いているあいだ、処理のほうが先に進めます**。
+ただし**列に積んだ分はメモリに載る**ので、大きくすれば速くなるものではありません。
+
+**`smart_async_writes`** は、列があるときに
+「いつも列に積む」か「**空いていればその場で書き、混んできたら列に積む**」かの切り替えです。
+
+> [!WARN]
+> **`smart_async_writes` は単独では効きません。**
+> `write_queue_length` が **2 以上**でないと、helidon はこの値を読みません（列が無いからです）。
+> **`write_queue_length` が 0 か 1 のまま `smart_async_writes = true` と書くと、起動時に落ちます**——
+> 黙って無視すると、「効いているのに速くならない」としか見えなくなるためです。
+
+いま何が選ばれたかは起動ログに出ます。
+
+```
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く）
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く）
 ```
 
 **書かなければ上の既定で動きます。**いま何が効いているかは起動ログに出ます。
@@ -6602,15 +7075,16 @@ server { host = "127.0.0.1" }
 
 | | 上限 | 超えたら |
 | --- | --- | --- |
-| リクエスト本文 | `server.max_request_size`（10MB） | **413** |
-| ヘッダ全体 | `server.max_header_size`（16KB） | 接続ごと切られる |
-| 何もしない接続 | `server.idle_timeout_seconds`（60秒） | 閉じる |
+| リクエスト本文 | `server.max_request_size`（10MiB） | **413** |
+| ヘッダ全体 | `server.max_header_size`（16KiB） | 接続ごと切られる |
+| 何もしない接続 | `server.idle_timeout`（60秒） | 閉じる |
 
 アップロードにはこれとは別の上限があります（[ファイルアップロード](./upload)）。
 
 > [!WARN]
-> **アップロードの合計上限（既定 50MB）より本文の上限（既定 10MB）のほうが小さい**ので、
-> 大きいものを受けるなら両方を上げてください。
+> **`upload.max_total_size` が `server.max_request_size` を超えていると起動時に落ちます。**
+> 本文は先にこちらで切られるので、超えた分には届かないためです。
+> 大きいものを受けるなら、**両方を上げてください**（既定はどちらも 10MiB）。
 
 読み取り／書き込みのタイムアウトはありません。
 
@@ -6682,9 +7156,9 @@ before(BotBlocker.of(context -> context.response().redirect("/")));   // 好き�
 **いきなり止めません。**`stop()` はこの順に進みます。
 
 1. **「止め始めた」ことにする** — `Shutdown.isStopping()` が true になる。**普通のリクエストはまだ受ける**
-2. `server.shutdown_grace_seconds` 待つ（既定 0）
+2. `server.shutdown_grace` 待つ（既定 0）
 3. **新しいリクエストを断つ**（503）
-4. 処理中のものが終わるのを `server.shutdown_timeout_seconds`（既定 15 秒）まで待つ
+4. 処理中のものが終わるのを `server.shutdown_timeout`（既定 15 秒）まで待つ
 5. サーバーを止める
 
 **SIGTERM を受けたら自動で走ります**（コンテナはこれを送って待ちます）。
@@ -6702,7 +7176,7 @@ get("/health_check", context ->
 > ロードバランサがこの台を外すまでには時間がかかります。
 > その間に来たリクエストを 503 にすると、**外から見たらエラー**です。
 > だから 1 と 3 の間に猶予を置けるようにしてあります。
-> ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → `shutdown_grace_seconds = 10`）を入れてください。
+> ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → `shutdown_grace = 10s`）を入れてください。
 
 > [!WARN]
 > **待ちきれなかったら、残ったまま止めます。**
@@ -6722,7 +7196,7 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 ```
 
 `X-Forwarded-For` は**既存の値に足します**（上書きしません）。
-タイムアウトは `proxy.connect_timeout_ms`（5秒）と `proxy.request_timeout_ms`（30秒）で、
+タイムアウトは `proxy.connect_timeout`（5秒）と `proxy.request_timeout`（30秒）で、
 転送に失敗したら **502** を返します。
 
 
@@ -6823,13 +7297,22 @@ server {
 }
 ```
 
-**1リクエストの中でいちばん大きいのがここです**（割り当ての約4割。約 3,400 byte）。
+**1リクエストの中でいちばん大きいのがここです**（割り当ての約半分。約 1,965 byte）。
 切ると、行を組み立てる仕事も、ボット判定（User-Agent の照合）も止まります。
-秒あたりの本数は1割ほど変わります（10 コアの Mac・8接続で 52,537 → 57,030 rps）。
-**台によって違うので、切る前に自分の台で測ってください**
-（`jimble-load/load.sh` が、出す版と出さない版を並べて測ります）。
+
+秒あたりの本数がどれだけ変わるかは、**`logback.xml` の書き方でほとんど決まります。**
+2コアの台・1接続で測ると（D-172）、アクセスログを切った jimble は**素の helidon の 94%**
+——jimble の上乗せは、測ってもほとんど出てきません。
+そこから、**1行を組み立てるぶんが -10%（p50 で +10µs）**、
+**その1行を JSON にして書き出すぶんが -29%（p50 で +110µs）** です。
+つまり**代金のほとんどは、jimble ではなく logback が同期で書き出すところ**にあります。
+切る前に、まず**出し方**（`AsyncAppender` を挟む、出す先を変える、項目を減らす）を見てください。
+
+**台によって違うので、自分の台で測ってください**
+（`jimble-load/load.sh` が、出す版・組み立てるだけの版・出さない版・素の helidon を並べて測ります）。
 
 **メトリクスとトレースは残ります。**切って消えるのはアクセスログだけです。
+どちらも**それ自体はほとんど費用がかかりません**（下記）。
 
 > [!TRAP]
 > **既定は `true` のままにしてください。**切ると、
@@ -7020,6 +7503,31 @@ Metrics.gauge("cache.size", () -> cache.size());
 > [!NOTE]
 > `Metrics.reset()` は**テストのためのもの**です。動いているアプリで呼ぶと、それまで数えたものが消えます。
 
+### 費用と、切りたいとき
+
+**数えること自体は 0 byte / 58ns です**（実測）。確保するメモリは**名前1つにつき**数十〜数百 byte で、
+**数えた回数では増えません**。
+
+> [!TRAP]
+> **高くつくのは名前のほうです。**
+> ```java
+> Metrics.count("http.status.%dxx".formatted(code / 100));   // これで 1000 byte 超
+> ```
+> リクエストごとに `String.format` で組み立てると、**数える処理の全部より重くなります**。
+> **名前は先に作って使い回してください**（jimble の中では、ルートの名前は登録時に1度だけ作っています）。
+
+切りたいときは:
+
+```conf
+metrics {
+	enabled = false
+}
+```
+
+切ると `count` も `record` も `gauge` も何もしなくなり、`Metrics.snapshot()` は**空のまま**を返します。
+**速くはなりません**（もともとほとんど費用がありません）。切る理由があるとすれば、
+数えた値をどこにも出していないアプリで**持っている意味が無い**ときです。
+
 ## トレース
 
 サービスをまたいだ1本の流れを見る（要件 NF-O-05）。**使うときだけ依存が増えます。**
@@ -7142,6 +7650,7 @@ assertEquals("GET /posts/{id}", tracer.spans().get(0).name());
 | `server.access_log` | `true` | アクセスログを出す。`false` で1行も出さない |
 | `server.bot_access_log` | `true` | ボットのアクセスログを `access.bot` に分ける |
 | `log.db` | `false` | `DBLog.save(...)` を有効にする |
+| `metrics.enabled` | `true` | メトリクスを数える。`false` で `snapshot()` が空になる |
 
 > [!NOTE]
 > **ログのレベル・出力先・書式に設定キーはありません。**それは `logback.xml` の仕事です。
@@ -7198,6 +7707,27 @@ java \
 
 **`-Djimble.env` は JVM の引数です。**プログラム引数（`java -jar app.jar env=prod`）
 では効きません。
+
+### 環境の名前
+
+**判定は略記でも通ります。**書いたとおりの名前は**ファイル名にだけ**使われます。
+
+| 書いてよい名前 | 判定 | 読むファイル |
+| --- | --- | --- |
+| `local` / `dev` / `development` | `isLocal()` | `application.<書いたとおり>.conf` |
+| `staging` / `stg` / `stage` | `isStaging()` | 同上 |
+| `production` / `prod` / `prd` | `isProduction()` | 同上 |
+
+大文字小文字は区別しません。
+
+> [!TRAP]
+> **表に無い名前は、どの判定にも当たりません。**
+> `producton` のように打ち間違えると、`isLocal()` も `isProduction()` も false になります。
+> **起動時に1度だけ警告が出ます**——黙って `local` に倒すと、
+> **本番機が「ローカルです」と名乗ったまま動いてしまう**からです。
+>
+> なお、**`-Djimble.env=prod` と書いて `isProduction()` が false だった時期があります**（1.0 で直しました）。
+> 判定が `production` としか一致していませんでした。
 
 ## 設定はどこから読まれるか
 
@@ -8027,25 +8557,30 @@ jimble 側で用意しているものは、それぞれのページにありま�
 
 # 版と互換性
 
-## いまは 0.x です
+## いまは 1.0 です
 
-**0.x のあいだは、マイナーを上げるときに壊れることがあります。**
-[Semantic Versioning](https://semver.org/lang/ja/) がそう定めていて（1.0 未満は安定を約束しない）、
-jimble もそのとおりに扱います。
+**公開 API を壊す前に、非推奨期間を1マイナー以上置きます。**
+[Semantic Versioning](https://semver.org/lang/ja/) のとおりに扱います。
 
-**1.0 からは、公開 API を壊す前に非推奨期間を1マイナー以上置きます。**
-
-| | 0.x（いま） | 1.0 以降 |
+| | 0.x（〜0.6） | 1.0 以降（いま） |
 | --- | --- | --- |
-| 公開 API を壊す | **マイナーで起きうる** | 非推奨期間を1マイナー以上置いてから、次のメジャーで消す |
+| 公開 API を壊す | マイナーで起きうる | **非推奨期間を1マイナー以上置いてから、次のメジャーで消す** |
 | 内部実装を変える | いつでも | いつでも |
-| CHANGELOG に書く | **必ず書く** | 必ず書く |
+| CHANGELOG に書く | 必ず書く | 必ず書く |
 
 > [!NOTE]
-> **0.x でも、黙って壊すことはしません。**
-> 約束していないのは「壊さないこと」であって、「知らせること」ではありません。
+> **黙って壊すことはしません。**
 > 壊れうる変更は必ず [CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md) の
-> **「変わったこと（挙動）」**に出します。上げる前にそこだけ読めば足ります。
+> **「上げる前に見るところ」**と**「変わったこと（挙動）」**に出します。
+> 上げる前にそこだけ読めば足ります。
+
+> [!TRAP]
+> **約束が始まるということは、直せなくなるものがあるということです。**
+> 戻り値の型、record のコンポーネント、public フィールド、`interface` の abstract、`final`——
+> どれも**非推奨期間で救えません**（同名で代替を置けないので、
+> 「古いほうを残して新しいほうを足す」ができません）。
+> 1.0 の前に、公開 103 パッケージ・署名 4,514 行を通読して片付けてあります
+> （[docs/design-1.0.md](https://github.com/hidemikimura/jimble/blob/main/docs/design-1.0.md)）。
 
 ## どこまでが公開 API か
 
@@ -8054,20 +8589,52 @@ jimble もそのとおりに扱います。
 | | |
 | --- | --- |
 | **公開 API** | アプリを書くときに触るもの。`io.jimble.db`、`io.jimble.web.server`、`io.jimble.util.data` など |
-| **内部実装** | 入口クラスの内側でしかないもの。`io.jimble.db.sql.query.*`（`SQL` の内側）、`io.jimble.util.json.encoder`（`Dson` の内側）など |
+| **内部実装** | 入口クラスの内側でしかないもの。`io.jimble.db.internal.sql.query.*`（`SQL` の内側）、`io.jimble.util.internal.json.encoder`（`Dson` の内側）など |
+| **preview** | **外部の仕様に追随するので、下の約束の対象外**。いまは `io.jimble.mcp.*` だけです |
 
 全部の一覧は
 [`docs/api-packages.txt`](https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt)
 にあります。
 
+**内部は名前で分かります。**
+
+> **`io.jimble.<モジュール>.internal` から下は、全部内部実装です。**
+
+`import` に `internal` が出てきたら、それは<b>触ってはいけないもの</b>です。
+
 > [!TRAP]
 > **`public` だから公開 API、ではありません。**
 > Java には「モジュールの外から見えるが、使ってほしくはない」を表す修飾子がないので、
-> **内部実装も `public` になっています**。触ってよいかは、上の一覧で見てください。
+> **内部実装も `public` になっています**。`internal` という名前と、上の一覧が線です。
+
+> [!NOTE]
+> **設定ファイルに書く名前と、コマンドで打つ名前は公開 API です。**
+> `logback.xml` に書く `io.jimble.util.log.encoder.LogbackJsonEncoder` や、
+> Gradle を使わない CI で打つ `io.jimble.db.cli.JimbleDbCli` は、
+> **`import` されなくても壊せば止まります**。だから `internal` には入れていません。
 
 **この一覧は古くなりません。**パッケージを増やして一覧に書き忘れると、
 `ApiSurfaceTest` が落ちます。サンプル（`examples/`）が内部パッケージを
 import していないかも、同じテストが見ています。
+
+### preview——約束の外に置いてあるもの
+
+**`io.jimble.mcp.*` は 1.0 になっても「壊す前に非推奨期間を1マイナー置く」の対象外です。**
+
+[MCP](./mcp) は**2年で5版が出ており、毎回破壊的な変更が入っています**
+（2026-07-28 では、セッションと GET ストリームが消えました）。
+jimble は**対応する版を明記して1つだけ実装する**という方針なので、
+仕様が変わるたびに **「公開 API を壊す」か「仕様に追随しない」かの二択**になります。
+**約束の中に入れると、追随できなくなります。**
+
+対応している版は **`McpProtocol.version()`** で読めます。
+**定数ではなくメソッドなのは、`public static final String` が
+アプリのバイトコードへそのまま焼き付くから**です——
+定数のままだと、jimble を上げてもアプリは古い版の文字列を持ち続け、しかも警告が出ません。
+
+`io.jimble.mcp.*` を使っているなら、**版を上げるときは
+[CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md) を読んでください**。
+壊れるときは、必ずそこに書きます。
 
 ## シグネチャは同じなのに、結果が変わるとき
 

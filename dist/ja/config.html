@@ -275,60 +275,130 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 <p><strong>HOCON に <code>/* */</code> はありません。</strong> 書くとこうなります。</p>
 <pre class="code"><code class="lang-text">Key '/' may not be followed by token: '*'
 </code></pre>
-<h2 id="主なキー">主なキー<a class="anchor" href="#主なキー">#</a></h2>
+<h2 id="設定キー">設定キー<a class="anchor" href="#設定キー">#</a></h2>
+<p><strong>ここに出ているのが、jimble が読むキーの全部です。</strong>
+出ていないキーは読みません（打ち間違いは黙って無視されます）。
+値は<strong>既定値</strong>なので、変えないものは書かなくて構いません。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>時間と大きさは、単位を値に書きます</strong>（<code>30m</code> / <code>200ms</code> / <code>10MiB</code>）。
+<strong>素の数値は起動時に落ちます</strong>——<code>assets.max_age = 3600000</code> のような取り違えを、
+黙って通さないためです。使えるのは
+<code>ns</code> / <code>us</code> / <code>ms</code> / <code>s</code> / <code>m</code> / <code>h</code> / <code>d</code> と、<code>B</code> / <code>KiB</code> / <code>MiB</code> / <code>GiB</code> です。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>MB</code> は 1000 の3乗、<code>MiB</code> は 1024 の3乗です</strong>（HOCON の決まり）。
+<code>10MB</code> は 10,000,000 バイトで、<code>10MiB</code> は 10,485,760 バイトです。
+<strong>書いたとおりに解釈します</strong>——どちらでも構いませんが、
+既定値と比べるときは違うものだと思ってください。</p>
+</div>
 <pre class="code"><code class="lang-conf">server {
-	host        = <span class="h-s">""</span>         <span class="h-c"># 待ち受けるアドレス。空なら全部</span>
-	port        = <span class="h-n">9000</span>
-	trust_proxy = <span class="h-k">false</span>      <span class="h-c"># ロードバランサの後ろに置くまで false</span>
-	max_request_size     = <span class="h-n">10485760</span>
-	max_header_size      = <span class="h-n">16384</span>
-	idle_timeout_seconds = <span class="h-n">60</span>
-	compression          = <span class="h-k">true</span>
+	host                 = <span class="h-s">""</span>       <span class="h-c"># 待ち受けるアドレス。空なら全部</span>
+	port                 = <span class="h-n">9000</span>
+	max_request_size     = <span class="h-n">10MiB</span>    <span class="h-c"># リクエスト本文の上限</span>
+	max_header_size      = <span class="h-n">16KiB</span>    <span class="h-c"># ヘッダ全体の上限</span>
+	idle_timeout         = <span class="h-n">60s</span>      <span class="h-c"># 何もしない接続を閉じるまで</span>
+	compression          = <span class="h-k">true</span>     <span class="h-c"># 応答を gzip で返すか</span>
+	trust_proxy          = <span class="h-k">false</span>    <span class="h-c"># ロードバランサの後ろに置くまで false（下を参照）</span>
 	access_log           = <span class="h-k">true</span>     <span class="h-c"># 切ると速くなるが、何が起きたか残らない</span>
-	bot_access_log       = <span class="h-k">true</span>
+	bot_access_log       = <span class="h-k">true</span>     <span class="h-c"># ボットのアクセスログを分けるか</span>
 	strict_routes        = <span class="h-k">false</span>    <span class="h-c"># 一生呼ばれないルートを例外にする（CI では true に）</span>
+	shutdown_grace       = <span class="h-n">0s</span>       <span class="h-c"># 止め始めてから新規を断つまで</span>
+	shutdown_timeout     = <span class="h-n">15s</span>      <span class="h-c"># 処理中を待つ上限</span>
+	backlog              = <span class="h-n">1024</span>     <span class="h-c"># 受け付け待ちの接続を OS に持たせる数</span>
+	write_queue_length   = <span class="h-n">0</span>        <span class="h-c"># 応答を書き出す列の長さ。0/1 は「列を作らない」</span>
+	smart_async_writes   = <span class="h-k">false</span>    <span class="h-c"># 列があるとき、空いていればその場で書く</span>
+}
 
-	shutdown_grace_seconds   = <span class="h-n">0</span>    <span class="h-c"># 止め始めてから新規を断つまで</span>
-	shutdown_timeout_seconds = <span class="h-n">15</span>   <span class="h-c"># 処理中を待つ上限</span>
+metrics {
+	enabled = <span class="h-k">true</span>                  <span class="h-c"># メトリクスを数えるか</span>
+}
+
+router {
+	ignore_case           = <span class="h-k">false</span>   <span class="h-c"># パスの大文字小文字を区別しないか</span>
+	redirect_to_canonical = <span class="h-k">false</span>   <span class="h-c"># 正規の URL へ 301 で寄せるか</span>
 }
 
 cookie {
-	secure           = <span class="h-k">true</span>            <span class="h-c"># ローカルでは false（下を参照）</span>
-	secret           = ${?COOKIE_SECRET}
+	secure           = <span class="h-k">true</span>                      <span class="h-c"># HTTPS のみ。ローカルでは false（下を参照）</span>
+	http_only        = <span class="h-k">true</span>                      <span class="h-c"># JavaScript から読めない</span>
+	same_site        = <span class="h-s">"lax"</span>                     <span class="h-c"># none | strict | lax</span>
+	domain           = <span class="h-s">""</span>                        <span class="h-c"># 空なら発行元ドメイン</span>
+	max_age          = <span class="h-n">365d</span>                      <span class="h-c"># 0 以下でセッション Cookie</span>
+	secret           = ${?COOKIE_SECRET}         <span class="h-c"># 署名鍵。空なら署名しない</span>
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># 鍵の入れ替え中だけ</span>
+	accept_unsigned  = <span class="h-k">false</span>                     <span class="h-c"># 署名を入れる移行期間だけ true にする</span>
+}
+
+csrf {
+	max_age = <span class="h-n">1d</span>    <span class="h-c"># トークンの寿命。cookie.max_age とは別</span>
 }
 
 session {
-	store            = <span class="h-s">"none"</span>     <span class="h-c"># none | db | redis | cookie</span>
+	store            = <span class="h-s">"none"</span>                     <span class="h-c"># none | db | redis | cookie</span>
+	timeout          = <span class="h-n">30m</span>
 	cookie_name      = <span class="h-s">"sid"</span>
-	secret           = ${?SESSION_SECRET}        <span class="h-c"># store = cookie のとき必須</span>
-	previous_secrets = [${?SESSION_SECRET_OLD}]  <span class="h-c"># 鍵の入れ替え中だけ</span>
+	table            = <span class="h-s">"session"</span>                  <span class="h-c"># store = db のとき</span>
+	secret           = ${?SESSION_SECRET}         <span class="h-c"># store = cookie のとき必須</span>
+	previous_secrets = [${?SESSION_SECRET_OLD}]   <span class="h-c"># 鍵の入れ替え中だけ</span>
 }
 
 upload {
-	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># 1ファイル（10MB）</span>
-	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># 1リクエスト合計（50MB）</span>
-	max_files      = <span class="h-n">20</span>
-	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># 空なら java.io.tmpdir</span>
+	max_file_size  = <span class="h-n">10MiB</span>   <span class="h-c"># 1ファイル</span>
+	max_total_size = <span class="h-n">10MiB</span>   <span class="h-c"># 1リクエスト合計（server.max_request_size と揃える）</span>
+	max_files      = <span class="h-n">20</span>      <span class="h-c"># 1リクエストのファイル数</span>
+	temp_dir       = <span class="h-s">""</span>      <span class="h-c"># 空なら java.io.tmpdir</span>
+}
+
+assets {
+	max_age           = <span class="h-n">0s</span>      <span class="h-c"># Cache-Control の max-age</span>
+	immutable_max_age = <span class="h-n">365d</span>    <span class="h-c"># 不変扱い（js / css）のファイル</span>
+	if_modified_since = <span class="h-k">true</span>    <span class="h-c"># If-Modified-Since を見るか</span>
+	etag              = <span class="h-k">true</span>    <span class="h-c"># ETag / If-None-Match を使うか</span>
+}
+
+template {
+	<span class="h-k">package</span>      = <span class="h-s">"gg.jte.generated.precompiled"</span>   <span class="h-c"># 事前コンパイルの出力先</span>
+	content_type = <span class="h-s">"text/html; charset=utf-8"</span>
+}
+
+paging {
+	name_page = <span class="h-s">"page"</span>   <span class="h-c"># ページ番号のリクエストパラメータ名（件数ではない）</span>
+	name_per  = <span class="h-s">"per"</span>    <span class="h-c"># 取得件数のリクエストパラメータ名</span>
+	max_per   = <span class="h-n">200</span>      <span class="h-c"># 1ページの上限。per=all にも効く（0 で上限なし）</span>
 }
 
 auth {
 	lockout {
 		enabled       = <span class="h-k">true</span>    <span class="h-c"># DB が無ければ何もしない</span>
 		free_attempts = <span class="h-n">3</span>       <span class="h-c"># ここまでは待たされない（打ち間違い）</span>
-		base_seconds  = <span class="h-n">1</span>       <span class="h-c"># 4回目から 1 → 2 → 4 …</span>
-		max_seconds   = <span class="h-n">300</span>     <span class="h-c"># 待ち時間の上限</span>
-		forget_hours  = <span class="h-n">24</span>      <span class="h-c"># これだけ間が空いたら数え直す</span>
+		base          = <span class="h-n">1s</span>      <span class="h-c"># 4回目から 1 → 2 → 4 …</span>
+		max           = <span class="h-n">5m</span>      <span class="h-c"># 待ち時間の上限</span>
+		forget        = <span class="h-n">24h</span>     <span class="h-c"># これだけ間が空いたら数え直す</span>
 	}
 
 	remember {
-		enabled       = <span class="h-k">true</span>    <span class="h-c"># DB が無ければ何もしない</span>
-		cookie_name   = <span class="h-s">"remember"</span>
-		sliding_days  = <span class="h-n">30</span>      <span class="h-c"># 最後に使ってからこれだけ</span>
-		absolute_days = <span class="h-n">90</span>      <span class="h-c"># 発行してからこれを超えたら、使っていても切れる</span>
-		grace_seconds = <span class="h-n">60</span>      <span class="h-c"># 回した直後、古いほうも通す時間</span>
+		enabled     = <span class="h-k">true</span>         <span class="h-c"># DB が無ければ何もしない</span>
+		cookie_name = <span class="h-s">"remember"</span>
+		sliding     = <span class="h-n">30d</span>          <span class="h-c"># 最後に使ってからこれだけ</span>
+		absolute    = <span class="h-n">90d</span>          <span class="h-c"># 発行してからこれを超えたら、使っていても切れる</span>
+		grace       = <span class="h-n">60s</span>          <span class="h-c"># 回した直後、古いほうも通す時間</span>
 	}
 
+	mfa {
+		enabled        = <span class="h-k">true</span>      <span class="h-c"># DB と secret_key が要る（下を参照）</span>
+		issuer         = <span class="h-s">""</span>        <span class="h-c"># 認証アプリの一覧に出る名前</span>
+		digits         = <span class="h-n">6</span>         <span class="h-c"># 6 から変えない（多くのアプリが6桁しか出せない）</span>
+		period         = <span class="h-n">30</span>        <span class="h-c"># 秒。RFC 6238 のパラメータなので、ここだけ数値</span>
+		window         = <span class="h-n">1</span>         <span class="h-c"># 前後いくつの窓まで許すか。広げるほど当たりも増える</span>
+		recovery_codes = <span class="h-n">10</span>        <span class="h-c"># 登録のときに出す数</span>
+		pending        = <span class="h-n">5m</span>        <span class="h-c"># パスワードが通ってからコードを入れるまでの猶予</span>
+
+		<span class="h-c"># 秘密鍵を暗号化する鍵。無ければ Mfa.enroll が断る。</span>
+		<span class="h-c"># cipher.key を流用しないこと（下を参照）</span>
+		secret_key     = ${?MFA_SECRET_KEY}
+	}
+
+	<span class="h-c"># プロバイダごとに1ブロック。名前（google）は Oidc.callback に渡す名前</span>
 	oidc {
 		google {
 			issuer        = <span class="h-s">"https://accounts.google.com"</span>
@@ -346,20 +416,6 @@ auth {
 			discovery_ttl = <span class="h-n">3600</span>    <span class="h-c"># 秒。discovery と JWKS を持つ時間</span>
 		}
 	}
-
-	mfa {
-		enabled         = <span class="h-k">true</span>      <span class="h-c"># DB と secret_key が要る（下を参照）</span>
-		issuer          = <span class="h-s">"jimble"</span>  <span class="h-c"># 認証アプリの一覧に出る名前</span>
-		digits          = <span class="h-n">6</span>         <span class="h-c"># 6 から変えない（多くのアプリが6桁しか出せない）</span>
-		period          = <span class="h-n">30</span>        <span class="h-c"># 秒</span>
-		window          = <span class="h-n">1</span>         <span class="h-c"># 前後いくつの窓まで許すか。広げるほど当たりも増える</span>
-		recovery_codes  = <span class="h-n">10</span>        <span class="h-c"># 登録のときに出す数</span>
-		pending_seconds = <span class="h-n">300</span>       <span class="h-c"># パスワードが通ってからコードを入れるまでの猶予</span>
-
-		<span class="h-c"># 秘密鍵を暗号化する鍵。無ければ Mfa.enroll が断る。</span>
-		<span class="h-c"># cipher.key を流用しないこと（下を参照）</span>
-		secret_key      = ${?MFA_SECRET_KEY}
-	}
 }
 
 cipher {
@@ -369,52 +425,195 @@ cipher {
 	iv  = ${?CIPHER_IV}    <span class="h-c"># 16 バイト</span>
 }
 
+hash {
+	password {
+		<span class="h-c"># cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）</span>
+		encrypt = <span class="h-k">false</span>
+		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># ハッシュに混ぜる秘密。入れ替えられない</span>
+	}
+}
+
 rate_limit {
-	store   = <span class="h-s">"memory"</span>       <span class="h-c"># memory | redis | db</span>
 	enabled = <span class="h-k">true</span>
+	store   = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
 }
 
 cache {
-	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
-	temp_dir      = <span class="h-s">""</span>
-	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory のときだけ。秒</span>
+	type          = <span class="h-s">"db"</span>    <span class="h-c"># db | memory | redis</span>
+	temp_dir      = <span class="h-s">""</span>      <span class="h-c"># ファイルを置くところ</span>
+	memory.expire = <span class="h-n">0s</span>      <span class="h-c"># memory のときだけ。0 で無期限</span>
+}
+
+sql_cache {
+	enabled = <span class="h-k">false</span>
+	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
+	ttl     = <span class="h-n">5m</span>
+	max     = <span class="h-n">10000</span>      <span class="h-c"># 件数の上限（memory のみ）</span>
 }
 
 redis {
-	host = <span class="h-s">""</span>                <span class="h-c"># 空なら Redis 無し</span>
+	host = <span class="h-s">""</span>        <span class="h-c"># 空なら Redis 無し</span>
 	port = <span class="h-n">6379</span>
 	ssl  = <span class="h-k">false</span>
+
+	settings {
+		connection_timeout      = <span class="h-n">10s</span>
+		timeout                 = <span class="h-n">3s</span>      <span class="h-c"># コマンドの応答を待つ上限</span>
+		connection_minimum_idle = <span class="h-n">24</span>
+		connection_pool_size    = <span class="h-n">64</span>
+		retry_attempts          = <span class="h-n">3</span>
+		retry_minimum_interval  = <span class="h-n">500ms</span>
+		retry_maximum_interval  = <span class="h-n">2s</span>
+		idle_connection_timeout = <span class="h-n">10s</span>
+
+		subscription_connection_minimum_idle_size = <span class="h-n">1</span>
+		subscription_connection_pool_size         = <span class="h-n">50</span>
+	}
+}
+
+db {
+	<span class="h-c"># 全部 null のテーブルを結果から落とすか。</span>
+	<span class="h-c"># データソースの名前ではないので、この位置に書く</span>
+	remove_all_null_table_data = <span class="h-k">false</span>
+
+	<span class="h-c"># データソースごとに1ブロック。名前（blog）が DB クラスの名前になる</span>
+	blog {
+		main     = <span class="h-k">true</span>                    <span class="h-c"># 主データソースにするか</span>
+		driver   = <span class="h-s">"com.mysql.cj.jdbc.Driver"</span>
+		url      = <span class="h-s">"jdbc:mysql://127.0.0.1:3306/blog"</span>
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		product  = <span class="h-s">"mysql"</span>                 <span class="h-c"># mysql | mariadb | postgresql | postgres | pgsql</span>
+		schema   = <span class="h-s">""</span>                      <span class="h-c"># 空ならブロックの名前。以前は scheme という綴りだった</span>
+
+		maximum_pool_size     = <span class="h-n">10</span>         <span class="h-c"># プールの最大</span>
+		minimum_idle          = <span class="h-n">1</span>          <span class="h-c"># 常に開けておく数</span>
+		fetch_size            = <span class="h-n">100</span>        <span class="h-c"># 一度に取り出す行数</span>
+		idle_timeout          = <span class="h-n">10m</span>        <span class="h-c"># 使っていない接続を閉じるまで</span>
+		max_lifetime          = <span class="h-n">30m</span>        <span class="h-c"># 1本の接続の寿命</span>
+		connection_timeout    = <span class="h-n">30s</span>        <span class="h-c"># 接続を待つ上限</span>
+		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># 生存確認の間隔</span>
+		connection_init_sql   = <span class="h-s">""</span>         <span class="h-c"># 接続直後に流す SQL</span>
+		connection_test_query = <span class="h-s">""</span>         <span class="h-c"># 生存確認の SQL</span>
+		connection_pool_type  = <span class="h-s">"hikari"</span>   <span class="h-c"># hikari | agroal</span>
+		transaction_isolation = <span class="h-s">""</span>         <span class="h-c"># 分離レベル</span>
+		create_database_sql   = <span class="h-s">""</span>         <span class="h-c"># 無ければ作るときの SQL</span>
+		long_connection_log   = <span class="h-k">false</span>      <span class="h-c"># 長く握った接続をログに出すか</span>
+		long_connection_time  = <span class="h-n">0s</span>         <span class="h-c"># それを「長い」とみなす時間</span>
+
+		<span class="h-c"># 読み取り専用の接続。書かなければ上と同じところを読む</span>
+		read { url = <span class="h-s">"jdbc:mysql://127.0.0.1:3307/blog"</span> }
+
+		<span class="h-c"># シャード。中身は上と同じキー</span>
+		subs {
+			shard1 { url = <span class="h-s">"jdbc:mysql://127.0.0.1:3308/blog"</span> }
+		}
+	}
+}
+
+db_sticky {
+	use = <span class="h-k">false</span>   <span class="h-c"># 書いたあと、同じリクエストの読みを書き側に寄せるか</span>
+}
+
+log {
+	db = <span class="h-k">false</span>    <span class="h-c"># SQL をログに残すか</span>
+}
+
+async {
+	prefetch {
+		on_response = <span class="h-k">false</span>   <span class="h-c"># レスポンスを送る前に自動で先読みするか</span>
+		max_depth   = <span class="h-n">5</span>       <span class="h-c"># 先読みの周回の上限</span>
+	}
+}
+
+migration {
+	on_startup   = <span class="h-s">"auto"</span>        <span class="h-c"># auto | true | false。auto はローカル以外で当てる</span>
+	down         = <span class="h-k">false</span>         <span class="h-c"># down を実行するか</span>
+	lock_timeout = <span class="h-n">60s</span>           <span class="h-c"># ロック待ちの上限</span>
+	resource_dir = <span class="h-s">"migration"</span>   <span class="h-c"># SQL ファイルのリソースディレクトリ</span>
+}
+
+codegen {
+	<span class="h-k">package</span>        = <span class="h-s">"db"</span>   <span class="h-c"># 生成先パッケージ</span>
+	exclude_tables = []     <span class="h-c"># 生成対象から外すテーブル</span>
+}
+
+mq {
+	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># キューが空でないときの待ち</span>
+	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># キューが空のときの待ち（だんだん伸びる）</span>
+	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># リトライの間隔（回を追うごとに倍）</span>
+	retry_backoff_max = <span class="h-n">10m</span>
+	stale             = <span class="h-n">10m</span>    <span class="h-c"># これだけ running のままなら落ちたとみなす</span>
+
+	<span class="h-c"># 実行種別ごとのスレッド数。書かなければ種別ごとの既定</span>
+	thread_count {
+		short_time = <span class="h-n">2</span>
+		long_time  = <span class="h-n">8</span>
+	}
+}
+
+scheduler {
+	reload_interval = <span class="h-n">10s</span>             <span class="h-c"># batch_master を読み直す間隔</span>
+	tick_interval   = <span class="h-n">1s</span>              <span class="h-c"># cron を確かめる間隔</span>
+	exit_check      = <span class="h-n">3s</span>              <span class="h-c"># 止められていないか確かめる間隔</span>
+	execute_threads = <span class="h-n">10</span>              <span class="h-c"># バッチを走らせるスレッド数（0 で無制限）</span>
+	queue_name      = <span class="h-s">"mq_scheduler"</span>
+}
+
+batch {
+	scheduler_id = <span class="h-s">""</span>     <span class="h-c"># このインスタンスの識別子。空ならホスト名</span>
+	heartbeat    = <span class="h-n">3s</span>     <span class="h-c"># 実行中であることを知らせる間隔</span>
+	alive        = <span class="h-n">10s</span>    <span class="h-c"># これだけ更新が無ければ「実行中ではない」とみなす</span>
+	cancel_check = <span class="h-n">3s</span>     <span class="h-c"># 中断指示を見にいく間隔</span>
+	progress     = <span class="h-n">5s</span>     <span class="h-c"># チャンクバッチが進み具合を履歴に書く間隔</span>
+	all_stop     = <span class="h-n">1h</span>     <span class="h-c"># 全停止フラグが効く時間</span>
+}
+
+batch_manager {
+	enabled  = <span class="h-k">false</span>                    <span class="h-c"># 利用者名かパスワードが空だと画面が生えない</span>
+	path     = <span class="h-s">"/batch-manager"</span>
+	realm    = <span class="h-s">"jimble batch manager"</span>
+	username = ${?BATCH_MANAGER_USER}
+	password = ${?BATCH_MANAGER_PASSWORD}
+}
+
+proxy {
+	connect_timeout = <span class="h-n">5s</span>     <span class="h-c"># 転送先に繋ぐまでの上限</span>
+	request_timeout = <span class="h-n">30s</span>    <span class="h-c"># 応答を待つ上限</span>
 }
 
 sse {
-	max_duration_seconds = <span class="h-n">300</span>
-	max_events           = <span class="h-n">0</span>
-	retry_millis         = <span class="h-n">3000</span>
+	max_duration = <span class="h-n">5m</span>    <span class="h-c"># 1本を張っていられる上限（0 以下で無制限）</span>
+	max_events   = <span class="h-n">0</span>     <span class="h-c"># 送れる件数の上限（0 以下で無制限）</span>
+	retry        = <span class="h-n">3s</span>    <span class="h-c"># 切れたクライアントがどれだけ後で繋ぎ直すか</span>
 }
 
 mcp {
 	path            = <span class="h-s">"/mcp"</span>
-	allowed_origins = []
+	name            = <span class="h-s">"jimble"</span>    <span class="h-c"># サーバーの名前</span>
+	version         = <span class="h-s">"0.1.0"</span>     <span class="h-c"># サーバーの版（MCP の仕様の版ではない）</span>
+	instructions    = <span class="h-s">""</span>          <span class="h-c"># モデルへの手引き（server/discover で返す）</span>
+	page_size       = <span class="h-n">100</span>         <span class="h-c"># 一覧の1ページの件数</span>
+	allowed_origins = []          <span class="h-c"># 許すオリジン</span>
 }
 
-migration {
-	<span class="h-c"># auto | true | false。auto はローカル以外で当てる</span>
-	on_startup   = <span class="h-s">"auto"</span>
-	resource_dir = <span class="h-s">"migration"</span>
-}
+jimble {
+	io.buffer_size       = <span class="h-n">256KiB</span>   <span class="h-c"># ファイルを送るときの読み書き単位</span>
+	read_only_container  = <span class="h-k">false</span>    <span class="h-c"># 書き込めないコンテナで動かすか</span>
 
-codegen {
-	<span class="h-k">package</span> = <span class="h-s">"db"</span>
+	<span class="h-c"># server.port は -Djimble.server.port=8080 でも指定できる（システムプロパティが優先）</span>
 }
 </code></pre>
 <h2 id="cipherkey-と-authmfasecret_key-は別のもの">cipher.key と auth.mfa.secret_key は別のもの<a class="anchor" href="#cipherkey-と-authmfasecret_key-は別のもの">#</a></h2>
 <p><strong>二要素認証に <code>cipher.key</code> を流用しないでください。</strong></p>
-<p><code>hash.password.encrypt</code> の既定は **「<code>cipher.key</code> が設定されていれば true」**です。
-移送してきたアプリの保存済みハッシュが暗号化されているので、
-<strong>鍵があるのに平文の BCrypt として照合すると全員入れなくなる</strong>——それを避けるための既定です。</p>
-<p>このため、<strong>いま平文の BCrypt を保存しているアプリが、二要素認証のために <code>cipher.key</code> を
-足すと、今度は逆向きに全員入れなくなります。</strong>
+<p><strong><code>cipher.*</code> を書いたら、<code>hash.password.encrypt</code> も必ず書いてください。</strong>
+書いていないと<strong>起動時に落ちます</strong>。</p>
+<p>以前は「<code>cipher.key</code> と <code>cipher.iv</code> の両方が揃っていれば true」という既定でした。
+つまり <strong><code>cipher.key</code> だけ足したアプリは false のまま</strong>で、
+<strong>あとから <code>cipher.iv</code> を足した瞬間に反転しました</strong>——
+保存済みの BCrypt が「暗号化済み」として読まれ、<strong>全員入れなくなります</strong>。
 出るのは「IDかパスワードが違います」だけなので、設定を足したことと結び付きません。</p>
+<p>**離れたキーで決まる既定は置きません。**暗号化を使うなら、そう書いてもらいます。</p>
 <table>
 <thead>
 <tr>
@@ -433,8 +632,8 @@ codegen {
 </tr>
 </tbody>
 </table>
-<p>明示したいときは <code>hash.password.encrypt</code> を書いてください
-（<strong>書けば既定は効きません</strong>）。</p>
+<p><code>cipher.*</code> をまったく書いていないアプリは、これまでどおり何も書かなくて構いません
+（暗号化なし、BCrypt だけ）。</p>
 <h2 id="trust_proxy-は既定で-false">trust_proxy は既定で false<a class="anchor" href="#trust_proxy-は既定で-false">#</a></h2>
 <p><code>true</code> にすると <code>X-Forwarded-For</code> を信じます。
 <strong>ロードバランサの後ろに置くまでは <code>false</code> のままにしてください。</strong>
@@ -471,7 +670,7 @@ codegen {
 			<li class="level-3"><a href="#include-を書き忘れたら">include を書き忘れたら</a></li>
 			<li class="level-2"><a href="#秘密はファイルに書かない">秘密はファイルに書かない</a></li>
 			<li class="level-2"><a href="#コメントは--か-">コメントは # か //</a></li>
-			<li class="level-2"><a href="#主なキー">主なキー</a></li>
+			<li class="level-2"><a href="#設定キー">設定キー</a></li>
 			<li class="level-2"><a href="#cipherkey-と-authmfasecret_key-は別のもの">cipher.key と auth.mfa.secret_key は別のもの</a></li>
 			<li class="level-2"><a href="#trust_proxy-は既定で-false">trust_proxy は既定で false</a></li>
 			<li class="level-2"><a href="#cookiesecure-は既定で-true">cookie.secure は既定で true</a></li>

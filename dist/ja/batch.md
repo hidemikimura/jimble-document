@@ -74,6 +74,26 @@ while (!isCancelOrder()) {
 管理画面から中断を押すと `isCancelOrder()` が `true` になります。
 **長く回る処理では必ず見てください。** 見ていないバッチは止められません。
 
+`AbstractBatch` を継承していないところ（呼び出した先の Domain 層など）からは、
+コンテキスト越しに同じものが見られます。
+
+```java
+BatchContext context = Context.current(BatchContext.class);
+
+for (Data row : rows) {
+	if (context.isCancelOrdered()) { break; }
+	// ...
+}
+```
+
+**どちらも同じ指示を見ています。**DB を引くのは
+`batch.cancel_check` に1回だけなので、ループの中で毎回呼んで構いません。
+
+> [!TRAP]
+> **0.6.0 まで `BatchContext.isCancelOrdered()` は常に false でした。**
+> 中断の判定は `AbstractBatch` の側にあり、コンテキストには何も繋がっていませんでした。
+> 例外も警告も出ないので、**本番で中断ボタンを押すまで分かりません**（1.0 で繋ぎました）。
+
 ## 一定件数ずつ読んでまとめて書く
 
 100万件を1つのトランザクションで抱えたくないときは `AbstractChunkBatch` を継承します。
@@ -141,7 +161,7 @@ public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
 | `chunk_failed_at` | 何かたまり目で落ちたか |
 | `chunk_canceled` | 中断で抜けたか |
 
-`chunk_written` は **`batch.progress_seconds`（既定5秒）ごとに書き換わる**ので、
+`chunk_written` は **`batch.progress`（既定5秒）ごとに書き換わる**ので、
 走っている最中でも管理画面から「いま何件目か」が見えます。
 
 ### 読む DB と書く DB は別です

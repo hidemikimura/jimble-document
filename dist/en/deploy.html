@@ -252,6 +252,43 @@ application {
 </table>
 <p><strong><code>-Djimble.env</code> is a JVM argument.</strong> As a program argument (<code>java -jar app.jar env=prod</code>)
 it does nothing.</p>
+<h3 id="environment-names">Environment names<a class="anchor" href="#environment-names">#</a></h3>
+<p><strong>The short forms work for the checks too.</strong> What you wrote is used <strong>only for the file name</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>What you may write</th>
+<th>Check</th>
+<th>File read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>local</code> / <code>dev</code> / <code>development</code></td>
+<td><code>isLocal()</code></td>
+<td><code>application.&lt;what you wrote&gt;.conf</code></td>
+</tr>
+<tr>
+<td><code>staging</code> / <code>stg</code> / <code>stage</code></td>
+<td><code>isStaging()</code></td>
+<td>same</td>
+</tr>
+<tr>
+<td><code>production</code> / <code>prod</code> / <code>prd</code></td>
+<td><code>isProduction()</code></td>
+<td>same</td>
+</tr>
+</tbody>
+</table>
+<p>Case does not matter.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A name that is not in the table matches none of the checks.</strong>
+Misspell it as <code>producton</code> and both <code>isLocal()</code> and <code>isProduction()</code> are false.
+<strong>A warning is logged once at startup</strong> — silently falling back to <code>local</code> would let
+<strong>a production machine call itself local</strong> and keep running.</p>
+<p>For the record, <strong><code>-Djimble.env=prod</code> used to leave <code>isProduction()</code> false</strong> (fixed in 1.0):
+the check only matched the literal <code>production</code>.</p>
+</div>
 <h2 id="where-the-configuration-is-read-from">Where the configuration is read from<a class="anchor" href="#where-the-configuration-is-read-from">#</a></h2>
 <p><strong>From inside the jar, and nowhere else.</strong> (<code>conf/</code> is added to the resources, so it is in the jar.
 See <a href="./config">Configuration</a>)</p>
@@ -332,6 +369,7 @@ Look at it and check <strong>that it is what you expected.</strong></p>
 		<ul>
 			<li class="level-2"><a href="#build-the-jar">Build the jar</a></li>
 			<li class="level-2"><a href="#start-the-web-app">Start the web app</a></li>
+			<li class="level-3"><a href="#environment-names">Environment names</a></li>
 			<li class="level-2"><a href="#where-the-configuration-is-read-from">Where the configuration is read from</a></li>
 			<li class="level-2"><a href="#secrets-go-in-environment-variables">Secrets go in environment variables</a></li>
 			<li class="level-2"><a href="#run-a-batch-job">Run a batch job</a></li>

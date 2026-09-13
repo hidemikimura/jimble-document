@@ -38,9 +38,25 @@ They run in the order you stacked them and **stop at the first failure** (one er
 > `textLengthMax(100)` means "at most 100 characters, if there is a value";
 > an empty string or `null` is not an error. **Always write required as `empty()`.**
 
+> [!NOTE]
+> **Format checks are matched against the whole value.**
+> `email()`, `url()`, `domain()`, `regex(...)` and `characterType(...)`
+> do **not** pass just because something plausible appears somewhere inside —
+> `hello a@example.com there` fails `email()`.
+> `regex("[0-9]{4}")` means "the whole value is four digits",
+> so **wrap it in `.*` when you want a partial match.**
+
+> [!NOTE]
+> **`bool()` accepts only `true` / `false` / `1` / `0`** (case does not matter).
+> `yes` fails — **the reading side uses the same spellings**, so widening this
+> means someone who answered "yes" gets stored as `false`.
+
 > [!WARN]
-> `regex(...)` uses **`find` (a partial match)**, not `matches`.
-> When you want it to cover the whole value, write `^` and `$` yourself.
+> **`date()` and `date(format)` only check that the value can be read.**
+> `2026-13-01` (month 13), `2026-02-31` (Feb 31st) and
+> `2026-09-12x` (trailing junk) all **pass**.
+> `date()` goes through the same shared conversion as database reads and request binding.
+> **To check that the date is real, stack a `regex(...)` on it or write a `custom(...)`.**
 
 ## Binding rules to columns
 
@@ -210,8 +226,9 @@ Paging paging = context.request().paging();
 | --- | --- |
 | Keys it reads | `page` / `per` |
 | Defaults | `page = 1`, `per = 10` |
-| Everything | `per=all` (no LIMIT is added) |
-| Renaming the keys | `paging.page` / `paging.per` (configuration) |
+| Cap | `paging.max_per` (200 by default). **A larger request is rounded down to it** |
+| Everything | `per=all`. **The cap still applies, so 200 rows by default** (`paging.max_per = 0` for a real "everything") |
+| Renaming the keys | `paging.name_page` / `paging.name_per` (configuration) |
 | A non-numeric value | Ignored; the default is used |
 
 Write `context.request().paging(20)` to change the default used when no `per` arrives.
@@ -224,8 +241,8 @@ paging.load(request("2", "10"), 0);
 
 SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
 
-assertEquals(10, response.list.size(), "1ページ分だけ取れていない");
-assertEquals(TOTAL, response.rowCount, "総件数が LIMIT に影響されている");
+assertEquals(10, response.list().size(), "1ページ分だけ取れていない");
+assertEquals(TOTAL, response.rowCount(), "総件数が LIMIT に影響されている");
 
 assertEquals(TOTAL, paging.totalCount());
 assertEquals(3, paging.maxPage(), "25 件を 10 件ずつなら 3 ページ");

@@ -287,7 +287,7 @@ cache.remove(<span class="h-s">"top:posts"</span>);
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>Values over 256KB are spilled to a file</strong> (gzipped, <code>cache.temp_dir</code>).
+<p><strong>Values over 256KiB are spilled to a file</strong> (gzipped, <code>cache.temp_dir</code>).
 <code>CacheData#hasContentFile()</code> becomes true, and you can hand it straight to
 <code>context.response().cache(data)</code> to return it as <code>Content-Encoding: gzip</code>.
 There is no mechanism to delete older generations of those files, so keep an

@@ -110,6 +110,69 @@ DBTransaction.transaction(db, transaction -> {
 It starts one, runs the work you passed in, and sees it through `commitEndTransaction()`.
 If an exception is thrown, `close()` rolls back.
 
+## An error inside means no commit
+
+**The DB layer returns errors as return values, not exceptions**
+([Principles](./principles)). So when `db.update(...)` inside returns `-1`,
+**the block still finishes as if nothing went wrong.**
+
+```java
+DBTransaction.transaction(db, transaction -> {
+	db.insert(...);          // fine
+	db.update(...);          // -1. No exception
+	db.insert(...);          // fine
+});
+```
+
+**This does not commit.** If anything inside the transaction recorded an error,
+`commitEndTransaction()` rolls back and throws `CodeException` (`DB_004`).
+
+> [!TRAP]
+> **Up to 0.6.0 it committed.** And because the framework calls `rollback()` inside the
+> failing statement, **everything up to that point was rolled back and everything after it
+> was committed.** No exception, no log — nobody sees that half the data went in.
+
+`db.isError()` answers **only for the statement just before it**. The commit decision looks
+at the whole transaction, so **one successful statement after a failure does not hide it.**
+
+### Branching on an error and carrying on
+
+**Call `rollback()` first, then write the other path.**
+
+```java
+db.beginTransaction();
+
+insert(...);
+db.commit();                 // confirmed. The transaction continues
+
+update(...);                 // this failed
+
+if (db.isError()) {
+	db.rollback();           // settle it
+	insertFallback(...);     // write the other way
+}
+
+db.commitEndTransaction();
+```
+
+**`rollback()` also clears the carried-over error.** Without that, the `commit()` after your
+rewrite would refuse, saying an error is still outstanding.
+
+> [!TRAP]
+> **Whether statements after a failure go through depends on the product.**
+>
+> | | After a failed statement |
+> | --- | --- |
+> | PostgreSQL | **Refused** until `ROLLBACK` (`current transaction is aborted, ...`) |
+> | MySQL | **They run.** One failed statement does not abort the transaction |
+>
+> **Lean on neither.** What jimble promises is only this: **the commit is refused and not one
+> row survives.** After a failure, `rollback()` before you write anything else.
+>
+> **0.6.x hid the difference.** Every statement's `catch` called `rollback()` on the spot, so
+> on both products it *looked* like you could carry on — while **everything before the
+> failure had been thrown away.** That was the partial commit.
+
 ## What leaves the process, and what goes into the DB
 
 **The two go on opposite sides of the commit.** This one is easy to get backwards.

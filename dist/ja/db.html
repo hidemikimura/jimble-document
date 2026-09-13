@@ -221,7 +221,7 @@
 		password = <span class="h-s">""</span>
 		password = ${?DB_PASSWORD}
 
-		maximumPoolSize      = <span class="h-n">10</span>
+		maximum_pool_size      = <span class="h-n">10</span>
 		connection_pool_type = <span class="h-s">"hikari"</span>
 	}
 }
@@ -293,6 +293,15 @@ codegen {
 SQL.select().from(Post.instance()).where(Post.id.eq(<span class="h-n">1L</span>));
 </code></pre>
 <p>データソースごとに違う製品を書けます（メインは MySQL、集計用は PostgreSQL、など）。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>対応している製品は MySQL（MariaDB）と PostgreSQL の2つだけです。</strong>
+知らない名前を書くと<strong>起動時に落ちます</strong>——黙って MySQL に倒すと、
+PostgreSQL のつもりで書いたアプリに<strong>バッククォートの SQL が飛びます</strong>。</p>
+<p><strong>自前の方言を足す口はありません</strong>（<code>Dialect</code> は <code>sealed</code> です）。
+方言には SQL 関数ごとのメソッドが 40 以上あり、
+<strong>jimble が関数を1つ足すたびに、外の実装が壊れる</strong>ためです。
+対応してほしい製品があれば、枠組みに足す形で受け付けます。</p>
+</div>
 <h3 id="その製品で書けないもの">その製品で書けないもの<a class="anchor" href="#その製品で書けないもの">#</a></h3>
 <p><strong>書けないものは、SQL を組み立てたところで <code>DialectException</code> になります。</strong>
 実行してから製品の構文エラーで落ちる、ということはありません。</p>

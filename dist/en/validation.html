@@ -289,9 +289,25 @@
 <code>textLengthMax(100)</code> means &quot;at most 100 characters, if there is a value&quot;;
 an empty string or <code>null</code> is not an error. <strong>Always write required as <code>empty()</code>.</strong></p>
 </div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Format checks are matched against the whole value.</strong>
+<code>email()</code>, <code>url()</code>, <code>domain()</code>, <code>regex(...)</code> and <code>characterType(...)</code>
+do <strong>not</strong> pass just because something plausible appears somewhere inside —
+<code>hello a@example.com there</code> fails <code>email()</code>.
+<code>regex(&quot;[0-9]{4}&quot;)</code> means &quot;the whole value is four digits&quot;,
+so <strong>wrap it in <code>.*</code> when you want a partial match.</strong></p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong><code>bool()</code> accepts only <code>true</code> / <code>false</code> / <code>1</code> / <code>0</code></strong> (case does not matter).
+<code>yes</code> fails — <strong>the reading side uses the same spellings</strong>, so widening this
+means someone who answered &quot;yes&quot; gets stored as <code>false</code>.</p>
+</div>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
-<p><code>regex(...)</code> uses <strong><code>find</code> (a partial match)</strong>, not <code>matches</code>.
-When you want it to cover the whole value, write <code>^</code> and <code>$</code> yourself.</p>
+<p><strong><code>date()</code> and <code>date(format)</code> only check that the value can be read.</strong>
+<code>2026-13-01</code> (month 13), <code>2026-02-31</code> (Feb 31st) and
+<code>2026-09-12x</code> (trailing junk) all <strong>pass</strong>.
+<code>date()</code> goes through the same shared conversion as database reads and request binding.
+<strong>To check that the date is real, stack a <code>regex(...)</code> on it or write a <code>custom(...)</code>.</strong></p>
 </div>
 <h2 id="binding-rules-to-columns">Binding rules to columns<a class="anchor" href="#binding-rules-to-columns">#</a></h2>
 <pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
@@ -452,12 +468,16 @@ There is nothing to derive <code>textLengthMax</code> from, so you write the rul
 <td><code>page = 1</code>, <code>per = 10</code></td>
 </tr>
 <tr>
+<td>Cap</td>
+<td><code>paging.max_per</code> (200 by default). <strong>A larger request is rounded down to it</strong></td>
+</tr>
+<tr>
 <td>Everything</td>
-<td><code>per=all</code> (no LIMIT is added)</td>
+<td><code>per=all</code>. <strong>The cap still applies, so 200 rows by default</strong> (<code>paging.max_per = 0</code> for a real &quot;everything&quot;)</td>
 </tr>
 <tr>
 <td>Renaming the keys</td>
-<td><code>paging.page</code> / <code>paging.per</code> (configuration)</td>
+<td><code>paging.name_page</code> / <code>paging.name_per</code> (configuration)</td>
 </tr>
 <tr>
 <td>A non-numeric value</td>
@@ -472,8 +492,8 @@ paging.load(request(<span class="h-s">"2"</span>, <span class="h-s">"10"</span>)
 
 SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
 
-assertEquals(<span class="h-n">10</span>, response.list.size(), <span class="h-s">"1ページ分だけ取れていない"</span>);
-assertEquals(TOTAL, response.rowCount, <span class="h-s">"総件数が LIMIT に影響されている"</span>);
+assertEquals(<span class="h-n">10</span>, response.list().size(), <span class="h-s">"1ページ分だけ取れていない"</span>);
+assertEquals(TOTAL, response.rowCount(), <span class="h-s">"総件数が LIMIT に影響されている"</span>);
 
 assertEquals(TOTAL, paging.totalCount());
 assertEquals(<span class="h-n">3</span>, paging.maxPage(), <span class="h-s">"25 件を 10 件ずつなら 3 ページ"</span>);

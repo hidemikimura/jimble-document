@@ -221,7 +221,7 @@
 		password = <span class="h-s">""</span>
 		password = ${?DB_PASSWORD}
 
-		maximumPoolSize      = <span class="h-n">10</span>
+		maximum_pool_size      = <span class="h-n">10</span>
 		connection_pool_type = <span class="h-s">"hikari"</span>
 	}
 }
@@ -297,6 +297,15 @@ SQL.select().from(Post.instance()).where(Post.id.eq(<span class="h-n">1L</span>)
 </code></pre>
 <p>Each data source can name a different product (MySQL for the main one,
 PostgreSQL for reporting, and so on).</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Only MySQL (MariaDB) and PostgreSQL are supported.</strong>
+An unknown name <strong>fails at startup</strong> — falling back to MySQL silently would send
+backtick-quoted SQL to an application written for PostgreSQL.</p>
+<p><strong>There is no hook for adding your own dialect</strong> (<code>Dialect</code> is <code>sealed</code>). A dialect
+has 40-odd methods, one per SQL function, so <strong>every function jimble adds would
+break an outside implementation.</strong> If you need another product, ask for it to be
+added to the framework.</p>
+</div>
 <h3 id="what-you-cannot-write-for-a-given-product">What you cannot write for a given product<a class="anchor" href="#what-you-cannot-write-for-a-given-product">#</a></h3>
 <p><strong>What you cannot write raises <code>DialectException</code> at the point where the SQL is
 built.</strong> You never get as far as running it and failing on the product's syntax

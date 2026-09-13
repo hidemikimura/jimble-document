@@ -310,7 +310,7 @@ but it is not &quot;only n threads are created&quot;.</p>
 has not gone back to the pool.
 Hold something open in that state for a long time — SSE, say — and <strong>you eat one
 pool slot per person.</strong>
-With <code>maximumPoolSize = 10</code>, ten people exhaust it, and the eleventh gets neither
+With <code>maximum_pool_size = 10</code>, ten people exhaust it, and the eleventh gets neither
 &quot;slow&quot; nor &quot;an error&quot; but <strong>a wait for a connection that just sits there.</strong></p>
 </div>
 <p>This is why you do not write an infinite loop in an SSE handler.

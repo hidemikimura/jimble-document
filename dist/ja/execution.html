@@ -304,7 +304,7 @@ onComplete ※必ず通る
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p>トランザクションの中や <code>selectListWithFetcher</code> の途中は、接続をプールに返していません。
 その状態で SSE のように長く繋ぐと、<strong>人数分だけプールを食います。</strong>
-<code>maximumPoolSize = 10</code> なら10人で尽き、11人目は「遅い」でも「エラー」でもなく
+<code>maximum_pool_size = 10</code> なら10人で尽き、11人目は「遅い」でも「エラー」でもなく
 <strong>接続待ちで止まったまま</strong>になります。</p>
 </div>
 <p>SSE で無限ループを書かないのはこのためです。

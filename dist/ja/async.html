@@ -255,6 +255,16 @@ post.getJsonString();   <span class="h-c">// ← ここで飛ぶ</span>
 </table>
 <p><code>AsyncData</code> は <code>Data</code>、<code>AsyncList</code> は <code>List</code> として振る舞うので、
 読み込んだあとは普通のデータです。</p>
+<p><strong>触れば読みます——読む側も、書き換える側もです。</strong>
+<code>get</code> や <code>size</code> はもちろん、<code>put</code> / <code>remove</code> / <code>add</code> / <code>clear</code> /
+<code>computeIfAbsent</code> / <code>putFirst</code> のような<strong>書き換える口も</strong>読み込みを起こします。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>0.6.x までは、書き換える口が読み込みを起こしていませんでした。</strong>
+未読み込みのまま <code>remove(&quot;id&quot;)</code> すると<strong>空のマップから消す</strong>ことになり、
+あとで誰かが読んだ瞬間に<strong>消したはずの値が戻ってきました</strong>。
+<code>add</code> した1件が、読み込みで<strong>上書きされて消える</strong>という形もありました。
+落ちも警告も出ないので、気づけるのは<strong>結果がおかしいと言われたとき</strong>だけです。</p>
+</div>
 <h2 id="読み込みを起こさずに見られるもの">読み込みを起こさずに見られるもの<a class="anchor" href="#読み込みを起こさずに見られるもの">#</a></h2>
 <pre class="code"><code class="lang-java">list.isLoaded()       <span class="h-c">// 読み込み済みか</span>
 list.isLoadFailed()   <span class="h-c">// 失敗したか</span>

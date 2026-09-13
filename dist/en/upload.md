@@ -20,9 +20,9 @@ for (Object value : context.request().bodyFile().values()) {
 		for (Object item : list) {
 			UploadFile uploadFile = (UploadFile) item;
 			received.add("%s:%s:%d".formatted(
-				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
-			received.add("content=" + read(uploadFile.file.toPath()));
-			tempFiles.add(uploadFile.file.toPath());
+				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
+			received.add("content=" + read(uploadFile.file().toPath()));
+			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
 }
@@ -65,8 +65,8 @@ If the process dies they stay behind, and we leave that to the OS cleaning out i
 
 ```conf
 upload {
-	max_file_size  = 10485760   # per file. 10MB by default
-	max_total_size = 52428800   # per request, in total. 50MB by default
+	max_file_size  = 10MiB       # per file
+	max_total_size = 10MiB       # per request, in total
 	max_files      = 20         # how many
 	temp_dir       = ""         # empty means java.io.tmpdir
 }
@@ -87,8 +87,9 @@ Size is checked **as the data is read**. Measure it after taking everything in
 and you have already written the excess to disk.
 
 > [!WARN]
-> **`server.max_request_size` (10MB by default) bites first.**
-> `upload.max_total_size` defaults to 50MB, so **out of the box, 50MB never arrives.**
+> **`server.max_request_size` (10MiB by default) bites first.**
+> If `upload.max_total_size` is larger, **startup fails** — the server cuts the body
+> first, so the limit you wrote could never be reached.
 > If you want to allow large uploads, raise both.
 
 ## Saving
@@ -100,16 +101,16 @@ private static String saveImage (WebContext context) throws Exception {
 
 	UploadFile uploadFile = firstFile(context);
 
-	if (uploadFile == null || uploadFile.fileSize <= 0) {
+	if (uploadFile == null || uploadFile.fileSize() <= 0) {
 		return null;
 	}
 
-	String extension = extensionOf(uploadFile.fileName);
+	String extension = extensionOf(uploadFile.fileName());
 
 	if (!ALLOWED_EXTENSIONS.contains(extension)) {
 		throw new io.jimble.web.http.HttpException(
 			400, "受け付けられない形式です: %s（%s のみ）"
-				.formatted(uploadFile.fileName, String.join(" ", ALLOWED_EXTENSIONS)));
+				.formatted(uploadFile.fileName(), String.join(" ", ALLOWED_EXTENSIONS)));
 	}
 
 	Path dir = Path.of(UPLOAD_DIR);
@@ -121,7 +122,7 @@ private static String saveImage (WebContext context) throws Exception {
 	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
 	 * 残したいものはここで移す。
 	 */
-	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+	Files.copy(uploadFile.file().toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
 
 	return saved;
 

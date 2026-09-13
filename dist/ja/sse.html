@@ -272,9 +272,9 @@ X-Accel-Buffering: no
 8秒で完全に固まることもありました。</p>
 <p>なので jimble の <code>SseStream</code> は、<strong>切断を待つのではなく寿命で区切ります</strong>。</p>
 <pre class="code"><code class="lang-conf">sse {
-	max_duration_seconds = <span class="h-n">300</span>   <span class="h-c"># 既定 5分</span>
+	max_duration = <span class="h-n">5m</span>   <span class="h-c"># 既定 5分</span>
 	max_events           = <span class="h-n">0</span>     <span class="h-c"># 0 = 無制限</span>
-	retry_millis         = <span class="h-n">3000</span>  <span class="h-c"># クライアントの再接続間隔</span>
+	retry         = <span class="h-n">3s</span>  <span class="h-c"># クライアントの再接続間隔</span>
 }
 </code></pre>
 <pre class="code"><code class="lang-java"><span class="h-c">// このルートだけ変える</span>
@@ -293,7 +293,7 @@ X-Accel-Buffering: no
 }
 </code></pre>
 <h2 id="繋ぎ直し">繋ぎ直し<a class="anchor" href="#繋ぎ直し">#</a></h2>
-<p><code>EventSource</code> は切れたら自動で繋ぎ直します。<code>retry_millis</code> がその間隔です。</p>
+<p><code>EventSource</code> は切れたら自動で繋ぎ直します。<code>retry</code> がその間隔です。</p>
 <p><strong>つまり、寿命で切れても勝手に繋ぎ直されます。</strong>
 無限に続くストリームを作るのではなく、「5分ぶん流して切る、また繋がる」でよいです。</p>
 <p>やり直しの位置を伝えたいときは、イベントに <code>id</code> を付けてください。

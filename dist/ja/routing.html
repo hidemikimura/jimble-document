@@ -260,6 +260,44 @@ get(<span class="h-s">"/users/{userId}"</span>, ...);   <span class="h-c">// ←
 HTTP/1.1 405 Method Not Allowed
 Allow: GET
 </code></pre>
+<h2 id="パスの揺れ">パスの揺れ<a class="anchor" href="#パスの揺れ">#</a></h2>
+<p><strong>末尾のスラッシュと連続したスラッシュは、前から無視します。</strong>
+<code>/a/b</code> <code>/a/b/</code> <code>/a//b</code> <code>//a/b</code> は<strong>すべて同じルート</strong>です。</p>
+<p>ただし<strong>無視するだけなので、同じ内容が複数の URL で 200 を返します</strong>。
+キャッシュも検索エンジンも前段の ACL も、それらを<strong>別の URL として数えます</strong>。
+1つに寄せたいときは:</p>
+<pre class="code"><code class="lang-conf">router {
+	redirect_to_canonical = <span class="h-k">true</span>    <span class="h-c"># /a/ や //a を /a へ 301</span>
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>寄せるのは <code>GET</code> と <code>HEAD</code> だけです。</strong>
+<code>POST</code> を 301 で返すと、<strong>ブラウザが本文を落として <code>GET</code> に化けます</strong>——
+送ったつもりの登録が消えるので、<code>POST</code> はそのまま受けます。
+クエリ文字列は付けたまま寄せます。</p>
+</div>
+<p><strong>大文字小文字を区別しないこともできます。</strong></p>
+<pre class="code"><code class="lang-conf">router {
+	ignore_case = <span class="h-k">true</span>              <span class="h-c"># /ADMIN も /admin のルートに当たる</span>
+}
+</code></pre>
+<p>見ないのは<strong>ルートに書いた固定の部分だけ</strong>です。
+<code>/Users/{id}</code> なら <code>Users</code> のところだけを同一視し、<strong><code>{id}</code> に入る値はそのまま渡します</strong>——
+大文字を含む ID（Hashids など）を勝手に小文字にしないためです。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>前段と食い違うことがあります。</strong>
+<code>/ADMIN</code> が <code>/admin</code> のルートに当たるようになるので、
+<strong>プロキシの ACL や <code>before</code> フックがパス文字列で判定していると、そちらだけすり抜けます</strong>。
+<code>redirect_to_canonical</code> を一緒に入れてください——
+<strong>ルートに書いた綴りへ 301 で寄せる</strong>ので、アプリには1つの綴りしか来なくなります。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>綴りだけ違うルートを2本書くと、起動時に落ちます</strong>（<code>ignore_case</code> が有効なときだけ）。
+<code>/Admin</code> と <code>/admin</code> の両方があると<strong>どちらに当たるか決められない</strong>うえ、
+<strong>片方にだけ認証を書いていたら緩いほうに当たりえます</strong>。</p>
+</div>
+<p><code>context.request().path()</code> は、<strong>ルーターが見たのと同じ形</strong>（スラッシュを直したもの）を返します。
+受け取ったままのパスが要るときは <code>rawPath()</code> を使ってください。</p>
 <h2 id="まとめる">まとめる<a class="anchor" href="#まとめる">#</a></h2>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
 
@@ -346,6 +384,15 @@ get(<span class="h-s">"/health_check"</span>, context -&gt; context.response().s
 </code></pre>
 <p><code>AttributeKey</code> は既定値を持ちます。付いていないルートでは既定値が返るので、
 <code>null</code> の判定が要りません。</p>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p><strong>キーは「作ったインスタンスそのもの」です。</strong>
+<code>static final</code> で1つだけ持って、それを使い回してください。
+同じ名前で別に <code>new</code> したものは<strong>別のキー</strong>なので、
+片方に入れてもう片方から読むと既定値が返ります。</p>
+<p><strong>枠組みのキー（<code>Auth.PUBLIC</code> など）と同じ名前で作っても、枠を奪うことはありません。</strong>
+ただし<strong>ログでは見分けが付かない</strong>ので、
+同じ名前のキーが2つあると<strong>起動時に落ちます</strong>——名前を変えてください。</p>
+</div>
 <h3 id="ブロック単位で付ける">ブロック単位で付ける<a class="anchor" href="#ブロック単位で付ける">#</a></h3>
 <p><strong>ルート1本ずつに書かなくて済みます。</strong><code>attribute()</code> をブロックに書くと、
 そのブロックの中のルート全部に付きます。</p>
@@ -446,6 +493,7 @@ DB 接続もコンテキストごとに持つので、
 			<li class="level-2"><a href="#パスパラメータ">パスパラメータ</a></li>
 			<li class="level-3"><a href="#一生呼ばれないルート">一生呼ばれないルート</a></li>
 			<li class="level-3"><a href="#メソッドだけ違うとき">メソッドだけ違うとき</a></li>
+			<li class="level-2"><a href="#パスの揺れ">パスの揺れ</a></li>
 			<li class="level-2"><a href="#まとめる">まとめる</a></li>
 			<li class="level-2"><a href="#フィルタ">フィルタ</a></li>
 			<li class="level-2"><a href="#フィルタの効く範囲">フィルタの効く範囲</a></li>

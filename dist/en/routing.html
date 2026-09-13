@@ -261,6 +261,44 @@ get(<span class="h-s">"/users/{userId}"</span>, ...);   <span class="h-c">// ←
 HTTP/1.1 405 Method Not Allowed
 Allow: GET
 </code></pre>
+<h2 id="variations-of-the-same-path">Variations of the same path<a class="anchor" href="#variations-of-the-same-path">#</a></h2>
+<p><strong>A trailing slash and repeated slashes have always been ignored.</strong>
+<code>/a/b</code>, <code>/a/b/</code>, <code>/a//b</code> and <code>//a/b</code> are <strong>all the same route</strong>.</p>
+<p>They are only ignored, though, so <strong>the same content answers 200 at several URLs</strong>.
+Caches, search engines and path-based ACLs in front of you all <strong>count those separately</strong>.
+To settle on one:</p>
+<pre class="code"><code class="lang-conf">router {
+	redirect_to_canonical = <span class="h-k">true</span>    <span class="h-c"># 301 from /a/ and //a to /a</span>
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Only <code>GET</code> and <code>HEAD</code> are redirected.</strong>
+A 301 on a <code>POST</code> makes <strong>the browser drop the body and retry as <code>GET</code></strong> —
+the submission simply disappears — so <code>POST</code> is served where it is.
+The query string is carried over.</p>
+</div>
+<p><strong>Matching can also ignore case.</strong></p>
+<pre class="code"><code class="lang-conf">router {
+	ignore_case = <span class="h-k">true</span>              <span class="h-c"># /ADMIN reaches the /admin route</span>
+}
+</code></pre>
+<p>Only the <strong>fixed parts written in the route</strong> are compared loosely.
+For <code>/Users/{id}</code> that is <code>Users</code>; <strong>the value bound to <code>{id}</code> is passed through untouched</strong>,
+so an ID that contains capitals (a Hashid, say) is never quietly lowercased.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>This can disagree with whatever sits in front of you.</strong>
+<code>/ADMIN</code> now reaches the <code>/admin</code> route, so
+<strong>a proxy ACL or a <code>before</code> hook that compares path strings only guards one spelling</strong>.
+Turn <code>redirect_to_canonical</code> on as well — it <strong>301s to the spelling written in the route</strong>,
+so your application only ever sees one of them.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Two routes that differ only in case fail at startup</strong> (when <code>ignore_case</code> is on).
+With both <code>/Admin</code> and <code>/admin</code> registered there is <strong>no way to say which one wins</strong>,
+and if only one of them carries the auth check, the loose one can be the one that answers.</p>
+</div>
+<p><code>context.request().path()</code> gives you <strong>the same shape the router saw</strong> (slashes fixed).
+When you need the path exactly as it arrived, use <code>rawPath()</code>.</p>
 <h2 id="grouping">Grouping<a class="anchor" href="#grouping">#</a></h2>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
 
@@ -348,6 +386,15 @@ get(<span class="h-s">"/health_check"</span>, context -&gt; context.response().s
 </code></pre>
 <p>An <code>AttributeKey</code> carries a default. Routes without the attribute get that default,
 so you never write a <code>null</code> check.</p>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p><strong>A key is the instance you created.</strong>
+Hold one in a <code>static final</code> field and reuse it.
+Another key created with the same name is a <em>different</em> key, so writing through
+one and reading through the other gives you the default.</p>
+<p><strong>Creating a key with the same name as a framework key (<code>Auth.PUBLIC</code>, say) does not
+take over its slot.</strong> It does make the two indistinguishable in logs, though, so
+two keys sharing a name <strong>fail at startup</strong> — rename one.</p>
+</div>
 <h3 id="setting-it-for-a-whole-block">Setting it for a whole block<a class="anchor" href="#setting-it-for-a-whole-block">#</a></h3>
 <p><strong>You do not have to write it on every route.</strong> Call <code>attribute()</code> in a block and it
 applies to every route registered in that block.</p>
@@ -449,6 +496,7 @@ With <code>RouteTool</code>, one route becomes one tool.</p>
 			<li class="level-2"><a href="#path-parameters">Path parameters</a></li>
 			<li class="level-3"><a href="#routes-that-are-never-called">Routes that are never called</a></li>
 			<li class="level-3"><a href="#when-only-the-method-is-wrong">When only the method is wrong</a></li>
+			<li class="level-2"><a href="#variations-of-the-same-path">Variations of the same path</a></li>
 			<li class="level-2"><a href="#grouping">Grouping</a></li>
 			<li class="level-2"><a href="#filters">Filters</a></li>
 			<li class="level-2"><a href="#how-far-a-filter-reaches">How far a filter reaches</a></li>

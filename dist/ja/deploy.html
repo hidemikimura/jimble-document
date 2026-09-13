@@ -252,6 +252,43 @@ application {
 </table>
 <p>**<code>-Djimble.env</code> は JVM の引数です。**プログラム引数（<code>java -jar app.jar env=prod</code>）
 では効きません。</p>
+<h3 id="環境の名前">環境の名前<a class="anchor" href="#環境の名前">#</a></h3>
+<p><strong>判定は略記でも通ります。<strong>書いたとおりの名前は</strong>ファイル名にだけ</strong>使われます。</p>
+<table>
+<thead>
+<tr>
+<th>書いてよい名前</th>
+<th>判定</th>
+<th>読むファイル</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>local</code> / <code>dev</code> / <code>development</code></td>
+<td><code>isLocal()</code></td>
+<td><code>application.&lt;書いたとおり&gt;.conf</code></td>
+</tr>
+<tr>
+<td><code>staging</code> / <code>stg</code> / <code>stage</code></td>
+<td><code>isStaging()</code></td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>production</code> / <code>prod</code> / <code>prd</code></td>
+<td><code>isProduction()</code></td>
+<td>同上</td>
+</tr>
+</tbody>
+</table>
+<p>大文字小文字は区別しません。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>表に無い名前は、どの判定にも当たりません。</strong>
+<code>producton</code> のように打ち間違えると、<code>isLocal()</code> も <code>isProduction()</code> も false になります。
+<strong>起動時に1度だけ警告が出ます</strong>——黙って <code>local</code> に倒すと、
+<strong>本番機が「ローカルです」と名乗ったまま動いてしまう</strong>からです。</p>
+<p>なお、<strong><code>-Djimble.env=prod</code> と書いて <code>isProduction()</code> が false だった時期があります</strong>（1.0 で直しました）。
+判定が <code>production</code> としか一致していませんでした。</p>
+</div>
 <h2 id="設定はどこから読まれるか">設定はどこから読まれるか<a class="anchor" href="#設定はどこから読まれるか">#</a></h2>
 <p><strong>jar の中だけです。</strong>（<code>conf/</code> をリソースに足してあるので、jar に入っています。
 <a href="./config">設定</a> を参照）</p>
@@ -325,6 +362,7 @@ java -Djimble.env=prod -jar app.jar
 		<ul>
 			<li class="level-2"><a href="#jar-を作る">jar を作る</a></li>
 			<li class="level-2"><a href="#web-を起動する">Web を起動する</a></li>
+			<li class="level-3"><a href="#環境の名前">環境の名前</a></li>
 			<li class="level-2"><a href="#設定はどこから読まれるか">設定はどこから読まれるか</a></li>
 			<li class="level-2"><a href="#秘密は環境変数で">秘密は環境変数で</a></li>
 			<li class="level-2"><a href="#バッチを動かす">バッチを動かす</a></li>

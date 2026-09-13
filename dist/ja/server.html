@@ -211,18 +211,47 @@
 <pre class="code"><code class="lang-conf">server {
 	host                 = <span class="h-s">""</span>         <span class="h-c"># 待ち受けるアドレス。空なら全部</span>
 	port                 = <span class="h-n">9000</span>
-	max_request_size     = <span class="h-n">10485760</span>   <span class="h-c"># リクエスト本文の上限（10MB）</span>
-	max_header_size      = <span class="h-n">16384</span>      <span class="h-c"># ヘッダ全体の上限（16KB）</span>
-	idle_timeout_seconds = <span class="h-n">60</span>
+	max_request_size     = <span class="h-n">10485760</span>   <span class="h-c"># リクエスト本文の上限（10MiB）</span>
+	max_header_size      = <span class="h-n">16384</span>      <span class="h-c"># ヘッダ全体の上限（16KiB）</span>
+	idle_timeout = <span class="h-n">60s</span>
 	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># X-Forwarded-* を信じるか</span>
 	compression          = <span class="h-k">true</span>       <span class="h-c"># 応答を gzip で返すか</span>
 	access_log           = <span class="h-k">true</span>       <span class="h-c"># アクセスログを出すか（[ログ](./log)）</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># ボットのアクセスログを分けるか</span>
 	strict_routes        = <span class="h-k">false</span>      <span class="h-c"># 一生呼ばれないルートを例外にするか（CI では true に）</span>
 
-	shutdown_grace_seconds   = <span class="h-n">0</span>      <span class="h-c"># 止め始めてから新規を断つまで（秒）</span>
-	shutdown_timeout_seconds = <span class="h-n">15</span>     <span class="h-c"># 処理中を待つ上限（秒）</span>
+	shutdown_grace   = <span class="h-n">0s</span>      <span class="h-c"># 止め始めてから新規を断つまで（秒）</span>
+	shutdown_timeout = <span class="h-n">15s</span>     <span class="h-c"># 処理中を待つ上限（秒）</span>
+
+	backlog            = <span class="h-n">1024</span>  <span class="h-c"># 受け付け待ちの接続を OS に持たせる数</span>
+	write_queue_length = <span class="h-n">0</span>     <span class="h-c"># 応答を書き出す列の長さ。0/1 は「列を作らない」</span>
+	smart_async_writes = <span class="h-k">false</span> <span class="h-c"># 列があるとき、空いていればその場で書く</span>
 }
+</code></pre>
+<h2 id="接続の受け付けと書き出し">接続の受け付けと書き出し<a class="anchor" href="#接続の受け付けと書き出し">#</a></h2>
+<p><strong><code>backlog</code></strong> は、受け付けが追いつかないあいだ <strong>OS が代わりに持ってくれる接続の数</strong>です。
+超えた分は <strong>OS が断ちます</strong>——アプリまで届かないので、<strong>ログには1行も出ません</strong>。
+上げるのは「短時間にどっと来る」使い方（起動直後・キャンペーン・再接続の集中）で、
+<strong>捌く速さは変わりません</strong>。詰まりを待たせるだけです。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>OS 側の上限にも頭を押さえられます</strong>（Linux の <code>somaxconn</code>）。
+ここを大きくしても、そちらが小さければそちらで切られます。</p>
+</div>
+<p><strong><code>write_queue_length</code></strong> は、応答を書き出す列の長さです。
+<strong>0 か 1 なら列を作らず</strong>、その場で書き切ります（既定）。
+2 以上にすると別のスレッドが書き出すので、<strong>遅い相手に書いているあいだ、処理のほうが先に進めます</strong>。
+ただし<strong>列に積んだ分はメモリに載る</strong>ので、大きくすれば速くなるものではありません。</p>
+<p><strong><code>smart_async_writes</code></strong> は、列があるときに
+「いつも列に積む」か「<strong>空いていればその場で書き、混んできたら列に積む</strong>」かの切り替えです。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>smart_async_writes</code> は単独では効きません。</strong>
+<code>write_queue_length</code> が <strong>2 以上</strong>でないと、helidon はこの値を読みません（列が無いからです）。
+<strong><code>write_queue_length</code> が 0 か 1 のまま <code>smart_async_writes = true</code> と書くと、起動時に落ちます</strong>——
+黙って無視すると、「効いているのに速くならない」としか見えなくなるためです。</p>
+</div>
+<p>いま何が選ばれたかは起動ログに出ます。</p>
+<pre class="code"><code class="lang-text">サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く）
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く）
 </code></pre>
 <p>**書かなければ上の既定で動きます。**いま何が効いているかは起動ログに出ます。</p>
 <pre class="code"><code class="lang-text">jimble を起動しました: http://localhost:9000
@@ -258,25 +287,26 @@
 <tbody>
 <tr>
 <td>リクエスト本文</td>
-<td><code>server.max_request_size</code>（10MB）</td>
+<td><code>server.max_request_size</code>（10MiB）</td>
 <td><strong>413</strong></td>
 </tr>
 <tr>
 <td>ヘッダ全体</td>
-<td><code>server.max_header_size</code>（16KB）</td>
+<td><code>server.max_header_size</code>（16KiB）</td>
 <td>接続ごと切られる</td>
 </tr>
 <tr>
 <td>何もしない接続</td>
-<td><code>server.idle_timeout_seconds</code>（60秒）</td>
+<td><code>server.idle_timeout</code>（60秒）</td>
 <td>閉じる</td>
 </tr>
 </tbody>
 </table>
 <p>アップロードにはこれとは別の上限があります（<a href="./upload">ファイルアップロード</a>）。</p>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
-<p><strong>アップロードの合計上限（既定 50MB）より本文の上限（既定 10MB）のほうが小さい</strong>ので、
-大きいものを受けるなら両方を上げてください。</p>
+<p><strong><code>upload.max_total_size</code> が <code>server.max_request_size</code> を超えていると起動時に落ちます。</strong>
+本文は先にこちらで切られるので、超えた分には届かないためです。
+大きいものを受けるなら、<strong>両方を上げてください</strong>（既定はどちらも 10MiB）。</p>
 </div>
 <p>読み取り／書き込みのタイムアウトはありません。</p>
 <h2 id="プロキシの後ろに置く">プロキシの後ろに置く<a class="anchor" href="#プロキシの後ろに置く">#</a></h2>
@@ -351,9 +381,9 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 <p><strong>いきなり止めません。</strong><code>stop()</code> はこの順に進みます。</p>
 <ol>
 <li><strong>「止め始めた」ことにする</strong> — <code>Shutdown.isStopping()</code> が true になる。<strong>普通のリクエストはまだ受ける</strong></li>
-<li><code>server.shutdown_grace_seconds</code> 待つ（既定 0）</li>
+<li><code>server.shutdown_grace</code> 待つ（既定 0）</li>
 <li><strong>新しいリクエストを断つ</strong>（503）</li>
-<li>処理中のものが終わるのを <code>server.shutdown_timeout_seconds</code>（既定 15 秒）まで待つ</li>
+<li>処理中のものが終わるのを <code>server.shutdown_timeout</code>（既定 15 秒）まで待つ</li>
 <li>サーバーを止める</li>
 </ol>
 <p><strong>SIGTERM を受けたら自動で走ります</strong>（コンテナはこれを送って待ちます）。</p>
@@ -366,7 +396,7 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 <p>ロードバランサがこの台を外すまでには時間がかかります。
 その間に来たリクエストを 503 にすると、<strong>外から見たらエラー</strong>です。
 だから 1 と 3 の間に猶予を置けるようにしてあります。
-ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → <code>shutdown_grace_seconds = 10</code>）を入れてください。</p>
+ヘルスチェックの間隔 × 失敗回数ぶん（例：2秒 × 3回 → <code>shutdown_grace = 10s</code>）を入れてください。</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p><strong>待ちきれなかったら、残ったまま止めます。</strong>
@@ -382,7 +412,7 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 <pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/api"</span>, <span class="h-s">"http://backend:8080"</span>));
 </code></pre>
 <p><code>X-Forwarded-For</code> は<strong>既存の値に足します</strong>（上書きしません）。
-タイムアウトは <code>proxy.connect_timeout_ms</code>（5秒）と <code>proxy.request_timeout_ms</code>（30秒）で、
+タイムアウトは <code>proxy.connect_timeout</code>（5秒）と <code>proxy.request_timeout</code>（30秒）で、
 転送に失敗したら <strong>502</strong> を返します。</p>
 
 		</article>
@@ -400,6 +430,7 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 	<nav class="toc" aria-label="このページの中身">
 		<p class="section">このページ</p>
 		<ul>
+			<li class="level-2"><a href="#接続の受け付けと書き出し">接続の受け付けと書き出し</a></li>
 			<li class="level-2"><a href="#ポート">ポート</a></li>
 			<li class="level-2"><a href="#待ち受けるアドレス">待ち受けるアドレス</a></li>
 			<li class="level-2"><a href="#上限">上限</a></li>

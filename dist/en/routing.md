@@ -79,6 +79,54 @@ HTTP/1.1 405 Method Not Allowed
 Allow: GET
 ```
 
+## Variations of the same path
+
+**A trailing slash and repeated slashes have always been ignored.**
+`/a/b`, `/a/b/`, `/a//b` and `//a/b` are **all the same route**.
+
+They are only ignored, though, so **the same content answers 200 at several URLs**.
+Caches, search engines and path-based ACLs in front of you all **count those separately**.
+To settle on one:
+
+```conf
+router {
+	redirect_to_canonical = true    # 301 from /a/ and //a to /a
+}
+```
+
+> [!NOTE]
+> **Only `GET` and `HEAD` are redirected.**
+> A 301 on a `POST` makes **the browser drop the body and retry as `GET`** —
+> the submission simply disappears — so `POST` is served where it is.
+> The query string is carried over.
+
+**Matching can also ignore case.**
+
+```conf
+router {
+	ignore_case = true              # /ADMIN reaches the /admin route
+}
+```
+
+Only the **fixed parts written in the route** are compared loosely.
+For `/Users/{id}` that is `Users`; **the value bound to `{id}` is passed through untouched**,
+so an ID that contains capitals (a Hashid, say) is never quietly lowercased.
+
+> [!WARN]
+> **This can disagree with whatever sits in front of you.**
+> `/ADMIN` now reaches the `/admin` route, so
+> **a proxy ACL or a `before` hook that compares path strings only guards one spelling**.
+> Turn `redirect_to_canonical` on as well — it **301s to the spelling written in the route**,
+> so your application only ever sees one of them.
+
+> [!NOTE]
+> **Two routes that differ only in case fail at startup** (when `ignore_case` is on).
+> With both `/Admin` and `/admin` registered there is **no way to say which one wins**,
+> and if only one of them carries the auth check, the loose one can be the one that answers.
+
+`context.request().path()` gives you **the same shape the router saw** (slashes fixed).
+When you need the path exactly as it arrived, use `rawPath()`.
+
 ## Grouping
 
 ```java
@@ -173,6 +221,16 @@ if (context.route().route().attribute(NO_AUTH)) {
 
 An `AttributeKey` carries a default. Routes without the attribute get that default,
 so you never write a `null` check.
+
+> [!TIP]
+> **A key is the instance you created.**
+> Hold one in a `static final` field and reuse it.
+> Another key created with the same name is a *different* key, so writing through
+> one and reading through the other gives you the default.
+>
+> **Creating a key with the same name as a framework key (`Auth.PUBLIC`, say) does not
+> take over its slot.** It does make the two indistinguishable in logs, though, so
+> two keys sharing a name **fail at startup** — rename one.
 
 ### Setting it for a whole block
 

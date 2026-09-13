@@ -38,9 +38,25 @@ ValidationRule rule = new ValidationRule()
 > `textLengthMax(100)` は「入っているなら 100 文字以内」という意味で、
 > 空文字や `null` はエラーにしません。**必須は必ず `empty()` で書いてください。**
 
+> [!NOTE]
+> **形の検証は、値の全体と突き合わせます。**
+> `email()` `url()` `domain()` `regex(...)` `characterType(...)` は、
+> **中にそれらしい文字列が入っているだけでは通りません**——
+> `こんにちは a@example.com です` は `email()` で落ちます。
+> `regex("[0-9]{4}")` は「全体が4桁の数字」の意味なので、
+> **部分一致させたいときは `.*` で挟んでください。**
+
+> [!NOTE]
+> **`bool()` が通すのは `true` / `false` / `1` / `0` だけです**（大小は問いません）。
+> `yes` や `はい` は落ちます——**読み出し側が同じ規則で読む**ので、
+> ここを広げると「はい」と答えた人が `false` として保存されます。
+
 > [!WARN]
-> `regex(...)` は `matches` ではなく **`find`（部分一致）** です。
-> 全体に効かせたいときは `^` と `$` を自分で書いてください。
+> **`date()` と `date(format)` は「読めるかどうか」しか見ていません。**
+> `2026-13-01`（13月）も `2026-02-31`（2月31日）も、
+> `2026-09-12x`（後ろにゴミ）も **通ります**。
+> `date()` は DB の読み出しやリクエスト変換と同じ共通変換を通っているためです。
+> **暦として正しいことまで見たいときは、`regex(...)` を重ねるか `custom(...)` を書いてください。**
 
 ## 列にまとめる
 
@@ -210,8 +226,9 @@ Paging paging = context.request().paging();
 | --- | --- |
 | 読むキー | `page` / `per` |
 | 既定 | `page = 1`、`per = 10` |
-| 全件 | `per=all`（LIMIT を付けません） |
-| キー名の変更 | `paging.page` / `paging.per`（設定） |
+| 上限 | `paging.max_per`（既定 200）。**超える指定は上限に丸めます** |
+| 全件 | `per=all`。**上限が効くので、既定では 200 件までです**（`paging.max_per = 0` で本当に全件） |
+| キー名の変更 | `paging.name_page` / `paging.name_per`（設定） |
 | 数値でない値 | 無視して既定を使います |
 
 `context.request().paging(20)` と書けば、`per` が来ていないときの既定を変えられます。
@@ -224,8 +241,8 @@ paging.load(request("2", "10"), 0);
 
 SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
 
-assertEquals(10, response.list.size(), "1ページ分だけ取れていない");
-assertEquals(TOTAL, response.rowCount, "総件数が LIMIT に影響されている");
+assertEquals(10, response.list().size(), "1ページ分だけ取れていない");
+assertEquals(TOTAL, response.rowCount(), "総件数が LIMIT に影響されている");
 
 assertEquals(TOTAL, paging.totalCount());
 assertEquals(3, paging.maxPage(), "25 件を 10 件ずつなら 3 ページ");

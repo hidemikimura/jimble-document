@@ -2,25 +2,30 @@
 
 # 版と互換性
 
-## いまは 0.x です
+## いまは 1.0 です
 
-**0.x のあいだは、マイナーを上げるときに壊れることがあります。**
-[Semantic Versioning](https://semver.org/lang/ja/) がそう定めていて（1.0 未満は安定を約束しない）、
-jimble もそのとおりに扱います。
+**公開 API を壊す前に、非推奨期間を1マイナー以上置きます。**
+[Semantic Versioning](https://semver.org/lang/ja/) のとおりに扱います。
 
-**1.0 からは、公開 API を壊す前に非推奨期間を1マイナー以上置きます。**
-
-| | 0.x（いま） | 1.0 以降 |
+| | 0.x（〜0.6） | 1.0 以降（いま） |
 | --- | --- | --- |
-| 公開 API を壊す | **マイナーで起きうる** | 非推奨期間を1マイナー以上置いてから、次のメジャーで消す |
+| 公開 API を壊す | マイナーで起きうる | **非推奨期間を1マイナー以上置いてから、次のメジャーで消す** |
 | 内部実装を変える | いつでも | いつでも |
-| CHANGELOG に書く | **必ず書く** | 必ず書く |
+| CHANGELOG に書く | 必ず書く | 必ず書く |
 
 > [!NOTE]
-> **0.x でも、黙って壊すことはしません。**
-> 約束していないのは「壊さないこと」であって、「知らせること」ではありません。
+> **黙って壊すことはしません。**
 > 壊れうる変更は必ず [CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md) の
-> **「変わったこと（挙動）」**に出します。上げる前にそこだけ読めば足ります。
+> **「上げる前に見るところ」**と**「変わったこと（挙動）」**に出します。
+> 上げる前にそこだけ読めば足ります。
+
+> [!TRAP]
+> **約束が始まるということは、直せなくなるものがあるということです。**
+> 戻り値の型、record のコンポーネント、public フィールド、`interface` の abstract、`final`——
+> どれも**非推奨期間で救えません**（同名で代替を置けないので、
+> 「古いほうを残して新しいほうを足す」ができません）。
+> 1.0 の前に、公開 103 パッケージ・署名 4,514 行を通読して片付けてあります
+> （[docs/design-1.0.md](https://github.com/hidemikimura/jimble/blob/main/docs/design-1.0.md)）。
 
 ## どこまでが公開 API か
 
@@ -29,20 +34,52 @@ jimble もそのとおりに扱います。
 | | |
 | --- | --- |
 | **公開 API** | アプリを書くときに触るもの。`io.jimble.db`、`io.jimble.web.server`、`io.jimble.util.data` など |
-| **内部実装** | 入口クラスの内側でしかないもの。`io.jimble.db.sql.query.*`（`SQL` の内側）、`io.jimble.util.json.encoder`（`Dson` の内側）など |
+| **内部実装** | 入口クラスの内側でしかないもの。`io.jimble.db.internal.sql.query.*`（`SQL` の内側）、`io.jimble.util.internal.json.encoder`（`Dson` の内側）など |
+| **preview** | **外部の仕様に追随するので、下の約束の対象外**。いまは `io.jimble.mcp.*` だけです |
 
 全部の一覧は
 [`docs/api-packages.txt`](https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt)
 にあります。
 
+**内部は名前で分かります。**
+
+> **`io.jimble.<モジュール>.internal` から下は、全部内部実装です。**
+
+`import` に `internal` が出てきたら、それは<b>触ってはいけないもの</b>です。
+
 > [!TRAP]
 > **`public` だから公開 API、ではありません。**
 > Java には「モジュールの外から見えるが、使ってほしくはない」を表す修飾子がないので、
-> **内部実装も `public` になっています**。触ってよいかは、上の一覧で見てください。
+> **内部実装も `public` になっています**。`internal` という名前と、上の一覧が線です。
+
+> [!NOTE]
+> **設定ファイルに書く名前と、コマンドで打つ名前は公開 API です。**
+> `logback.xml` に書く `io.jimble.util.log.encoder.LogbackJsonEncoder` や、
+> Gradle を使わない CI で打つ `io.jimble.db.cli.JimbleDbCli` は、
+> **`import` されなくても壊せば止まります**。だから `internal` には入れていません。
 
 **この一覧は古くなりません。**パッケージを増やして一覧に書き忘れると、
 `ApiSurfaceTest` が落ちます。サンプル（`examples/`）が内部パッケージを
 import していないかも、同じテストが見ています。
+
+### preview——約束の外に置いてあるもの
+
+**`io.jimble.mcp.*` は 1.0 になっても「壊す前に非推奨期間を1マイナー置く」の対象外です。**
+
+[MCP](./mcp) は**2年で5版が出ており、毎回破壊的な変更が入っています**
+（2026-07-28 では、セッションと GET ストリームが消えました）。
+jimble は**対応する版を明記して1つだけ実装する**という方針なので、
+仕様が変わるたびに **「公開 API を壊す」か「仕様に追随しない」かの二択**になります。
+**約束の中に入れると、追随できなくなります。**
+
+対応している版は **`McpProtocol.version()`** で読めます。
+**定数ではなくメソッドなのは、`public static final String` が
+アプリのバイトコードへそのまま焼き付くから**です——
+定数のままだと、jimble を上げてもアプリは古い版の文字列を持ち続け、しかも警告が出ません。
+
+`io.jimble.mcp.*` を使っているなら、**版を上げるときは
+[CHANGELOG](https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md) を読んでください**。
+壊れるときは、必ずそこに書きます。
 
 ## シグネチャは同じなのに、結果が変わるとき
 

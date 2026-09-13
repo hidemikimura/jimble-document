@@ -304,6 +304,10 @@ not dangerous, but &quot;I logged in and got a 401&quot; starts here.</p>
 <p>Put <code>Csrf::verify</code> in a <code>before</code> and the routes below it are protected.
 <code>GET</code> <code>HEAD</code> <code>OPTIONS</code> <code>TRACE</code> pass through untouched (<code>Csrf.SAFE_METHODS</code>).</p>
 <p>Take the token with <code>context.request().csrfToken()</code> and put it in a hidden form field.</p>
+<p><strong>The token lives for <code>csrf.max_age</code> (one day by default).</strong> Up to 0.6.x it rode on
+<code>cookie.max_age</code> (one year by default), so shortening <code>cookie.max_age</code> for your own reasons
+<strong>shortened the CSRF token with it</strong> — and all you got back was a 403 saying the token was
+missing.</p>
 <h2 id="flash">Flash<a class="anchor" href="#flash">#</a></h2>
 <p>Something you hand to the redirect target exactly once.</p>
 <pre class="code"><code class="lang-java">context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"Saved"</span>);
@@ -353,6 +357,24 @@ in production, pass it in from an environment variable.</p>
 </code></pre>
 <p><strong>With no key set, signing is off entirely.</strong> Nothing throws, cookies read and write as usual,
 and there is no sign that it is not working — so we warn about it at startup.</p>
+<h3 id="turning-signing-on-later">Turning signing on later<a class="anchor" href="#turning-signing-on-later">#</a></h3>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The moment <code>cookie.secret</code> is set for the first time, every cookie already out there is
+thrown away at once</strong> — <code>sid</code>, <code>csrf_token</code>, <code>remember</code>, flash. <strong>Everyone is logged out
+and every form returns 403.</strong> Nothing throws and nothing is logged, because discarding a
+cookie whose signature does not check out is the correct behaviour.</p>
+</div>
+<p><strong>Give yourself a migration window.</strong></p>
+<pre class="code"><code class="lang-conf">cookie {
+	secret          = ${?COOKIE_SECRET}
+	accept_unsigned = <span class="h-k">true</span>    <span class="h-c"># only until the changeover is done</span>
+}
+</code></pre>
+<p>While <code>accept_unsigned</code> is true, <strong>unsigned cookies are read too</strong>. Writing signs from the
+start, so <strong>leaving it alone replaces them</strong>.</p>
+<p><strong>Turn it back off once they are replaced.</strong> Leave it on and <strong>a cookie with its signature
+stripped keeps working</strong>, which is the whole thing you turned signing on to stop. The count
+of unsigned cookies let through is <code>cookie.unsigned</code> — <strong>wait until it reaches 0</strong>.</p>
 <h2 id="rotating-a-key">Rotating a key<a class="anchor" href="#rotating-a-key">#</a></h2>
 <p><strong>Keys can be rotated. Nobody gets logged out.</strong></p>
 <p>Put the new key in <code>secret</code> and the outgoing one in <code>previous_secrets</code>.
@@ -431,7 +453,7 @@ counting accounts whose last login is old, for instance.</strong></p>
 </code></pre>
 <pre class="code"><code class="lang-conf">hash {
 	password {
-		<span class="h-c"># Default: true when cipher.key is set, false when it is not</span>
+		<span class="h-c"># If you set cipher.*, you must set this too (startup fails otherwise)</span>
 		encrypt = <span class="h-k">true</span>
 		pepper  = ${?PASSWORD_PEPPER}
 	}
@@ -475,6 +497,7 @@ For anything new, use <code>Aead</code> (AES-256-GCM).</p>
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookies-default-to-secure--true">Cookies default to secure = true</a></li>
 			<li class="level-2"><a href="#cookies">Cookies</a></li>
+			<li class="level-3"><a href="#turning-signing-on-later">Turning signing on later</a></li>
 			<li class="level-2"><a href="#rotating-a-key">Rotating a key</a></li>
 			<li class="level-3"><a href="#knowing-when-step-3-is-safe">Knowing when step 3 is safe</a></li>
 			<li class="level-3"><a href="#cookies-you-wrote-are-yours-to-rewrite">Cookies you wrote are yours to rewrite</a></li>

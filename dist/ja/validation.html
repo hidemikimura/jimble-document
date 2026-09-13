@@ -289,9 +289,25 @@
 <code>textLengthMax(100)</code> は「入っているなら 100 文字以内」という意味で、
 空文字や <code>null</code> はエラーにしません。<strong>必須は必ず <code>empty()</code> で書いてください。</strong></p>
 </div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>形の検証は、値の全体と突き合わせます。</strong>
+<code>email()</code> <code>url()</code> <code>domain()</code> <code>regex(...)</code> <code>characterType(...)</code> は、
+<strong>中にそれらしい文字列が入っているだけでは通りません</strong>——
+<code>こんにちは a@example.com です</code> は <code>email()</code> で落ちます。
+<code>regex(&quot;[0-9]{4}&quot;)</code> は「全体が4桁の数字」の意味なので、
+<strong>部分一致させたいときは <code>.*</code> で挟んでください。</strong></p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>bool()</code> が通すのは <code>true</code> / <code>false</code> / <code>1</code> / <code>0</code> だけです</strong>（大小は問いません）。
+<code>yes</code> や <code>はい</code> は落ちます——<strong>読み出し側が同じ規則で読む</strong>ので、
+ここを広げると「はい」と答えた人が <code>false</code> として保存されます。</p>
+</div>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
-<p><code>regex(...)</code> は <code>matches</code> ではなく <strong><code>find</code>（部分一致）</strong> です。
-全体に効かせたいときは <code>^</code> と <code>$</code> を自分で書いてください。</p>
+<p><strong><code>date()</code> と <code>date(format)</code> は「読めるかどうか」しか見ていません。</strong>
+<code>2026-13-01</code>（13月）も <code>2026-02-31</code>（2月31日）も、
+<code>2026-09-12x</code>（後ろにゴミ）も <strong>通ります</strong>。
+<code>date()</code> は DB の読み出しやリクエスト変換と同じ共通変換を通っているためです。
+<strong>暦として正しいことまで見たいときは、<code>regex(...)</code> を重ねるか <code>custom(...)</code> を書いてください。</strong></p>
 </div>
 <h2 id="列にまとめる">列にまとめる<a class="anchor" href="#列にまとめる">#</a></h2>
 <pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
@@ -452,12 +468,16 @@ assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h
 <td><code>page = 1</code>、<code>per = 10</code></td>
 </tr>
 <tr>
+<td>上限</td>
+<td><code>paging.max_per</code>（既定 200）。<strong>超える指定は上限に丸めます</strong></td>
+</tr>
+<tr>
 <td>全件</td>
-<td><code>per=all</code>（LIMIT を付けません）</td>
+<td><code>per=all</code>。<strong>上限が効くので、既定では 200 件までです</strong>（<code>paging.max_per = 0</code> で本当に全件）</td>
 </tr>
 <tr>
 <td>キー名の変更</td>
-<td><code>paging.page</code> / <code>paging.per</code>（設定）</td>
+<td><code>paging.name_page</code> / <code>paging.name_per</code>（設定）</td>
 </tr>
 <tr>
 <td>数値でない値</td>
@@ -472,8 +492,8 @@ paging.load(request(<span class="h-s">"2"</span>, <span class="h-s">"10"</span>)
 
 SelectListResponse response = DBUtil.getMainDB().selectListWithRowCount(select().paging(paging));
 
-assertEquals(<span class="h-n">10</span>, response.list.size(), <span class="h-s">"1ページ分だけ取れていない"</span>);
-assertEquals(TOTAL, response.rowCount, <span class="h-s">"総件数が LIMIT に影響されている"</span>);
+assertEquals(<span class="h-n">10</span>, response.list().size(), <span class="h-s">"1ページ分だけ取れていない"</span>);
+assertEquals(TOTAL, response.rowCount(), <span class="h-s">"総件数が LIMIT に影響されている"</span>);
 
 assertEquals(TOTAL, paging.totalCount());
 assertEquals(<span class="h-n">3</span>, paging.maxPage(), <span class="h-s">"25 件を 10 件ずつなら 3 ページ"</span>);

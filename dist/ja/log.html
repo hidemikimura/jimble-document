@@ -343,12 +343,19 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 	access_log = <span class="h-k">false</span>
 }
 </code></pre>
-<p><strong>1リクエストの中でいちばん大きいのがここです</strong>（割り当ての約4割。約 3,400 byte）。
-切ると、行を組み立てる仕事も、ボット判定（User-Agent の照合）も止まります。
-秒あたりの本数は1割ほど変わります（10 コアの Mac・8接続で 52,537 → 57,030 rps）。
-<strong>台によって違うので、切る前に自分の台で測ってください</strong>
-（<code>jimble-load/load.sh</code> が、出す版と出さない版を並べて測ります）。</p>
-<p>**メトリクスとトレースは残ります。**切って消えるのはアクセスログだけです。</p>
+<p><strong>1リクエストの中でいちばん大きいのがここです</strong>（割り当ての約半分。約 1,965 byte）。
+切ると、行を組み立てる仕事も、ボット判定（User-Agent の照合）も止まります。</p>
+<p>秒あたりの本数がどれだけ変わるかは、<strong><code>logback.xml</code> の書き方でほとんど決まります。</strong>
+2コアの台・1接続で測ると（D-172）、アクセスログを切った jimble は<strong>素の helidon の 94%</strong>
+——jimble の上乗せは、測ってもほとんど出てきません。
+そこから、<strong>1行を組み立てるぶんが -10%（p50 で +10µs）</strong>、
+<strong>その1行を JSON にして書き出すぶんが -29%（p50 で +110µs）</strong> です。
+つまり<strong>代金のほとんどは、jimble ではなく logback が同期で書き出すところ</strong>にあります。
+切る前に、まず<strong>出し方</strong>（<code>AsyncAppender</code> を挟む、出す先を変える、項目を減らす）を見てください。</p>
+<p><strong>台によって違うので、自分の台で測ってください</strong>
+（<code>jimble-load/load.sh</code> が、出す版・組み立てるだけの版・出さない版・素の helidon を並べて測ります）。</p>
+<p><strong>メトリクスとトレースは残ります。<strong>切って消えるのはアクセスログだけです。
+どちらも</strong>それ自体はほとんど費用がかかりません</strong>（下記）。</p>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p>**既定は <code>true</code> のままにしてください。**切ると、
 <strong>後から「あのとき何が起きたか」を調べる手段が無くなります。</strong>
@@ -534,6 +541,24 @@ jimble 自身がレイテンシに生のパスではなく <code>GET /posts/{id}
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><code>Metrics.reset()</code> は<strong>テストのためのもの</strong>です。動いているアプリで呼ぶと、それまで数えたものが消えます。</p>
 </div>
+<h3 id="費用と切りたいとき">費用と、切りたいとき<a class="anchor" href="#費用と切りたいとき">#</a></h3>
+<p><strong>数えること自体は 0 byte / 58ns です</strong>（実測）。確保するメモリは<strong>名前1つにつき</strong>数十〜数百 byte で、
+<strong>数えた回数では増えません</strong>。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>高くつくのは名前のほうです。</strong></p>
+<pre class="code"><code class="lang-java">Metrics.count(<span class="h-s">"http.status.%dxx"</span>.formatted(code / <span class="h-n">100</span>));   <span class="h-c">// これで 1000 byte 超</span>
+</code></pre>
+<p>リクエストごとに <code>String.format</code> で組み立てると、<strong>数える処理の全部より重くなります</strong>。
+<strong>名前は先に作って使い回してください</strong>（jimble の中では、ルートの名前は登録時に1度だけ作っています）。</p>
+</div>
+<p>切りたいときは:</p>
+<pre class="code"><code class="lang-conf">metrics {
+	enabled = <span class="h-k">false</span>
+}
+</code></pre>
+<p>切ると <code>count</code> も <code>record</code> も <code>gauge</code> も何もしなくなり、<code>Metrics.snapshot()</code> は<strong>空のまま</strong>を返します。
+<strong>速くはなりません</strong>（もともとほとんど費用がありません）。切る理由があるとすれば、
+数えた値をどこにも出していないアプリで<strong>持っている意味が無い</strong>ときです。</p>
 <h2 id="トレース">トレース<a class="anchor" href="#トレース">#</a></h2>
 <p>サービスをまたいだ1本の流れを見る（要件 NF-O-05）。<strong>使うときだけ依存が増えます。</strong></p>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
@@ -670,6 +695,11 @@ assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<spa
 <td><code>false</code></td>
 <td><code>DBLog.save(...)</code> を有効にする</td>
 </tr>
+<tr>
+<td><code>metrics.enabled</code></td>
+<td><code>true</code></td>
+<td>メトリクスを数える。<code>false</code> で <code>snapshot()</code> が空になる</td>
+</tr>
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">補足</p>
@@ -705,6 +735,7 @@ assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<spa
 			<li class="level-2"><a href="#メトリクス">メトリクス</a></li>
 			<li class="level-3"><a href="#何が勝手に入っているか">何が勝手に入っているか</a></li>
 			<li class="level-3"><a href="#自分で入れる">自分で入れる</a></li>
+			<li class="level-3"><a href="#費用と切りたいとき">費用と、切りたいとき</a></li>
 			<li class="level-2"><a href="#トレース">トレース</a></li>
 			<li class="level-3"><a href="#サービスをまたぐ">サービスをまたぐ</a></li>
 			<li class="level-3"><a href="#ログと突き合わせる">ログと突き合わせる</a></li>

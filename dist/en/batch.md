@@ -74,6 +74,27 @@ while (!isCancelOrder()) {
 
 Press cancel on the admin screen and `isCancelOrder()` turns `true`.
 **In anything long-running, always check it.** A batch that never looks cannot be stopped.
+**Always check it in anything long-running.** A batch that never looks cannot be stopped.
+
+From code that does not extend `AbstractBatch` (a domain-layer call, say), the same signal
+is reachable through the context.
+
+```java
+BatchContext context = Context.current(BatchContext.class);
+
+for (Data row : rows) {
+	if (context.isCancelOrdered()) { break; }
+	// ...
+}
+```
+
+**Both read the same order.** The DB is consulted only once per
+`batch.cancel_check`, so calling it every iteration is fine.
+
+> [!TRAP]
+> **Up to 0.6.0 `BatchContext.isCancelOrdered()` was always false.** The cancel decision
+> lived on `AbstractBatch` and nothing was wired to the context. No exception, no warning —
+> **you find out when you press cancel in production** (wired up in 1.0).
 
 ## Reading a batch of rows at a time
 
@@ -142,7 +163,7 @@ How far it got is recorded in `batch_history.execute_info`.
 | `chunk_failed_at` | which chunk it failed on |
 | `chunk_canceled` | whether it stopped on a cancel |
 
-`chunk_written` is rewritten **every `batch.progress_seconds` (5 by default)**,
+`chunk_written` is rewritten **every `batch.progress` (5 by default)**,
 so the admin screen shows how far along a running batch is.
 
 ### The reading DB and the writing DB are different

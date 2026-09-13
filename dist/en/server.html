@@ -211,18 +211,49 @@
 <pre class="code"><code class="lang-conf">server {
 	host                 = <span class="h-s">""</span>         <span class="h-c"># Address to listen on. Empty means all of them</span>
 	port                 = <span class="h-n">9000</span>
-	max_request_size     = <span class="h-n">10485760</span>   <span class="h-c"># Limit on the request body (10MB)</span>
-	max_header_size      = <span class="h-n">16384</span>      <span class="h-c"># Limit on the headers as a whole (16KB)</span>
-	idle_timeout_seconds = <span class="h-n">60</span>
+	max_request_size     = <span class="h-n">10485760</span>   <span class="h-c"># Limit on the request body (10MiB)</span>
+	max_header_size      = <span class="h-n">16384</span>      <span class="h-c"># Limit on the headers as a whole (16KiB)</span>
+	idle_timeout = <span class="h-n">60s</span>
 	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># Whether to believe X-Forwarded-*</span>
 	compression          = <span class="h-k">true</span>       <span class="h-c"># Whether to gzip responses</span>
 	access_log           = <span class="h-k">true</span>       <span class="h-c"># Whether to write the access log ([Logging](./log))</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># Whether to split out the bot access log</span>
 	strict_routes        = <span class="h-k">false</span>      <span class="h-c"># Throw on routes nothing can reach (turn this on in CI)</span>
 
-	shutdown_grace_seconds   = <span class="h-n">0</span>      <span class="h-c"># From "start stopping" to refusing new requests (seconds)</span>
-	shutdown_timeout_seconds = <span class="h-n">15</span>     <span class="h-c"># How long to wait for in-flight work (seconds)</span>
+	shutdown_grace   = <span class="h-n">0s</span>      <span class="h-c"># From "start stopping" to refusing new requests (seconds)</span>
+	shutdown_timeout = <span class="h-n">15s</span>     <span class="h-c"># How long to wait for in-flight work (seconds)</span>
+
+	backlog            = <span class="h-n">1024</span>  <span class="h-c"># Connections the OS holds while accept catches up</span>
+	write_queue_length = <span class="h-n">0</span>     <span class="h-c"># Length of the response write queue; 0/1 means "no queue"</span>
+	smart_async_writes = <span class="h-k">false</span> <span class="h-c"># With a queue, write inline while it is not busy</span>
 }
+</code></pre>
+<h2 id="accepting-connections-and-writing-responses">Accepting connections and writing responses<a class="anchor" href="#accepting-connections-and-writing-responses">#</a></h2>
+<p><strong><code>backlog</code></strong> is the number of connections <strong>the OS holds for you</strong> while accept catches up.
+Past that, <strong>the OS turns callers away</strong> — it never reaches the application, so
+<strong>not a single line appears in your log</strong>.
+Raise it for bursty traffic (just after a restart, a campaign, a wave of reconnects);
+<strong>it does not make anything faster</strong>. It only lets the backlog wait instead of being refused.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>The OS has its own ceiling</strong> (<code>somaxconn</code> on Linux).
+Raising this does nothing if that one is lower.</p>
+</div>
+<p><strong><code>write_queue_length</code></strong> is the length of the queue responses are written through.
+<strong>At 0 or 1 there is no queue</strong> and the response is written inline (the default).
+At 2 or more, another thread does the writing, so <strong>your handler can move on while a slow
+client is still being written to</strong>. What is queued <strong>sits in memory</strong>, though — a bigger
+queue is not a faster server.</p>
+<p><strong><code>smart_async_writes</code></strong> chooses, when there is a queue, between &quot;always queue&quot; and
+&quot;<strong>write inline while the queue is idle, switch to queueing when it gets busy</strong>&quot;.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>smart_async_writes</code> does nothing on its own.</strong>
+Helidon does not read it unless <code>write_queue_length</code> is <strong>2 or more</strong> (there is no queue otherwise).
+<strong>Leaving <code>write_queue_length</code> at 0 or 1 while setting <code>smart_async_writes = true</code> fails at startup</strong> —
+silently ignoring it would leave you with a setting that &quot;is on but changes nothing&quot;.</p>
+</div>
+<p>The startup log says which one was chosen.</p>
+<pre class="code"><code class="lang-text">サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く）
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く）
 </code></pre>
 <p><strong>Write nothing and you get the defaults above.</strong> What is actually in effect is printed in the startup log.</p>
 <pre class="code"><code class="lang-text">jimble を起動しました: http://localhost:9000
@@ -258,25 +289,26 @@ The port it actually took comes back from <code>server.port()</code>.</p>
 <tbody>
 <tr>
 <td>Request body</td>
-<td><code>server.max_request_size</code> (10MB)</td>
+<td><code>server.max_request_size</code> (10MiB)</td>
 <td><strong>413</strong></td>
 </tr>
 <tr>
 <td>Headers as a whole</td>
-<td><code>server.max_header_size</code> (16KB)</td>
+<td><code>server.max_header_size</code> (16KiB)</td>
 <td>the connection is cut</td>
 </tr>
 <tr>
 <td>A connection doing nothing</td>
-<td><code>server.idle_timeout_seconds</code> (60 seconds)</td>
+<td><code>server.idle_timeout</code> (60 seconds)</td>
 <td>closed</td>
 </tr>
 </tbody>
 </table>
 <p>Uploads have a separate limit of their own (<a href="./upload">File upload</a>).</p>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
-<p><strong>The body limit (10MB by default) is smaller than the total upload limit (50MB by default)</strong>,
-so raise both if you are going to accept large things.</p>
+<p><strong><code>upload.max_total_size</code> larger than <code>server.max_request_size</code> fails at startup</strong>
+— the body is cut here first, so the larger limit could never be reached.
+Raise both if you are going to accept large things (both default to 10MiB).</p>
 </div>
 <p>There are no read or write timeouts.</p>
 <h2 id="behind-a-proxy">Behind a proxy<a class="anchor" href="#behind-a-proxy">#</a></h2>
@@ -351,9 +383,9 @@ so what to return is left to the app.</p>
 <p><strong>It does not stop dead.</strong> <code>stop()</code> goes in this order.</p>
 <ol>
 <li><strong>Mark itself as stopping</strong> — <code>Shutdown.isStopping()</code> becomes true. <strong>Ordinary requests are still served</strong></li>
-<li>Wait <code>server.shutdown_grace_seconds</code> (default 0)</li>
+<li>Wait <code>server.shutdown_grace</code> (default 0)</li>
 <li><strong>Refuse new requests</strong> (503)</li>
-<li>Wait for the in-flight ones to finish, up to <code>server.shutdown_timeout_seconds</code> (default 15 seconds)</li>
+<li>Wait for the in-flight ones to finish, up to <code>server.shutdown_timeout</code> (default 15 seconds)</li>
 <li>Stop the server</li>
 </ol>
 <p><strong>On SIGTERM this runs by itself</strong> (that is what a container sends, and then it waits).</p>
@@ -366,7 +398,7 @@ so what to return is left to the app.</p>
 <p>It takes the load balancer a while to pull this machine out of rotation.
 Answer 503 to the requests that arrive in the meantime and <strong>from the outside that is an error.</strong>
 That is why there is room to wait between step 1 and step 3.
-Put in the health check interval × the failure count (2 seconds × 3, say → <code>shutdown_grace_seconds = 10</code>).</p>
+Put in the health check interval × the failure count (2 seconds × 3, say → <code>shutdown_grace = 10s</code>).</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
 <p><strong>If the wait runs out, it stops with work still in flight.</strong>
@@ -382,7 +414,7 @@ Not stopping at all is the worse outcome (the container kills it).</p>
 <pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/api"</span>, <span class="h-s">"http://backend:8080"</span>));
 </code></pre>
 <p><code>X-Forwarded-For</code> is <strong>appended to the existing value</strong> (not overwritten).
-The timeouts are <code>proxy.connect_timeout_ms</code> (5 seconds) and <code>proxy.request_timeout_ms</code> (30 seconds),
+The timeouts are <code>proxy.connect_timeout</code> (5 seconds) and <code>proxy.request_timeout</code> (30 seconds),
 and a forward that fails returns <strong>502</strong>.</p>
 
 		</article>
@@ -400,6 +432,7 @@ and a forward that fails returns <strong>502</strong>.</p>
 	<nav class="toc" aria-label="On this page">
 		<p class="section">On this page</p>
 		<ul>
+			<li class="level-2"><a href="#accepting-connections-and-writing-responses">Accepting connections and writing responses</a></li>
 			<li class="level-2"><a href="#port">Port</a></li>
 			<li class="level-2"><a href="#the-listen-address">The listen address</a></li>
 			<li class="level-2"><a href="#limits">Limits</a></li>

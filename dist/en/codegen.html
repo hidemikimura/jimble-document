@@ -433,7 +433,7 @@ nullability and comments are the same).
 <h3 id="when-several-servers-start-at-once">When several servers start at once<a class="anchor" href="#when-several-servers-start-at-once">#</a></h3>
 <p>The row in <code>db_lock</code> is taken with <code>FOR UPDATE</code> before anything is applied, so
 <strong>only one machine runs.</strong> The one that could not wait long enough fails to start
-(<code>migration.lock_timeout_seconds</code>, 60 seconds by default).</p>
+(<code>migration.lock_timeout</code>, 60 seconds by default).</p>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p>The lock wait timeout is set <strong>for that session only</strong> (<code>SET SESSION</code>).
 The server-wide setting is left alone.</p>
@@ -637,7 +637,7 @@ tables&quot; and deleting the generated code would hide the cause.</p>
 <pre class="code"><code class="lang-conf">migration {
 	on_startup            = <span class="h-s">"auto"</span>   <span class="h-c"># auto | true | false. auto applies them everywhere but locally</span>
 	down                  = <span class="h-k">false</span>    <span class="h-c"># whether to roll back</span>
-	lock_timeout_seconds  = <span class="h-n">60</span>
+	lock_timeout  = <span class="h-n">1m</span>
 	resource_dir          = <span class="h-s">"migration"</span>
 }
 

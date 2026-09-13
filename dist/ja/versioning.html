@@ -208,24 +208,22 @@
 	<main id="main">
 		<article>
 			<h1 id="版と互換性">版と互換性<a class="anchor" href="#版と互換性">#</a></h1>
-<h2 id="いまは-0x-です">いまは 0.x です<a class="anchor" href="#いまは-0x-です">#</a></h2>
-<p><strong>0.x のあいだは、マイナーを上げるときに壊れることがあります。</strong>
-<a href="https://semver.org/lang/ja/">Semantic Versioning</a> がそう定めていて（1.0 未満は安定を約束しない）、
-jimble もそのとおりに扱います。</p>
-<p><strong>1.0 からは、公開 API を壊す前に非推奨期間を1マイナー以上置きます。</strong></p>
+<h2 id="いまは-10-です">いまは 1.0 です<a class="anchor" href="#いまは-10-です">#</a></h2>
+<p><strong>公開 API を壊す前に、非推奨期間を1マイナー以上置きます。</strong>
+<a href="https://semver.org/lang/ja/">Semantic Versioning</a> のとおりに扱います。</p>
 <table>
 <thead>
 <tr>
 <th></th>
-<th>0.x（いま）</th>
-<th>1.0 以降</th>
+<th>0.x（〜0.6）</th>
+<th>1.0 以降（いま）</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>公開 API を壊す</td>
-<td><strong>マイナーで起きうる</strong></td>
-<td>非推奨期間を1マイナー以上置いてから、次のメジャーで消す</td>
+<td>マイナーで起きうる</td>
+<td><strong>非推奨期間を1マイナー以上置いてから、次のメジャーで消す</strong></td>
 </tr>
 <tr>
 <td>内部実装を変える</td>
@@ -234,16 +232,24 @@ jimble もそのとおりに扱います。</p>
 </tr>
 <tr>
 <td>CHANGELOG に書く</td>
-<td><strong>必ず書く</strong></td>
+<td>必ず書く</td>
 <td>必ず書く</td>
 </tr>
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">補足</p>
-<p><strong>0.x でも、黙って壊すことはしません。</strong>
-約束していないのは「壊さないこと」であって、「知らせること」ではありません。
+<p><strong>黙って壊すことはしません。</strong>
 壊れうる変更は必ず <a href="https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md">CHANGELOG</a> の
-**「変わったこと（挙動）」**に出します。上げる前にそこだけ読めば足ります。</p>
+**「上げる前に見るところ」<strong>と</strong>「変わったこと（挙動）」**に出します。
+上げる前にそこだけ読めば足ります。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>約束が始まるということは、直せなくなるものがあるということです。</strong>
+戻り値の型、record のコンポーネント、public フィールド、<code>interface</code> の abstract、<code>final</code>——
+どれも<strong>非推奨期間で救えません</strong>（同名で代替を置けないので、
+「古いほうを残して新しいほうを足す」ができません）。
+1.0 の前に、公開 103 パッケージ・署名 4,514 行を通読して片付けてあります
+（<a href="https://github.com/hidemikimura/jimble/blob/main/docs/design-1.0.md">docs/design-1.0.md</a>）。</p>
 </div>
 <h2 id="どこまでが公開-api-か">どこまでが公開 API か<a class="anchor" href="#どこまでが公開-api-か">#</a></h2>
 <p><strong>パッケージで線を引いています。</strong></p>
@@ -261,21 +267,50 @@ jimble もそのとおりに扱います。</p>
 </tr>
 <tr>
 <td><strong>内部実装</strong></td>
-<td>入口クラスの内側でしかないもの。<code>io.jimble.db.sql.query.*</code>（<code>SQL</code> の内側）、<code>io.jimble.util.json.encoder</code>（<code>Dson</code> の内側）など</td>
+<td>入口クラスの内側でしかないもの。<code>io.jimble.db.internal.sql.query.*</code>（<code>SQL</code> の内側）、<code>io.jimble.util.internal.json.encoder</code>（<code>Dson</code> の内側）など</td>
+</tr>
+<tr>
+<td><strong>preview</strong></td>
+<td><strong>外部の仕様に追随するので、下の約束の対象外</strong>。いまは <code>io.jimble.mcp.*</code> だけです</td>
 </tr>
 </tbody>
 </table>
 <p>全部の一覧は
 <a href="https://github.com/hidemikimura/jimble/blob/main/docs/api-packages.txt"><code>docs/api-packages.txt</code></a>
 にあります。</p>
+<p><strong>内部は名前で分かります。</strong></p>
+<blockquote>
+<p><strong><code>io.jimble.&lt;モジュール&gt;.internal</code> から下は、全部内部実装です。</strong></p>
+</blockquote>
+<p><code>import</code> に <code>internal</code> が出てきたら、それは<b>触ってはいけないもの</b>です。</p>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>public</code> だから公開 API、ではありません。</strong>
 Java には「モジュールの外から見えるが、使ってほしくはない」を表す修飾子がないので、
-<strong>内部実装も <code>public</code> になっています</strong>。触ってよいかは、上の一覧で見てください。</p>
+<strong>内部実装も <code>public</code> になっています</strong>。<code>internal</code> という名前と、上の一覧が線です。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>設定ファイルに書く名前と、コマンドで打つ名前は公開 API です。</strong>
+<code>logback.xml</code> に書く <code>io.jimble.util.log.encoder.LogbackJsonEncoder</code> や、
+Gradle を使わない CI で打つ <code>io.jimble.db.cli.JimbleDbCli</code> は、
+<strong><code>import</code> されなくても壊せば止まります</strong>。だから <code>internal</code> には入れていません。</p>
 </div>
 <p>**この一覧は古くなりません。**パッケージを増やして一覧に書き忘れると、
 <code>ApiSurfaceTest</code> が落ちます。サンプル（<code>examples/</code>）が内部パッケージを
 import していないかも、同じテストが見ています。</p>
+<h3 id="preview約束の外に置いてあるもの">preview——約束の外に置いてあるもの<a class="anchor" href="#preview約束の外に置いてあるもの">#</a></h3>
+<p><strong><code>io.jimble.mcp.*</code> は 1.0 になっても「壊す前に非推奨期間を1マイナー置く」の対象外です。</strong></p>
+<p><a href="./mcp">MCP</a> は<strong>2年で5版が出ており、毎回破壊的な変更が入っています</strong>
+（2026-07-28 では、セッションと GET ストリームが消えました）。
+jimble は<strong>対応する版を明記して1つだけ実装する</strong>という方針なので、
+仕様が変わるたびに <strong>「公開 API を壊す」か「仕様に追随しない」かの二択</strong>になります。
+<strong>約束の中に入れると、追随できなくなります。</strong></p>
+<p>対応している版は <strong><code>McpProtocol.version()</code></strong> で読めます。
+<strong>定数ではなくメソッドなのは、<code>public static final String</code> が
+アプリのバイトコードへそのまま焼き付くから</strong>です——
+定数のままだと、jimble を上げてもアプリは古い版の文字列を持ち続け、しかも警告が出ません。</p>
+<p><code>io.jimble.mcp.*</code> を使っているなら、<strong>版を上げるときは
+<a href="https://github.com/hidemikimura/jimble/blob/main/CHANGELOG.md">CHANGELOG</a> を読んでください</strong>。
+壊れるときは、必ずそこに書きます。</p>
 <h2 id="シグネチャは同じなのに結果が変わるとき">シグネチャは同じなのに、結果が変わるとき<a class="anchor" href="#シグネチャは同じなのに結果が変わるとき">#</a></h2>
 <p><strong>ここがいちばん大事なところです。</strong></p>
 <p>jimble でこれまで実際に起きた壊れ方は、<strong>ほとんどがシグネチャを変えない変更</strong>でした——
@@ -336,8 +371,9 @@ javadoc に<b>代わりに何を使うか</b>を書きます</li>
 	<nav class="toc" aria-label="このページの中身">
 		<p class="section">このページ</p>
 		<ul>
-			<li class="level-2"><a href="#いまは-0x-です">いまは 0.x です</a></li>
+			<li class="level-2"><a href="#いまは-10-です">いまは 1.0 です</a></li>
 			<li class="level-2"><a href="#どこまでが公開-api-か">どこまでが公開 API か</a></li>
+			<li class="level-3"><a href="#preview約束の外に置いてあるもの">preview——約束の外に置いてあるもの</a></li>
 			<li class="level-2"><a href="#シグネチャは同じなのに結果が変わるとき">シグネチャは同じなのに、結果が変わるとき</a></li>
 			<li class="level-2"><a href="#壊すときに何をするか">壊すときに何をするか</a></li>
 			<li class="level-2"><a href="#版を選ぶ">版を選ぶ</a></li>

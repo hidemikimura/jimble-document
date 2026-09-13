@@ -221,9 +221,9 @@ The text fields sitting in the same body still come out of <code>bodyAll()</code
 		<span class="h-k">for</span> (Object item : list) {
 			UploadFile uploadFile = (UploadFile) item;
 			received.add(<span class="h-s">"%s:%s:%d"</span>.formatted(
-				uploadFile.name, uploadFile.fileName, uploadFile.fileSize));
-			received.add(<span class="h-s">"content="</span> + read(uploadFile.file.toPath()));
-			tempFiles.add(uploadFile.file.toPath());
+				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
+			received.add(<span class="h-s">"content="</span> + read(uploadFile.file().toPath()));
+			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
 }</code></pre>
@@ -296,8 +296,8 @@ If the process dies they stay behind, and we leave that to the OS cleaning out i
 <h2 id="limits">Limits<a class="anchor" href="#limits">#</a></h2>
 <p><strong>The limits apply whether or not you configure them</strong> (requirement NF-S-05).</p>
 <pre class="code"><code class="lang-conf">upload {
-	max_file_size  = <span class="h-n">10485760</span>   <span class="h-c"># per file. 10MB by default</span>
-	max_total_size = <span class="h-n">52428800</span>   <span class="h-c"># per request, in total. 50MB by default</span>
+	max_file_size  = <span class="h-n">10MiB</span>       <span class="h-c"># per file</span>
+	max_total_size = <span class="h-n">10MiB</span>       <span class="h-c"># per request, in total</span>
 	max_files      = <span class="h-n">20</span>         <span class="h-c"># how many</span>
 	temp_dir       = <span class="h-s">""</span>         <span class="h-c"># empty means java.io.tmpdir</span>
 }
@@ -330,8 +330,9 @@ parentheses is a gloss, not what the response says.</p>
 <p>Size is checked <strong>as the data is read</strong>. Measure it after taking everything in
 and you have already written the excess to disk.</p>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
-<p><strong><code>server.max_request_size</code> (10MB by default) bites first.</strong>
-<code>upload.max_total_size</code> defaults to 50MB, so <strong>out of the box, 50MB never arrives.</strong>
+<p><strong><code>server.max_request_size</code> (10MiB by default) bites first.</strong>
+If <code>upload.max_total_size</code> is larger, <strong>startup fails</strong> — the server cuts the body
+first, so the limit you wrote could never be reached.
 If you want to allow large uploads, raise both.</p>
 </div>
 <h2 id="saving">Saving<a class="anchor" href="#saving">#</a></h2>
@@ -340,16 +341,16 @@ If you want to allow large uploads, raise both.</p>
 
 	UploadFile uploadFile = firstFile(context);
 
-	<span class="h-k">if</span> (uploadFile == <span class="h-k">null</span> || uploadFile.fileSize &lt;= <span class="h-n">0</span>) {
+	<span class="h-k">if</span> (uploadFile == <span class="h-k">null</span> || uploadFile.fileSize() &lt;= <span class="h-n">0</span>) {
 		<span class="h-k">return</span> <span class="h-k">null</span>;
 	}
 
-	String extension = extensionOf(uploadFile.fileName);
+	String extension = extensionOf(uploadFile.fileName());
 
 	<span class="h-k">if</span> (!ALLOWED_EXTENSIONS.contains(extension)) {
 		<span class="h-k">throw</span> <span class="h-k">new</span> io.jimble.web.http.HttpException(
 			<span class="h-n">400</span>, <span class="h-s">"受け付けられない形式です: %s（%s のみ）"</span>
-				.formatted(uploadFile.fileName, String.join(<span class="h-s">" "</span>, ALLOWED_EXTENSIONS)));
+				.formatted(uploadFile.fileName(), String.join(<span class="h-s">" "</span>, ALLOWED_EXTENSIONS)));
 	}
 
 	Path dir = Path.of(UPLOAD_DIR);
@@ -361,7 +362,7 @@ If you want to allow large uploads, raise both.</p>
 	 * 一時ファイルはリクエストが終わると消える（要件 F-W-06）。
 	 * 残したいものはここで移す。
 	 */</span>
-	Files.copy(uploadFile.file.toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
+	Files.copy(uploadFile.file().toPath(), dir.resolve(saved), StandardCopyOption.REPLACE_EXISTING);
 
 	<span class="h-k">return</span> saved;
 
