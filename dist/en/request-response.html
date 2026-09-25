@@ -360,8 +360,20 @@ be seen from inside one request.</p>
 <pre class="code"><code class="lang-java">context.response().setResponseHeader(<span class="h-s">"Content-Type"</span>, <span class="h-s">"text/csv; charset=UTF-8"</span>);
 
 <span class="h-k">try</span> (OutputStream out = context.response().outputStream()) {
-	<span class="h-c">// write it row by row; it flows out as you write</span>
+	<span class="h-c">// write it row by row</span>
 }
+</code></pre>
+<p><strong>Calling <code>outputStream()</code> fixes the status and headers.</strong>
+<code>code(...)</code>, cookies put in <code>cookies()</code> and the default <code>Cache-Control: no-store</code> (not overwritten if you set your own)
+are applied at that moment, so settle them first; changes made afterwards do not arrive.
+For 204 / 205 / 304, whatever you write is dropped and a WARN is logged.</p>
+<p><strong>What you write stays buffered until you <code>flush()</code>.</strong> For something written to the end, like a CSV, that is fine as is;
+when the other side should see each piece as soon as it is ready (progress, relaying another server's response), <code>flush()</code> after each write.</p>
+<p>To hand over an <code>InputStream</code>, use <code>send(in, &quot;type&quot;)</code> (or <code>stream(...)</code>).
+<strong>Whenever nothing more is available yet (<code>available()</code> is 0), what has been read so far is sent out.</strong>
+Things already at hand, like files, are written in large chunks; things that trickle in, like another server's streaming response, flow out as they arrive.</p>
+<pre class="code"><code class="lang-java">HttpResponse&lt;InputStream&gt; upstream = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+context.response().code(upstream.statusCode()).send(upstream.body(), <span class="h-s">"text/event-stream"</span>);
 </code></pre>
 <p>If all you want is to report progress, <a href="./sse">SSE</a> is easier.</p>
 <h2 id="sending-twice">Sending twice<a class="anchor" href="#sending-twice">#</a></h2>

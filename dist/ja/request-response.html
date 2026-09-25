@@ -359,8 +359,20 @@ context.response().code(<span class="h-n">201</span>).send();               <spa
 <pre class="code"><code class="lang-java">context.response().setResponseHeader(<span class="h-s">"Content-Type"</span>, <span class="h-s">"text/csv; charset=UTF-8"</span>);
 
 <span class="h-k">try</span> (OutputStream out = context.response().outputStream()) {
-	<span class="h-c">// 1行ずつ書く。書いたそばから流れていく</span>
+	<span class="h-c">// 1行ずつ書く</span>
 }
+</code></pre>
+<p><strong><code>outputStream()</code> を呼んだ時点でステータスとヘッダが決まります。</strong>
+<code>code(...)</code>・<code>cookies()</code> に積んだ Cookie・既定の <code>Cache-Control: no-store</code>（自分で決めていれば上書きしません）は、
+その前に済ませてください。あとから変えても届きません。
+204 / 205 / 304 のときは、書いたものは捨てられて WARN が出ます。</p>
+<p>**書いたものは <code>flush()</code> するまで溜まります。**CSV のように最後まで書き切るものはそのままで構いませんが、
+届いたそばから相手に見せたいとき（途中経過・ほかのサーバーの応答の中継）は、書くたびに <code>flush()</code> してください。</p>
+<p><code>InputStream</code> を渡すときは <code>send(in, &quot;型&quot;)</code>（または <code>stream(...)</code>）です。
+<strong>続きがまだ届いていなければ（<code>available()</code> が 0 なら）、そこまでを送り出します。</strong>
+ファイルのように手元にそろっているものはまとめて書き、別のサーバーのストリーミング応答のように少しずつ届くものは、届いたそばから流れます。</p>
+<pre class="code"><code class="lang-java">HttpResponse&lt;InputStream&gt; upstream = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+context.response().code(upstream.statusCode()).send(upstream.body(), <span class="h-s">"text/event-stream"</span>);
 </code></pre>
 <p>進捗を送りたいだけなら <a href="./sse">SSE</a> のほうが簡単です。</p>
 <h2 id="二重送信">二重送信<a class="anchor" href="#二重送信">#</a></h2>
