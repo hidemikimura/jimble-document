@@ -286,6 +286,10 @@ it does nothing.</p>
 Misspell it as <code>producton</code> and both <code>isLocal()</code> and <code>isProduction()</code> are false.
 <strong>A warning is logged once at startup</strong> — silently falling back to <code>local</code> would let
 <strong>a production machine call itself local</strong> and keep running.</p>
+<p><strong>Names you make up yourself (such as <code>dbtest</code> for tests) are fine.</strong>
+<strong>If <code>application.&lt;that name&gt;.conf</code> exists, no warning is logged</strong> — putting the file there is
+itself the sign that the name was chosen on purpose. A typo has no file with that spelling.
+Either way, none of the checks match.</p>
 <p>For the record, <strong><code>-Djimble.env=prod</code> used to leave <code>isProduction()</code> false</strong> (fixed in 1.0):
 the check only matched the literal <code>production</code>.</p>
 </div>
@@ -344,6 +348,9 @@ put several machines side by side, settle how <code>batch.scheduler_id</code> is
 <h2 id="shutting-down">Shutting down<a class="anchor" href="#shutting-down">#</a></h2>
 <p><code>SIGTERM</code> runs the shutdown path (server, scheduler, DB pool).
 Avoid <code>kill -9</code> — it leaves transactions half finished.</p>
+<p>The process ID is in <code>RUNNING_PID_{port}</code> in the jar's directory (<a href="./server">Server settings</a>).</p>
+<pre class="code"><code class="lang-bash">kill $(cat /opt/app/RUNNING_PID_8080)
+</code></pre>
 <h2 id="check-this-once-it-is-up">Check this once it is up<a class="anchor" href="#check-this-once-it-is-up">#</a></h2>
 <p>The configuration is printed around the first line of the startup log.
 Look at it and check <strong>that it is what you expected.</strong></p>

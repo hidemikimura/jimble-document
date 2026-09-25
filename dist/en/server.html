@@ -409,6 +409,19 @@ Not stopping at all is the worse outcome (the container kills it).</p>
 <p>To have threads you started yourself stop along with it, hand them to <code>Shutdown.add(...)</code>
 (<a href="./execution">Execution model</a>).</p>
 </div>
+<h3 id="the-running-marker-running_pid_port">The running marker (<code>RUNNING_PID_{port}</code>)<a class="anchor" href="#the-running-marker-running_pid_port">#</a></h3>
+<p>Once it is listening, jimble puts a file named like <code>RUNNING_PID_8080</code> in
+<strong>the directory that holds the application jar</strong>. Its content is the process ID.
+It is removed when <code>stop()</code> completes (SIGTERM included).</p>
+<pre class="code"><code class="lang-bash">kill $(cat /opt/app/RUNNING_PID_8080)   # stop it
+test -f /opt/app/RUNNING_PID_8080       # is it running?
+</code></pre>
+<ul>
+<li>The port number is part of the name, so several servers started from the same directory do not erase each other's marker</li>
+<li><strong>When not running from a jar (<code>jimbleRun</code>, tests) nothing is written.</strong> The place is &quot;the jar's directory&quot;, and there is no jar to sit next to</li>
+<li>If a marker from the previous run is still there (<code>kill -9</code>, power loss), it warns and overwrites. <strong>Startup is not blocked</strong></li>
+<li>If it cannot be written (read-only directory, for instance) it warns and keeps listening</li>
+</ul>
 <h2 id="making-jimble-the-proxy">Making jimble the proxy<a class="anchor" href="#making-jimble-the-proxy">#</a></h2>
 <p>The other way round: jimble can forward on to another server.</p>
 <pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/api"</span>, <span class="h-s">"http://backend:8080"</span>));
@@ -442,6 +455,7 @@ and a forward that fails returns <strong>502</strong>.</p>
 			<li class="level-2"><a href="#what-is-not-here">What is not here</a></li>
 			<li class="level-2"><a href="#stopping">Stopping</a></li>
 			<li class="level-3"><a href="#take-the-health-check-down-first">Take the health check down first</a></li>
+			<li class="level-3"><a href="#the-running-marker-running_pid_port">The running marker (RUNNING_PID_{port})</a></li>
 			<li class="level-2"><a href="#making-jimble-the-proxy">Making jimble the proxy</a></li>
 		</ul>
 	</nav>

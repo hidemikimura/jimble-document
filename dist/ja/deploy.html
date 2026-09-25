@@ -286,6 +286,10 @@ application {
 <code>producton</code> のように打ち間違えると、<code>isLocal()</code> も <code>isProduction()</code> も false になります。
 <strong>起動時に1度だけ警告が出ます</strong>——黙って <code>local</code> に倒すと、
 <strong>本番機が「ローカルです」と名乗ったまま動いてしまう</strong>からです。</p>
+<p><strong>自分で名前を付けた環境（テスト用の <code>dbtest</code> など）は使えます。</strong>
+<strong><code>application.&lt;その名前&gt;.conf</code> があれば警告は出ません</strong>——ファイルを置いたこと自体が、
+その名前を意図して付けた印だからです。打ち間違いのほうは、その綴りのファイルがありません。
+どちらの場合も、判定はどれにも当たりません。</p>
 <p>なお、<strong><code>-Djimble.env=prod</code> と書いて <code>isProduction()</code> が false だった時期があります</strong>（1.0 で直しました）。
 判定が <code>production</code> としか一致していませんでした。</p>
 </div>
@@ -338,6 +342,9 @@ java -Djimble.env=prod -jar app.jar
 <h2 id="終了">終了<a class="anchor" href="#終了">#</a></h2>
 <p><code>SIGTERM</code> で終了処理が走ります（サーバー・スケジューラ・DB のプール）。
 <code>kill -9</code> はトランザクションが中途半端に残るので避けてください。</p>
+<p>プロセス ID は jar のディレクトリの <code>RUNNING_PID_{ポート}</code> に入っています（<a href="./server">サーバー設定</a>）。</p>
+<pre class="code"><code class="lang-bash">kill $(cat /opt/app/RUNNING_PID_8080)
+</code></pre>
 <h2 id="起動したら確認すること">起動したら確認すること<a class="anchor" href="#起動したら確認すること">#</a></h2>
 <p>起動ログの1行目あたりに構成が出ます。<strong>思っていたものと合っているか</strong>を見てください。</p>
 <pre class="code"><code class="lang-text">jimble 構成: env=prod / session=db / cache=db / redis=あり / db=[main] / パスワード暗号化=あり

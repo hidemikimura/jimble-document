@@ -407,6 +407,19 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 <p>自分で立てたスレッドも一緒に止めたいなら <code>Shutdown.add(...)</code> に預けてください
 （<a href="./execution">実行モデル</a>）。</p>
 </div>
+<h3 id="動いている印running_pid_ポート">動いている印（<code>RUNNING_PID_{ポート}</code>）<a class="anchor" href="#動いている印running_pid_ポート">#</a></h3>
+<p>待ち受けを始めると、<strong>アプリの jar があるディレクトリ</strong>に
+<code>RUNNING_PID_8080</code> のような名前のファイルを置きます。中身はプロセス ID です。
+<code>stop()</code> が済むと消えます（SIGTERM でも消えます）。</p>
+<pre class="code"><code class="lang-bash">kill $(cat /opt/app/RUNNING_PID_8080)   # 止める
+test -f /opt/app/RUNNING_PID_8080       # 動いているか
+</code></pre>
+<ul>
+<li>名前にポート番号が入るので、同じディレクトリから複数立てても互いの印を消しません</li>
+<li><strong>jar から動いていないとき（<code>jimbleRun</code>・テスト）は置きません</strong>。置く場所が「jar のディレクトリ」なので、無いものの隣には置けません</li>
+<li>前回の印が残っていたら（<code>kill -9</code> や電源断）warn を出して上書きします。<strong>起動は止めません</strong></li>
+<li>書けなくても（ディレクトリが読み取り専用など）warn を出すだけで、待ち受けは続けます</li>
+</ul>
 <h2 id="jimble-をプロキシにする">jimble をプロキシにする<a class="anchor" href="#jimble-をプロキシにする">#</a></h2>
 <p>逆に、jimble から別のサーバーへ流すこともできます。</p>
 <pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/api"</span>, <span class="h-s">"http://backend:8080"</span>));
@@ -440,6 +453,7 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 			<li class="level-2"><a href="#無いもの">無いもの</a></li>
 			<li class="level-2"><a href="#止める">止める</a></li>
 			<li class="level-3"><a href="#ヘルスチェックを先に落とす">ヘルスチェックを先に落とす</a></li>
+			<li class="level-3"><a href="#動いている印running_pid_ポート">動いている印（RUNNING_PID_{ポート}）</a></li>
 			<li class="level-2"><a href="#jimble-をプロキシにする">jimble をプロキシにする</a></li>
 		</ul>
 	</nav>

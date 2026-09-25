@@ -336,6 +336,9 @@ or a fresh clone.</p>
 <p>Put <code>conf/application.dbtest.conf</code> in place and write the connection there.
 <strong>The <code>include</code> on the first line is what reads the shared configuration</strong>
 (<a href="./config">Configuration</a>).</p>
+<p><code>dbtest</code> is a name you make up (it is not in the table in <a href="./deploy">Deploying</a>).
+<strong>As long as <code>application.dbtest.conf</code> exists, the &quot;unknown environment&quot; warning is not logged.</strong>
+<code>isLocal()</code> / <code>isStaging()</code> / <code>isProduction()</code> are all false.</p>
 <pre class="code"><code class="lang-conf">include <span class="h-s">"application.conf"</span>
 
 db {

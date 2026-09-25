@@ -343,6 +343,18 @@ context.response().code(<span class="h-n">201</span>).send();               <spa
 the end of the execution. Write <code>send()</code> explicitly only when you want to finish <strong>with no
 body</strong> (<code>code(204).send()</code>), or when you are returning text directly.</p>
 <pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
+<p><strong>204 / 205 / 304 cannot carry a body</strong> (that is how HTTP defines them).
+If you <code>code(204).send()</code> with something already built by <code>json(...)</code> or similar, <strong>the body is
+dropped and only the status and headers go out</strong> (Set-Cookie still arrives, so answering a logout
+with 204 works). A WARN is logged when something is dropped — a body built for nobody is usually a
+mistake. The body itself is not written to the log.</p>
+<p><strong>If the target of <code>redirect()</code> is the same URL as the request being handled, a
+<code>RedirectLoopException</code> (500) is thrown.</strong> Sent as-is, the browser would fetch the same URL
+again and the same handler would answer with the same target — it never stops. The exception
+goes to <code>error(...)</code> like any other, so whether to show a page or return JSON is decided there.
+Only GET / HEAD are checked; sending <code>POST /login</code> back to <code>/login</code> (PRG) is not stopped.
+Only a one-hop loop back to itself is detected — <code>/a → /b → /a</code> across separate requests cannot
+be seen from inside one request.</p>
 <h2 id="streaming-something-large">Streaming something large<a class="anchor" href="#streaming-something-large">#</a></h2>
 <p>When you do not want the whole thing in memory, use <code>outputStream()</code> directly.</p>
 <pre class="code"><code class="lang-java">context.response().setResponseHeader(<span class="h-s">"Content-Type"</span>, <span class="h-s">"text/csv; charset=UTF-8"</span>);

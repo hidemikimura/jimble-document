@@ -333,6 +333,9 @@ Helidon 側の挙動（ストリーム送信や圧縮）は確かめられませ
 </code></pre>
 <p><code>conf/application.dbtest.conf</code> を置いて、繋ぎ先を書きます。
 <strong>共通の設定を読むのは1行目の <code>include</code> です</strong>（<a href="./config">設定</a>）。</p>
+<p><code>dbtest</code> は自分で付ける名前です（<a href="./deploy">デプロイ</a>の表にはありません）。
+<strong><code>application.dbtest.conf</code> があれば「知らない環境です」の警告は出ません。</strong>
+<code>isLocal()</code> / <code>isStaging()</code> / <code>isProduction()</code> はどれも false になります。</p>
 <pre class="code"><code class="lang-conf">include <span class="h-s">"application.conf"</span>
 
 db {

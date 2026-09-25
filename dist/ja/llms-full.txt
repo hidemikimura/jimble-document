@@ -775,6 +775,18 @@ context.response().code(201).send();               // 本文なし
 get("/posts", context -> context.response().json("posts", BlogApp.listPosts()));
 ```
 
+**204 / 205 / 304 は本文を持てません**（HTTP の決まりです）。
+`json(...)` などを積んだまま `code(204).send()` すると、**本文を捨てて、ステータスとヘッダだけを返します**
+（Set-Cookie は届くので、ログアウトを 204 で返す形も使えます）。
+捨てたときは WARN が出ます——積んだ本文が誰にも届かないのは、たいてい書き間違いだからです。
+本文の中身はログに出しません。
+
+**`redirect()` の飛び先が、いま処理しているリクエストと同じ URL なら `RedirectLoopException` が投げられます**（500）。
+そのまま返すとブラウザが同じ URL を取りに来て、同じ処理が同じ飛び先を返す——止まりません。
+例外は他と同じく `error(...)` に渡るので、画面へ飛ばすか JSON を返すかはそちらで決めます。
+見るのは GET / HEAD のときだけで、`POST /login` から `/login` へ戻す（PRG）は止めません。
+見つけられるのは自分自身へ戻る1段だけで、`/a → /b → /a` のように別のリクエストをまたぐものは分かりません。
+
 ## 大きいものを流す
 
 全部をメモリに載せたくないときは `outputStream()` を直接使います。
@@ -5781,7 +5793,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.1.1-SNAPSHOT
+jimble 1.2.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -5804,7 +5816,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`1.1.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`1.2.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -5922,9 +5934,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.1.0"
-	id("io.jimble.run") version "1.1.0"
-	id("io.jimble.db")  version "1.1.0"
+	id("io.jimble.jte") version "1.2.0"
+	id("io.jimble.run") version "1.2.0"
+	id("io.jimble.db")  version "1.2.0"
 }
 ```
 
@@ -5966,9 +5978,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.1.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "1.1.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "1.1.0"   // DB を使うなら
+	id("io.jimble.jte") version "1.2.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "1.2.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "1.2.0"   // DB を使うなら
 }
 
 repositories {
@@ -5983,7 +5995,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.1.0")
+	implementation("io.jimble:jimble-web:1.2.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6017,7 +6029,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.1.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.2.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -6466,6 +6478,10 @@ tasks.register<Test>("dbTest") {
 
 `conf/application.dbtest.conf` を置いて、繋ぎ先を書きます。
 **共通の設定を読むのは1行目の `include` です**（[設定](./config)）。
+
+`dbtest` は自分で付ける名前です（[デプロイ](./deploy)の表にはありません）。
+**`application.dbtest.conf` があれば「知らない環境です」の警告は出ません。**
+`isLocal()` / `isStaging()` / `isProduction()` はどれも false になります。
 
 ```conf
 include "application.conf"
@@ -7282,6 +7298,22 @@ get("/health_check", context ->
 > 自分で立てたスレッドも一緒に止めたいなら `Shutdown.add(...)` に預けてください
 > （[実行モデル](./execution)）。
 
+### 動いている印（`RUNNING_PID_{ポート}`）
+
+待ち受けを始めると、**アプリの jar があるディレクトリ**に
+`RUNNING_PID_8080` のような名前のファイルを置きます。中身はプロセス ID です。
+`stop()` が済むと消えます（SIGTERM でも消えます）。
+
+```bash
+kill $(cat /opt/app/RUNNING_PID_8080)   # 止める
+test -f /opt/app/RUNNING_PID_8080       # 動いているか
+```
+
+- 名前にポート番号が入るので、同じディレクトリから複数立てても互いの印を消しません
+- **jar から動いていないとき（`jimbleRun`・テスト）は置きません**。置く場所が「jar のディレクトリ」なので、無いものの隣には置けません
+- 前回の印が残っていたら（`kill -9` や電源断）warn を出して上書きします。**起動は止めません**
+- 書けなくても（ディレクトリが読み取り専用など）warn を出すだけで、待ち受けは続けます
+
 ## jimble をプロキシにする
 
 逆に、jimble から別のサーバーへ流すこともできます。
@@ -7821,6 +7853,11 @@ java \
 > **起動時に1度だけ警告が出ます**——黙って `local` に倒すと、
 > **本番機が「ローカルです」と名乗ったまま動いてしまう**からです。
 >
+> **自分で名前を付けた環境（テスト用の `dbtest` など）は使えます。**
+> **`application.<その名前>.conf` があれば警告は出ません**——ファイルを置いたこと自体が、
+> その名前を意図して付けた印だからです。打ち間違いのほうは、その綴りのファイルがありません。
+> どちらの場合も、判定はどれにも当たりません。
+>
 > なお、**`-Djimble.env=prod` と書いて `isProduction()` が false だった時期があります**（1.0 で直しました）。
 > 判定が `production` としか一致していませんでした。
 
@@ -7898,6 +7935,12 @@ java -Djimble.env=prod -cp app.jar my_blog.batch.Batch \
 
 `SIGTERM` で終了処理が走ります（サーバー・スケジューラ・DB のプール）。
 `kill -9` はトランザクションが中途半端に残るので避けてください。
+
+プロセス ID は jar のディレクトリの `RUNNING_PID_{ポート}` に入っています（[サーバー設定](./server)）。
+
+```bash
+kill $(cat /opt/app/RUNNING_PID_8080)
+```
 
 ## 起動したら確認すること
 

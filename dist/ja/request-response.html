@@ -344,6 +344,16 @@ context.response().code(<span class="h-n">201</span>).send();               <spa
 <code>send()</code> を明示するのは、<strong>本文なしで終わらせたいとき</strong>（<code>code(204).send()</code>）や、
 テキストをそのまま返すときです。</p>
 <pre class="code"><code class="lang-java">get(<span class="h-s">"/posts"</span>, context -&gt; context.response().json(<span class="h-s">"posts"</span>, BlogApp.listPosts()));</code></pre>
+<p><strong>204 / 205 / 304 は本文を持てません</strong>（HTTP の決まりです）。
+<code>json(...)</code> などを積んだまま <code>code(204).send()</code> すると、<strong>本文を捨てて、ステータスとヘッダだけを返します</strong>
+（Set-Cookie は届くので、ログアウトを 204 で返す形も使えます）。
+捨てたときは WARN が出ます——積んだ本文が誰にも届かないのは、たいてい書き間違いだからです。
+本文の中身はログに出しません。</p>
+<p><strong><code>redirect()</code> の飛び先が、いま処理しているリクエストと同じ URL なら <code>RedirectLoopException</code> が投げられます</strong>（500）。
+そのまま返すとブラウザが同じ URL を取りに来て、同じ処理が同じ飛び先を返す——止まりません。
+例外は他と同じく <code>error(...)</code> に渡るので、画面へ飛ばすか JSON を返すかはそちらで決めます。
+見るのは GET / HEAD のときだけで、<code>POST /login</code> から <code>/login</code> へ戻す（PRG）は止めません。
+見つけられるのは自分自身へ戻る1段だけで、<code>/a → /b → /a</code> のように別のリクエストをまたぐものは分かりません。</p>
 <h2 id="大きいものを流す">大きいものを流す<a class="anchor" href="#大きいものを流す">#</a></h2>
 <p>全部をメモリに載せたくないときは <code>outputStream()</code> を直接使います。</p>
 <pre class="code"><code class="lang-java">context.response().setResponseHeader(<span class="h-s">"Content-Type"</span>, <span class="h-s">"text/csv; charset=UTF-8"</span>);

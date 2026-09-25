@@ -61,6 +61,11 @@ Case does not matter.
 > **A warning is logged once at startup** — silently falling back to `local` would let
 > **a production machine call itself local** and keep running.
 >
+> **Names you make up yourself (such as `dbtest` for tests) are fine.**
+> **If `application.<that name>.conf` exists, no warning is logged** — putting the file there is
+> itself the sign that the name was chosen on purpose. A typo has no file with that spelling.
+> Either way, none of the checks match.
+>
 > For the record, **`-Djimble.env=prod` used to leave `isProduction()` false** (fixed in 1.0):
 > the check only matched the literal `production`.
 
@@ -143,6 +148,12 @@ put several machines side by side, settle how `batch.scheduler_id` is handled fi
 
 `SIGTERM` runs the shutdown path (server, scheduler, DB pool).
 Avoid `kill -9` — it leaves transactions half finished.
+
+The process ID is in `RUNNING_PID_{port}` in the jar's directory ([Server settings](./server)).
+
+```bash
+kill $(cat /opt/app/RUNNING_PID_8080)
+```
 
 ## Check this once it is up
 

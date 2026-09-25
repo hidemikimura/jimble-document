@@ -784,6 +784,20 @@ body** (`code(204).send()`), or when you are returning text directly.
 get("/posts", context -> context.response().json("posts", BlogApp.listPosts()));
 ```
 
+**204 / 205 / 304 cannot carry a body** (that is how HTTP defines them).
+If you `code(204).send()` with something already built by `json(...)` or similar, **the body is
+dropped and only the status and headers go out** (Set-Cookie still arrives, so answering a logout
+with 204 works). A WARN is logged when something is dropped — a body built for nobody is usually a
+mistake. The body itself is not written to the log.
+
+**If the target of `redirect()` is the same URL as the request being handled, a
+`RedirectLoopException` (500) is thrown.** Sent as-is, the browser would fetch the same URL
+again and the same handler would answer with the same target — it never stops. The exception
+goes to `error(...)` like any other, so whether to show a page or return JSON is decided there.
+Only GET / HEAD are checked; sending `POST /login` back to `/login` (PRG) is not stopped.
+Only a one-hop loop back to itself is detected — `/a → /b → /a` across separate requests cannot
+be seen from inside one request.
+
 ## Streaming something large
 
 When you do not want the whole thing in memory, use `outputStream()` directly.
@@ -5897,7 +5911,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.1.1-SNAPSHOT
+jimble 1.2.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -5921,7 +5935,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`1.1.1-SNAPSHOT`, say),
+was built from**. If that version is not published (`1.2.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6043,9 +6057,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.1.0"
-	id("io.jimble.run") version "1.1.0"
-	id("io.jimble.db")  version "1.1.0"
+	id("io.jimble.jte") version "1.2.0"
+	id("io.jimble.run") version "1.2.0"
+	id("io.jimble.db")  version "1.2.0"
 }
 ```
 
@@ -6088,9 +6102,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.1.0"   // if you use src/main/jte
-	id("io.jimble.run") version "1.1.0"   // if you want hot reload
-	id("io.jimble.db")  version "1.1.0"   // if you use a database
+	id("io.jimble.jte") version "1.2.0"   // if you use src/main/jte
+	id("io.jimble.run") version "1.2.0"   // if you want hot reload
+	id("io.jimble.db")  version "1.2.0"   // if you use a database
 }
 
 repositories {
@@ -6105,7 +6119,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.1.0")
+	implementation("io.jimble:jimble-web:1.2.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6139,7 +6153,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.1.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.2.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -6608,6 +6622,10 @@ tasks.register<Test>("dbTest") {
 Put `conf/application.dbtest.conf` in place and write the connection there.
 **The `include` on the first line is what reads the shared configuration**
 ([Configuration](./config)).
+
+`dbtest` is a name you make up (it is not in the table in [Deploying](./deploy)).
+**As long as `application.dbtest.conf` exists, the "unknown environment" warning is not logged.**
+`isLocal()` / `isStaging()` / `isProduction()` are all false.
 
 ```conf
 include "application.conf"
@@ -7439,6 +7457,22 @@ get("/health_check", context ->
 > To have threads you started yourself stop along with it, hand them to `Shutdown.add(...)`
 > ([Execution model](./execution)).
 
+### The running marker (`RUNNING_PID_{port}`)
+
+Once it is listening, jimble puts a file named like `RUNNING_PID_8080` in
+**the directory that holds the application jar**. Its content is the process ID.
+It is removed when `stop()` completes (SIGTERM included).
+
+```bash
+kill $(cat /opt/app/RUNNING_PID_8080)   # stop it
+test -f /opt/app/RUNNING_PID_8080       # is it running?
+```
+
+- The port number is part of the name, so several servers started from the same directory do not erase each other's marker
+- **When not running from a jar (`jimbleRun`, tests) nothing is written.** The place is "the jar's directory", and there is no jar to sit next to
+- If a marker from the previous run is still there (`kill -9`, power loss), it warns and overwrites. **Startup is not blocked**
+- If it cannot be written (read-only directory, for instance) it warns and keeps listening
+
 ## Making jimble the proxy
 
 The other way round: jimble can forward on to another server.
@@ -7978,6 +8012,11 @@ Case does not matter.
 > **A warning is logged once at startup** — silently falling back to `local` would let
 > **a production machine call itself local** and keep running.
 >
+> **Names you make up yourself (such as `dbtest` for tests) are fine.**
+> **If `application.<that name>.conf` exists, no warning is logged** — putting the file there is
+> itself the sign that the name was chosen on purpose. A typo has no file with that spelling.
+> Either way, none of the checks match.
+>
 > For the record, **`-Djimble.env=prod` used to leave `isProduction()` false** (fixed in 1.0):
 > the check only matched the literal `production`.
 
@@ -8060,6 +8099,12 @@ put several machines side by side, settle how `batch.scheduler_id` is handled fi
 
 `SIGTERM` runs the shutdown path (server, scheduler, DB pool).
 Avoid `kill -9` — it leaves transactions half finished.
+
+The process ID is in `RUNNING_PID_{port}` in the jar's directory ([Server settings](./server)).
+
+```bash
+kill $(cat /opt/app/RUNNING_PID_8080)
+```
 
 ## Check this once it is up
 
