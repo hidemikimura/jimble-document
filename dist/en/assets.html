@@ -279,8 +279,8 @@ The <strong>count differs</strong>, though — SPA and MPA also register the bar
 </table>
 <p>The default for dynamic responses is <code>no-store</code> (requirement F-X-07). <strong>Static serving is the only thing that overrides it.</strong></p>
 <pre class="code"><code class="lang-conf">assets {
-	max_age            = <span class="h-n">0</span>        <span class="h-c"># ordinary files</span>
-	immutable_max_age  = <span class="h-n">31536000</span> <span class="h-c"># for files with a content hash in the name (one year)</span>
+	max_age            = <span class="h-n">0s</span>       <span class="h-c"># ordinary files (write the unit; a bare number fails at startup)</span>
+	immutable_max_age  = <span class="h-n">365d</span>     <span class="h-c"># for files with a content hash in the name (one year)</span>
 	etag               = <span class="h-k">true</span>
 	if_modified_since  = <span class="h-k">true</span>
 }

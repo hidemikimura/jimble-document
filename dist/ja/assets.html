@@ -279,8 +279,8 @@ install(() -&gt; assets);
 </table>
 <p>動的なレスポンスの既定は <code>no-store</code> です（要件 F-X-07）。<strong>静的配信だけがここを上書きします。</strong></p>
 <pre class="code"><code class="lang-conf">assets {
-	max_age            = <span class="h-n">0</span>        <span class="h-c"># 通常のファイル</span>
-	immutable_max_age  = <span class="h-n">31536000</span> <span class="h-c"># 内容ハッシュ付きのファイル向け（1年）</span>
+	max_age            = <span class="h-n">0s</span>       <span class="h-c"># 通常のファイル（単位を書く。素の数値は起動時に落ちる）</span>
+	immutable_max_age  = <span class="h-n">365d</span>     <span class="h-c"># 内容ハッシュ付きのファイル向け（1年）</span>
 	etag               = <span class="h-k">true</span>
 	if_modified_since  = <span class="h-k">true</span>
 }
