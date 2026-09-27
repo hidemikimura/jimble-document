@@ -266,6 +266,11 @@ it falls.</strong></p>
 <td><code>false</code></td>
 <td>Whether <strong>only someone who just typed their password</strong> may pass (below)</td>
 </tr>
+<tr>
+<td><code>Auth.REALM</code></td>
+<td><code>&quot;&quot;</code></td>
+<td>The kind of login. Use it to <strong>let one browser log in to two areas separately</strong> (see &quot;Separate sessions per kind of login&quot;)</td>
+</tr>
 </tbody>
 </table>
 <p>Write it on a block and it applies to every route in it (<a href="./routing">Routing</a>).
@@ -378,6 +383,89 @@ in the session instead and:</p>
 </code></pre>
 <p><strong>The whole session goes.</strong> Clear only the login keys and the shopping cart or the draft
 is <strong>still there for the next person</strong> (which matters on a shared machine).</p>
+<p>On a route with <code>Auth.REALM</code>, only <strong>that kind of login</strong> ends (below).</p>
+<h2 id="separate-sessions-per-kind-of-login">Separate sessions per kind of login<a class="anchor" href="#separate-sessions-per-kind-of-login">#</a></h2>
+<p>When one browser should be able to log in to both, say, an operator console and a member admin
+screen, put <code>Auth.REALM</code> on each block. Each kind gets its own place inside the session, so
+<strong>logging in to one does not wipe out the other.</strong></p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"operator"</span>);
+	attribute(Auth.ROLE, <span class="h-s">"ops"</span>);
+	post(<span class="h-s">"/login"</span>, Ops::login).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+	post(<span class="h-s">"/login/code"</span>, Ops::code).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+	post(<span class="h-s">"/logout"</span>, Ops::logout);
+	get(<span class="h-s">"/me"</span>, Ops::me);
+});
+
+path(<span class="h-s">"/admin"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"member"</span>);
+	attribute(Auth.ROLE, <span class="h-s">"member"</span>);
+	<span class="h-c">// ...</span>
+});
+</code></pre>
+<p>Your code does not change. <code>Auth.login</code> / <code>Auth.principal</code> / <code>Auth.guard</code> / <code>Auth.fullyAuthenticated</code> /
+<code>Auth.logout</code>, and the half-finished two-factor state (<code>Mfa.pending</code> / <code>isPending</code> / <code>complete</code>), <strong>read and
+write the current route's kind.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>On a route with a kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Auth.login</code></td>
+<td>Writes to that kind's place and regenerates the session ID (<strong>other kinds' logins carry over</strong>)</td>
+</tr>
+<tr>
+<td><code>Auth.principal</code> / <code>guard</code></td>
+<td>Look only at that kind. Logged in only as another kind means 401</td>
+</tr>
+<tr>
+<td><code>Auth.logout</code></td>
+<td>Ends <strong>only that kind</strong> (its remember-me and half-finished two-factor state too). If another kind is still logged in, the session ID is regenerated and the rest is kept; otherwise the whole session goes</td>
+</tr>
+<tr>
+<td><code>Auth.logoutAll</code></td>
+<td>Logs out of every kind (the whole session goes)</td>
+</tr>
+</tbody>
+</table>
+<p>Outside a route with a kind, pass it explicitly: <code>Auth.principal(context, &quot;operator&quot;)</code>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Put the login, code-entry and logout routes in the same kind's block.</strong> Put them elsewhere and
+the login lands in one place while reads go to another — <strong>you log in and still get a 401</strong>
+(it fails closed, so nothing leaks).</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>If you use remember-me, give <code>Remember</code> the same kind name.</strong> <code>Auth.logout</code> only forgets the
+remember-me of the same-named kind; with a different name the cookie would survive the logout.
+So <strong><code>Remember.issue</code> throws <code>IllegalStateException</code> when its kind differs from the route's</strong> (you find out at login).
+<strong><code>Remember.restore</code> does nothing when the kinds differ.</strong> An application-wide <code>before(Remember.restore(...))</code>
+(no kind) does not reach blocks that carry a kind, so give such a block its own <code>restore</code> with the same name.</p>
+<p><strong>Put <code>before(Auth::guard)</code> inside the block too.</strong> Application-wide <code>before</code> filters run before a block's own,
+so an application-wide guard <strong>answers 401 before the block's <code>restore</code> gets a chance</strong> (a remembered user is asked to log in every time).</p>
+</div>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"operator"</span>);
+	before(Remember.restore(<span class="h-s">"operator"</span>, Ops::findStaff));    <span class="h-c">// before the guard</span>
+	before(Auth::guard);
+	<span class="h-c">// ...</span>
+});
+
+path(<span class="h-s">""</span>, () -&gt; {                                              <span class="h-c">// group the no-kind pages into a block as well</span>
+	before(Remember.restore(App::findMember));
+	before(Auth::guard);
+	<span class="h-c">// ...</span>
+});
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Without a kind, nothing changes.</strong> The session keys (<code>__auth_id</code> and so on) and the
+&quot;throw the whole session away&quot; logout stay as they were, and sessions from before the upgrade
+still read. This is a separate setting from the two-factor and remember-me kinds (D-182 / D-183,
+the ID namespace), but you normally use the same name for both.</p>
+</div>
 <h2 id="returning-401-and-403">Returning 401 and 403<a class="anchor" href="#returning-401-and-403">#</a></h2>
 <p><code>Auth.guard</code> only throws an <code>HttpException</code>. <strong>Whether that becomes a redirect or JSON is
 your <code>error()</code> handler's decision.</strong></p>
@@ -903,6 +991,7 @@ in &quot;no realm&quot; and keeps using the same code (the framework adds the co
 			<li class="level-2"><a href="#when-someone-keeps-getting-it-wrong">When someone keeps getting it wrong</a></li>
 			<li class="level-2"><a href="#who-is-logged-in">Who is logged in</a></li>
 			<li class="level-2"><a href="#logging-out">Logging out</a></li>
+			<li class="level-2"><a href="#separate-sessions-per-kind-of-login">Separate sessions per kind of login</a></li>
 			<li class="level-2"><a href="#returning-401-and-403">Returning 401 and 403</a></li>
 			<li class="level-2"><a href="#staying-logged-in-remember-me">Staying logged in (remember-me)</a></li>
 			<li class="level-3"><a href="#a-stolen-cookie-still-cannot-change-the-password">A stolen cookie still cannot change the password</a></li>

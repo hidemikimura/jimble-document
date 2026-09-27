@@ -267,6 +267,11 @@
 <td><code>false</code></td>
 <td><strong>いまパスワードを入れた人</strong>だけが通れるか（下記）</td>
 </tr>
+<tr>
+<td><code>Auth.REALM</code></td>
+<td><code>&quot;&quot;</code></td>
+<td>ログインの種別。<strong>同じブラウザで別々にログインさせる</strong>とき（下記「ログインの種別でセッションを分ける」）</td>
+</tr>
 </tbody>
 </table>
 <p>ブロックに書けば、その中のルート全部に付きます（<a href="./routing">ルーティング</a>）。
@@ -380,6 +385,88 @@ me.hasRole(<span class="h-s">"approver"</span>);
 </code></pre>
 <p><strong>セッションを丸ごと捨てます。<strong>ログインの鍵だけ消すと、
 買い物かごや下書きが</strong>次の利用者に見えます</strong>（共用の端末で効きます）。</p>
+<p><code>Auth.REALM</code> を付けたルートでは、<strong>その種別のログインだけ</strong>を終えます（下記）。</p>
+<h2 id="ログインの種別でセッションを分ける">ログインの種別でセッションを分ける<a class="anchor" href="#ログインの種別でセッションを分ける">#</a></h2>
+<p>運用者の画面と利用者の管理画面のように、<strong>同じブラウザで両方にログインしたい</strong>ときは、
+ブロックに <code>Auth.REALM</code> を付けます。種別ごとにセッションの中の置き場所が分かれるので、
+<strong>片方にログインしても、もう片方のログインは消えません。</strong></p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"operator"</span>);
+	attribute(Auth.ROLE, <span class="h-s">"ops"</span>);
+	post(<span class="h-s">"/login"</span>, Ops::login).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+	post(<span class="h-s">"/login/code"</span>, Ops::code).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+	post(<span class="h-s">"/logout"</span>, Ops::logout);
+	get(<span class="h-s">"/me"</span>, Ops::me);
+});
+
+path(<span class="h-s">"/admin"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"member"</span>);
+	attribute(Auth.ROLE, <span class="h-s">"member"</span>);
+	<span class="h-c">// ...</span>
+});
+</code></pre>
+<p>コードは変わりません。<code>Auth.login</code> / <code>Auth.principal</code> / <code>Auth.guard</code> / <code>Auth.fullyAuthenticated</code> / <code>Auth.logout</code>、
+二要素認証の途中の状態（<code>Mfa.pending</code> / <code>isPending</code> / <code>complete</code>）は、<strong>いまのルートの種別で読み書きします。</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>種別を付けたルートでは</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Auth.login</code></td>
+<td>その種別の置き場所に入れる。セッション ID は振り直す（<strong>ほかの種別のログインは持ち越す</strong>）</td>
+</tr>
+<tr>
+<td><code>Auth.principal</code> / <code>guard</code></td>
+<td>その種別の置き場所だけを見る。別の種別にだけログインしていれば 401</td>
+</tr>
+<tr>
+<td><code>Auth.logout</code></td>
+<td><strong>その種別だけ</strong>を終える（remember-me・二要素認証の途中の状態も）。ほかの種別が残っていればセッション ID を振り直して保ち、残っていなければ丸ごと捨てる</td>
+</tr>
+<tr>
+<td><code>Auth.logoutAll</code></td>
+<td>すべての種別から出る（丸ごと捨てる）</td>
+</tr>
+</tbody>
+</table>
+<p>種別を決めたルートの外から扱うときは、<code>Auth.principal(context, &quot;operator&quot;)</code> のように種別を渡します。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>ログインの入口・コードを入れる口・ログアウトも、同じ種別のブロックに置いてください。</strong>
+別のブロックに置くと、ログインした先と読みに行く先が食い違い、<strong>入ったはずなのに 401</strong> になります
+（閉じる側に倒れるので、漏れはしません）。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>remember-me を使うなら、<code>Remember</code> の種別も同じ名前にしてください。</strong>
+<code>Auth.logout</code> は同じ名前の種別の記憶だけを消すので、名前が違うと記憶が残ります。
+そこで、<strong><code>Remember.issue</code> の種別がルートの種別と違えば <code>IllegalStateException</code> で止めます</strong>（ログインのときに気づきます）。
+**<code>Remember.restore</code> は、種別が違えば何もしません。**アプリ全体に置いた <code>before(Remember.restore(...))</code>（種別なし）は
+種別を付けたブロックには効かないので、そのブロックには同じ名前の <code>restore</code> を別に置いてください。</p>
+<p>**そのとき <code>before(Auth::guard)</code> もブロックの中に置いてください。**アプリ全体の <code>before</code> はブロックの <code>before</code> より先に走るので、
+アプリ全体に guard があると、<strong>ブロックの <code>restore</code> が思い出す前に 401 になります</strong>（覚えていても毎回ログインを求められます）。</p>
+</div>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"operator"</span>);
+	before(Remember.restore(<span class="h-s">"operator"</span>, Ops::findStaff));    <span class="h-c">// guard より先に</span>
+	before(Auth::guard);
+	<span class="h-c">// ...</span>
+});
+
+path(<span class="h-s">""</span>, () -&gt; {                                              <span class="h-c">// 種別なしの画面もブロックにまとめる</span>
+	before(Remember.restore(App::findMember));
+	before(Auth::guard);
+	<span class="h-c">// ...</span>
+});
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**種別を付けなければ、これまでどおりです。**置き場所の鍵（<code>__auth_id</code> など）も、
+ログアウトで丸ごと捨てる動きも変わりません。上げる前のセッションも、そのまま読めます。
+二要素認証と remember-me の種別（D-182 / D-183。ID の名前空間）とは別の設定ですが、
+ふつうは同じ名前にそろえます。</p>
+</div>
 <h2 id="401-と-403-の返し方">401 と 403 の返し方<a class="anchor" href="#401-と-403-の返し方">#</a></h2>
 <p><code>Auth.guard</code> は <code>HttpException</code> を投げるだけです。
 <strong>画面へ飛ばすか JSON を返すかは、アプリの <code>error()</code> が決めます。</strong></p>
@@ -902,6 +989,7 @@ Mfa.remainingRecoveryCodes(<span class="h-s">"operator"</span>, staff.id());
 			<li class="level-2"><a href="#何度も間違えられたとき">何度も間違えられたとき</a></li>
 			<li class="level-2"><a href="#いま誰か">いま誰か</a></li>
 			<li class="level-2"><a href="#ログアウト">ログアウト</a></li>
+			<li class="level-2"><a href="#ログインの種別でセッションを分ける">ログインの種別でセッションを分ける</a></li>
 			<li class="level-2"><a href="#401-と-403-の返し方">401 と 403 の返し方</a></li>
 			<li class="level-2"><a href="#ログインしたままにするremember-me">ログインしたままにする（remember-me）</a></li>
 			<li class="level-3"><a href="#cookie-を盗まれてもパスワードは変えられない">Cookie を盗まれても、パスワードは変えられない</a></li>
