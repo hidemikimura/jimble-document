@@ -489,6 +489,27 @@ McpNotify.resourceUpdated(<span class="h-s">"blog://posts/"</span> + post.getId(
 	page_size = <span class="h-n">100</span>
 }
 </code></pre>
+<h2 id="キャッシュの目安">キャッシュの目安<a class="anchor" href="#キャッシュの目安">#</a></h2>
+<p>2026-07-28 では、<code>tools/list</code> / <code>prompts/list</code> / <code>resources/list</code> / <code>resources/read</code> の結果に
+<strong><code>ttlMs</code>（新しいとみなしてよい長さ）と <code>cacheScope</code>（誰がキャッシュしてよいか）が必須</strong>です。
+jimble はいつも次の値を付けます。</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"resultType"</span>:<span class="h-s">"complete"</span>,<span class="h-s">"tools"</span>:[...],<span class="h-s">"ttlMs"</span>:<span class="h-n">0</span>,<span class="h-s">"cacheScope"</span>:<span class="h-s">"private"</span>}
+</code></pre>
+<ul>
+<li><strong><code>ttlMs</code> は 0</strong>（要るたびに取り直してよい）。付けなかったときにクライアントが仮定する値と同じなので、
+動きは変わりません。ツールとプロンプトの一覧は配備し直すと変わるのに <code>list_changed</code> を出さないので、
+正の値にするとクライアントが古い一覧を持ち続けます</li>
+<li><strong><code>cacheScope</code> は <code>private</code></strong>（頼んだ本人のクライアントだけ）。<code>resources/read</code> の中身はログイン中の人次第で変わりえますし、
+一覧をアプリが認証の奥に置いているかを jimble は知りません。<code>public</code> にすると、共有の中継が別の人にそのまま返せてしまいます</li>
+<li><strong>中身が変わらないリソースは、自分で長くできます。</strong><code>toContents</code> を差し替えて入れたものはそのまま返します</li>
+</ul>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">public</span> Data toContents (String uri, String text) {
+	Data data = McpResource.<span class="h-k">super</span>.toContents(uri, text);
+	data.put(<span class="h-s">"ttlMs"</span>, <span class="h-n">3</span>_600_000L);	<span class="h-c">// 1時間</span>
+	<span class="h-k">return</span> data;
+}
+</code></pre>
 <h2 id="口は1本">口は1本<a class="anchor" href="#口は1本">#</a></h2>
 <p>HTTP で公開されるのは <code>POST /mcp</code> の1本だけです。</p>
 <ul>
@@ -552,6 +573,7 @@ McpNotify.resourceUpdated(<span class="h-s">"blog://posts/"</span> + post.getId(
 			<li class="level-3"><a href="#標準出力に何も書かないでください">標準出力に何も書かないでください</a></li>
 			<li class="level-2"><a href="#変わったことを知らせる">変わったことを知らせる</a></li>
 			<li class="level-2"><a href="#一覧が多いとき">一覧が多いとき</a></li>
+			<li class="level-2"><a href="#キャッシュの目安">キャッシュの目安</a></li>
 			<li class="level-2"><a href="#口は1本">口は1本</a></li>
 			<li class="level-2"><a href="#origin-を必ず設定してください">Origin を必ず設定してください</a></li>
 			<li class="level-2"><a href="#つなぐ">つなぐ</a></li>

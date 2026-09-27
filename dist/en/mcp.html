@@ -489,6 +489,28 @@ have the client read the same page forever, with no error anywhere</li>
 	page_size = <span class="h-n">100</span>
 }
 </code></pre>
+<h2 id="cache-hints">Cache hints<a class="anchor" href="#cache-hints">#</a></h2>
+<p>In 2026-07-28, the results of <code>tools/list</code> / <code>prompts/list</code> / <code>resources/list</code> / <code>resources/read</code>
+<strong>must carry <code>ttlMs</code> (how long the result stays fresh) and <code>cacheScope</code> (who may cache it)</strong>.
+jimble always sends these values:</p>
+<pre class="code"><code class="lang-json">{<span class="h-s">"resultType"</span>:<span class="h-s">"complete"</span>,<span class="h-s">"tools"</span>:[...],<span class="h-s">"ttlMs"</span>:<span class="h-n">0</span>,<span class="h-s">"cacheScope"</span>:<span class="h-s">"private"</span>}
+</code></pre>
+<ul>
+<li><strong><code>ttlMs</code> is 0</strong> (re-fetch whenever needed). That is what a client assumes when the field is missing,
+so nothing changes in behaviour. The tool and prompt lists change when you redeploy, yet no <code>list_changed</code> is sent,
+so a positive value would leave clients holding a stale list</li>
+<li><strong><code>cacheScope</code> is <code>private</code></strong> (only the requesting user's client). What <code>resources/read</code> returns may depend on who is logged in,
+and jimble cannot tell whether the application keeps the lists behind authentication. <code>public</code> would let a shared gateway
+hand the result to someone else</li>
+<li><strong>A resource whose content never changes can ask for longer.</strong> Whatever an overridden <code>toContents</code> puts in is returned as is</li>
+</ul>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">public</span> Data toContents (String uri, String text) {
+	Data data = McpResource.<span class="h-k">super</span>.toContents(uri, text);
+	data.put(<span class="h-s">"ttlMs"</span>, <span class="h-n">3</span>_600_000L);	<span class="h-c">// one hour</span>
+	<span class="h-k">return</span> data;
+}
+</code></pre>
 <h2 id="one-way-in">One way in<a class="anchor" href="#one-way-in">#</a></h2>
 <p>Over HTTP, the only thing exposed is <code>POST /mcp</code>.</p>
 <ul>
@@ -552,6 +574,7 @@ you make to learn the version.</p>
 			<li class="level-3"><a href="#do-not-write-anything-to-standard-output">Do not write anything to standard output</a></li>
 			<li class="level-2"><a href="#telling-the-client-something-changed">Telling the client something changed</a></li>
 			<li class="level-2"><a href="#when-a-list-gets-long">When a list gets long</a></li>
+			<li class="level-2"><a href="#cache-hints">Cache hints</a></li>
 			<li class="level-2"><a href="#one-way-in">One way in</a></li>
 			<li class="level-2"><a href="#always-configure-origin">Always configure Origin</a></li>
 			<li class="level-2"><a href="#connecting-to-it">Connecting to it</a></li>

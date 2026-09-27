@@ -2487,6 +2487,33 @@ leave **the real user locked out and the thief still in.**
 > cookie still works** — which is the whole point of changing the password. It is also
 > what "log out everywhere" is.
 
+### More than one kind of login
+
+If your IDs come from **separate tables** — an operator console and a member admin screen,
+say — **pass a realm.** Without one, the memory is kept by user ID alone, so **a cookie
+remembered for an operator is restored on the member screen as "the member with the same ID"**
+— someone gets in as a different person without typing a password.
+
+```java
+path("/ops", () -> {
+	before(Remember.restore("operator", Ops::findStaff));
+	before(Auth::guard);
+});
+
+Remember.issue(context, principal, "operator");   // at login
+Remember.forgetAll("operator", staffId);          // when the password changes
+```
+
+- **The cookie name is split per realm** (`remember_operator`: the configured name + `_` + realm),
+  so being logged in to both on the same host does not overwrite either cookie
+- **Restoring also checks the realm stored with the memory.** A cookie sent under the wrong name
+  still cannot get in as someone from another realm
+- `forgetAll` and theft detection only remove **that realm's memories for that person**
+- **`Auth.logout` forgets "no realm" and every realm the application uses** (the whole session is
+  dropped, so every kind of login ends)
+- **Without a realm, nothing changes.** The cookie name stays the same, and memories from before
+  the upgrade keep working
+
 ## "Sign in with Google" (OpenID Connect)
 
 ```java
@@ -2578,6 +2605,15 @@ is parked with `Mfa.pending` and sent to that screen — exactly as on the passw
 > **Without it, that person cannot get in** (they get a 401).
 > In 0.6.0 they were **silently logged in**, so **choosing "Sign in with Google" skipped
 > the second factor entirely.** Refusing beats waving them through (fixed in 1.0).
+
+If you have more than one kind of login (see "More than one kind of login" below), pass the
+**realm as the fourth argument**.
+
+```java
+get("/ops/auth/google/callback"
+	, Oidc.callback("google", Ops::findStaff, "/ops/login/code", "operator"))
+	.attribute(Auth.PUBLIC, true);
+```
 
 ### What this does not do
 
@@ -2694,6 +2730,38 @@ post("/mfa/disable", Mfa2::disable).attribute(Auth.FULL_AUTH, true);
 > stole the cookie remove the second factor** — which is the whole of it. Put
 > `attribute(Auth.FULL_AUTH, true)` on the route so only someone who **just typed the
 > password** can get there.
+
+### More than one kind of login
+
+If your IDs come from **separate tables** — an operator console and a member admin screen,
+say — **pass a realm.** Without one, `staff.id = 1` and `member.id = 1` are treated as
+**the same "user 1"**: one enrolling **overwrites the other's secret**, and one's code opens
+the other's login.
+
+```java
+// operator login
+if (Mfa.isActive("operator", staff.id())) {
+	Mfa.pending(context, principal, "operator");   // the realm is kept in the session
+	context.response().redirect("/ops/login/code");
+	return;
+}
+
+// POST /ops/login/code — complete() checks against the realm given to pending
+Mfa.complete(context, code);
+
+// enrol, activate, turn off, count recovery codes
+Mfa.enroll("operator", staff.id(), staff.email());
+Mfa.activate("operator", staff.id(), code);
+Mfa.disable("operator", staff.id());
+Mfa.remainingRecoveryCodes("operator", staff.id());
+```
+
+- **`complete()` takes no realm.** It checks against the realm given to `pending` — if the
+  side receiving the code could choose, it would open **a way to check against another realm's secret**
+- A realm is **letters, digits, `_` and `-`, up to 64 characters**. An empty string means "no realm"
+- **Calls without a realm behave exactly as before.** Anyone enrolled before realms existed ends up
+  in "no realm" and keeps using the same code (the framework adds the column the first time it is used)
+- Brute-force counting (`Lockout`) is per realm too
 
 ### What it is, and what it is not
 
@@ -5835,6 +5903,33 @@ mcp {
 }
 ```
 
+## Cache hints
+
+In 2026-07-28, the results of `tools/list` / `prompts/list` / `resources/list` / `resources/read`
+**must carry `ttlMs` (how long the result stays fresh) and `cacheScope` (who may cache it)**.
+jimble always sends these values:
+
+```json
+{"resultType":"complete","tools":[...],"ttlMs":0,"cacheScope":"private"}
+```
+
+- **`ttlMs` is 0** (re-fetch whenever needed). That is what a client assumes when the field is missing,
+  so nothing changes in behaviour. The tool and prompt lists change when you redeploy, yet no `list_changed` is sent,
+  so a positive value would leave clients holding a stale list
+- **`cacheScope` is `private`** (only the requesting user's client). What `resources/read` returns may depend on who is logged in,
+  and jimble cannot tell whether the application keeps the lists behind authentication. `public` would let a shared gateway
+  hand the result to someone else
+- **A resource whose content never changes can ask for longer.** Whatever an overridden `toContents` puts in is returned as is
+
+```java
+@Override
+public Data toContents (String uri, String text) {
+	Data data = McpResource.super.toContents(uri, text);
+	data.put("ttlMs", 3_600_000L);	// one hour
+	return data;
+}
+```
+
 ## One way in
 
 Over HTTP, the only thing exposed is `POST /mcp`.
@@ -5928,7 +6023,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.2.2-SNAPSHOT
+jimble 1.3.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -5952,7 +6047,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`1.2.2-SNAPSHOT`, say),
+was built from**. If that version is not published (`1.3.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6074,9 +6169,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.2.1"
-	id("io.jimble.run") version "1.2.1"
-	id("io.jimble.db")  version "1.2.1"
+	id("io.jimble.jte") version "1.3.0"
+	id("io.jimble.run") version "1.3.0"
+	id("io.jimble.db")  version "1.3.0"
 }
 ```
 
@@ -6119,9 +6214,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.2.1"   // if you use src/main/jte
-	id("io.jimble.run") version "1.2.1"   // if you want hot reload
-	id("io.jimble.db")  version "1.2.1"   // if you use a database
+	id("io.jimble.jte") version "1.3.0"   // if you use src/main/jte
+	id("io.jimble.run") version "1.3.0"   // if you want hot reload
+	id("io.jimble.db")  version "1.3.0"   // if you use a database
 }
 
 repositories {
@@ -6136,7 +6231,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.2.1")
+	implementation("io.jimble:jimble-web:1.3.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6170,7 +6265,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.2.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.3.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on

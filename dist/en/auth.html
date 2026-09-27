@@ -479,6 +479,30 @@ leave <strong>the real user locked out and the thief still in.</strong></p>
 cookie still works</strong> — which is the whole point of changing the password. It is also
 what &quot;log out everywhere&quot; is.</p>
 </div>
+<h3 id="more-than-one-kind-of-login">More than one kind of login<a class="anchor" href="#more-than-one-kind-of-login">#</a></h3>
+<p>If your IDs come from <strong>separate tables</strong> — an operator console and a member admin screen,
+say — <strong>pass a realm.</strong> Without one, the memory is kept by user ID alone, so <strong>a cookie
+remembered for an operator is restored on the member screen as &quot;the member with the same ID&quot;</strong>
+— someone gets in as a different person without typing a password.</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	before(Remember.restore(<span class="h-s">"operator"</span>, Ops::findStaff));
+	before(Auth::guard);
+});
+
+Remember.issue(context, principal, <span class="h-s">"operator"</span>);   <span class="h-c">// at login</span>
+Remember.forgetAll(<span class="h-s">"operator"</span>, staffId);          <span class="h-c">// when the password changes</span>
+</code></pre>
+<ul>
+<li><strong>The cookie name is split per realm</strong> (<code>remember_operator</code>: the configured name + <code>_</code> + realm),
+so being logged in to both on the same host does not overwrite either cookie</li>
+<li><strong>Restoring also checks the realm stored with the memory.</strong> A cookie sent under the wrong name
+still cannot get in as someone from another realm</li>
+<li><code>forgetAll</code> and theft detection only remove <strong>that realm's memories for that person</strong></li>
+<li><strong><code>Auth.logout</code> forgets &quot;no realm&quot; and every realm the application uses</strong> (the whole session is
+dropped, so every kind of login ends)</li>
+<li><strong>Without a realm, nothing changes.</strong> The cookie name stays the same, and memories from before
+the upgrade keep working</li>
+</ul>
 <h2 id="sign-in-with-google-openid-connect">&quot;Sign in with Google&quot; (OpenID Connect)<a class="anchor" href="#sign-in-with-google-openid-connect">#</a></h2>
 <pre class="code"><code class="lang-java">{
 	before(Auth::guard);
@@ -595,6 +619,12 @@ is parked with <code>Mfa.pending</code> and sent to that screen — exactly as o
 In 0.6.0 they were <strong>silently logged in</strong>, so <strong>choosing &quot;Sign in with Google&quot; skipped
 the second factor entirely.</strong> Refusing beats waving them through (fixed in 1.0).</p>
 </div>
+<p>If you have more than one kind of login (see &quot;More than one kind of login&quot; below), pass the
+<strong>realm as the fourth argument</strong>.</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/ops/auth/google/callback"</span>
+	, Oidc.callback(<span class="h-s">"google"</span>, Ops::findStaff, <span class="h-s">"/ops/login/code"</span>, <span class="h-s">"operator"</span>))
+	.attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+</code></pre>
 <h3 id="what-this-does-not-do">What this does not do<a class="anchor" href="#what-this-does-not-do">#</a></h3>
 <table>
 <thead>
@@ -745,6 +775,35 @@ stole the cookie remove the second factor</strong> — which is the whole of it.
 <code>attribute(Auth.FULL_AUTH, true)</code> on the route so only someone who <strong>just typed the
 password</strong> can get there.</p>
 </div>
+<h3 id="more-than-one-kind-of-login-2">More than one kind of login<a class="anchor" href="#more-than-one-kind-of-login-2">#</a></h3>
+<p>If your IDs come from <strong>separate tables</strong> — an operator console and a member admin screen,
+say — <strong>pass a realm.</strong> Without one, <code>staff.id = 1</code> and <code>member.id = 1</code> are treated as
+<strong>the same &quot;user 1&quot;</strong>: one enrolling <strong>overwrites the other's secret</strong>, and one's code opens
+the other's login.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// operator login</span>
+<span class="h-k">if</span> (Mfa.isActive(<span class="h-s">"operator"</span>, staff.id())) {
+	Mfa.pending(context, principal, <span class="h-s">"operator"</span>);   <span class="h-c">// the realm is kept in the session</span>
+	context.response().redirect(<span class="h-s">"/ops/login/code"</span>);
+	<span class="h-k">return</span>;
+}
+
+<span class="h-c">// POST /ops/login/code — complete() checks against the realm given to pending</span>
+Mfa.complete(context, code);
+
+<span class="h-c">// enrol, activate, turn off, count recovery codes</span>
+Mfa.enroll(<span class="h-s">"operator"</span>, staff.id(), staff.email());
+Mfa.activate(<span class="h-s">"operator"</span>, staff.id(), code);
+Mfa.disable(<span class="h-s">"operator"</span>, staff.id());
+Mfa.remainingRecoveryCodes(<span class="h-s">"operator"</span>, staff.id());
+</code></pre>
+<ul>
+<li><strong><code>complete()</code> takes no realm.</strong> It checks against the realm given to <code>pending</code> — if the
+side receiving the code could choose, it would open <strong>a way to check against another realm's secret</strong></li>
+<li>A realm is <strong>letters, digits, <code>_</code> and <code>-</code>, up to 64 characters</strong>. An empty string means &quot;no realm&quot;</li>
+<li><strong>Calls without a realm behave exactly as before.</strong> Anyone enrolled before realms existed ends up
+in &quot;no realm&quot; and keeps using the same code (the framework adds the column the first time it is used)</li>
+<li>Brute-force counting (<code>Lockout</code>) is per realm too</li>
+</ul>
 <h3 id="what-it-is-and-what-it-is-not">What it is, and what it is not<a class="anchor" href="#what-it-is-and-what-it-is-not">#</a></h3>
 <table>
 <thead>
@@ -848,6 +907,7 @@ password</strong> can get there.</p>
 			<li class="level-2"><a href="#staying-logged-in-remember-me">Staying logged in (remember-me)</a></li>
 			<li class="level-3"><a href="#a-stolen-cookie-still-cannot-change-the-password">A stolen cookie still cannot change the password</a></li>
 			<li class="level-3"><a href="#theft-shows-up">Theft shows up</a></li>
+			<li class="level-3"><a href="#more-than-one-kind-of-login">More than one kind of login</a></li>
 			<li class="level-2"><a href="#sign-in-with-google-openid-connect">"Sign in with Google" (OpenID Connect)</a></li>
 			<li class="level-3"><a href="#authorization-code--pkce-only">Authorization code + PKCE only</a></li>
 			<li class="level-3"><a href="#verifying-the-id-token">Verifying the ID token</a></li>
@@ -859,6 +919,7 @@ password</strong> can get there.</p>
 			<li class="level-3"><a href="#recovery-codes">Recovery codes</a></li>
 			<li class="level-3"><a href="#against-brute-force">Against brute force</a></li>
 			<li class="level-3"><a href="#turning-it-off">Turning it off</a></li>
+			<li class="level-3"><a href="#more-than-one-kind-of-login-2">More than one kind of login</a></li>
 			<li class="level-3"><a href="#what-it-is-and-what-it-is-not">What it is, and what it is not</a></li>
 			<li class="level-2"><a href="#basic-auth">Basic auth</a></li>
 			<li class="level-2"><a href="#what-this-does-not-do-2">What this does not do</a></li>

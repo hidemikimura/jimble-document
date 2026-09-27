@@ -482,6 +482,28 @@ me.hasRole(<span class="h-s">"approver"</span>);
 呼ばないと、<strong>盗まれた Cookie はそのまま使えます</strong>——変えた意味がありません。
 「全端末からログアウト」も同じものです。</p>
 </div>
+<h3 id="ログインの種別が複数あるとき">ログインの種別が複数あるとき<a class="anchor" href="#ログインの種別が複数あるとき">#</a></h3>
+<p>運用者の画面と利用者の管理画面のように、<strong>別々の表から引く ID</strong> があるなら、
+**種別（realm）を渡してください。**渡さないと記憶は利用者 ID だけで持つので、
+<strong>運用者として覚えた Cookie が、利用者の画面で「同じ ID の利用者」として思い出されます</strong>——
+パスワードを入れずに、別の人として入れてしまいます。</p>
+<pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	before(Remember.restore(<span class="h-s">"operator"</span>, Ops::findStaff));
+	before(Auth::guard);
+});
+
+Remember.issue(context, principal, <span class="h-s">"operator"</span>);   <span class="h-c">// ログインのとき</span>
+Remember.forgetAll(<span class="h-s">"operator"</span>, staffId);          <span class="h-c">// パスワードを変えたとき</span>
+</code></pre>
+<ul>
+<li><strong>Cookie の名前が種別ごとに分かれます</strong>（<code>remember_operator</code> のように、設定の名前 + <code>_</code> + 種別）。
+同じホストで両方にログインしていても、互いの Cookie を上書きしません</li>
+<li>**思い出すときは、記憶の種別も見ます。**Cookie の名前を取り違えても、別の種別の人としては入れません</li>
+<li><code>forgetAll</code> と盗用の検知で消えるのは、<strong>その種別のその人の記憶だけ</strong>です</li>
+<li><strong><code>Auth.logout</code> は、種別なしと、このアプリが使っている種別の記憶をすべて消します</strong>
+（セッションごと捨てるので、どの種別のログインも終わります）</li>
+<li>**種別を渡さなければ、これまでどおりです。**Cookie の名前も変わらず、上げる前の記憶で上げたあとも入れます</li>
+</ul>
 <h2 id="google-でログインopenid-connect">「Google でログイン」（OpenID Connect）<a class="anchor" href="#google-でログインopenid-connect">#</a></h2>
 <pre class="code"><code class="lang-java">{
 	before(Auth::guard);
@@ -598,6 +620,11 @@ JDK の <code>KeyFactory</code> で公開鍵に戻せて、署名の検証も <c
 <strong>「Google でログイン」を選ぶだけで二要素が飛んでいました</strong>。
 素通りさせるくらいなら入れないほうがよい、という判断です（1.0）。</p>
 </div>
+<p>ログインの種別が複数あるなら（下の「ログインの種別が複数あるとき」）、<strong>第4引数に種別</strong>を渡します。</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/ops/auth/google/callback"</span>
+	, Oidc.callback(<span class="h-s">"google"</span>, Ops::findStaff, <span class="h-s">"/ops/login/code"</span>, <span class="h-s">"operator"</span>))
+	.attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+</code></pre>
 <h3 id="やらないこと">やらないこと<a class="anchor" href="#やらないこと">#</a></h3>
 <table>
 <thead>
@@ -748,6 +775,35 @@ context.response().redirect(Mfa.isPending(context) ? <span class="h-s">"/login/c
 ここが緩いと、<strong>Cookie を盗んだ側が2要素を外せます</strong>——入れた意味がなくなります。
 <code>attribute(Auth.FULL_AUTH, true)</code> を付けて、<strong>いまパスワードを入れた人だけ</strong>にしてください。</p>
 </div>
+<h3 id="ログインの種別が複数あるとき-2">ログインの種別が複数あるとき<a class="anchor" href="#ログインの種別が複数あるとき-2">#</a></h3>
+<p>運用者の画面と利用者の管理画面のように、<strong>別々の表から引く ID</strong> があるなら、
+<strong>種別（realm）を渡してください。<strong>渡さないと、<code>staff.id = 1</code> と <code>member.id = 1</code> が
+<strong>同じ「利用者 1」として扱われます</strong>——片方が登録すると</strong>もう片方の秘密鍵を上書きし</strong>、
+片方のコードでもう片方のログインが通ります。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 運用者のログイン</span>
+<span class="h-k">if</span> (Mfa.isActive(<span class="h-s">"operator"</span>, staff.id())) {
+	Mfa.pending(context, principal, <span class="h-s">"operator"</span>);   <span class="h-c">// 種別はセッションに預かる</span>
+	context.response().redirect(<span class="h-s">"/ops/login/code"</span>);
+	<span class="h-k">return</span>;
+}
+
+<span class="h-c">// POST /ops/login/code — complete() は pending で預けた種別で確かめる</span>
+Mfa.complete(context, code);
+
+<span class="h-c">// 登録・有効化・やめる・回復コードの数</span>
+Mfa.enroll(<span class="h-s">"operator"</span>, staff.id(), staff.email());
+Mfa.activate(<span class="h-s">"operator"</span>, staff.id(), code);
+Mfa.disable(<span class="h-s">"operator"</span>, staff.id());
+Mfa.remainingRecoveryCodes(<span class="h-s">"operator"</span>, staff.id());
+</code></pre>
+<ul>
+<li><strong><code>complete()</code> に種別を渡す口はありません。</strong><code>pending</code> で預けた種別で確かめます——
+コードを受け取る側が種別を選べると、<strong>別の種別の秘密鍵で確かめさせる道</strong>ができるからです</li>
+<li>種別に使えるのは<strong>英数字・<code>_</code>・<code>-</code> の 64 文字まで</strong>です。空文字は「種別なし」です</li>
+<li>**種別を渡さない呼び方は、これまでどおり動きます。**種別を入れる前に登録した人は「種別なし」になり、
+同じコードで入れます（表に列を足すのは、最初に使ったときに枠組みがやります）</li>
+<li>総当たりの数え（<code>Lockout</code>）も種別ごとです</li>
+</ul>
 <h3 id="仕様とやらないこと">仕様と、やらないこと<a class="anchor" href="#仕様とやらないこと">#</a></h3>
 <table>
 <thead>
@@ -850,6 +906,7 @@ context.response().redirect(Mfa.isPending(context) ? <span class="h-s">"/login/c
 			<li class="level-2"><a href="#ログインしたままにするremember-me">ログインしたままにする（remember-me）</a></li>
 			<li class="level-3"><a href="#cookie-を盗まれてもパスワードは変えられない">Cookie を盗まれても、パスワードは変えられない</a></li>
 			<li class="level-3"><a href="#盗まれたら気づく">盗まれたら気づく</a></li>
+			<li class="level-3"><a href="#ログインの種別が複数あるとき">ログインの種別が複数あるとき</a></li>
 			<li class="level-2"><a href="#google-でログインopenid-connect">「Google でログイン」（OpenID Connect）</a></li>
 			<li class="level-3"><a href="#認可コード--pkce-だけ">認可コード + PKCE だけ</a></li>
 			<li class="level-3"><a href="#id-トークンの検証">ID トークンの検証</a></li>
@@ -861,6 +918,7 @@ context.response().redirect(Mfa.isPending(context) ? <span class="h-s">"/login/c
 			<li class="level-3"><a href="#回復コード">回復コード</a></li>
 			<li class="level-3"><a href="#総当たりへの備え">総当たりへの備え</a></li>
 			<li class="level-3"><a href="#やめるとき">やめるとき</a></li>
+			<li class="level-3"><a href="#ログインの種別が複数あるとき-2">ログインの種別が複数あるとき</a></li>
 			<li class="level-3"><a href="#仕様とやらないこと">仕様と、やらないこと</a></li>
 			<li class="level-2"><a href="#basic-認証">Basic 認証</a></li>
 			<li class="level-2"><a href="#やらないこと-2">やらないこと</a></li>
