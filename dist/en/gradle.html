@@ -241,9 +241,9 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.0.0"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.0.0"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.0.0"</span>
 }
 </code></pre>
 <p><strong>They are not on the Plugin Portal.</strong> They come from Maven Central, so write the
@@ -277,9 +277,9 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// if you use src/main/jte</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// if you want hot reload</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>   <span class="h-c">// if you use a database</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.0.0"</span>   <span class="h-c">// if you use src/main/jte</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.0.0"</span>   <span class="h-c">// if you want hot reload</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.0.0"</span>   <span class="h-c">// if you use a database</span>
 }
 
 repositories {
@@ -294,7 +294,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:1.5.0"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:2.0.0"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -325,7 +325,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>The toolchain block is required.</strong> Without it you stop at dependency resolution.</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:2.0.0' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="which-artifact-to-depend-on">Which artifact to depend on<a class="anchor" href="#which-artifact-to-depend-on">#</a></h2>
@@ -658,7 +658,7 @@ how to fix it is left out). Any <code>ERROR</code> fails the task; <code>WARN</c
 <tr>
 <td>J101</td>
 <td>ERROR</td>
-<td><code>context.request().getString(...)</code> and friends (<code>Request</code> itself is empty; go through <code>bodyAll()</code>)</td>
+<td><code>context.request().getString(...)</code> and friends (<code>Request</code> is not a <code>Data</code>; go through <code>bodyAll()</code>)</td>
 </tr>
 <tr>
 <td>J201</td>
@@ -703,10 +703,86 @@ how to fix it is left out). Any <code>ERROR</code> fails the task; <code>WARN</c
 <tr>
 <td>J701</td>
 <td>WARN</td>
-<td>An empty <code>catch</code> in a file that uses <code>DBTransaction</code> (reports success when nothing was committed)</td>
+<td>An empty <code>catch</code> in a file that uses transactions (<code>db.begin()</code> / <code>db.transaction(...)</code> / <code>TransactionException</code>) (reports success when nothing was committed)</td>
 </tr>
 </tbody>
 </table>
+<p>It also lists <strong>1.x code that 2.0 removed, or whose type or meaning 2.0 changed</strong> (all WARN; the rewrites are in <a href="./migrate-2">Moving to 2.0</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>What it looks for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J801</td>
+<td><code>new DBTransaction(...)</code> / <code>DBTransaction.transaction(...)</code> (removed in 2.0)</td>
+</tr>
+<tr>
+<td>J802</td>
+<td>The DB's <code>beginTransaction()</code> / <code>commitEndTransaction()</code> / <code>rollbackEndTransaction()</code> / <code>endTransaction()</code> (removed in 2.0)</td>
+</tr>
+<tr>
+<td>J803</td>
+<td><code>Router x = router.path(&quot;/x&quot;)</code> (removed in 2.0; use the block form <code>path(&quot;/x&quot;, r -&gt; { ... })</code>)</td>
+</tr>
+<tr>
+<td>J804</td>
+<td>A column's <code>subtract(...)</code> (removed in 2.0; it produced a division)</td>
+</tr>
+<tr>
+<td>J805</td>
+<td><code>Dsl.or(...)</code> / <code>Dsl.and(...)</code> (removed in 2.0; use <code>Dsl.anyOf</code> / <code>Dsl.allOf</code>)</td>
+</tr>
+<tr>
+<td>J806</td>
+<td><code>cookies().put(cookie)</code> (removed in 2.0; it did not sign)</td>
+</tr>
+<tr>
+<td>J807</td>
+<td><code>eq(null)</code> / <code>not(null)</code> (throws in 2.0; use <code>is_null()</code> / <code>is_not_null()</code>)</td>
+</tr>
+<tr>
+<td>J808</td>
+<td>The string <code>&quot;now()&quot;</code> (just a string in 2.0; use <code>Dsl.now()</code>)</td>
+</tr>
+<tr>
+<td>J810</td>
+<td><code>long id = db.insert(...)</code> (2.0's <code>insert</code> returns nothing; use <code>insertKey</code>)</td>
+</tr>
+<tr>
+<td>J901</td>
+<td><code>Data row = db.select(...)</code> / <code>selectCached(...)</code> (2.0 returns <code>Optional&lt;Data&gt;</code>; code that takes it with <code>.orElse(...)</code> and the like is not listed)</td>
+</tr>
+<tr>
+<td>J902</td>
+<td><code>if (!db.execute(...))</code> / <code>boolean x = db.execute(...)</code> (2.0 returns a count, and a failure throws)</td>
+</tr>
+<tr>
+<td>J903</td>
+<td><code>isError()</code> (gone in 2.0)</td>
+</tr>
+<tr>
+<td>J904</td>
+<td>Checking the return value of <code>DBUtil.load</code> / <code>DBLock.lock</code> / <code>DBLock.create</code> with <code>if (!...)</code> and the like (2.0 returns nothing, and a failure throws)</td>
+</tr>
+<tr>
+<td>J905</td>
+<td><code>RedisLock.tryLock(...)</code> (2.0 returns <code>Optional&lt;RedisLockResult&gt;</code>; code that takes it as an <code>Optional</code> is not listed)</td>
+</tr>
+<tr>
+<td>J906</td>
+<td><code>selectOrThrow</code> / <code>selectListOrThrow</code> / <code>insertNoReturnKey</code> (deprecated in 2.0)</td>
+</tr>
+<tr>
+<td>J907</td>
+<td><code>session().data().put(...)</code> (and <code>putData</code> / <code>remove</code> / <code>clear</code> / <code>putAll</code>; throws in 2.0)</td>
+</tr>
+</tbody>
+</table>
+<p>J8xx and J9xx are <strong>always listed</strong>. <code>--target=2.0</code> is still accepted so scripts from the 1.5 days keep working, but it does nothing.</p>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p>Java is not parsed into a syntax tree; comments and strings are blanked out first. <strong>Silence a false positive
 with <code>// jimble-check:ignore J101</code> on that line or the one above</strong> (<code># jimble-check:ignore J201</code> in configuration).</p>

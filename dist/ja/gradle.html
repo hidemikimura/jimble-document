@@ -241,9 +241,9 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.0.0"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.0.0"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.0.0"</span>
 }
 </code></pre>
 <p>**Plugin Portal には出していません。**Maven Central から取るので、
@@ -276,9 +276,9 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// src/main/jte を使うなら</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// ホットリロードを使うなら</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>   <span class="h-c">// DB を使うなら</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.0.0"</span>   <span class="h-c">// src/main/jte を使うなら</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.0.0"</span>   <span class="h-c">// ホットリロードを使うなら</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.0.0"</span>   <span class="h-c">// DB を使うなら</span>
 }
 
 repositories {
@@ -293,7 +293,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:1.5.0"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:2.0.0"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -324,7 +324,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p>**ツールチェーンの指定は要ります。**書かないと、依存の解決の時点で止まります。</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:2.0.0' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="どれを依存に足すか">どれを依存に足すか<a class="anchor" href="#どれを依存に足すか">#</a></h2>
@@ -631,9 +631,9 @@ SQL も設定もリソース側にあるので、これで足ります。</p>
 <h3 id="jimblecheck">jimbleCheck<a class="anchor" href="#jimblecheck">#</a></h3>
 <p><strong>動かしても黙って間違えるもの</strong>だけを見ます（起動時に落ちて直し方を言うものは見ません）。
 <code>ERROR</code> が1つでもあれば落ち、<code>WARN</code> だけなら落ちません。</p>
-<pre class="code"><code class="lang-text">[J101 ERROR] src/main/java/demo/App.java:83  context.request().get〜(...) で読んでいる。Request の中身は空なので、コンパイルは通って null / 空を返す
-    直し方: 送られてきた値は context.request().bodyAll().getString("x")（クエリだけなら bodyQuery()、JSON だけなら bodyJson()）
-    詳しく: https://jimble.io/ja/request-response.md
+<pre class="code"><code class="lang-text">[J903 WARN] src/main/java/demo/PostController.java:83  isError() は 2.0 で無くなった（DB の失敗は SqlExecuteException）
+    直し方: db.transaction(...) の中なら確定しないことで守られる。分岐したいのは一意制約くらいなので DuplicateKeyException で受ける
+    詳しく: https://jimble.io/ja/migrate-2.md
 </code></pre>
 <table>
 <thead>
@@ -647,7 +647,7 @@ SQL も設定もリソース側にあるので、これで足ります。</p>
 <tr>
 <td>J101</td>
 <td>ERROR</td>
-<td><code>context.request().getString(...)</code> など（<code>Request</code> の中身は空。<code>bodyAll()</code> を通す）</td>
+<td><code>context.request().getString(...)</code> など（<code>Request</code> は <code>Data</code> ではない。<code>bodyAll()</code> を通す）</td>
 </tr>
 <tr>
 <td>J201</td>
@@ -692,10 +692,86 @@ SQL も設定もリソース側にあるので、これで足ります。</p>
 <tr>
 <td>J701</td>
 <td>WARN</td>
-<td><code>DBTransaction</code> を使うファイルの空の <code>catch</code>（コミットされていないのに成功を返す）</td>
+<td>トランザクション（<code>db.begin()</code> / <code>db.transaction(...)</code> / <code>TransactionException</code>）を使うファイルの空の <code>catch</code>（確定していないのに成功を返す）</td>
 </tr>
 </tbody>
 </table>
+<p><strong>1.x の書き方で、2.0 で消えたもの・型や意味が変わったもの</strong>も出します（どれも WARN。書き換え先は <a href="./migrate-2">2.0 への移行</a>）。</p>
+<table>
+<thead>
+<tr>
+<th>規則</th>
+<th>見るもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J801</td>
+<td><code>new DBTransaction(...)</code> / <code>DBTransaction.transaction(...)</code>（2.0 で消えた）</td>
+</tr>
+<tr>
+<td>J802</td>
+<td>DB の <code>beginTransaction()</code> / <code>commitEndTransaction()</code> / <code>rollbackEndTransaction()</code> / <code>endTransaction()</code>（2.0 で消えた）</td>
+</tr>
+<tr>
+<td>J803</td>
+<td><code>Router x = router.path(&quot;/x&quot;)</code>（2.0 で消えた。ブロックの <code>path(&quot;/x&quot;, r -&gt; { ... })</code> にする）</td>
+</tr>
+<tr>
+<td>J804</td>
+<td>列の <code>subtract(...)</code>（2.0 で消えた。割り算を出していた）</td>
+</tr>
+<tr>
+<td>J805</td>
+<td><code>Dsl.or(...)</code> / <code>Dsl.and(...)</code>（2.0 で消えた。<code>Dsl.anyOf</code> / <code>Dsl.allOf</code> にする）</td>
+</tr>
+<tr>
+<td>J806</td>
+<td><code>cookies().put(cookie)</code>（2.0 で消えた。署名しなかった）</td>
+</tr>
+<tr>
+<td>J807</td>
+<td><code>eq(null)</code> / <code>not(null)</code>（2.0 で例外。<code>is_null()</code> / <code>is_not_null()</code> にする）</td>
+</tr>
+<tr>
+<td>J808</td>
+<td>文字列 <code>&quot;now()&quot;</code>（2.0 ではただの文字列。<code>Dsl.now()</code> にする）</td>
+</tr>
+<tr>
+<td>J810</td>
+<td><code>long id = db.insert(...)</code>（2.0 の <code>insert</code> は値を返さない。<code>insertKey</code> にする）</td>
+</tr>
+<tr>
+<td>J901</td>
+<td><code>Data row = db.select(...)</code> / <code>selectCached(...)</code>（2.0 は <code>Optional&lt;Data&gt;</code>。<code>.orElse(...)</code> などで受けているものは出さない）</td>
+</tr>
+<tr>
+<td>J902</td>
+<td><code>if (!db.execute(...))</code> / <code>boolean x = db.execute(...)</code>（2.0 は件数を返し、失敗は例外）</td>
+</tr>
+<tr>
+<td>J903</td>
+<td><code>isError()</code>（2.0 で無くなった）</td>
+</tr>
+<tr>
+<td>J904</td>
+<td><code>DBUtil.load</code> / <code>DBLock.lock</code> / <code>DBLock.create</code> の戻り値を <code>if (!...)</code> などで見ている（2.0 は値を返さず、失敗は例外）</td>
+</tr>
+<tr>
+<td>J905</td>
+<td><code>RedisLock.tryLock(...)</code>（2.0 は <code>Optional&lt;RedisLockResult&gt;</code>。<code>Optional</code> で受けているものは出さない）</td>
+</tr>
+<tr>
+<td>J906</td>
+<td><code>selectOrThrow</code> / <code>selectListOrThrow</code> / <code>insertNoReturnKey</code>（2.0 で非推奨）</td>
+</tr>
+<tr>
+<td>J907</td>
+<td><code>session().data().put(...)</code>（と <code>putData</code> / <code>remove</code> / <code>clear</code> / <code>putAll</code>。2.0 で例外）</td>
+</tr>
+</tbody>
+</table>
+<p>J8xx と J9xx は<strong>いつも出します</strong>。<code>--target=2.0</code> は 1.5 のころのスクリプトがそのまま動くように受け付けますが、何もしません。</p>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p>Java は構文木にせず、コメントと文字列を除いてから読んでいます。<strong>誤検知は、その行か前の行に
 <code>// jimble-check:ignore J101</code> と書けば出なくなります</strong>（設定ファイルは <code># jimble-check:ignore J201</code>）。</p>

@@ -378,7 +378,7 @@ BatchRegistry.sync(DBUtil.getMainDB());
 <h3 id="読む-db-と書く-db-は別です">読む DB と書く DB は別です<a class="anchor" href="#読む-db-と書く-db-は別です">#</a></h3>
 <p><code>reader()</code> に渡る <code>db</code> と <code>write()</code> に渡る <code>db</code> は<strong>別のインスタンス</strong>です。
 <strong>渡されたものをそのまま使ってください。</strong></p>
-<p><code>DBTransaction</code> を閉じるとコネクションがプールへ返るので、
+<p>かたまりのトランザクション（<code>Tx</code>）が終わるとコネクションがプールへ返るので、
 同じ <code>DB</code> で読んでいると<strong>最初のかたまりを確定した時点で読みかけが死にます。</strong></p>
 <div class="callout callout-tip"><p class="callout-title">こつ</p>
 <p><strong>カーソル（<code>selectListWithFetcher</code>）ではなく <code>KeyPagingReader</code> を勧めます。</strong>
@@ -390,9 +390,9 @@ BatchRegistry.sync(DBUtil.getMainDB());
 キーが進まないまま満杯のページが返ってきたときは例外になります（黙って無限に回るより落ちたほうがよいためです）。</p>
 <blockquote>
 <p>[!WARNING]
-<strong><code>db.insert()</code> などは失敗しても例外を投げません。</strong>
-<code>db.isError()</code> に<strong>その直前の1文</strong>の結果が入るだけです。
-<code>write()</code> の中で複数の文を流すなら、1文ごとに見るか、自分で例外を投げてください。</p>
+**<code>write()</code> の中の SQL が失敗すると <code>SqlExecuteException</code> が飛びます。**そのかたまりは巻き戻り、バッチは失敗になります（上の「途中で落ちたとき」）。
+1文ごとに結果を確かめる必要はありません。
+**失敗を <code>catch</code> して続けないでください。**そのかたまりの確定が <code>TransactionException</code>（<code>DB_004</code>）で断られ、全部巻き戻ります。</p>
 </blockquote>
 <h2 id="二重起動">二重起動<a class="anchor" href="#二重起動">#</a></h2>
 <p>同じバッチが同時に走る本数は <code>allowConcurrentExecutionCount()</code> で決まります。

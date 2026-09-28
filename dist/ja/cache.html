@@ -276,7 +276,7 @@ cache.remove(<span class="h-s">"top:posts"</span>);
 </tr>
 <tr>
 <td><code>get(key)</code></td>
-<td><code>CacheData</code>（作成日時・種類つき）。<strong><code>isError()</code> を見る</strong></td>
+<td><code>CacheData</code>（作成日時・種類つき）。無ければ <strong><code>isError()</code> が true</strong></td>
 </tr>
 <tr>
 <td><code>set(key, value, contentType[, group])</code></td>
@@ -309,7 +309,7 @@ cache.removeGroup(<span class="h-s">"group"</span>);</code></pre>
 <p><strong>既定では無効です。</strong> 使うアプリだけ 1 行書いてください。</p>
 <pre class="code"><code class="lang-conf">sql_cache.enabled = <span class="h-k">true</span>
 </code></pre>
-<pre class="code"><code class="lang-java">Data customer = db.selectCached(
+<pre class="code"><code class="lang-java">Optional&lt;Data&gt; customer = db.selectCached(
 	SQL.select()
 		.from(Customer.instance())
 		.inner(Shop.instance()).on(Customer.shop_id.eq(Shop.id))
@@ -490,6 +490,10 @@ List&lt;Data&gt; posts = cache.get();
 <td>ローダーに渡る <code>DB</code></td>
 <td>新しい接続（呼び出し元のトランザクションとは別）</td>
 </tr>
+<tr>
+<td>ローダーが失敗したとき</td>
+<td><code>get()</code> が非検査例外を投げる（元の例外は <code>getCause()</code>）</td>
+</tr>
 </tbody>
 </table>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
@@ -499,27 +503,41 @@ List&lt;Data&gt; posts = cache.get();
 </div>
 <h2 id="分散ロック">分散ロック<a class="anchor" href="#分散ロック">#</a></h2>
 <p><strong>Redis を使います。</strong>「複数台のうち1台だけに処理させたい」ときのものです。</p>
-<pre class="code"><code class="lang-java">RedisLockResult result = RedisLock.lock(key);
-
-assertEquals(RedisLockStatus.Success, result.status());
-
-closeQuietly(result);</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// 取れなければ RedisLockException。抜けたら外れる</span>
+<span class="h-k">try</span> (RedisLockResult result = RedisLock.lock(key)) {
+	assertEquals(RedisLockStatus.Success, result.status());
+}</code></pre>
 <pre class="code"><code class="lang-java"><span class="h-c">// 100ms 待って取れなければあきらめる。取れたら 30 秒保持する</span>
-<span class="h-k">try</span> (RedisLockResult lock = RedisLock.tryLock(<span class="h-s">"batch:daily"</span>, <span class="h-n">100</span>, <span class="h-n">30000</span>)) {
+Optional&lt;RedisLockResult&gt; lock = RedisLock.tryLock(<span class="h-s">"batch:daily"</span>, <span class="h-n">100</span>, <span class="h-n">30000</span>);
+<span class="h-k">if</span> (lock.isEmpty()) {
+	<span class="h-k">return</span>;   <span class="h-c">// 誰かが動かしている</span>
+}
 
-	<span class="h-k">if</span> (lock.status() != RedisLockStatus.Success) {
-		<span class="h-k">return</span>;   <span class="h-c">// 誰かが動かしている</span>
-	}
-
+<span class="h-k">try</span> (RedisLockResult held = lock.get()) {
 	<span class="h-c">// ここが1台だけになる</span>
-
-} <span class="h-k">catch</span> (IOException ignore) {
 }
 </code></pre>
-<div class="callout callout-warn"><p class="callout-title">注意</p>
-<p><strong>取れなくても例外は飛びません。</strong><code>status()</code> を必ず見てください。
-見ないと「ロックしていないのに処理が進む」形になります。</p>
-</div>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>取れなかったとき</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RedisLock.lock(key)</code></td>
+<td><strong><code>RedisLockException</code></strong>（非検査）</td>
+</tr>
+<tr>
+<td><code>RedisLock.tryLock(key, 待ち, 保持)</code></td>
+<td>待っても取れなければ<strong>空の <code>Optional</code></strong>。Redis に繋がらなければ <code>RedisLockException</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>取れないまま中へ進むことはありません。</strong>
+1.x は <code>status()</code> が <code>Failed</code> になるだけで、見なければロック無しで進んでいました。
+<code>close()</code> は検査例外を投げないので、<code>catch (IOException e)</code> は要りません。</p>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong>同じスレッドからは同じキーを取れてしまいます</strong>（再入できるロックのため）。
 「もう誰かが持っているはず」を同じスレッドで確かめると、素通りします。</p>
@@ -532,15 +550,38 @@ closeQuietly(result);</code></pre>
 <p>Redis を設定していないときは、<strong>黙って成功させずに例外</strong>になります（要件 F-U-10）。
 「ロックが無いのに進んでしまった」を作らないためです。</p>
 <h3 id="db-だけでロックする">DB だけでロックする<a class="anchor" href="#db-だけでロックする">#</a></h3>
-<p>Redis が無い場所では <code>DBLock</code> を使えます。<strong>トランザクションの中で</strong>、
-先に行を作ってから取ります。</p>
-<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// 1回だけ</span>
+<p>Redis が無い場所では <code>DBLock</code> を使えます。先に行を作っておき、<strong>トランザクションの中で</strong>取ります。</p>
+<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// 1回だけ（あれば何もしない）</span>
 ...
-<span class="h-k">if</span> (DBLock.lock(db, <span class="h-s">"daily"</span>)) {       <span class="h-c">// SELECT ... FOR UPDATE</span>
+db.transaction(tx -&gt; {
+	DBLock.lock(db, <span class="h-s">"daily"</span>);         <span class="h-c">// SELECT ... FOR UPDATE</span>
 	<span class="h-c">// トランザクションが終わるまで1つだけ</span>
-}
+});
 </code></pre>
-<p>行が無ければ <code>false</code> です。解放は<strong>トランザクションの終わり</strong>で、明示的に外す口はありません。</p>
+<p><code>create</code> も <code>lock</code> も戻り値はありません。<strong>失敗は例外です。</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>どうなるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>トランザクションの外で <code>lock</code> を呼ぶ</td>
+<td><code>IllegalStateException</code>（<code>FOR UPDATE</code> の鍵は文の終わりで外れ、何も守らないため）</td>
+</tr>
+<tr>
+<td><code>create</code> していないキーを <code>lock</code> する</td>
+<td><code>IllegalStateException</code></td>
+</tr>
+<tr>
+<td>SQL が失敗した</td>
+<td><code>SqlExecuteException</code></td>
+</tr>
+</tbody>
+</table>
+<p>解放は<strong>トランザクションの終わり</strong>で、明示的に外す口はありません。</p>
 <h2 id="設定キー">設定キー<a class="anchor" href="#設定キー">#</a></h2>
 <pre class="code"><code class="lang-conf">cache {
 	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>

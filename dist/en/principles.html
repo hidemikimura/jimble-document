@@ -227,7 +227,7 @@ Which implementation <code>@Inject</code> lands on is unknowable until you run i
 Where one begins and ends lives outside the method</li>
 </ul>
 <p>Instead you write <code>new</code>. You write <code>install(AdminController::new)</code>.
-You write <code>try (DBTransaction transaction = ...)</code>. A few more lines.</p>
+You write <code>db.transaction(tx -&gt; { ... })</code>. A few more lines.</p>
 <h2 id="2-no-classpath-scanning-at-startup">2. No classpath scanning at startup<a class="anchor" href="#2-no-classpath-scanning-at-startup">#</a></h2>
 <p>Controllers, batch jobs, MCP tools — <strong>you register them yourself</strong>.</p>
 <pre class="code"><code class="lang-java">tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
@@ -251,26 +251,32 @@ Silently returning the connection to the pool leaves you with
 <li>The code snippets in these docs are extracted from the real code.
 Delete a marked region and <strong>the site build fails</strong></li>
 </ul>
-<h2 id="4-where-exceptions-are-not-used">4. Where exceptions are not used<a class="anchor" href="#4-where-exceptions-are-not-used">#</a></h2>
-<p>DB errors come back as return values, not exceptions.
-<code>select</code> calls return <code>null</code>; update calls return <code>-1</code>.</p>
+<h2 id="4-failures-are-exceptions">4. Failures are exceptions<a class="anchor" href="#4-failures-are-exceptions">#</a></h2>
+<p><strong>A failure is an exception (unchecked).</strong> jimble never reports a failure through a return value.
+Return values get thrown away, and a failure that was thrown away goes through in silence.</p>
+<ul>
+<li>Zero rows is not a failure. <code>select</code> returns an empty <code>Optional</code>, <code>selectList</code> an empty list, <code>update</code> 0</li>
+<li>A DB failure is a <code>SqlExecuteException</code>. About the only one you want to branch on is a unique violation, so catch just that as <code>DuplicateKeyException</code></li>
+<li>If you write nothing, it flies to the top and becomes a 500. Inside a transaction, it rolls back</li>
+</ul>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 
+	<span class="h-c">/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */</span>
 	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
 
-	<span class="h-c">/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */</span>
-	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
-		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
-		<span class="h-k">return</span>;
+	<span class="h-c">// 分岐したい失敗は一意制約くらい。それだけを受け止める</span>
+	<span class="h-k">try</span> {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, <span class="h-s">"hello"</span>));
+	} <span class="h-k">catch</span> (DuplicateKeyException ex) {
+		Log.info(<span class="h-s">"もうあります"</span>);
 	}
 
 }</code></pre>
-<p>The reason: most DB errors are ones the caller wants to branch on.
-Make them exceptions and your only choices are wrapping in <code>try</code> or forgetting to
-and letting it fly to the top.</p>
+<p>The same goes for using an API the wrong way. <strong>Things break only as a compile error or an exception</strong>; nothing
+quietly does something else (what 2.0 rebuilt is listed in <a href="./migrate-2">Moving to 2.0</a>).</p>
 <h2 id="5-one-execution--one-context">5. One execution = one Context<a class="anchor" href="#5-one-execution--one-context">#</a></h2>
 <p>A web request, a batch execution, one MQ message, one WebSocket message —
 each gets exactly one <code>Context</code>.
@@ -297,7 +303,7 @@ On virtual threads <code>ScopedValue</code> is cheaper, and because it
 			<li class="level-2"><a href="#1-you-can-follow-it-top-to-bottom">1. You can follow it top to bottom</a></li>
 			<li class="level-2"><a href="#2-no-classpath-scanning-at-startup">2. No classpath scanning at startup</a></li>
 			<li class="level-2"><a href="#3-never-fail-silently">3. Never fail silently</a></li>
-			<li class="level-2"><a href="#4-where-exceptions-are-not-used">4. Where exceptions are not used</a></li>
+			<li class="level-2"><a href="#4-failures-are-exceptions">4. Failures are exceptions</a></li>
 			<li class="level-2"><a href="#5-one-execution--one-context">5. One execution = one Context</a></li>
 		</ul>
 	</nav>

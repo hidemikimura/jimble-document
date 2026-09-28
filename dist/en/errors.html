@@ -212,7 +212,7 @@
 	<main id="main">
 		<article>
 			<h1 id="error-handling">Error handling<a class="anchor" href="#error-handling">#</a></h1>
-<p>There are three paths by which an error reaches the surface. <strong>They go through different places.</strong></p>
+<p>There are four paths by which an error reaches the surface. <strong>They go through different places.</strong></p>
 <table>
 <thead>
 <tr>
@@ -233,7 +233,12 @@
 <td>404</td>
 </tr>
 <tr>
-<td>Validation failed</td>
+<td><code>validate(...)</code> did not pass (<code>ValidationException</code>)</td>
+<td>The <code>error(...)</code> hook</td>
+<td>422 and a <code>validation</code> JSON body</td>
+</tr>
+<tr>
+<td><code>ValidationExecutor</code> validation failed</td>
 <td><code>ValidationExecutor</code> (<code>error</code> is not reached)</td>
 <td>422 and a <code>validation</code> JSON body</td>
 </tr>
@@ -292,6 +297,10 @@ An <code>error</code> written inside <code>path(&quot;/admin&quot;, ...)</code> 
 <td>404</td>
 </tr>
 <tr>
+<td><code>ValidationException</code> (a subclass of <code>HttpException</code>)</td>
+<td>422</td>
+</tr>
+<tr>
 <td>Everything else</td>
 <td><strong>500</strong></td>
 </tr>
@@ -329,7 +338,8 @@ An <code>error</code> written inside <code>path(&quot;/admin&quot;, ...)</code> 
 };</code></pre>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
 <p><code>CodeException</code> (<code>io.jimble.util.exception.CodeException</code>) <strong>has no effect on the HTTP status.</strong>
-It is the checked exception used for DB errors (<code>db.getError()</code>) and inside validators; throw it and you get a 500.</p>
+It is an unchecked exception (a subclass of <code>RuntimeException</code>) that carries a code; throw it and you get a 500.
+DB failures (<code>SqlExecuteException</code>) and the like are also a 500 unless you do something (see &quot;Exceptions the framework throws&quot; below).</p>
 </div>
 <h2 id="who-builds-the-body">Who builds the body<a class="anchor" href="#who-builds-the-body">#</a></h2>
 <p>The order is this.</p>
@@ -415,7 +425,17 @@ Mix in the thousands a day that crawlers and stale links produce, and
 <strong>the real 500s are buried.</strong></p>
 </div>
 <p>An exception thrown inside <code>after</code> or <code>onComplete</code> is swallowed and logged the same way (the response still goes out).</p>
-<h2 id="validation-failures-do-not-go-through-error">Validation failures do not go through error<a class="anchor" href="#validation-failures-do-not-go-through-error">#</a></h2>
+<h2 id="validation-failures">Validation failures<a class="anchor" href="#validation-failures">#</a></h2>
+<h3 id="validate-answers-with-an-exception">validate(...) answers with an exception<a class="anchor" href="#validate-answers-with-an-exception">#</a></h3>
+<p><code>ValidationRules.validate(db, data)</code> / <code>Validator.validate(...)</code> throw a
+<strong><code>ValidationException</code></strong> (422, a subclass of <code>HttpException</code>) when the input does not pass.
+Like any other exception it goes through <code>error(...)</code>, and <strong>if nobody builds a body</strong> the framework
+answers in the shape below (the same as <code>ValidationExecutor</code>).</p>
+<pre class="code"><code class="lang-java">rules.validate(db, data);   <span class="h-c">// leaves here with a 422 if it does not pass</span>
+</code></pre>
+<p>When you want to handle the list yourself, take it with <code>errors(db, data)</code> (no exception).
+Checking a list of rows is <code>validate(db, List)</code> / <code>errors(db, List)</code>; the body is <code>{&quot;rows&quot;: [...]}</code>.</p>
+<h3 id="validationexecutor-does-not-go-through-error">ValidationExecutor does not go through error<a class="anchor" href="#validationexecutor-does-not-go-through-error">#</a></h3>
 <p><code>ValidationExecutor</code> <strong>does not throw.</strong>
 It cancels itself, discards the executors behind it, and returns as-is.</p>
 <pre class="code"><code class="lang-java">context.response().putForm(context.request().bodyAll());
@@ -430,9 +450,130 @@ context.response().code(<span class="h-n">422</span>);
 }
 </code></pre>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong>Put your validation-error formatting in <code>error(...)</code> and it is never called.</strong>
-To change how a 422 looks, work on the <code>ValidationExecutor</code> side (<code>onCancel</code>).</p>
+<p><strong>For a <code>ValidationExecutor</code> failure, formatting you put in <code>error(...)</code> is never called.</strong>
+To change how a 422 looks, work on the <code>ValidationExecutor</code> side (<code>onCancel</code>).
+A <code>ValidationException</code> from <code>validate(...)</code>, on the other hand, can be formatted in <code>error(...)</code>.</p>
 </div>
+<h2 id="exceptions-the-framework-throws">Exceptions the framework throws<a class="anchor" href="#exceptions-the-framework-throws">#</a></h2>
+<p>All of them are <strong>unchecked</strong>. Apart from the <code>HttpException</code> subclasses, each becomes a <strong>500</strong> unless you do something.</p>
+<table>
+<thead>
+<tr>
+<th>Exception</th>
+<th>When</th>
+<th>Parent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SqlExecuteException</code></td>
+<td>SQL failed. <code>getCode()</code> gives the code (table below)</td>
+<td><code>RuntimeException</code></td>
+</tr>
+<tr>
+<td><code>DuplicateKeyException</code></td>
+<td>A unique constraint was hit</td>
+<td><code>SqlExecuteException</code></td>
+</tr>
+<tr>
+<td><code>TransactionException</code></td>
+<td>A transaction could not be committed, begun or rolled back</td>
+<td><code>SqlExecuteException</code></td>
+</tr>
+<tr>
+<td><code>SqlBuildException</code></td>
+<td>The SQL cannot be built (<code>eq(null)</code> / <code>not(null)</code> and so on)</td>
+<td><code>RuntimeException</code></td>
+</tr>
+<tr>
+<td><code>RedisLockException</code></td>
+<td><code>RedisLock.lock(...)</code> could not take the lock</td>
+<td><code>RuntimeException</code></td>
+</tr>
+<tr>
+<td><code>DataConversionException</code></td>
+<td>A Data value is there but cannot be read (<code>&quot;abc&quot;</code> through <code>getInt</code>, say)</td>
+<td><code>IllegalArgumentException</code></td>
+</tr>
+<tr>
+<td><code>JsonParseException</code></td>
+<td>Broken JSON handed to <code>Data.fromJsonString</code> / <code>Dson.decodes</code></td>
+<td><code>IllegalArgumentException</code></td>
+</tr>
+<tr>
+<td><code>ValidationException</code></td>
+<td><code>validate(...)</code> did not pass (<strong>422</strong>)</td>
+<td><code>HttpException</code></td>
+</tr>
+<tr>
+<td><code>CodeException</code></td>
+<td>A failure with a code (often found in another exception's <code>getCause()</code>)</td>
+<td><code>RuntimeException</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>When the body is <code>application/json</code> but cannot be read, <code>body()</code> / <code>bodyJson()</code> / <code>bodyAll()</code> throw a <strong>400</strong> <code>HttpException</code>.
+It does not become a <code>JsonParseException</code> (500).</p>
+</div>
+<p>These are the DB codes. The original JDBC exception is in <code>getCause().getCause()</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Exception</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB_001</code></td>
+<td><code>TransactionException</code></td>
+<td>The transaction could not be begun</td>
+</tr>
+<tr>
+<td><code>DB_002</code></td>
+<td><code>TransactionException</code></td>
+<td>It could not be rolled back</td>
+</tr>
+<tr>
+<td><code>DB_003</code></td>
+<td><code>TransactionException</code></td>
+<td>It could not be committed</td>
+</tr>
+<tr>
+<td><code>DB_004</code></td>
+<td><code>TransactionException</code></td>
+<td>SQL had failed inside the transaction, so it was not committed (everything was rolled back)</td>
+</tr>
+<tr>
+<td><code>DB_005</code></td>
+<td><code>TransactionException</code></td>
+<td>An inner, joined <code>Tx</code> asked for a rollback, so the outer one was not committed (everything was rolled back)</td>
+</tr>
+<tr>
+<td><code>DB_006</code></td>
+<td><code>TransactionException</code></td>
+<td>The body of <code>transaction(tx -&gt; ...)</code> threw a checked exception (wrapped and rethrown)</td>
+</tr>
+<tr>
+<td><code>DB_007</code></td>
+<td><code>SqlExecuteException</code></td>
+<td><code>DBUtil.load(...)</code> could not create the data source (startup stops)</td>
+</tr>
+<tr>
+<td><code>DB_998</code></td>
+<td><code>SqlExecuteException</code></td>
+<td>Different SQL was mixed into <code>executeBatch</code> / <code>insertBatch</code></td>
+</tr>
+<tr>
+<td><code>DB_999</code></td>
+<td><code>SqlExecuteException</code> / <code>DuplicateKeyException</code></td>
+<td>Executing the SQL failed</td>
+</tr>
+</tbody>
+</table>
+<p>For more, see <a href="./db">Using the DB</a> and <a href="./transaction">Transactions</a>.</p>
 <h2 id="what-you-can-replace-application-wide">What you can replace application-wide<a class="anchor" href="#what-you-can-replace-application-wide">#</a></h2>
 <p>There are exactly three things you can override on <code>JimbleApp</code>.</p>
 <table>
@@ -483,7 +624,10 @@ There is meant to be exactly one path through.</p>
 			<li class="level-2"><a href="#405-and-404-are-different-answers">405 and 404 are different answers</a></li>
 			<li class="level-2"><a href="#when-the-handler-itself-fails">When the handler itself fails</a></li>
 			<li class="level-2"><a href="#how-it-is-logged">How it is logged</a></li>
-			<li class="level-2"><a href="#validation-failures-do-not-go-through-error">Validation failures do not go through error</a></li>
+			<li class="level-2"><a href="#validation-failures">Validation failures</a></li>
+			<li class="level-3"><a href="#validate-answers-with-an-exception">validate(...) answers with an exception</a></li>
+			<li class="level-3"><a href="#validationexecutor-does-not-go-through-error">ValidationExecutor does not go through error</a></li>
+			<li class="level-2"><a href="#exceptions-the-framework-throws">Exceptions the framework throws</a></li>
 			<li class="level-2"><a href="#what-you-can-replace-application-wide">What you can replace application-wide</a></li>
 		</ul>
 	</nav>

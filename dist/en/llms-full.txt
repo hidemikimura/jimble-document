@@ -233,7 +233,7 @@ What we gave up to get that:
   Where one begins and ends lives outside the method
 
 Instead you write `new`. You write `install(AdminController::new)`.
-You write `try (DBTransaction transaction = ...)`. A few more lines.
+You write `db.transaction(tx -> { ... })`. A few more lines.
 
 ## 2. No classpath scanning at startup
 
@@ -266,31 +266,36 @@ For example:
 - The code snippets in these docs are extracted from the real code.
   Delete a marked region and **the site build fails**
 
-## 4. Where exceptions are not used
+## 4. Failures are exceptions
 
-DB errors come back as return values, not exceptions.
-`select` calls return `null`; update calls return `-1`.
+**A failure is an exception (unchecked).** jimble never reports a failure through a return value.
+Return values get thrown away, and a failure that was thrown away goes through in silence.
+
+- Zero rows is not a failure. `select` returns an empty `Optional`, `selectList` an empty list, `update` 0
+- A DB failure is a `SqlExecuteException`. About the only one you want to branch on is a unique violation, so catch just that as `DuplicateKeyException`
+- If you write nothing, it flies to the top and becomes a 500. Inside a transaction, it rolls back
 
 ```java
 try (DB db = BlogExample.db()) {
 
+	/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */
 	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
 
-	/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */
-	if (rows == null) {
-		Log.error("引けませんでした: " + db.getError());
-		return;
+	// 分岐したい失敗は一意制約くらい。それだけを受け止める
+	try {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, "hello"));
+	} catch (DuplicateKeyException ex) {
+		Log.info("もうあります");
 	}
 
 }
 ```
 
-The reason: most DB errors are ones the caller wants to branch on.
-Make them exceptions and your only choices are wrapping in `try` or forgetting to
-and letting it fly to the top.
+The same goes for using an API the wrong way. **Things break only as a compile error or an exception**; nothing
+quietly does something else (what 2.0 rebuilt is listed in [Moving to 2.0](./migrate-2)).
 
 ## 5. One execution = one Context
 
@@ -684,21 +689,22 @@ You pull values out with `getString` `getInt` `getLong` `getBoolean` `getData` `
 `getBoolean`** — you cannot tell "missing" from "0". When you need to, use the Object
 versions (`getIntObject` and friends) or `isNull(key)`. See [Utilities](./util).
 
-**Prefer the form that takes a default (since 1.5.0).** `getInt("page", 1)` returns `1` only when the key
-is missing or blank; a value it cannot read, such as `"abc"`, stops with a `DataConversionException`
-instead of quietly becoming `0`.
+**A value that is there but cannot be read** (`"abc"` read with `getInt`, for example) is a `DataConversionException`
+instead of quietly becoming `0`. **Run user input through [validation](./validation) first.** Read it unchecked and the
+exception becomes a 500. The form that takes a default (`getInt("page", 1)`) returns the default only when the key is missing or blank.
+
+**`Request` is not a `Data`.** You cannot read it like `context.request().getString("title")` (that is a compile error).
+Go through one of the methods in the table above (usually `bodyAll()`).
+
+```java
+Data input = context.request().bodyAll();
+String title = input.getString("title");
+```
+
+**When the `Content-Type` is `application/json` but the body cannot be read as JSON, `body()` / `bodyJson()` / `bodyAll()`
+throw a 400 `HttpException`** (the same on every read). Nothing carries on with a half-read body or an empty `Data`.
 
 > [!TRAP]
-> **You cannot read straight off `context.request()`.**
-> `Request` is a `Data` too, so `context.request().getString("title")` **compiles** — and
-> returns **`null`**, because neither the body nor the query string is in there.
-> Go through one of the methods in the table above (usually `bodyAll()`).
->
-> ```java
-> Data input = context.request().bodyAll();
-> String title = input.getString("title");
-> ```
->
 > **`getStringOptional` does give you an empty string when the key is missing — and it
 > puts that empty string into the `Data`.** Reading alone adds keys, so do not call it
 > just before serialising to JSON or inside a loop ([Utilities](./util)).
@@ -753,7 +759,7 @@ request.putData(Item.name, "");
 request.putData(Item.age, "999");
 
 // エラーは最初の1件で止めず、全部集める（要件 F-V-03）
-Data errors = rules.validate(null, request);
+Data errors = rules.errors(null, request);
 
 Data messages = ValidationMessages.toMessages(errors);
 ```
@@ -764,8 +770,11 @@ For the person retyping the form, being told one problem at a time is the worst 
 `ValidationMessages.toMessages(errors)` turns them into a `Data` of field name → message.
 Return that as JSON or hand it to a template.
 
+When stopping is fine, write `rules.validate(db, input);` as a statement. If it fails, it throws `ValidationException` and the framework replies 422.
+
 The list of rules, the `ValidationExecutor` you can apply per route, and paging
 are all in [Validation and paging](./validation).
+Pass the page size **on the first call** (`paging(50)` with a different count after `paging()` throws `IllegalStateException`).
 
 ## Sending a response
 
@@ -779,6 +788,10 @@ context.response().code(201).send();               // no body
 ```
 
 `json()` only builds. Call it several times and it keeps adding to the same JSON document.
+
+**There is only one way to reply per response.** Stack two different kinds out of `json` / `jsonl` / `text` / `cache` / `view` / `redirect` / `download`
+(`redirect(...)` after `json(...)`, say) and the second one throws `IllegalStateException`.
+Stacking the same kind again is fine.
 
 **You do not need a `send()` after `json()`.** Once it is built, the dispatcher sends it at
 the end of the execution. Write `send()` explicitly only when you want to finish **with no
@@ -816,7 +829,7 @@ try (OutputStream out = context.response().outputStream()) {
 
 **Calling `outputStream()` fixes the status and headers.**
 `code(...)`, cookies put in `cookies()` and the default `Cache-Control: no-store` (not overwritten if you set your own)
-are applied at that moment, so settle them first; changes made afterwards do not arrive.
+are applied at that moment, so settle them first. **Writing a header or a cookie after the response has been sent throws `IllegalStateException`** (it would never arrive).
 For 204 / 205 / 304, whatever you write is dropped and a WARN is logged.
 
 **What you write stays buffered until you `flush()`.** For something written to the end, like a CSV, that is fine as is;
@@ -1035,7 +1048,7 @@ so **non-ASCII file names go through as they are.**
 | Level | Class | What it does |
 | --- | --- | --- |
 | One field | `ValidationRule` | Stack up "not empty", "an integer from 1 to 120" |
-| One request | `ValidationRules` | Bind rules to columns and run them in one pass |
+| One request | `ValidationRules` | Bind rules to columns and run them in one pass. `validate` **throws a 422** on failure |
 | One route | `ValidationExecutor` | On failure, **stop everything downstream and return 422** |
 
 Use only the lower levels, or only the top one. Either works.
@@ -1065,6 +1078,7 @@ They run in the order you stacked them and **stop at the first failure** (one er
 > **Everything other than `empty()` lets empty through.**
 > `textLengthMax(100)` means "at most 100 characters, if there is a value";
 > an empty string or `null` is not an error. **Always write required as `empty()`.**
+> `empty()` also fails **when the key was not sent at all**.
 
 > [!NOTE]
 > **Format checks are matched against the whole value.**
@@ -1098,19 +1112,20 @@ request.putData(Item.name, "");
 request.putData(Item.age, "999");
 
 // エラーは最初の1件で止めず、全部集める（要件 F-V-03）
-Data errors = rules.validate(null, request);
+Data errors = rules.errors(null, request);
 
 Data messages = ValidationMessages.toMessages(errors);
 ```
 
 - **Errors across fields are all collected** (being told about them one at a time is the worst possible experience for the person retyping the form)
-- **Fields that were not sent are not validated** (except through `insertRequired()`)
+- **A field that was not sent fails only the rules with `empty()` (`required()`) in them.** Other rules do not look at it
+- A rule with `insertRequired()` means "required on insert; on update, checked only when sent" (see "Required only on insert" below)
 - When an array arrives for one column, every element is run through
 - `put(rule)` (with no column) lets you write cross-field checks that belong to no single field
 
 ### The raw shape of an error
 
-What `validate` returns is **not wording.** It is which kind of check failed, and the settings it failed against.
+What `errors(...)` returns is **not wording.** It is which kind of check failed, and the settings it failed against.
 
 ```java
 { "validation_type": Empty, "validation_setting": {}, "input": "" }
@@ -1138,13 +1153,33 @@ Data request = new Data();
 request.putData(Item.name, "");
 
 assertEquals(List.of("required"),
-	ValidationMessages.toMessages(rules.validate(null, request)).get("name"));
+	ValidationMessages.toMessages(rules.errors(null, request)).get("name"));
 ```
 
 > [!TRAP]
 > `ValidationMessages` is **static and global**. If you swap it in a test,
 > call `ValidationMessages.reset()` in a `finally`.
 > Forget, and **the tests that run afterwards are the ones that fail.**
+
+## Stop, or take the list
+
+| Method | When validation fails |
+| --- | --- |
+| `rules.validate(db, data)` | **Throws `ValidationException` (422) and stops.** Returns nothing |
+| `rules.errors(db, data)` | Returns the list of errors (a `Data`). Does not stop. Empty when it passes |
+
+Normally you write `validate` as a statement.
+
+```java
+rules.validate(db, context.request().bodyAll());   // a 422 right here if it fails
+db.insert(...);
+```
+
+If you do nothing else, the framework replies **422** with the body `{"validation": {"field": ["message"]}}` **plus the input that was sent**
+(the same shape as `ValidationExecutor`). It is an exception, so the `error(...)` hook does run ([Error handling](./errors)).
+`ValidationException` is a subclass of `HttpException`; `errors()` gives you the list.
+
+When you want to look at the list and branch yourself, use `errors(...)`. To run several sets together, use `Validator.validate(db, data, rules...)` / `Validator.errors(db, data, rules...)`.
 
 ## Required only on insert
 
@@ -1155,11 +1190,11 @@ ValidationRules rules = new ValidationRules()
 
 Data update = new Data();
 update.put("is_insert", false);
-assertTrue(rules.validate(null, update).isEmpty(), "更新なのに必須になっている");
+assertTrue(rules.errors(null, update).isEmpty(), "更新なのに必須になっている");
 
 Data insert = new Data();
 insert.put("is_insert", true);
-assertFalse(rules.validate(null, insert).isEmpty(), "登録なのに必須になっていない");
+assertFalse(rules.errors(null, insert).isEmpty(), "登録なのに必須になっていない");
 ```
 
 You hand the "is this an insert request?" decision to `insertRequestChecker`.
@@ -1177,13 +1212,15 @@ ok.putData(Item.name, "あ");
 Data ng = new Data();
 ng.putData(Item.name, "");
 
-List<Data> errors = rules.validate(null, List.of(ok, ng, ok));
+List<Data> errors = rules.errors(null, List.of(ok, ng, ok));
 
 assertEquals(1, errors.size());
 assertEquals(2, errors.getFirst().getInt("index"), "行番号が違う");
 ```
 
 **Only the rows with errors** come back, and each one carries an `index` (**1-based**).
+
+`validate(db, list)` throws `ValidationException` if even one row fails (the exception's `errors()` is `{"rows": [...]}`).
 
 ## Applying it to a route
 
@@ -1231,10 +1268,9 @@ You can also stack the result of `ValidationRules` directly.
 addErrors(rules.errors(db, context.request().bodyAll()));
 ```
 
-> [!TRAP]
-> **`validate(...)` / `errors(...)` only return the list of errors; they do not stop anything.** Throw the return value away
-> and invalid input goes straight through. `errors(...)`, added in 1.5.0, is the same as `validate(...)` with a name that says
-> what it returns. In 2.0, `validate(...)` is planned to throw a 422 when validation fails.
+> [!NOTE]
+> In 1.x, `validate(...)` only returned the list, so throwing the return value away let invalid input straight through.
+> 2.0 made it `void` and throws when validation fails. Where you need the list, rewrite it as `errors(...)` ([Moving to 2.0](./migrate-2)).
 
 > [!NOTE]
 > `ValidationExecutor` **does not hold `WebContext` in a field.**
@@ -1265,6 +1301,7 @@ Paging paging = context.request().paging();
 | A non-numeric value | Ignored; the default is used |
 
 Write `context.request().paging(20)` to change the default used when no `per` arrives.
+There is one `Paging` per request, and the first one made is reused. **Call `paging()` first and then `paging(50)` with a different count, and you get `IllegalStateException`.** Pass the count on the first call.
 
 ### Applying it to a SELECT
 
@@ -1343,13 +1380,14 @@ An out-of-range page (`?page=999`) is not an error; **it returns zero rows.**
 
 # Error handling
 
-There are three paths by which an error reaches the surface. **They go through different places.**
+There are four paths by which an error reaches the surface. **They go through different places.**
 
 | What happened | Who catches it | What comes back by default |
 | --- | --- | --- |
 | Something threw | The `error(...)` hook | The status depends on the exception. The app builds the body |
 | No route matched | **The outermost** `error(...)` | 404 |
-| Validation failed | `ValidationExecutor` (`error` is not reached) | 422 and a `validation` JSON body |
+| `validate(...)` did not pass (`ValidationException`) | The `error(...)` hook | 422 and a `validation` JSON body |
+| `ValidationExecutor` validation failed | `ValidationExecutor` (`error` is not reached) | 422 and a `validation` JSON body |
 
 ## Writing an error handler
 
@@ -1405,6 +1443,7 @@ A request to `/admin/x` calls them inner first, then outer.
 | --- | --- |
 | `HttpException` | Whatever `statusCode()` says |
 | `NotFoundException` (a subclass of `HttpException`) | 404 |
+| `ValidationException` (a subclass of `HttpException`) | 422 |
 | Everything else | **500** |
 
 ```java
@@ -1446,7 +1485,8 @@ JimbleApp app = new JimbleApp() {
 
 > [!WARN]
 > `CodeException` (`io.jimble.util.exception.CodeException`) **has no effect on the HTTP status.**
-> It is the checked exception used for DB errors (`db.getError()`) and inside validators; throw it and you get a 500.
+> It is an unchecked exception (a subclass of `RuntimeException`) that carries a code; throw it and you get a 500.
+> DB failures (`SqlExecuteException`) and the like are also a 500 unless you do something (see "Exceptions the framework throws" below).
 
 ## Who builds the body
 
@@ -1540,7 +1580,23 @@ The failure is logged as `エラーハンドラで例外が発生しました`.
 
 An exception thrown inside `after` or `onComplete` is swallowed and logged the same way (the response still goes out).
 
-## Validation failures do not go through error
+## Validation failures
+
+### validate(...) answers with an exception
+
+`ValidationRules.validate(db, data)` / `Validator.validate(...)` throw a
+**`ValidationException`** (422, a subclass of `HttpException`) when the input does not pass.
+Like any other exception it goes through `error(...)`, and **if nobody builds a body** the framework
+answers in the shape below (the same as `ValidationExecutor`).
+
+```java
+rules.validate(db, data);   // leaves here with a 422 if it does not pass
+```
+
+When you want to handle the list yourself, take it with `errors(db, data)` (no exception).
+Checking a list of rows is `validate(db, List)` / `errors(db, List)`; the body is `{"rows": [...]}`.
+
+### ValidationExecutor does not go through error
 
 `ValidationExecutor` **does not throw.**
 It cancels itself, discards the executors behind it, and returns as-is.
@@ -1562,8 +1618,45 @@ This is the shape you get back. The input comes back with it, so you can rebuild
 ```
 
 > [!TRAP]
-> **Put your validation-error formatting in `error(...)` and it is never called.**
+> **For a `ValidationExecutor` failure, formatting you put in `error(...)` is never called.**
 > To change how a 422 looks, work on the `ValidationExecutor` side (`onCancel`).
+> A `ValidationException` from `validate(...)`, on the other hand, can be formatted in `error(...)`.
+
+## Exceptions the framework throws
+
+All of them are **unchecked**. Apart from the `HttpException` subclasses, each becomes a **500** unless you do something.
+
+| Exception | When | Parent |
+| --- | --- | --- |
+| `SqlExecuteException` | SQL failed. `getCode()` gives the code (table below) | `RuntimeException` |
+| `DuplicateKeyException` | A unique constraint was hit | `SqlExecuteException` |
+| `TransactionException` | A transaction could not be committed, begun or rolled back | `SqlExecuteException` |
+| `SqlBuildException` | The SQL cannot be built (`eq(null)` / `not(null)` and so on) | `RuntimeException` |
+| `RedisLockException` | `RedisLock.lock(...)` could not take the lock | `RuntimeException` |
+| `DataConversionException` | A Data value is there but cannot be read (`"abc"` through `getInt`, say) | `IllegalArgumentException` |
+| `JsonParseException` | Broken JSON handed to `Data.fromJsonString` / `Dson.decodes` | `IllegalArgumentException` |
+| `ValidationException` | `validate(...)` did not pass (**422**) | `HttpException` |
+| `CodeException` | A failure with a code (often found in another exception's `getCause()`) | `RuntimeException` |
+
+> [!NOTE]
+> When the body is `application/json` but cannot be read, `body()` / `bodyJson()` / `bodyAll()` throw a **400** `HttpException`.
+> It does not become a `JsonParseException` (500).
+
+These are the DB codes. The original JDBC exception is in `getCause().getCause()`.
+
+| Code | Exception | Meaning |
+| --- | --- | --- |
+| `DB_001` | `TransactionException` | The transaction could not be begun |
+| `DB_002` | `TransactionException` | It could not be rolled back |
+| `DB_003` | `TransactionException` | It could not be committed |
+| `DB_004` | `TransactionException` | SQL had failed inside the transaction, so it was not committed (everything was rolled back) |
+| `DB_005` | `TransactionException` | An inner, joined `Tx` asked for a rollback, so the outer one was not committed (everything was rolled back) |
+| `DB_006` | `TransactionException` | The body of `transaction(tx -> ...)` threw a checked exception (wrapped and rethrown) |
+| `DB_007` | `SqlExecuteException` | `DBUtil.load(...)` could not create the data source (startup stops) |
+| `DB_998` | `SqlExecuteException` | Different SQL was mixed into `executeBatch` / `insertBatch` |
+| `DB_999` | `SqlExecuteException` / `DuplicateKeyException` | Executing the SQL failed |
+
+For more, see [Using the DB](./db) and [Transactions](./transaction).
 
 ## What you can replace application-wide
 
@@ -1928,6 +2021,13 @@ context.session().save();
 **Nothing is saved automatically.** Nothing is written unless you call `save()`.
 That is to avoid writing on every request that only ever read.
 
+**Change it with `session().put(...)` / `remove(...)` / `clear()`.**
+`session().data()` (and `request().session()`) is **a read-only copy**; writing to it throws `UnsupportedOperationException`.
+That keeps you from a change that is never marked as changed and so never saved.
+
+A `put` / `remove` / `clear` after `session().destroy()` throws `IllegalStateException` (there is nowhere left to save it).
+If you want a value in after logout, put it in before `destroy()`, or on the next request.
+
 Choose where it is stored in `application.conf`.
 
 ```conf
@@ -2087,9 +2187,9 @@ context.cookies().putSigned(new Cookie("user", id).path("/app").maxAge(3600));  
 context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));      // not signed (for JavaScript)
 ```
 
-> [!TRAP]
-> **`put(Cookie)` does not sign** (while `put(name, value)` does). With `cookie.secret` set, the next request's
-> `get` cannot read what you wrote and returns `""`. Deprecated in 1.5.0, removed in 2.0.
+The 1.x `put(Cookie)` did not sign, so 2.0 removed it ([Moving to 2.0](./migrate-2)).
+
+**Writing a cookie after the response has been sent throws `IllegalStateException`** (it would never arrive). Write it before `send()`.
 
 **Read it back with `context.cookies().get("a name")` or `context.request().cookie("a name")`.**
 A value whose signature did not check out never lands there — that is the point, so a tampered
@@ -3057,7 +3157,8 @@ post("/save", () -> new SaveExecutor());
 ```
 
 - You can add to the queue while it is running (`context.addExecutor(...)`)
-- Calling `cancel()` **does not stop anything on the spot**. Once `execute` returns, the rest is thrown away and `onCancel` is called
+- `cancel()` **leaves `execute` on the spot** (it throws `ExecutorCanceled`, which the framework catches). The remaining executors are thrown away and `onCancel` is called.
+  Call it inside a `try` with `catch (Exception e)` and it is caught there and the following lines run, so call it outside the `try` (in 1.x it only set a flag, and the following lines ran too)
 - `OPTIONS` is for preflight only, so **the queue is not run** (requirement F-W-19)
 
 ## What runs on which thread
@@ -3286,10 +3387,7 @@ public static void main (String[] args) {
 
 	Migration.install();                                // startup migrations (if you want them; before DBUtil.load)
 
-	// false when it could not connect. Stop here
-	if (!DBUtil.load(Conf.conf().config(), App.class)) {
-		throw new IllegalStateException("could not load the DB (the reason is in the log just above)");
-	}
+	DBUtil.load(Conf.conf().config(), App.class);       // throws if it cannot connect. Startup stops here
 
 	JimbleServer.start(new App());
 
@@ -3299,12 +3397,12 @@ public static void main (String[] args) {
 The second argument to `DBUtil.load` is the **classpath anchor** — migration SQL is
 looked up from there. Pass a class of your own application.
 
-> [!TRAP]
-> **Do not throw the return value away.** `DBUtil.load` does not throw when it cannot
-> connect — it logs the reason and returns `false`. Throw that away and **the server
-> starts anyway**, then falls over on the first request that arrives.
-> `DBUtil.getMainDB()` fails saying the DB was never loaded, so you will not be lost,
-> but **noticing at startup is faster**.
+**When it cannot connect it throws `SqlExecuteException` (`DB_007`), and startup stops there.**
+There is no return value (`void`). Do not catch it; let it propagate out of `main`.
+
+> [!NOTE]
+> In 1.x, `DBUtil.load` only returned `false` when it could not connect, and throwing that away let the server start anyway.
+> 2.0 made it an exception ([Moving to 2.0](./migrate-2)).
 
 > [!TRAP]
 > **If your app has more than one entry point, put this sequence in one place.**
@@ -3400,7 +3498,7 @@ Data row = db.select(
 	SQL.select()
 		.from(Post.instance())
 		.where(Post.id.eq(1L))
-);
+).orElseThrow();
 
 // SELECT の結果はテーブル名でネストする（要件 F-D-02）
 String title = row.getData("post").getString("title");
@@ -3408,6 +3506,10 @@ String title = row.getData("post").getString("title");
 // Column で引けば、途中の文字列が出てこない
 String same = row.getString(Post.title);
 ```
+
+**`select` returns `Optional<Data>`.** It is empty when there are no rows
+(the `.orElseThrow()` above is how you take it out when the row must be there).
+When the row cannot be read you get an exception, not an empty result (see "Reading errors" below).
 
 **A SELECT result nests under the table name.**
 Join `post` and `comment` and the `id` on each side does not collide.
@@ -3443,58 +3545,63 @@ To get the JSON text itself, convert it in SQL: `CAST(col AS CHAR)` on MySQL, `c
 ```java
 try (DB db = BlogExample.db()) {
 
+	/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */
 	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
 
-	/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */
-	if (rows == null) {
-		Log.error("引けませんでした: " + db.getError());
-		return;
+	// 分岐したい失敗は一意制約くらい。それだけを受け止める
+	try {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, "hello"));
+	} catch (DuplicateKeyException ex) {
+		Log.info("もうあります");
 	}
 
 }
 ```
 
-DB errors come back as return values, not exceptions.
-`select` returns `null`, `insert` returns `-1`, `update` / `delete` return `-1`.
-The reason is in `db.getError()`.
+**DB failures come back as exceptions.** When a statement fails or the connection cannot be made, you get `SqlExecuteException` (unchecked).
+Leave it uncaught and it travels up to a 500; inside a transaction, the transaction rolls back.
+The code is in `getCode()` (`DB_999` etc.), and the original JDBC exception is at `getCause().getCause()`.
 
-### Telling "no rows" apart from "could not read"
+**No rows is not a failure.** It comes back as an empty `Optional`, an empty list, or a count of 0.
 
-`null` from `select` has **two meanings**.
+| Method | Returns | With no rows |
+| --- | --- | --- |
+| `select` / `selectCached` | `Optional<Data>` | An empty `Optional` |
+| `selectList` / `selectListCached` / `selectListPerformance` | `List<Data>` (never `null`) | An empty list |
+| `insert` | Nothing (`void`) | —— |
+| `insertKey` | The generated key. `SqlExecuteException` if no key was generated | —— |
+| `update` / `delete` | The number of rows affected (`int`) | `0` |
+| `execute` | The number of rows affected (`int`). `0` for DDL and statements that return a result set | `0` |
+| `executeBatch` / `insertBatch` | A list of counts per statement / generated keys | An empty list for empty input |
+
+**`executeBatch` / `insertBatch` require every statement to be the same SQL.** A mix throws with `DB_998`.
+
+### "No rows" and "could not read"
+
+**They come back as different things.** An empty `Optional` means "no rows" and nothing else; a failure to read throws.
 
 ```java
-Data user = db.select(sql, id);
-if (user == null) { return nobody; }   // ← taken even when the DB cannot be read
+Optional<Data> user = db.select(sql, id);      // throws SqlExecuteException here if it cannot be read
+if (user.isEmpty()) { return nobody; }         // empty means "no rows", nothing else
+
+Data post = db.select(sql, id)
+	.orElseThrow(() -> new HttpException(404, "no such post"));
 ```
 
-Written this way, **the day the DB goes down your app answers "no such user".**
-No exception, nothing in the log (because `isError()` was never checked).
+The day the DB goes down, your app does not answer "no such user".
 
-There are two ways to tell them apart.
+> [!NOTE]
+> In 1.x, `select` returned `null` both for no rows and for a failure (you had to check `isError()` to tell them apart).
+> 2.0 separates them. `selectOrThrow` / `selectListOrThrow` now mean the same as `select` / `selectList`, so they are
+> deprecated (they go away during 2.x).
 
-```java
-// 1. Check isError(), as before
-Data user = db.select(sql, id);
-if (db.isError()) { throw ...; }
-if (user == null) { return nobody; }
+### Catching only unique-constraint violations
 
-// 2. Have it thrown for you (since 1.1)
-Data user = db.selectOrThrow(sql, id);
-if (user == null) { return nobody; }   // null means "no rows", nothing else
-```
-
-| Method | Returns |
-| --- | --- |
-| `selectOrThrow` | One row. **`null` means "no rows" only**. `SqlExecuteException` if it cannot be read |
-| `selectListOrThrow` | Rows. **Empty list for no rows**. `SqlExecuteException` if it cannot be read |
-| `insertKey` | **The generated key only**. `SqlExecuteException` if there is no generated column, or the insert failed |
-
-**A unique-constraint violation gets its own type** (since 1.5.0).
-The `...OrThrow` methods and `insertKey` throw `DuplicateKeyException` (a subclass of `SqlExecuteException`);
-with the return-value style, `db.isDuplicateKeyError()` tells it apart.
+The only failure you usually want to branch on is a unique-constraint violation. **That one has its own type.**
+Hitting a unique constraint throws `DuplicateKeyException` (a subclass of `SqlExecuteException`) — from `insert`, `insertKey`, `update` or any other statement.
 
 ```java
 try {
@@ -3505,13 +3612,39 @@ try {
 ```
 
 > [!TRAP]
-> **The return value of `insert` also carries two meanings.**
-> It is the generated key when one comes back, and **the number of rows inserted** when one does not.
-> Whether `1` means "inserted id=1" or "inserted 1 row"
-> **depends on whether the table has a generated column**——
-> **add one auto-increment column and the meaning changes without touching the caller.**
->
-> Use `insertKey` for the key and `insertNoReturnKey` for the count.
+> **Catch it inside a transaction and carry on, and that Tx can no longer commit.**
+> `tx.commit()` refuses with `TransactionException` (`DB_004`) and rolls everything back ([Transactions](./transaction)).
+> To use it as "update if it exists", catch it outside the transaction or write it in SQL
+> (`INSERT ... ON DUPLICATE KEY UPDATE` on MySQL, `INSERT ... ON CONFLICT` on PostgreSQL).
+
+### Where to catch
+
+**DB exceptions are unchecked, so the compiler never asks you to catch them.** Decide where to catch with the table below. Anything not in it is left alone: the framework replies 500 and rolls back.
+
+| When you | Catch | Reply with |
+| --- | --- | --- |
+| Insert or change user input in a column with a unique constraint (UNIQUE or primary key) — email address, login ID and the like | `DuplicateKeyException` | "Already taken" (409 or similar) |
+| Take `RedisLock.lock(...)` for a user action | `RedisLockException` | "Already in progress" (409 or similar; or branch on an empty `tryLock(...)`) |
+| Anything else (`SqlExecuteException` / `TransactionException`) | Nothing | The framework replies 500 and logs it |
+
+- **Checking with `select` first does not let you skip the catch.** If two requests arrive together, both pass the check and one hits the constraint
+- **Catch outside the transaction** (see the TRAP above)
+- Write one test that inserts the same value twice; a forgotten catch shows up there as a 500
+
+### Generated keys and counts
+
+**`insert` returns nothing.** Use `insertKey` for the generated key, and `execute` when you need a count, as with `INSERT ... SELECT`.
+
+```java
+db.insert(SQL.insert(Tag.instance()).value(Tag.name, name));             // just insert
+long id = db.insertKey(SQL.insert(Post.instance()).value(...));          // the generated key
+int count = db.execute("INSERT INTO archive SELECT * FROM post WHERE ...");  // the count
+```
+
+> [!NOTE]
+> In 1.x, `insert` returned the generated key when there was one and the number of rows inserted when there was not
+> (adding one auto-increment column changed its meaning). 2.0 splits them.
+> `insertNoReturnKey` is deprecated (it goes away during 2.x); use `insert` or `execute`.
 
 
 ## Migrations
@@ -3608,6 +3741,10 @@ For OR and parentheses, group with `Dsl.anyOf(...)` / `Dsl.allOf(...)` (since 1.
 > **An empty list (or `null`) fails while the SQL is being built** — `IN ()` is broken SQL, and
 > collapsing it to `IN (NULL)` **matches no row and quietly returns nothing**.
 
+> [!NOTE]
+> **Compare with `NULL` using `is_null()` / `is_not_null()`.**
+> `eq(null)` / `not(null)` throw `SqlBuildException` while the SQL is being built, because `= NULL` matches no row.
+
 ## Joins
 
 ```java
@@ -3626,7 +3763,7 @@ The result nests under the table name, so you get it with `row.getData("comment"
 ## Inserting, updating, deleting
 
 ```java
-long id = db.insert(
+long id = db.insertKey(
 	SQL.insert(Post.instance())
 		.value(Post.title, title)
 		.value(Post.created_at, new Date())      // the application's clock
@@ -3655,8 +3792,14 @@ int deleted = db.delete(
 > nodes' clocks drift, **a row inserted later can carry an earlier timestamp**, and a
 > list ordered by creation time silently swaps rows around.
 
-`insert` returns the generated key. When you do not need the ID,
-`insertNoReturnKey` is faster.
+`insertKey` returns the generated key (it throws if no key was generated). When you do not need the ID,
+use `insert` (it returns nothing). For `INSERT ... SELECT` and anything else where you need the count, use `execute(...)`.
+
+`update` / `delete` return the number of rows hit. **Every failure is a `SqlExecuteException`**;
+a unique-constraint violation alone is a `DuplicateKeyException` ([Using the DB](./db)).
+
+> [!NOTE]
+> The current time is `Dsl.now()`. **The string `"now()"` goes in as a plain string** (1.x replaced it with the current time).
 
 Updating only the fields that were sent looks like this.
 
@@ -3881,13 +4024,13 @@ List<Long>    ids    = db.insertBatch(builderList);    // generated keys
 
 **The two return different things.** `executeBatch` gives you row counts
 (`List<Integer>`); `insertBatch` gives you the generated keys (`List<Long>`).
-For the counts, `DB.isBatchSuccess(list)` tells you whether all of them went through.
+**Failures are exceptions.** Pass an empty list and you get an empty list back.
 
 > [!TRAP]
 > **Every builder you stack has to produce the same SQL.** The point of a batch is
 > one statement with the parameters swapped in, so if the order you call `value()`
 > changes partway through, the SQL changes too — **keep the order the same inside
-> the loop**. When it does not match, `DB_998` is set and `null` comes back
+> the loop**. When it does not match, you get a `SqlExecuteException` with `DB_998`
 > (until this was fixed, **the values were silently shifted sideways** with no
 > exception and no warning).
 
@@ -3965,85 +4108,11 @@ try (Tx tx = db.begin()) {
 }
 ```
 
-## Which one to call
+Wrap the `Tx` that `db.begin()` returns in try-with-resources, and call `tx.commit()` at the end.
+**Leave without calling `commit()` and it rolls back** — whether by `return` or by an exception.
+In the example above, when the article does not go in it leaves with `return -1`, so nothing is left behind.
 
-| Method | What it does |
-| --- | --- |
-| `beginTransaction()` | Starts one. If one is already open, **joins it** (see "Nesting" below) |
-| `commit()` | Commits. **The transaction continues** |
-| `commitEndTransaction()` | Commits and ends |
-| `rollback()` | Rolls back. The transaction continues |
-| `rollbackEndTransaction()` | Rolls back and ends |
-| `close()` | Rolls back if still open |
-
-Watch the difference between `commit()` and `commitEndTransaction()`.
-`commit()` means "settle what has happened so far, and carry on".
-In the code this was ported from, `commit()` ended the transaction internally, which
-left a hole: **everything after it silently became auto-commit.** jimble fixes that.
-
-## Nesting (joining)
-
-Starting a `DBTransaction` while one is already open **does not start a new one; it joins the outer one.**
-
-| What the inner one does | What happens |
-| --- | --- |
-| `commit()` / `commitEndTransaction()` | Nothing. The outer one commits |
-| `rollback()` / `rollbackEndTransaction()` | **Marks the outer one rollback-only** |
-| Closed without committing (left by an exception) | **Marks the outer one rollback-only** |
-
-A rollback-only outer `commitEndTransaction()` rolls everything back and throws `CodeException` (`DB_005`).
-To carry on in the outer one, call `rollback()` there and write again.
-
-> [!TRAP]
-> **Up to 1.4, the inner `rollback()` silently did nothing and the outer one committed anyway.**
-> Rows the inner code meant to undo went in with the outer commit.
-> Whether it had joined was also decided **only when it was constructed**, so if the outer one started
-> afterwards, the inner `commitEndTransaction()` **ended the outer transaction**.
-
-## Forgetting to close
-
-Call `beginTransaction()` without try-with-resources and `return` partway through, and
-nothing is rolled back and the connection never goes back to the pool.
-
-jimble **catches it at the end of the execution (`Context`)**.
-
-```
-ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: blog_example
-```
-
-Rolling back silently would leave you with "I thought I saved it and it is not there",
-so it logs an ERROR first and then rolls back.
-If you see this line, you forgot to wrap something.
-
-**This is not limited to `DBTransaction`.** Calling `db.beginTransaction()` directly is
-caught the same way — the `DB` is what holds the connection, so that is where it is watched.
-
-## An unclosed `DB`
-
-**An ordinary statement does not leak when you forget to close the `DB`.** The connection
-goes back to the pool as soon as the statement finishes, which is what makes the throwaway
-`DBUtil.getMainDB()` style fine.
-
-**There are only two ways to leave with the connection held**, and both are caught at the
-end of the execution.
-
-| What holds it | When it comes back |
-| --- | --- |
-| An open transaction | `commitEndTransaction()` / `rollbackEndTransaction()` / `close()` |
-| A cursor (`selectListWithFetcher`) | `db.close()` |
-
-```
-ERROR 閉じられていない DB が残っていました。閉じます: blog_example（selectListWithFetcher はカーソルなので、close() までコネクションを返しません）
-```
-
-> [!TRAP]
-> **This is a last line of defence.** By the time it fires an ERROR has been logged, so
-> treat the line as something to fix rather than something to rely on. In a long-running
-> batch the connection stays held until the execution ends.
-
-## The 2.0 shape (since 1.5.0)
-
-**Prefer this for new code.** It throws no checked exceptions, and `commit()` commits **and ends** the transaction.
+## Three ways to write it
 
 ```java
 db.transaction(tx -> {
@@ -4059,77 +4128,74 @@ try (Tx tx = db.begin()) {            // when you want to commit yourself
 }
 ```
 
-| | `Tx` | `DBTransaction` |
-| --- | --- | --- |
-| Commit and end | `commit()` | `commitEndTransaction()` |
-| Commit and carry on | `checkpoint()` | `commit()` |
-| Roll back and end | `rollback()` | `rollbackEndTransaction()` |
-| Failure | `TransactionException` (unchecked; `getCode()` gives `DB_004` etc.) | `CodeException` (checked) |
-| A second `commit()` | Throws | Does nothing |
+**`db.transaction(...)` is usually the shortest.**
+Use `db.begin()` when you want to leave partway (like the `return -1` above) or decide the commit yourself.
 
-If the body throws a checked exception, it rolls back and wraps it in a `TransactionException` (`DB_006`).
-Nesting behaves as in "Nesting" below (joining, rollback-only, `DB_005`).
-In 2.0, `DBTransaction`, `db.beginTransaction()` and friends go away and only this remains.
+`transaction` and `transactionResult` have different names because an expression lambda such as
+`tx -> db.update(...)` reads both as "returns a value" and "returns nothing", so with a single name
+the call could not be told apart.
 
-## The short form
+## `Tx` methods
+
+| Method | What it does |
+| --- | --- |
+| `commit()` | Commits and **ends** |
+| `checkpoint()` | Commits what has happened so far, and **carries on** |
+| `rollback()` | Rolls back and ends |
+| `close()` | Rolls back if not yet ended (try-with-resources calls it) |
+
+Failures are `TransactionException` (unchecked; a subclass of `SqlExecuteException`). `getCode()` gives `DB_004` and so on.
+
+**`commit()` and `rollback()` are one-shot.** Calling one again after the transaction has ended throws `IllegalStateException`.
+To commit and carry on, use `checkpoint()`. Anything written after `checkpoint()` rolls back unless you `commit()`.
+
+You may call `tx.commit()` / `tx.rollback()` yourself inside `db.transaction(...)`. It then does nothing more on the way out.
+
+> [!NOTE]
+> 1.x's `DBTransaction` and the DB's `beginTransaction()` / `commit()` / `commitEndTransaction()` and friends were removed in 2.0.
+> `DBTransaction.commit()` committed without ending, so whatever you wrote after it was silently rolled back by `close()`.
+> In 2.0, commit-and-end is `commit()` and commit-and-carry-on is `checkpoint()` ([Moving to 2.0](./migrate-2)).
+
+## When SQL fails inside
+
+**A SQL failure is an exception** ([Using the DB](./db)). Leave it uncaught and it leaves the Tx, and everything rolls back.
+Nothing goes in halfway.
+
+**Catch it and carry on, and that Tx can no longer commit.**
 
 ```java
-DBTransaction.transaction(db, transaction -> {
-	db.insert(...);
-	db.update(...);
-});
+db.transaction(tx -> {
+	db.insert(...);                  // fine
+	try {
+		db.update(...);              // hit a unique constraint
+	} catch (DuplicateKeyException e) {
+		// caught; carry on
+	}
+	db.insert(...);                  // fine
+});                                  // <- TransactionException (DB_004) here. Everything rolls back
 ```
 
-It starts one, runs the work you passed in, and sees it through `commitEndTransaction()`.
-If an exception is thrown, `close()` rolls back.
+If any SQL has failed since the transaction started, `commit()` rolls everything back and throws
+`TransactionException` (`DB_004`). **One successful statement after a failure does not hide it.**
+`checkpoint()` refuses the same way.
 
-## An error inside means no commit
+### Branching on a failure and writing the other path
 
-**The DB layer returns errors as return values, not exceptions**
-([Principles](./principles)). So when `db.update(...)` inside returns `-1`,
-**the block still finishes as if nothing went wrong.**
-
-```java
-DBTransaction.transaction(db, transaction -> {
-	db.insert(...);          // fine
-	db.update(...);          // -1. No exception
-	db.insert(...);          // fine
-});
-```
-
-**This does not commit.** If anything inside the transaction recorded an error,
-`commitEndTransaction()` rolls back and throws `CodeException` (`DB_004`).
-
-> [!TRAP]
-> **Up to 0.6.0 it committed.** And because the framework calls `rollback()` inside the
-> failing statement, **everything up to that point was rolled back and everything after it
-> was committed.** No exception, no log — nobody sees that half the data went in.
-
-`db.isError()` answers **only for the statement just before it**. The commit decision looks
-at the whole transaction, so **one successful statement after a failure does not hide it.**
-
-### Branching on an error and carrying on
-
-**Call `rollback()` first, then write the other path.**
+**Roll that Tx back and write again in a new Tx.**
 
 ```java
-db.beginTransaction();
-
-insert(...);
-db.commit();                 // confirmed. The transaction continues
-
-update(...);                 // this failed
-
-if (db.isError()) {
-	db.rollback();           // settle it
-	insertFallback(...);     // write the other way
+try {
+	db.transaction(tx -> {
+		insert(...);
+		update(...);                 // may hit a unique constraint
+	});                              // left by an exception, so it has rolled back here
+} catch (DuplicateKeyException e) {
+	db.transaction(tx -> insertFallback(...));   // the other path, in a new Tx
 }
-
-db.commitEndTransaction();
 ```
 
-**`rollback()` also clears the carried-over error.** Without that, the `commit()` after your
-rewrite would refuse, saying an error is still outstanding.
+If there is an outer transaction too, the inner Tx has joined it (see "Nesting" below).
+In that case, redo the outer one as a whole.
 
 > [!TRAP]
 > **Whether statements after a failure go through depends on the product.**
@@ -4140,11 +4206,54 @@ rewrite would refuse, saying an error is still outstanding.
 > | MySQL | **They run.** One failed statement does not abort the transaction |
 >
 > **Lean on neither.** What jimble promises is only this: **the commit is refused and not one
-> row survives.** After a failure, `rollback()` before you write anything else.
->
-> **0.6.x hid the difference.** Every statement's `catch` called `rollback()` on the spot, so
-> on both products it *looked* like you could carry on — while **everything before the
-> failure had been thrown away.** That was the partial commit.
+> row survives.** Once you have caught a failure, end that Tx instead of writing more.
+
+## When the body throws a checked exception
+
+The body of `db.transaction(...)` / `transactionResult(...)` may throw checked exceptions (no `throws` needed).
+**Unchecked exceptions are rethrown as they are; checked ones are wrapped in `TransactionException` (`DB_006`)**, after rolling back.
+The original exception is at `getCause().getCause()`.
+
+## Nesting (joining)
+
+Calling `db.begin()` (or `db.transaction(...)`) on a DB that already has a transaction open
+**does not start a new one; it joins the outer one.** `tx.isJoined()` tells you whether it joined.
+
+| What the inner one does | What happens |
+| --- | --- |
+| `commit()` / `checkpoint()` | Nothing. The outer one commits |
+| `rollback()` | **Marks the outer one rollback-only** |
+| Closed without committing (left by an exception) | **Marks the outer one rollback-only** |
+
+A rollback-only outer `commit()` rolls everything back and throws `TransactionException` (`DB_005`).
+**Catching the inner exception in the outer one and carrying on does not let the outer one commit.**
+Nor can you commit the outer one partway (the inner `checkpoint()` does nothing).
+
+## Locking with a DB row (`DBLock`)
+
+Where there is no Redis, `DBLock` lets you run "one at a time per key".
+
+```java
+DBLock.create(db, "daily");            // create the key's row (does nothing if it exists). Once, beforehand
+
+db.transaction(tx -> {
+	DBLock.lock(db, "daily");          // SELECT ... FOR UPDATE. Only one until the transaction ends
+	...
+});
+```
+
+**Call `DBLock.lock` inside a transaction.** Outside one it throws `IllegalStateException`
+(a `FOR UPDATE` lock is released at the end of the statement, so taking it outside protects nothing).
+
+- A missing key (no `create`) also throws `IllegalStateException`
+- `create` / `lock` return nothing (`void`). A SQL failure throws `SqlExecuteException`
+- The lock is released **at the end of the transaction**. There is no way to release it explicitly
+
+> [!NOTE]
+> In 1.x, `DBLock.lock` returned a `boolean`, and returned `true` even outside a transaction.
+> It carried on protecting nothing, so 2.0 made it an exception.
+
+Locks backed by Redis are in [Cache and locks](./cache).
 
 ## What leaves the process, and what goes into the DB
 
@@ -4156,17 +4265,13 @@ rewrite would refuse, saying an error is still outstanding.
 | **Anything that leaves the process** (SSE, mail, an external API) | **After the commit** | It cannot be taken back, so publishing first is unrecoverable |
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+db.transaction(tx -> {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(...);
+	long id = db.insertKey(...);
 
 	new NoticeExecutor().put(db, data);      // inside — it is a DB queue
 
-	transaction.commitEndTransaction();
-
-}
+});
 
 PostFeedHandler.notifyNewPost(title);        // outside — only after the commit
 ```
@@ -4181,6 +4286,45 @@ died is silently gone** — the article is there, and nobody is told about it.
 > **The most reliable place for outgoing work is inside the queue.** `put()` in the
 > transaction and do the actual sending in [MQ](./mq)'s `execute()`. Then **you never have
 > to think about which side of the commit you are on.**
+
+## Forgetting to close
+
+Write `Tx tx = db.begin()` without try-with-resources and `return` partway through without
+`commit()` or `rollback()`, and nothing is rolled back and the connection never goes back to the pool.
+
+jimble **catches it at the end of the execution (`Context`)**.
+
+```
+ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: blog_example
+```
+
+Rolling back silently would leave you with "I thought I saved it and it is not there",
+so it logs an ERROR first and then rolls back.
+If you see this line, you forgot to wrap something.
+(It is watched on the `DB` side, because the `DB` is what holds the connection.)
+
+## An unclosed `DB`
+
+**An ordinary statement does not leak when you forget to close the `DB`.** The connection
+goes back to the pool as soon as the statement finishes, which is what makes the throwaway
+`DBUtil.getMainDB()` style fine.
+
+**There are only two ways to leave with the connection held**, and both are caught at the
+end of the execution.
+
+| What holds it | When it comes back |
+| --- | --- |
+| An open transaction | `tx.commit()` / `tx.rollback()` / `tx.close()` |
+| A cursor (`selectListWithFetcher`) | `db.close()` |
+
+```
+ERROR 閉じられていない DB が残っていました。閉じます: blog_example（selectListWithFetcher はカーソルなので、close() までコネクションを返しません）
+```
+
+> [!TRAP]
+> **This is a last line of defence.** By the time it fires an ERROR has been logged, so
+> treat the line as something to fix rather than something to rely on. In a long-running
+> batch the connection stays held until the execution ends.
 
 
 
@@ -4284,11 +4428,6 @@ protected Map<Object, List<Data>> loadBatch (List<Object> ids) {
 			.where(Comment.post_id.in(ids))
 			.orderBy(Comment.post_id, Comment.created_at)
 	);
-
-	if (rows == null) {
-		// 引けなかった。1つも読み込み済みにしないよう、例外にして個別読みへ落とす
-		throw new IllegalStateException("コメントを引けませんでした: " + BlogExample.db().getError());
-	}
 
 	Map<Object, List<Data>> byPost = new LinkedHashMap<>();
 
@@ -4505,7 +4644,7 @@ cache.remove("top:posts");
 | Method | What comes back |
 | --- | --- |
 | `getString(key)` | A string, or `null` when there is nothing (`""` on the memory implementation only) |
-| `get(key)` | A `CacheData` (with creation time and kind). **Check `isError()`** |
+| `get(key)` | A `CacheData` (with creation time and kind). **`isError()` is true** when there is nothing |
 | `set(key, value, contentType[, group])` | `true` when it went in |
 | `has(key, group)` / `remove(key)` / `removeGroup(group)` | |
 
@@ -4545,7 +4684,7 @@ sql_cache.enabled = true
 ```
 
 ```java
-Data customer = db.selectCached(
+Optional<Data> customer = db.selectCached(
 	SQL.select()
 		.from(Customer.instance())
 		.inner(Shop.instance()).on(Customer.shop_id.eq(Shop.id))
@@ -4684,6 +4823,7 @@ List<Data> posts = cache.get();
 | Expiry | **None** unless you pass a `Duration` |
 | When another machine calls `clear()` | It checks the shared cache **once a minute** and throws its copy away |
 | The `DB` handed to the loader | A new connection (separate from the caller's transaction) |
+| When the loader fails | `get()` throws an unchecked exception (the original is `getCause()`) |
 
 > [!TRAP]
 > **A loader that returns `null` still counts as loaded.**
@@ -4697,30 +4837,33 @@ List<Data> posts = cache.get();
 this".
 
 ```java
-RedisLockResult result = RedisLock.lock(key);
-
-assertEquals(RedisLockStatus.Success, result.status());
-
-closeQuietly(result);
+// 取れなければ RedisLockException。抜けたら外れる
+try (RedisLockResult result = RedisLock.lock(key)) {
+	assertEquals(RedisLockStatus.Success, result.status());
+}
 ```
 
 ```java
 // Wait 100ms, give up if it is not free. Hold it for 30 seconds once taken
-try (RedisLockResult lock = RedisLock.tryLock("batch:daily", 100, 30000)) {
+Optional<RedisLockResult> lock = RedisLock.tryLock("batch:daily", 100, 30000);
+if (lock.isEmpty()) {
+	return;   // someone else is running it
+}
 
-	if (lock.status() != RedisLockStatus.Success) {
-		return;   // someone else is running it
-	}
-
+try (RedisLockResult held = lock.get()) {
 	// only one machine gets in here
-
-} catch (IOException ignore) {
 }
 ```
 
-> [!WARN]
-> **Failing to take the lock does not throw.** You must check `status()`.
-> If you do not, you get "the work proceeds without holding the lock".
+| | When the lock is not taken |
+| --- | --- |
+| `RedisLock.lock(key)` | **`RedisLockException`** (unchecked) |
+| `RedisLock.tryLock(key, wait, hold)` | An **empty `Optional`** if it is still not free after waiting. `RedisLockException` if Redis cannot be reached |
+
+**You never proceed inside without the lock.**
+In 1.x `status()` merely became `Failed`, and if you did not check it you went
+ahead without a lock.
+`close()` throws no checked exception, so you need no `catch (IOException e)`.
 
 > [!TRAP]
 > **The same thread can take the same key again** (the lock is reentrant).
@@ -4739,19 +4882,28 @@ That is so you never create "it went ahead even though there was no lock".
 
 ### Locking with the DB alone
 
-Where there is no Redis you can use `DBLock`. **Inside a transaction**, create
-the row first, then take it.
+Where there is no Redis you can use `DBLock`. Create the row beforehand, then
+take it **inside a transaction**.
 
 ```java
-DBLock.create(db, "daily");           // once only
+DBLock.create(db, "daily");           // once only (does nothing if it exists)
 ...
-if (DBLock.lock(db, "daily")) {       // SELECT ... FOR UPDATE
+db.transaction(tx -> {
+	DBLock.lock(db, "daily");         // SELECT ... FOR UPDATE
 	// one at a time until the transaction ends
-}
+});
 ```
 
-If the row is not there you get `false`. It is released **at the end of the
-transaction**; there is no way to release it explicitly.
+Neither `create` nor `lock` returns anything. **Failures are exceptions.**
+
+| | What happens |
+| --- | --- |
+| Calling `lock` outside a transaction | `IllegalStateException` (the `FOR UPDATE` lock is released at the end of the statement and protects nothing) |
+| Calling `lock` on a key you never `create`d | `IllegalStateException` |
+| The SQL fails | `SqlExecuteException` |
+
+It is released **at the end of the transaction**; there is no way to release it
+explicitly.
 
 ## Configuration keys
 
@@ -5310,7 +5462,7 @@ so the admin screen shows how far along a running batch is.
 The `db` handed to `reader()` and the `db` handed to `write()` are **different instances**.
 **Use the one you are given.**
 
-Closing a `DBTransaction` returns the connection to the pool, so if you read through the same
+When a chunk's transaction (`Tx`) ends the connection goes back to the pool, so if you read through the same
 `DB`, **your open read dies the moment the first chunk commits.**
 
 > [!TIP]
@@ -5324,9 +5476,11 @@ rewritten while the batch runs.** If a full page comes back without the key adva
 better that than spinning forever in silence.
 
 > [!WARNING]
-> **`db.insert()` and friends do not throw when they fail.**
-> `db.isError()` only holds the result of **the statement just before it**.
-> If `write()` runs several statements, check after each one or throw yourself.
+> **When SQL inside `write()` fails, it throws `SqlExecuteException`.** That chunk is rolled back
+> and the batch fails (see "When it fails partway" above).
+> You do not need to check the result of each statement.
+> **Do not `catch` the failure and carry on.** Committing that chunk is then refused with
+> `TransactionException` (`DB_004`) and everything in it is rolled back.
 
 ## Double starts
 
@@ -6206,7 +6360,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.5.1-SNAPSHOT
+jimble 2.0.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6230,7 +6384,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`1.5.1-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.0.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6363,9 +6517,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.5.0"
-	id("io.jimble.run") version "1.5.0"
-	id("io.jimble.db")  version "1.5.0"
+	id("io.jimble.jte") version "2.0.0"
+	id("io.jimble.run") version "2.0.0"
+	id("io.jimble.db")  version "2.0.0"
 }
 ```
 
@@ -6408,9 +6562,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.5.0"   // if you use src/main/jte
-	id("io.jimble.run") version "1.5.0"   // if you want hot reload
-	id("io.jimble.db")  version "1.5.0"   // if you use a database
+	id("io.jimble.jte") version "2.0.0"   // if you use src/main/jte
+	id("io.jimble.run") version "2.0.0"   // if you want hot reload
+	id("io.jimble.db")  version "2.0.0"   // if you use a database
 }
 
 repositories {
@@ -6425,7 +6579,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.5.0")
+	implementation("io.jimble:jimble-web:2.0.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6459,7 +6613,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.0.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -6665,7 +6819,7 @@ how to fix it is left out). Any `ERROR` fails the task; `WARN` alone does not.
 
 | Rule | Level | What it looks for |
 | --- | --- | --- |
-| J101 | ERROR | `context.request().getString(...)` and friends (`Request` itself is empty; go through `bodyAll()`) |
+| J101 | ERROR | `context.request().getString(...)` and friends (`Request` is not a `Data`; go through `bodyAll()`) |
 | J201 | WARN | `${ENV}` without `?` in configuration (fails at startup wherever the variable is not set) |
 | J202 | ERROR | The same key written again after its `${?ENV}` line (the environment variable never wins) |
 | J301 | ERROR | `Migration.install()` after `DBUtil.load(...)` (migrations never run) |
@@ -6674,7 +6828,30 @@ how to fix it is left out). Any `ERROR` fails the task; `WARN` alone does not.
 | J304 | WARN | codegen is in use but MQ tables (`mq_scheduler` …) are missing from `codegen.exclude_tables` |
 | J401 | ERROR | An outer `before(Auth::guard)` with `Remember.restore` inside an `Auth.REALM` block (401 every time despite remember-me) |
 | J501 | WARN | The skills are not from the jimble version you use (run `jimbleSkills`) |
-| J701 | WARN | An empty `catch` in a file that uses `DBTransaction` (reports success when nothing was committed) |
+| J701 | WARN | An empty `catch` in a file that uses transactions (`db.begin()` / `db.transaction(...)` / `TransactionException`) (reports success when nothing was committed) |
+
+It also lists **1.x code that 2.0 removed, or whose type or meaning 2.0 changed** (all WARN; the rewrites are in [Moving to 2.0](./migrate-2)).
+
+| Rule | What it looks for |
+| --- | --- |
+| J801 | `new DBTransaction(...)` / `DBTransaction.transaction(...)` (removed in 2.0) |
+| J802 | The DB's `beginTransaction()` / `commitEndTransaction()` / `rollbackEndTransaction()` / `endTransaction()` (removed in 2.0) |
+| J803 | `Router x = router.path("/x")` (removed in 2.0; use the block form `path("/x", r -> { ... })`) |
+| J804 | A column's `subtract(...)` (removed in 2.0; it produced a division) |
+| J805 | `Dsl.or(...)` / `Dsl.and(...)` (removed in 2.0; use `Dsl.anyOf` / `Dsl.allOf`) |
+| J806 | `cookies().put(cookie)` (removed in 2.0; it did not sign) |
+| J807 | `eq(null)` / `not(null)` (throws in 2.0; use `is_null()` / `is_not_null()`) |
+| J808 | The string `"now()"` (just a string in 2.0; use `Dsl.now()`) |
+| J810 | `long id = db.insert(...)` (2.0's `insert` returns nothing; use `insertKey`) |
+| J901 | `Data row = db.select(...)` / `selectCached(...)` (2.0 returns `Optional<Data>`; code that takes it with `.orElse(...)` and the like is not listed) |
+| J902 | `if (!db.execute(...))` / `boolean x = db.execute(...)` (2.0 returns a count, and a failure throws) |
+| J903 | `isError()` (gone in 2.0) |
+| J904 | Checking the return value of `DBUtil.load` / `DBLock.lock` / `DBLock.create` with `if (!...)` and the like (2.0 returns nothing, and a failure throws) |
+| J905 | `RedisLock.tryLock(...)` (2.0 returns `Optional<RedisLockResult>`; code that takes it as an `Optional` is not listed) |
+| J906 | `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey` (deprecated in 2.0) |
+| J907 | `session().data().put(...)` (and `putData` / `remove` / `clear` / `putAll`; throws in 2.0) |
+
+J8xx and J9xx are **always listed**. `--target=2.0` is still accepted so scripts from the 1.5 days keep working, but it does nothing.
 
 > [!NOTE]
 > Java is not parsed into a syntax tree; comments and strings are blanked out first. **Silence a false positive
@@ -8534,28 +8711,18 @@ Also, **adding a `before` after the routes are settled throws.**
 That is so "I added it and it does nothing" never gets through in silence.
 Keep route definitions entirely inside the controller's initializer block.
 
-## Reading straight off request() silently gives you nothing
+## A value that was never sent goes into the DB as null
 
-**Symptom**: you are posting a form or JSON, but no value comes back. No exception.
+**Symptom**: it fails with `Column 'title' cannot be null`. The form has the field.
 
-**Cause**: `Request` is a `Data` too, so this is writable:
-
-```java
-context.request().getString("title")   // compiles. returns null
-```
-
-The `Request` object itself holds neither the body nor the query string.
-
-**What to do**: go through `bodyAll()` (or `bodyJson()` and friends when you want to
-pin down where the value came from).
+**Cause**: `getString` on a missing key is `null` (not an exception).
 
 ```java
 Data input = context.request().bodyAll();
-String title = input.getString("title");
+String title = input.getString("title");   // null if it was not sent
 ```
 
-`getString` on a missing key is `null`. **Put that into a NOT NULL column and you get
-`Column 'title' cannot be null`.**
+**Fix**: run [validation](./validation) before you read it. `required()` also fails when the key is missing.
 
 ## The session was not saved
 
@@ -8570,6 +8737,8 @@ context.session().put("user_id", 42);
 context.session().save();
 ```
 
+Change it with `session().put(...)`. `session().data()` is a read-only copy; writing to it throws.
+
 ## You cannot get at the select result
 
 **Symptom**: `row.getString("title")` comes back empty.
@@ -8581,7 +8750,7 @@ Data row = db.select(
 	SQL.select()
 		.from(Post.instance())
 		.where(Post.id.eq(1L))
-);
+).orElseThrow();
 
 // SELECT の結果はテーブル名でネストする（要件 F-D-02）
 String title = row.getData("post").getString("title");
@@ -8592,47 +8761,43 @@ String same = row.getString(Post.title);
 
 Look it up with `Column` and you cannot get it wrong.
 
-## You do not notice the DB error
+## Catching a DB failure inside a transaction means it cannot commit
 
-**Symptom**: zero rows when zero is impossible. Or an NPE.
+**Symptom**: `tx.commit()` fails with `TransactionException` (`DB_004`) and nothing is saved.
 
-**Cause**: DB errors are return values, not exceptions. `select` gives `null`, the update
-family gives `-1`.
+**Cause**: a DB failure is a `SqlExecuteException`. Catch it inside a transaction and carry on, and
+**that Tx can no longer commit**. `commit()` refuses and rolls everything back.
+
+**Fix**: the only failure worth branching on is usually a unique violation. Catch just
+`DuplicateKeyException`, **outside the transaction**. Let everything else fly up
+(it becomes a 500, and the transaction rolls back).
 
 ```java
 try (DB db = BlogExample.db()) {
 
+	/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */
 	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
 
-	/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */
-	if (rows == null) {
-		Log.error("引けませんでした: " + db.getError());
-		return;
+	// 分岐したい失敗は一意制約くらい。それだけを受け止める
+	try {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, "hello"));
+	} catch (DuplicateKeyException ex) {
+		Log.info("もうあります");
 	}
 
 }
 ```
 
-## The transaction did not carry on
-
-**Symptom**: an update made after `commit()` does not go away when you roll back.
-
-**Cause**: this one is about the code this was ported from. Its `commit()` ended the
-transaction, so everything past that point ran in autocommit.
-In jimble, `commit()` does not end it. `commitEndTransaction()` is what ends it.
-
-**When you read code you brought over, check what comes after each `commit()`.**
-
 ## "A transaction was left neither committed nor rolled back"
 
 ```
-ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: main
 ```
 
-**Cause**: you called `beginTransaction()` without wrapping it in try-with-resources,
+**Cause**: you called `db.begin()` without wrapping it in try-with-resources,
 and then returned partway through.
 
 **Fix**: wrap it. jimble picks it up at the end of the execution and rolls it back,
@@ -8664,11 +8829,8 @@ public final class Bootstrap {
 
 		Migration.install();                                  // before DBUtil.load
 
-		// false when it could not connect. Ignore it and you fall over later
-		// with an exception that says nothing about the DB
-		if (!DBUtil.load(Conf.conf().config(), Bootstrap.class)) {
-			throw new IllegalStateException("could not load the DB");
-		}
+		// if it cannot connect, SqlExecuteException (DB_007) stops the startup
+		DBUtil.load(Conf.conf().config(), Bootstrap.class);
 
 		BatchTables.install(DBUtil.getMainDB());
 		new MqQueue(NoticeExecutor.QUEUE_NAME).install();
@@ -8810,6 +8972,17 @@ Some things pass on Gradle 8 and break on 9.
 
 **Run your build script at least once on the version you are actually going to use.**
 
+## Traps that 2.0 removed
+
+These 1.x traps became **a compile error or an exception** in 2.0. See [Moving to 2.0](./migrate-2) for details.
+
+- `context.request().getString("x")` silently returns `null` → `Request` is no longer a `Data`; compile error
+- Missing `select`'s `null` or the update family's `-1` → a failure is a `SqlExecuteException`
+- Throwing away the return value of `DBUtil.load(...)` and carrying on without a connection → an exception stops the startup
+- The code you ported from and jimble meant different things by `commit()` → `tx.commit()` commits and ends. Use `tx.checkpoint()` to carry on
+- `session().data().put(...)` is never saved → `UnsupportedOperationException`
+- `required()` lets through a field whose key was never sent → it fails
+
 
 
 ---
@@ -8851,20 +9024,30 @@ DB values are **read and written by column (`Column`)**. The column versions **f
 | `flattenTable(Table)` / `extractTableData(Table)` | Flatten / pull out. **`null` if it is not there** |
 
 > [!TRAP]
-> **The Optional variants — `getStringOptional` and the rest — write to the Data.**
-> When the key is missing they **`put` an empty string first** and then return it,
-> so reading alone adds keys. Call one just before serialising to JSON, or inside a loop,
-> and the output changes.
+> **The Optional variants — `getDataOptional`, `getStringListOptional` and the rest — write to the Data.**
+> As the name says, when the key is missing they **create an empty value, `put` it** and then return it,
+> so a value written with `data.getDataOptional("x").put(...)` stays.
+> The price is that reading alone adds keys. Call one just before serialising to JSON, or inside a loop,
+> and the output changes. A value that is already there is not rewritten.
+> `getStringOptional` just returns an empty string and does not write.
 
 > [!TRAP]
-> **You cannot tell "missing" from "0".** `getString` returns `null`,
+> **You cannot tell "missing" from "0".** When the key is missing, `null` or blank, `getString` returns `null`,
 > `getInt` returns `0`, `getBoolean` returns `false`.
 > When you need to tell them apart, use the **Object versions** — `getIntObject` and friends — or `isNull(key)`.
->
-> **Since 1.5.0 there is a form that takes a default** (`getInt(key, default)` / `getLong` / `getDouble` / `getBoolean` / `getString`).
-> It returns the default **only when the key is missing, `null` or blank**; a value it cannot read (`"abc"`, `"1.5"` as an int,
-> an overflow, `"yes"` as a boolean) throws a `DataConversionException`. **It does not write either** (unlike the Optional versions).
-> In 2.0, `getInt(key)` will also throw when the key is missing.
+> There is also a form that takes a default (`getInt(key, default)` / `getLong` / `getDouble` / `getBoolean` / `getString`).
+
+**A value that is there but cannot be read throws `DataConversionException`.** That means `"abc"`, `"1.5"` as an int,
+an overflow, `"yes"` as a boolean (only `true` / `false` / `1` / `0` are read), and so on.
+`getEnum` also throws when nothing matches; if the value may be absent, use `getEnumOptional(key, type)`.
+When you read user input with `getInt` and friends, **run it through validation first.** Read it unvalidated,
+hit the exception, and the answer is a 500.
+
+- Reading as a different type (a list of numbers through `getStringList`, say) **does not write back into the Data**
+- When you want a copy that cannot be changed, use `readOnlyCopy()` (writing to it throws `UnsupportedOperationException`)
+
+> [!NOTE]
+> In 1.x an unreadable value silently came back as `0` / `false` / `null` ([Migrating to 2.0](./migrate-2)).
 
 > [!NOTE]
 > **`toString()` is a summary** (keys and types only).
@@ -8902,16 +9085,21 @@ assertEquals(List.of("あ", "い"), restored.getStringList("tags"));
 | Straight to a stream | `data.outputJsonString(outputStream)` |
 | Write it out piece by piece, without building it | `JsonHashWriter` / `JsonArrayWriter` |
 
-> [!WARN]
-> **The static `Dson.encodes` / `decodes` do nothing on failure but return `null`.**
-> If you need the reason, create a `new Dson()` and check `isError()` /
-> `getErrorException()` after `decode(...)`.
+**Broken JSON throws `JsonParseException` (unchecked).** `Data.fromJsonString` and `Dson.decodes` behave the same.
+Unclosed brackets, something extra at the end, or something that is not JSON at all — each of these throws.
+An empty string and `"null"` return `null` (no exception).
+
+> [!NOTE]
+> **Only the shape is checked.** The reader is lenient, so as long as the brackets close, a grammar mistake such as
+> `"a":` with no value gets through.
+> The instance method `new Dson().decode(...)` does not throw; check `isError()` / `getErrorException()` as before.
 
 ## Type conversion
 
 `Convertor.convert(conf, src, Target.class)` is the way in.
 Bean ↔ `Data` ↔ Map ↔ List ↔ primitives all go down the same single path.
 `data.convert(new MyBean())` is the same machinery underneath.
+When it cannot convert, it throws an **unchecked exception** (no `throws` or `catch` needed).
 
 > [!TRAP]
 > **Do not reuse a `Configration`.** Its depth counter and its record of circular
@@ -8939,7 +9127,7 @@ Data json = res.getContentJson();
 - POST is `HttpPostExecutor`. `addBodyForm(name, value)` / `setBodyJson(data)`
 - **Add even one file and it becomes multipart** (`addBodyForm(name, file, contentType)`)
 - The proxy is `setProxy(new HttpProxy(host, port, id, pass))`
-- **It does not throw.** Check `isError` (the same style as the DB)
+- **It does not throw.** Check `isError`
 
 > [!WARN]
 > **The default timeout is 30 seconds**, and **the same value goes to both** connect and response. You cannot set them separately.
@@ -8960,6 +9148,7 @@ try (CsvReader reader = new CsvReader(new File("in.csv"))) {
 ```
 
 **It reads a line at a time** (it does not put the whole file in memory). For writing, `CsvWriter#writeLine(Object...)`.
+`CsvReader` / `CsvWriter` **throw no checked exceptions**. A read or write failure is an `UncheckedIOException`.
 
 > [!WARN]
 > **Leave the character encoding out and, when detection fails, you get Shift_JIS.**
@@ -8968,7 +9157,7 @@ try (CsvReader reader = new CsvReader(new File("in.csv"))) {
 ## XML
 
 `XmlParser.parse(file)` turns it into a tree of `XmlData` (**all of it goes in memory**).
-To build one, `XmlBuilder.build(xmlData)`.
+To build one, `XmlBuilder.build(xmlData)` (it throws no checked exception).
 
 ## Hashing and encryption
 
@@ -9011,7 +9200,7 @@ String value = DBValue.getString(db, "last_imported_at", "");
 | URLs | `UrlUtil` / `UrlBuilder` (domain extraction, punycode, encoding) |
 | Numbers and parsing | `Parse.parseInt` and friends (**they do not throw on failure**) |
 | Regular expressions | `Patterns` (email, URL, domain, phone) |
-| Files | `FileUtil` / `IOUtil` / `FileCharDetecter` (character encoding detection) |
+| Files | `FileUtil` / `IOUtil` (a failure in `copy` / `readLines` is an `UncheckedIOException`) / `FileCharDetecter` (character encoding detection) |
 | Threads | `VirtualThreadManager` / `ThreadManager` ([Execution model](./execution)) |
 | Measurement | `StopWatch` |
 
@@ -9093,7 +9282,7 @@ install(() -> new PostController(new PostService(db)));
 | jooby | jimble |
 | --- | --- |
 | `@GET @Path("/x")` | `get("/x", ...)` |
-| `@Transactional` | `try (DBTransaction transaction = ...)` |
+| `@Transactional` | `db.transaction(tx -> { ... })` |
 | `@Inject` | pass it through the constructor |
 
 ### Startup
@@ -9144,13 +9333,16 @@ The model you pass becomes a `Data`. Receive it with `@param Data data`.
 2. Make `App.java` extend `JimbleApp`. The route definitions are a straight paste
 3. Rewrite the insides of the handlers to `context.request()` / `context.response()`
 4. Replace `@Inject` with `install()` and a constructor
-5. Replace `@Transactional` with `try (DBTransaction ...)`
+5. Replace `@Transactional` with `db.transaction(tx -> { ... })`
 6. Start it up and **check the route list and the configuration line**
 
 ## What you do not have to migrate
 
-The DB layer carries over. How you use `SQL` / `Column` / `Table` / `Data` / `DB` does not change.
+The DB layer's classes (`SQL` / `Column` / `Table` / `Data` / `DB`) and the way you build SQL carry over.
 The generated table definition classes work as they are, too.
+
+**Failures, however, are exceptions, not return values.** `select` returns `Optional<Data>`, and there is no `isError()`.
+Code that checked return values for failure needs rewriting ([DB](./db), [Moving to 2.0](./migrate-2)).
 
 
 
@@ -9351,8 +9543,8 @@ buried under "fixed".
 > warning. **Do not switch those warnings off** — otherwise you find out it is gone
 > after you upgrade.
 
-**The list of what 2.0 removes or changes is in [Moving to 2.0](./migrate-2).**
-`./gradlew jimbleCheck --target=2.0` lists the lines to rewrite.
+**The list of what 2.0 removed or changed is in [Moving to 2.0](./migrate-2).**
+`./gradlew jimbleCheck` lists the lines to rewrite (on 1.5, add `--target=2.0`).
 
 ## Choosing a version
 
@@ -9372,25 +9564,26 @@ The dependency coordinates and a build file that works as it stands are on the
 # Moving to 2.0
 
 2.0 rebuilds the APIs that **do nothing when you throw the return value away, or fail silently**.
-Every break is either **a compile error or an exception**; nothing changes meaning silently.
+Every break is either **a compile error or an exception**. Nothing changes meaning silently.
 
-**The 2.0 way of writing is already in 1.5.** Rewrite while you are on 1.5 and there is almost nothing left to fix when you move to 2.0.
+**Most of the 2.0 way of writing is already in 1.5.** Rewrite while you are on 1.5 and there is less to fix when you move to 2.0.
 
-## 1. Run jimbleCheck first
+## 1. The order to upgrade in
 
-```bash
-./gradlew jimbleCheck                  # things with a replacement in 1.5 (J8xx)
-./gradlew jimbleCheck --target=2.0     # plus things whose type or meaning changes in 2.0 (J9xx)
-```
+1. **Move to 1.5 and run `./gradlew jimbleCheck --target=2.0`.** It lists every line to rewrite, with the line number and the new way of writing it. Fix what 1.5 already lets you fix (J8xx).
+2. **Move to 2.0 and compile.** Everything that was removed or changed type is a compile error here (section 3).
+3. **Run `./gradlew jimbleCheck` again.** The 2.0 jimbleCheck always reports J8xx and J9xx (`--target=2.0` makes no difference).
+4. **Run your tests.** What now throws (section 4) is not caught by the compiler.
 
-It lists every line to rewrite, **with the line number and the new way of writing it**. Fix them from the top.
-For a false positive, write `// jimble-check:ignore J803` on that line or the line before.
+For a false positive, write `// jimble-check:ignore J901` on that line or the line before.
 
-1.5 marks what 2.0 removes with `@Deprecated(forRemoval = true)`, so the compiler's `[removal]` warnings give the same list.
+> [!NOTE]
+> **`select` returns `Optional<Data>` in 2.0.** `Data row = db.select(...)` is a compile error, so you cannot miss it.
+> If in doubt, the 1.x "null when missing" is `db.select(...).orElse(null)`, and "404 when missing" is `.orElseThrow(() -> new HttpException(404, "..."))`.
 
-## 2. What to rewrite on 1.5
+## 2. What you can rewrite on 1.5
 
-The replacement is already in 1.5.
+The replacement is already in 1.5. In 2.0 the left-hand side is **gone**.
 
 | 1.x | From 1.5 | jimbleCheck |
 | --- | --- | --- |
@@ -9403,59 +9596,153 @@ The replacement is already in 1.5.
 | `Dsl.or(w)` / `Dsl.and(w)` | `Dsl.anyOf(a, b, ...)` / `Dsl.allOf(a, b, ...)` | J805 |
 | `cookies().put(cookie)` (not signed) | `cookies().putSigned(cookie)` / `putUnsigned(cookie)` | J806 |
 | `column.eq(null)` / `not(null)` | `column.is_null()` / `is_not_null()` | J807 |
-| The string `"now()"` in `set(Data)` / `value(Data)` | Put `Dsl.now()` in as the value. For a flat row, `setRow(Data)` / `valueRow(Data)` | J808 |
-| `rules.validate(db, data);` (return value thrown away) | `Data errors = rules.errors(db, data);` | J809 |
-| `long id = db.insert(...)` (key or count, you cannot tell) | `db.insertKey(...)` (`insertNoReturnKey` for the count) | J810 |
+| The string `"now()"` in `set(Data)` / `value(Data)` | Put `Dsl.now()` in the value. For a flat row, `setRow(Data)` / `valueRow(Data)` | J808 |
+| `long id = db.insert(...)` | `db.insertKey(...)` | J810 |
 | `context.request().getString("x")` | `context.request().bodyAll().getString("x")` | J101 |
-| `data.getInt("x")` (0 when missing) | `data.getInt("x", default)` (unreadable values throw) | — |
+| `Data errors = rules.validate(db, data)` | `rules.errors(db, data)` (in 2.0, `validate` means "422 if it fails") | —— |
 
-> [!NOTE]
-> **A `Tx` rolls back when you leave it by an exception.** You can throw an `HttpException` halfway without writing a `rollback` yourself.
-> If any SQL failed inside, `tx.commit()` does not commit and throws a `TransactionException` (`DB_004`).
+## 3. What no longer compiles
 
-## 3. What changes type or meaning in 2.0
-
-These are still correct on 1.5, but stop compiling or throw in 2.0.
-jimbleCheck lists them only with `--target=2.0`.
+### DB
 
 | 1.x | 2.0 | jimbleCheck |
 | --- | --- | --- |
-| `Data row = db.select(...)` (`null` for both no row and failure) | `Optional<Data>`; failure throws `SqlExecuteException` | J901 |
-| `List<Data> rows = db.selectList(...)` (`null` on failure) | Never `null`; failure throws | — |
-| `long db.insert(...)` | `void`; use `insertKey` for the key | J810 |
-| `int db.update(...)` / `delete(...)` (-1 on failure) | The count; failure throws | — |
-| `boolean db.execute(...)` | The count (`int`); failure throws | J902 |
-| `db.isError()` | Gone (failures throw) | J903 |
-| `boolean DBUtil.load(...)` / `DBLock.lock(...)` / `create(...)` | `void`; failure throws. `lock` outside a transaction throws | J904 |
-| `RedisLock.tryLock(...)` | `Optional<RedisLockResult>`; `lock` throws when it cannot take the lock | J905 |
-| `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey` / `selectCached` | Deprecated (`select` / `selectList` / `insert` mean the same) | J906 |
-| `eq(null)` | Throws | J807 |
-| `data.getInt("x")` on a missing key | Throws (`getInt("x", default)` is unchanged) | — |
-| `validate(...)` returns the list | Throws a 422 on failure; the list comes from `errors(...)` | J809 |
-| `Request` extends `Data` | It does not (read from `bodyAll()` and friends) | J101 |
-| `required()` skips a missing key | A missing key fails | — |
-| Both `json(...)` and `redirect(...)` | Throws when the second one is set | — |
-| Checked exceptions (`throws Exception` / `CodeException`) | Unchecked | — |
+| `Data row = db.select(...)` (`null` for no row and for failure) | `Optional<Data>`. Empty for no row; `SqlExecuteException` on failure. Same for `selectCached` | J901 |
+| `long db.insert(...)` | `void`. For the generated key, `insertKey(...)`. For a count (`INSERT ... SELECT`), `execute(...)` | J810 |
+| `boolean db.execute(...)` | `int` (rows affected; 0 for DDL). Throws on failure | J902 |
+| `db.isError()` / `getError()` / `isDuplicateKeyError()` | Gone. Failures throw; catch `DuplicateKeyException` for unique violations | J903 |
+| `boolean DBUtil.load(...)` | `void`. Throws `SqlExecuteException` (`DB_007`) if it cannot connect, so startup stops | J904 |
+| `boolean DBLock.create(...)` / `lock(...)` | `void`. Throws on failure | J904 |
+| `RedisLockResult RedisLock.tryLock(...)` | `Optional<RedisLockResult>` (empty if not acquired within the wait) | J905 |
+| `DBTransaction`, DB's `beginTransaction` and friends | Gone (section 2) | J801 / J802 |
+| `db.close()` throws `IOException` | It does not (remove the `catch (IOException e)`, which is now a compile error) | —— |
 
-## 4. New warnings in 1.5
+**Deprecated in 2.0** (`@Deprecated(forRemoval = true)`; removed during 2.x):
 
-1.5 logs the ways of writing that throw in 2.0, **once per process**, with the calling line.
-They were silently not working, so fix them when you see them.
+| Deprecated in 2.0 | Use instead | jimbleCheck |
+| --- | --- | --- |
+| `selectOrThrow` / `selectListOrThrow` | `select` / `selectList` (they mean the same now) | J906 |
+| `insertNoReturnKey` | `insert` (`execute` if you need the count) | J906 |
+| `DB.isBatchSuccess(...)` | Not needed (failures throw) | —— |
+| `RedisLockStatus.Failed` | Not needed (`lock` throws, `tryLock` is empty) | —— |
 
-| Warning | What was happening |
+### Building SQL
+
+| 1.x | 2.0 | jimbleCheck |
+| --- | --- | --- |
+| `column.subtract(v)` | Gone. `divide` for division, `minus` for subtraction | J804 |
+| `Dsl.and(w)` / `Dsl.or(w)` | Gone. `Dsl.allOf(...)` / `Dsl.anyOf(...)` | J805 |
+
+### Web
+
+| 1.x | 2.0 | jimbleCheck |
+| --- | --- | --- |
+| `Router.path(String)` | Gone. `path(path, admin -> { ... })` | J803 |
+| `Cookies.put(Cookie)` | Gone. `putSigned` / `putUnsigned` | J806 |
+| `Request` extends `Data` (`request().getString(...)`) | It does not. Read from `bodyAll()` / `body()` / `bodyQuery()` | J101 |
+| `Data errors = rules.validate(db, data)` | `validate` is `void` (throws `ValidationException` if it fails). For the list, `errors(...)` | —— |
+
+### Checked exceptions that are gone
+
+A `catch (IOException e)` or `throws CodeException` may now be a compile error because **nothing in the block throws it**. Remove it.
+
+| 1.x | 2.0 |
 | --- | --- |
-| `eq(null) は「= NULL」を組み…` (eq(null) builds "= NULL") | It matched no rows (so did an empty value in `where(Data)`) |
-| `set(Data) は {"set": …} の形を読みます` (set(Data) reads the wrapped form) | An unwrapped row inserted nothing |
-| `set(Data) は文字列 "now()" を…` (the string "now()") | User input `"now()"` became the current time |
-| `返し方が2つ以上積まれています` (more than one way of responding) | Only the first one was sent; the rest were dropped |
-| `送ったあとにヘッダ…` / `応答を送ったあとに Cookie…` (header / cookie after sending) | They never arrived |
-| `本文の JSON を読めませんでした` (could not read the JSON body) | It was treated as an empty Data |
-| `paging(50) の件数は効きません` (paging(50) has no effect) | An earlier `paging()` had already been built; 50 was ignored |
-| `request().getString("x") は送られてきた値を読みません` (does not read submitted values) | It was always `null` |
-| `required() / empty() はキーが無いと検査しません` (skips a missing key) | A key that was not sent at all passed |
-| `destroy() のあとにセッションを変えても保存されません` (changes after destroy()) | Values set after logout were dropped |
+| `CodeException` (checked) | Extends `RuntimeException`. `catch (CodeException e)` still compiles |
+| `LoadingCache.get()` / `LoadingCacheMulti.get(k)` | Unchecked (the loader's exception is the cause) |
+| `Convertor.convert`, `CsvReader` / `CsvWriter`, `XmlBuilder.build`, `IOUtil.copy` / `readLines` | Unchecked (`IOException` becomes `UncheckedIOException`; others are wrapped in `CodeException`) |
+| `DB.close()` / `RedisLockResult.close()` / `ResultSetFetcher.close()` | No checked exceptions |
+| `throws CodeException` on `ValidationRule` / `IValidator` | Unchecked |
+
+## 4. What now throws (and still compiles)
+
+Every one of these **silently did something else in 1.x**. Find them with your tests.
+
+### DB
+
+| Code | 1.x | 2.0 |
+| --- | --- | --- |
+| An SQL failure | Returned `null` / `-1` / `false`; you checked `isError()` | `SqlExecuteException` (`DuplicateKeyException` for unique violations) |
+| `selectList(...)` fails | `null` | Throws. No rows is an empty list (never `null`) |
+| `update` / `delete` fails | `-1` | Throws. The return value is the count |
+| Empty input to `executeBatch` / `insertBatch` | `null` | An empty list |
+| Catching an SQL failure inside a transaction and carrying on | Committed anyway | `tx.commit()` refuses with `TransactionException` (`DB_004`) and rolls everything back |
+| `DBLock.lock(...)` outside a transaction | The lock was released at the end of the statement and protected nothing | `IllegalStateException` |
+| `RedisLock.lock(...)` cannot acquire | `status()` was `Failed` | `RedisLockException` |
+| Failures inside the framework (DB cache, cache invalidation, batch history, migrations) | Dropped without a log | Throw |
 
 > [!NOTE]
-> **Changing the session after `save()` is now saved if you call `save()` again** (up to 1.4 it was silently dropped).
-> `Auth.login(...)` calls `save()` internally, which is why values set right after logging in used to disappear.
+> **A `Tx` rolls back when you leave it with an exception.** You do not need your own `rollback` before throwing an `HttpException`.
+> To use a unique violation as "update if it exists", catch `DuplicateKeyException` outside the transaction, or use `INSERT ... ON CONFLICT` (a Tx that caught a failure inside cannot commit).
+
+### Building SQL
+
+| Code | 1.x | 2.0 |
+| --- | --- | --- |
+| `column.eq(null)` / `not(null)` | Built `= NULL`, which matches no row | `SqlBuildException`. Use `is_null()` / `is_not_null()` |
+| An empty value (`null`, empty array) in `where(Data)` | Built `= NULL` and the like | Throws (except `is_null` / `is_not_null` / `between` / `in` / `not_in`) |
+| `where(Data)` with no `"where"` key | No condition — **every row** | Throws (an empty Data does nothing). Select, Update and Delete |
+| `set(Data)` / `value(Data)` with an unwrapped row, or only another table's part | Silently set nothing | Throws. For a flat row, `setRow` / `valueRow` |
+| The string `"now()"` | Became the current time | A plain string. Use `Dsl.now()` for the current time |
+
+`apply(Data)` reads all clauses together, so a missing clause just stays missing (no exception).
+
+### Data
+
+| Code | 1.x | 2.0 |
+| --- | --- | --- |
+| `getInt` and friends on **an unreadable value** (`"abc"`, `"1.5"` as int, overflow, `"yes"` as boolean) | Silently `0` / `false` / `null` | `DataConversionException` |
+| `getEnum` with no match | `null` | Throws. If it may be absent, `getEnumOptional(key, type)` |
+| Broken JSON to `Data.fromJsonString` / `Dson.decodes` | `null` or a partial result | `JsonParseException` (an empty string and `"null"` give `null`) |
+| Reading as another type (`getStringList` on a list of numbers, `getData` on a JSON string) | **Wrote the converted value back** (just reading changed the JSON output) | Does not write back |
+
+> [!IMPORTANT]
+> **A missing key (no key, `null` or an empty string) still gives `0` / `false` / `null`.** Only "present but unreadable" throws.
+> When you read user input with `getInt` and friends, validate it first. An exception from an unvalidated read is a 500.
+> `paging()` reads `?page=abc` leniently on the framework side and gives page 1.
+
+The Optional variants such as `getDataOptional` / `getStringListOptional` still "create an empty one and put it in if missing", as the name says (a value written with `data.getDataOptional("x").put(...)` stays). An existing value is not rewritten.
+
+### Web
+
+| Code | 1.x | 2.0 |
+| --- | --- | --- |
+| `rules.validate(db, data);` fails | Only returned the list (dropping it let everything through) | `ValidationException`. The framework replies **422** with `{"validation": {field: [messages]}}` |
+| `required()` / `empty()` when **the key is not sent at all** | Passed | Fails (rules with `insertRequired()` stay "required only on insert") |
+| Queuing two kinds of reply (`json(...)` and `redirect(...)`, say) | Only the first was sent; the rest were dropped | `IllegalStateException` as soon as the second is queued (repeating the same kind is fine) |
+| Headers or cookies after the response is sent | Never arrived | Throws |
+| An unreadable `application/json` body | An empty Data | `body()` / `bodyJson()` / `bodyAll()` throw a 400 `HttpException` (MCP replies `PARSE_ERROR`) |
+| `put` / `remove` / `clear` after `session().destroy()` | Not saved | `IllegalStateException` |
+| `session().data().put(...)` | Not marked as changed, so not saved | `UnsupportedOperationException` (a read-only copy). Use `session().put(...)` |
+| `paging(50)` after `paging()` | The 50 had no effect | `IllegalStateException` |
+| `AbstractExecutor.cancel()` | Only set a flag; the following lines still ran | Leaves right there and goes to `onCancel` |
+
+To build the 422 body yourself, get the list with `errors(...)` (the same `errors` as in 1.5).
+For a list of rows, use `errors(db, List)` / `validate(db, List)` (the body is `{"rows": [...]}`).
+
+## 5. What changed in jimbleCheck
+
+- It **always** reports J8xx and J9xx (`--target=2.0` is accepted and does nothing).
+- J901 / J905 do not report code that takes the result as an `Optional` (`.orElse(...)`, `Optional<...> x =` and so on).
+- `selectCached` / `selectListCached` are no longer in J906 (the names stay; only their return types now match `select` / `selectList`).
+- New J907: `session().data().put(...)` and the like (throws in 2.0).
+- J809 (dropping the result of `validate`) is gone. Calling `validate(...)` as a statement is the right way in 2.0.
+
+## 6. The warnings 1.5 started logging
+
+1.5 logged each 2.0 exception case **once per process**, with the calling line.
+**If 1.5 logged none of these, you do not hit most of section 4.**
+
+| 1.5 warning | 2.0 |
+| --- | --- |
+| `eq(null) は「= NULL」を組み…` (eq(null) builds "= NULL") | `SqlBuildException` |
+| `set(Data) は {"set": …} の形を読みます` (set(Data) reads the wrapped form) | Throws |
+| `set(Data) は文字列 "now()" を…` (the string "now()") | A plain string |
+| `返し方が2つ以上積まれています` (more than one way of responding) | `IllegalStateException` |
+| `送ったあとにヘッダ…` / `応答を送ったあとに Cookie…` (header / cookie after sending) | Throws |
+| `本文の JSON を読めませんでした` (could not read the JSON body) | 400 |
+| `paging(50) の件数は効きません` (paging(50) has no effect) | `IllegalStateException` |
+| `request().getString("x") は送られてきた値を読みません` (does not read submitted values) | Compile error |
+| `required() / empty() はキーが無いと検査しません` (skips a missing key) | Fails |
+| `destroy() のあとにセッションを変えても保存されません` (changes after destroy()) | `IllegalStateException` |
 

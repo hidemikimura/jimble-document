@@ -230,7 +230,7 @@
 <tr>
 <td>One request</td>
 <td><code>ValidationRules</code></td>
-<td>Bind rules to columns and run them in one pass</td>
+<td>Bind rules to columns and run them in one pass. <code>validate</code> <strong>throws a 422</strong> on failure</td>
 </tr>
 <tr>
 <td>One route</td>
@@ -291,7 +291,8 @@
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p><strong>Everything other than <code>empty()</code> lets empty through.</strong>
 <code>textLengthMax(100)</code> means &quot;at most 100 characters, if there is a value&quot;;
-an empty string or <code>null</code> is not an error. <strong>Always write required as <code>empty()</code>.</strong></p>
+an empty string or <code>null</code> is not an error. <strong>Always write required as <code>empty()</code>.</strong>
+<code>empty()</code> also fails <strong>when the key was not sent at all</strong>.</p>
 </div>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p><strong>Format checks are matched against the whole value.</strong>
@@ -323,17 +324,18 @@ request.putData(Item.name, <span class="h-s">""</span>);
 request.putData(Item.age, <span class="h-s">"999"</span>);
 
 <span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
-Data errors = rules.validate(<span class="h-k">null</span>, request);
+Data errors = rules.errors(<span class="h-k">null</span>, request);
 
 Data messages = ValidationMessages.toMessages(errors);</code></pre>
 <ul>
 <li><strong>Errors across fields are all collected</strong> (being told about them one at a time is the worst possible experience for the person retyping the form)</li>
-<li><strong>Fields that were not sent are not validated</strong> (except through <code>insertRequired()</code>)</li>
+<li><strong>A field that was not sent fails only the rules with <code>empty()</code> (<code>required()</code>) in them.</strong> Other rules do not look at it</li>
+<li>A rule with <code>insertRequired()</code> means &quot;required on insert; on update, checked only when sent&quot; (see &quot;Required only on insert&quot; below)</li>
 <li>When an array arrives for one column, every element is run through</li>
 <li><code>put(rule)</code> (with no column) lets you write cross-field checks that belong to no single field</li>
 </ul>
 <h3 id="the-raw-shape-of-an-error">The raw shape of an error<a class="anchor" href="#the-raw-shape-of-an-error">#</a></h3>
-<p>What <code>validate</code> returns is <strong>not wording.</strong> It is which kind of check failed, and the settings it failed against.</p>
+<p>What <code>errors(...)</code> returns is <strong>not wording.</strong> It is which kind of check failed, and the settings it failed against.</p>
 <pre class="code"><code class="lang-java">{ <span class="h-s">"validation_type"</span>: Empty, <span class="h-s">"validation_setting"</span>: {}, <span class="h-s">"input"</span>: <span class="h-s">""</span> }
 </code></pre>
 <p><code>ValidationMessages.toMessages(errors)</code> turns that into something a person can read:
@@ -353,12 +355,39 @@ Data request = <span class="h-k">new</span> Data();
 request.putData(Item.name, <span class="h-s">""</span>);
 
 assertEquals(List.of(<span class="h-s">"required"</span>),
-	ValidationMessages.toMessages(rules.validate(<span class="h-k">null</span>, request)).get(<span class="h-s">"name"</span>));</code></pre>
+	ValidationMessages.toMessages(rules.errors(<span class="h-k">null</span>, request)).get(<span class="h-s">"name"</span>));</code></pre>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><code>ValidationMessages</code> is <strong>static and global</strong>. If you swap it in a test,
 call <code>ValidationMessages.reset()</code> in a <code>finally</code>.
 Forget, and <strong>the tests that run afterwards are the ones that fail.</strong></p>
 </div>
+<h2 id="stop-or-take-the-list">Stop, or take the list<a class="anchor" href="#stop-or-take-the-list">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>When validation fails</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rules.validate(db, data)</code></td>
+<td><strong>Throws <code>ValidationException</code> (422) and stops.</strong> Returns nothing</td>
+</tr>
+<tr>
+<td><code>rules.errors(db, data)</code></td>
+<td>Returns the list of errors (a <code>Data</code>). Does not stop. Empty when it passes</td>
+</tr>
+</tbody>
+</table>
+<p>Normally you write <code>validate</code> as a statement.</p>
+<pre class="code"><code class="lang-java">rules.validate(db, context.request().bodyAll());   <span class="h-c">// a 422 right here if it fails</span>
+db.insert(...);
+</code></pre>
+<p>If you do nothing else, the framework replies <strong>422</strong> with the body <code>{&quot;validation&quot;: {&quot;field&quot;: [&quot;message&quot;]}}</code> <strong>plus the input that was sent</strong>
+(the same shape as <code>ValidationExecutor</code>). It is an exception, so the <code>error(...)</code> hook does run (<a href="./errors">Error handling</a>).
+<code>ValidationException</code> is a subclass of <code>HttpException</code>; <code>errors()</code> gives you the list.</p>
+<p>When you want to look at the list and branch yourself, use <code>errors(...)</code>. To run several sets together, use <code>Validator.validate(db, data, rules...)</code> / <code>Validator.errors(db, data, rules...)</code>.</p>
 <h2 id="required-only-on-insert">Required only on insert<a class="anchor" href="#required-only-on-insert">#</a></h2>
 <pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
 	.put(Item.name, <span class="h-k">new</span> ValidationRule().insertRequired().empty())
@@ -366,11 +395,11 @@ Forget, and <strong>the tests that run afterwards are the ones that fail.</stron
 
 Data update = <span class="h-k">new</span> Data();
 update.put(<span class="h-s">"is_insert"</span>, <span class="h-k">false</span>);
-assertTrue(rules.validate(<span class="h-k">null</span>, update).isEmpty(), <span class="h-s">"更新なのに必須になっている"</span>);
+assertTrue(rules.errors(<span class="h-k">null</span>, update).isEmpty(), <span class="h-s">"更新なのに必須になっている"</span>);
 
 Data insert = <span class="h-k">new</span> Data();
 insert.put(<span class="h-s">"is_insert"</span>, <span class="h-k">true</span>);
-assertFalse(rules.validate(<span class="h-k">null</span>, insert).isEmpty(), <span class="h-s">"登録なのに必須になっていない"</span>);</code></pre>
+assertFalse(rules.errors(<span class="h-k">null</span>, insert).isEmpty(), <span class="h-s">"登録なのに必須になっていない"</span>);</code></pre>
 <p>You hand the &quot;is this an insert request?&quot; decision to <code>insertRequestChecker</code>.
 The same decision reaches each validator as <code>isInsertRequest</code>.</p>
 <h2 id="validating-multiple-rows">Validating multiple rows<a class="anchor" href="#validating-multiple-rows">#</a></h2>
@@ -383,11 +412,12 @@ ok.putData(Item.name, <span class="h-s">"あ"</span>);
 Data ng = <span class="h-k">new</span> Data();
 ng.putData(Item.name, <span class="h-s">""</span>);
 
-List&lt;Data&gt; errors = rules.validate(<span class="h-k">null</span>, List.of(ok, ng, ok));
+List&lt;Data&gt; errors = rules.errors(<span class="h-k">null</span>, List.of(ok, ng, ok));
 
 assertEquals(<span class="h-n">1</span>, errors.size());
 assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h-s">"index"</span>), <span class="h-s">"行番号が違う"</span>);</code></pre>
 <p><strong>Only the rows with errors</strong> come back, and each one carries an <code>index</code> (<strong>1-based</strong>).</p>
+<p><code>validate(db, list)</code> throws <code>ValidationException</code> if even one row fails (the exception's <code>errors()</code> is <code>{&quot;rows&quot;: [...]}</code>).</p>
 <h2 id="applying-it-to-a-route">Applying it to a route<a class="anchor" href="#applying-it-to-a-route">#</a></h2>
 <p>Extend <code>ValidationExecutor</code> and write nothing but <code>validate</code>.</p>
 <pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">class</span> Failing <span class="h-k">extends</span> ValidationExecutor {
@@ -440,10 +470,9 @@ assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h
 <p>You can also stack the result of <code>ValidationRules</code> directly.</p>
 <pre class="code"><code class="lang-java">addErrors(rules.errors(db, context.request().bodyAll()));
 </code></pre>
-<div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong><code>validate(...)</code> / <code>errors(...)</code> only return the list of errors; they do not stop anything.</strong> Throw the return value away
-and invalid input goes straight through. <code>errors(...)</code>, added in 1.5.0, is the same as <code>validate(...)</code> with a name that says
-what it returns. In 2.0, <code>validate(...)</code> is planned to throw a 422 when validation fails.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>In 1.x, <code>validate(...)</code> only returned the list, so throwing the return value away let invalid input straight through.
+2.0 made it <code>void</code> and throws when validation fails. Where you need the list, rewrite it as <code>errors(...)</code> (<a href="./migrate-2">Moving to 2.0</a>).</p>
 </div>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p><code>ValidationExecutor</code> <strong>does not hold <code>WebContext</code> in a field.</strong>
@@ -494,7 +523,8 @@ There is nothing to derive <code>textLengthMax</code> from, so you write the rul
 </tr>
 </tbody>
 </table>
-<p>Write <code>context.request().paging(20)</code> to change the default used when no <code>per</code> arrives.</p>
+<p>Write <code>context.request().paging(20)</code> to change the default used when no <code>per</code> arrives.
+There is one <code>Paging</code> per request, and the first one made is reused. <strong>Call <code>paging()</code> first and then <code>paging(50)</code> with a different count, and you get <code>IllegalStateException</code>.</strong> Pass the count on the first call.</p>
 <h3 id="applying-it-to-a-select">Applying it to a SELECT<a class="anchor" href="#applying-it-to-a-select">#</a></h3>
 <pre class="code"><code class="lang-java">Paging paging = <span class="h-k">new</span> Paging();
 paging.load(request(<span class="h-s">"2"</span>, <span class="h-s">"10"</span>), <span class="h-n">0</span>);
@@ -599,6 +629,7 @@ cap it yourself around the <code>paging(...)</code> call.</p>
 			<li class="level-2"><a href="#binding-rules-to-columns">Binding rules to columns</a></li>
 			<li class="level-3"><a href="#the-raw-shape-of-an-error">The raw shape of an error</a></li>
 			<li class="level-3"><a href="#swapping-the-wording">Swapping the wording</a></li>
+			<li class="level-2"><a href="#stop-or-take-the-list">Stop, or take the list</a></li>
 			<li class="level-2"><a href="#required-only-on-insert">Required only on insert</a></li>
 			<li class="level-2"><a href="#validating-multiple-rows">Validating multiple rows</a></li>
 			<li class="level-2"><a href="#applying-it-to-a-route">Applying it to a route</a></li>

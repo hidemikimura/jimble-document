@@ -278,7 +278,7 @@ cache.remove(<span class="h-s">"top:posts"</span>);
 </tr>
 <tr>
 <td><code>get(key)</code></td>
-<td>A <code>CacheData</code> (with creation time and kind). <strong>Check <code>isError()</code></strong></td>
+<td>A <code>CacheData</code> (with creation time and kind). <strong><code>isError()</code> is true</strong> when there is nothing</td>
 </tr>
 <tr>
 <td><code>set(key, value, contentType[, group])</code></td>
@@ -314,7 +314,7 @@ in the same group and <strong>reads every machine's worth back at once</strong> 
 <p><strong>It is off by default.</strong> Write one line in the applications that use it.</p>
 <pre class="code"><code class="lang-conf">sql_cache.enabled = <span class="h-k">true</span>
 </code></pre>
-<pre class="code"><code class="lang-java">Data customer = db.selectCached(
+<pre class="code"><code class="lang-java">Optional&lt;Data&gt; customer = db.selectCached(
 	SQL.select()
 		.from(Customer.instance())
 		.inner(Shop.instance()).on(Customer.shop_id.eq(Shop.id))
@@ -505,6 +505,10 @@ List&lt;Data&gt; posts = cache.get();
 <td>The <code>DB</code> handed to the loader</td>
 <td>A new connection (separate from the caller's transaction)</td>
 </tr>
+<tr>
+<td>When the loader fails</td>
+<td><code>get()</code> throws an unchecked exception (the original is <code>getCause()</code>)</td>
+</tr>
 </tbody>
 </table>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
@@ -516,27 +520,42 @@ list, for instance.</p>
 <h2 id="distributed-locks">Distributed locks<a class="anchor" href="#distributed-locks">#</a></h2>
 <p><strong>These use Redis.</strong> They are for &quot;I want exactly one of several machines to do
 this&quot;.</p>
-<pre class="code"><code class="lang-java">RedisLockResult result = RedisLock.lock(key);
-
-assertEquals(RedisLockStatus.Success, result.status());
-
-closeQuietly(result);</code></pre>
+<pre class="code"><code class="lang-java"><span class="h-c">// 取れなければ RedisLockException。抜けたら外れる</span>
+<span class="h-k">try</span> (RedisLockResult result = RedisLock.lock(key)) {
+	assertEquals(RedisLockStatus.Success, result.status());
+}</code></pre>
 <pre class="code"><code class="lang-java"><span class="h-c">// Wait 100ms, give up if it is not free. Hold it for 30 seconds once taken</span>
-<span class="h-k">try</span> (RedisLockResult lock = RedisLock.tryLock(<span class="h-s">"batch:daily"</span>, <span class="h-n">100</span>, <span class="h-n">30000</span>)) {
+Optional&lt;RedisLockResult&gt; lock = RedisLock.tryLock(<span class="h-s">"batch:daily"</span>, <span class="h-n">100</span>, <span class="h-n">30000</span>);
+<span class="h-k">if</span> (lock.isEmpty()) {
+	<span class="h-k">return</span>;   <span class="h-c">// someone else is running it</span>
+}
 
-	<span class="h-k">if</span> (lock.status() != RedisLockStatus.Success) {
-		<span class="h-k">return</span>;   <span class="h-c">// someone else is running it</span>
-	}
-
+<span class="h-k">try</span> (RedisLockResult held = lock.get()) {
 	<span class="h-c">// only one machine gets in here</span>
-
-} <span class="h-k">catch</span> (IOException ignore) {
 }
 </code></pre>
-<div class="callout callout-warn"><p class="callout-title">Careful</p>
-<p><strong>Failing to take the lock does not throw.</strong> You must check <code>status()</code>.
-If you do not, you get &quot;the work proceeds without holding the lock&quot;.</p>
-</div>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>When the lock is not taken</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RedisLock.lock(key)</code></td>
+<td><strong><code>RedisLockException</code></strong> (unchecked)</td>
+</tr>
+<tr>
+<td><code>RedisLock.tryLock(key, wait, hold)</code></td>
+<td>An <strong>empty <code>Optional</code></strong> if it is still not free after waiting. <code>RedisLockException</code> if Redis cannot be reached</td>
+</tr>
+</tbody>
+</table>
+<p><strong>You never proceed inside without the lock.</strong>
+In 1.x <code>status()</code> merely became <code>Failed</code>, and if you did not check it you went
+ahead without a lock.
+<code>close()</code> throws no checked exception, so you need no <code>catch (IOException e)</code>.</p>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>The same thread can take the same key again</strong> (the lock is reentrant).
 Check &quot;surely someone else already holds this&quot; from the same thread and you
@@ -552,16 +571,40 @@ The no-argument <code>RedisLock.lock(key)</code> keeps extending for as long as 
 (requirement F-U-10).
 That is so you never create &quot;it went ahead even though there was no lock&quot;.</p>
 <h3 id="locking-with-the-db-alone">Locking with the DB alone<a class="anchor" href="#locking-with-the-db-alone">#</a></h3>
-<p>Where there is no Redis you can use <code>DBLock</code>. <strong>Inside a transaction</strong>, create
-the row first, then take it.</p>
-<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// once only</span>
+<p>Where there is no Redis you can use <code>DBLock</code>. Create the row beforehand, then
+take it <strong>inside a transaction</strong>.</p>
+<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// once only (does nothing if it exists)</span>
 ...
-<span class="h-k">if</span> (DBLock.lock(db, <span class="h-s">"daily"</span>)) {       <span class="h-c">// SELECT ... FOR UPDATE</span>
+db.transaction(tx -&gt; {
+	DBLock.lock(db, <span class="h-s">"daily"</span>);         <span class="h-c">// SELECT ... FOR UPDATE</span>
 	<span class="h-c">// one at a time until the transaction ends</span>
-}
+});
 </code></pre>
-<p>If the row is not there you get <code>false</code>. It is released <strong>at the end of the
-transaction</strong>; there is no way to release it explicitly.</p>
+<p>Neither <code>create</code> nor <code>lock</code> returns anything. <strong>Failures are exceptions.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Calling <code>lock</code> outside a transaction</td>
+<td><code>IllegalStateException</code> (the <code>FOR UPDATE</code> lock is released at the end of the statement and protects nothing)</td>
+</tr>
+<tr>
+<td>Calling <code>lock</code> on a key you never <code>create</code>d</td>
+<td><code>IllegalStateException</code></td>
+</tr>
+<tr>
+<td>The SQL fails</td>
+<td><code>SqlExecuteException</code></td>
+</tr>
+</tbody>
+</table>
+<p>It is released <strong>at the end of the transaction</strong>; there is no way to release it
+explicitly.</p>
 <h2 id="configuration-keys">Configuration keys<a class="anchor" href="#configuration-keys">#</a></h2>
 <pre class="code"><code class="lang-conf">cache {
 	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>

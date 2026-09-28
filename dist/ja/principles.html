@@ -226,7 +226,7 @@
 どこで始まってどこで終わるかが、メソッドの外にあるため</li>
 </ul>
 <p>かわりに <code>new</code> を書きます。<code>install(AdminController::new)</code> と書きます。
-<code>try (DBTransaction transaction = ...)</code> と書きます。数行増えます。</p>
+<code>db.transaction(tx -&gt; { ... })</code> と書きます。数行増えます。</p>
 <h2 id="2-起動時にクラスパスを走査しない">2. 起動時にクラスパスを走査しない<a class="anchor" href="#2-起動時にクラスパスを走査しない">#</a></h2>
 <p>コントローラもバッチも MCP のツールも、<strong>自分で登録します</strong>。</p>
 <pre class="code"><code class="lang-java">tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
@@ -249,25 +249,32 @@ jimble は「静かに効かなくなる」状態を潰すことに時間を使�
 <li>ドキュメントのコード片は実コードから抜いています。
 印の付いた場所が消えたら、<strong>サイトのビルドが落ちます</strong></li>
 </ul>
-<h2 id="4-例外にしないところ">4. 例外にしないところ<a class="anchor" href="#4-例外にしないところ">#</a></h2>
-<p>DB のエラーは例外ではなく戻り値で返します。
-<code>select</code> 系は <code>null</code>、更新系は <code>-1</code> です。</p>
+<h2 id="4-失敗は例外にする">4. 失敗は例外にする<a class="anchor" href="#4-失敗は例外にする">#</a></h2>
+<p>**失敗は例外（非検査）です。**戻り値で失敗を返すことはしません。
+戻り値は捨てられます。捨てた失敗は、黙って素通りします。</p>
+<ul>
+<li>0件は失敗ではありません。<code>select</code> は空の <code>Optional</code>、<code>selectList</code> は空のリスト、<code>update</code> は 0 を返します</li>
+<li>DB の失敗は <code>SqlExecuteException</code> です。分岐したいのは一意制約くらいなので、それだけ <code>DuplicateKeyException</code> で受けます</li>
+<li>書かなければ上まで飛んで 500 になります。トランザクションの中なら巻き戻ります</li>
+</ul>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 
+	<span class="h-c">/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */</span>
 	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
 
-	<span class="h-c">/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */</span>
-	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
-		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
-		<span class="h-k">return</span>;
+	<span class="h-c">// 分岐したい失敗は一意制約くらい。それだけを受け止める</span>
+	<span class="h-k">try</span> {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, <span class="h-s">"hello"</span>));
+	} <span class="h-k">catch</span> (DuplicateKeyException ex) {
+		Log.info(<span class="h-s">"もうあります"</span>);
 	}
 
 }</code></pre>
-<p>理由は、DB のエラーの多くが「呼び出し側が分岐したいもの」だからです。
-例外にすると <code>try</code> で囲むか、囲み忘れて上まで飛ばすかの二択になります。</p>
+<p>使い方を間違えたときも同じです。<strong>壊れ方はコンパイルエラーか例外だけ</strong>で、黙って違うことはしません
+（2.0 で作り直したものは <a href="./migrate-2">2.0 への移行</a> にあります）。</p>
 <h2 id="5-一つの実行--一つの-context">5. 一つの実行 = 一つの Context<a class="anchor" href="#5-一つの実行--一つの-context">#</a></h2>
 <p>Web のリクエスト・バッチの実行・MQ の1件・WebSocket の1メッセージ、
 それぞれに <code>Context</code> が1つ作られます。
@@ -294,7 +301,7 @@ DB 接続もセッションもここにぶら下がり、終わりで畳まれ�
 			<li class="level-2"><a href="#1-上から順に追えること">1. 上から順に追えること</a></li>
 			<li class="level-2"><a href="#2-起動時にクラスパスを走査しない">2. 起動時にクラスパスを走査しない</a></li>
 			<li class="level-2"><a href="#3-黙って間違えないこと">3. 黙って間違えないこと</a></li>
-			<li class="level-2"><a href="#4-例外にしないところ">4. 例外にしないところ</a></li>
+			<li class="level-2"><a href="#4-失敗は例外にする">4. 失敗は例外にする</a></li>
 			<li class="level-2"><a href="#5-一つの実行--一つの-context">5. 一つの実行 = 一つの Context</a></li>
 		</ul>
 	</nav>

@@ -253,18 +253,26 @@ assertEquals(<span class="h-s">"俺的まとめ"</span>, site.getString(<span cl
 </tbody>
 </table>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong><code>getStringOptional</code> などの Optional 版は Data を書き換えます。</strong>
-無ければ空文字を <strong><code>put</code> してから</strong>返すので、読んだだけでキーが増えます。
-JSON にして返す直前やループの中で呼ぶと、出力が変わります。</p>
+<p><strong><code>getDataOptional</code> / <code>getStringListOptional</code> などの Optional 版は Data を書き換えます。</strong>
+名前どおり「無ければ空を作って <strong><code>put</code> してから</strong>返す」ので、<code>data.getDataOptional(&quot;x&quot;).put(...)</code> と書いた値が残ります。
+そのかわり、読んだだけでキーが増えます。JSON にして返す直前やループの中で呼ぶと、出力が変わります。
+あった値は書き換えません。<code>getStringOptional</code> は空文字を返すだけで、書き込みません。</p>
 </div>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong>「無い」と「0」が区別できません。</strong><code>getString</code> は <code>null</code>、
+<p>**「無い」と「0」が区別できません。**キーが無い・<code>null</code>・空文字のとき、<code>getString</code> は <code>null</code>、
 <code>getInt</code> は <code>0</code>、<code>getBoolean</code> は <code>false</code> を返します。
-区別したいときは <code>getIntObject</code> など <strong>Object 版</strong>か <code>isNull(key)</code> を使ってください。</p>
-<p><strong>1.5.0 からは既定値を渡す形があります</strong>（<code>getInt(key, 既定値)</code> / <code>getLong</code> / <code>getDouble</code> / <code>getBoolean</code> / <code>getString</code>）。
-既定値を返すのは<strong>無い・<code>null</code>・空文字のときだけ</strong>で、読めない値（<code>&quot;abc&quot;</code>、int に <code>&quot;1.5&quot;</code>、桁あふれ、
-真偽に <code>&quot;yes&quot;</code>）は <code>DataConversionException</code> になります。<strong>書き込みもしません</strong>（Optional 版と違います）。
-2.0 では <code>getInt(key)</code> も「無ければ例外」になります。</p>
+区別したいときは <code>getIntObject</code> など <strong>Object 版</strong>か <code>isNull(key)</code> を使ってください。
+既定値を渡す形もあります（<code>getInt(key, 既定値)</code> / <code>getLong</code> / <code>getDouble</code> / <code>getBoolean</code> / <code>getString</code>）。</p>
+</div>
+<p><strong>あるのに読めない値は <code>DataConversionException</code> です。</strong><code>&quot;abc&quot;</code>、int に <code>&quot;1.5&quot;</code>、桁あふれ、真偽に <code>&quot;yes&quot;</code>（読めるのは <code>true</code> / <code>false</code> / <code>1</code> / <code>0</code> だけ）などです。
+<code>getEnum</code> も一致しなければ例外で、無くてよいなら <code>getEnumOptional(key, 型)</code> を使います。
+利用者の入力を <code>getInt</code> などで読むなら、**先にバリデーションを通してください。**通さずに読んで例外になると 500 です。</p>
+<ul>
+<li>型を変えて読んでも（数の一覧を <code>getStringList</code> で読むなど）、<strong>元の Data には書き戻しません</strong></li>
+<li>書き換えられない写しが要るときは <code>readOnlyCopy()</code>（書き込むと <code>UnsupportedOperationException</code>）</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>1.x は読めない値でも黙って <code>0</code> / <code>false</code> / <code>null</code> を返していました（<a href="./migrate-2">2.0 への移行</a>）。</p>
 </div>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><strong><code>toString()</code> は要約です</strong>（キーと型だけ）。
@@ -319,15 +327,18 @@ assertEquals(List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</sp
 </tr>
 </tbody>
 </table>
-<div class="callout callout-warn"><p class="callout-title">注意</p>
-<p><strong><code>Dson.encodes</code> / <code>decodes</code>（static 版）は失敗しても <code>null</code> を返すだけ</strong>です。
-理由が要るなら <code>new Dson()</code> を作り、<code>decode(...)</code> のあとに <code>isError()</code> /
-<code>getErrorException()</code> を見てください。</p>
+<p><strong>壊れた JSON は <code>JsonParseException</code>（非検査）です。</strong><code>Data.fromJsonString</code> も <code>Dson.decodes</code> も同じです。
+括弧が閉じていない・後ろに余分なものがある・JSON ですらない、のどれでも例外になります。
+空文字と <code>&quot;null&quot;</code> は <code>null</code> を返します（例外にしません）。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**形しか見ません。**読み手は寛容なので、括弧が閉じていれば、値の無い <code>&quot;a&quot;:</code> のような文法の誤りは通ります。
+インスタンスの <code>new Dson().decode(...)</code> は例外を投げず、これまでどおり <code>isError()</code> / <code>getErrorException()</code> で見ます。</p>
 </div>
 <h2 id="型変換">型変換<a class="anchor" href="#型変換">#</a></h2>
 <p><code>Convertor.convert(conf, src, 変換先.class)</code> が入口です。
 Bean ↔ <code>Data</code> ↔ Map ↔ List ↔ プリミティブが同じ1本を通ります。
-<code>data.convert(new MyBean())</code> も中身は同じものです。</p>
+<code>data.convert(new MyBean())</code> も中身は同じものです。
+変換できなければ<strong>非検査例外</strong>です（<code>throws</code> も <code>catch</code> も要りません）。</p>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p>**<code>Configration</code> は使い回さないでください。**変換の途中で階層カウンタと
 循環参照の記録が書き換わります。<strong>1回の変換に1つ</strong>作ります。</p>
@@ -351,7 +362,7 @@ Data json = res.getContentJson();
 <li>POST は <code>HttpPostExecutor</code>。<code>addBodyForm(name, value)</code> / <code>setBodyJson(data)</code></li>
 <li><strong>ファイルを1つでも足すと multipart になります</strong>（<code>addBodyForm(name, file, contentType)</code>）</li>
 <li>プロキシは <code>setProxy(new HttpProxy(host, port, id, pass))</code></li>
-<li><strong>例外を投げません。</strong><code>isError</code> を見てください（DB と同じ流儀）</li>
+<li><strong>例外を投げません。</strong><code>isError</code> を見てください</li>
 </ul>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p><strong>タイムアウトの既定は 30 秒</strong>で、接続と応答の<strong>両方に同じ値</strong>が入ります。個別には指定できません。</p>
@@ -368,14 +379,15 @@ Data json = res.getContentJson();
 	}
 }
 </code></pre>
-<p><strong>1行ずつ読みます</strong>（全部メモリに載せません）。書くほうは <code>CsvWriter#writeLine(Object...)</code>。</p>
+<p><strong>1行ずつ読みます</strong>（全部メモリに載せません）。書くほうは <code>CsvWriter#writeLine(Object...)</code>。
+<code>CsvReader</code> / <code>CsvWriter</code> は<strong>検査例外を投げません</strong>。読み書きの失敗は <code>UncheckedIOException</code> です。</p>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p><strong>文字コードを省略すると、判定に失敗したときは Shift_JIS になります。</strong>
 UTF-8 と分かっているなら <code>new CsvReader(file, &quot;UTF-8&quot;)</code> と書いてください。</p>
 </div>
 <h2 id="xml">XML<a class="anchor" href="#xml">#</a></h2>
 <p><code>XmlParser.parse(file)</code> で <code>XmlData</code> の木にします（<strong>全部メモリに載ります</strong>）。
-組み立ては <code>XmlBuilder.build(xmlData)</code>。</p>
+組み立ては <code>XmlBuilder.build(xmlData)</code>（検査例外は投げません）。</p>
 <h2 id="ハッシュと暗号">ハッシュと暗号<a class="anchor" href="#ハッシュと暗号">#</a></h2>
 <table>
 <thead>
@@ -456,7 +468,7 @@ String value = DBValue.getString(db, <span class="h-s">"last_imported_at"</span>
 </tr>
 <tr>
 <td>ファイル</td>
-<td><code>FileUtil</code> / <code>IOUtil</code> / <code>FileCharDetecter</code>（文字コード判定）</td>
+<td><code>FileUtil</code> / <code>IOUtil</code>（<code>copy</code> / <code>readLines</code> の失敗は <code>UncheckedIOException</code>）/ <code>FileCharDetecter</code>（文字コード判定）</td>
 </tr>
 <tr>
 <td>スレッド</td>

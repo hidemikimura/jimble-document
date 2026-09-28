@@ -244,18 +244,13 @@ install(() -&gt; <span class="h-k">new</span> SpaController(<span class="h-s">"/
 <p>なお、<strong>ルートが確定した後に <code>before</code> を足すと落ちます。</strong>
 「足したのに効かない」を黙って通さないためです。
 ルート定義はコントローラの初期化ブロックの中で完結させてください。</p>
-<h2 id="request-から直接読むと黙って空になる">request() から直接読むと、黙って空になる<a class="anchor" href="#request-から直接読むと黙って空になる">#</a></h2>
-<p><strong>症状</strong>: フォームも JSON も送っているのに、値が取れない。例外は出ない。</p>
-<p><strong>原因</strong>: <code>Request</code> も <code>Data</code> なので、こう書けてしまいます。</p>
-<pre class="code"><code class="lang-java">context.request().getString(<span class="h-s">"title"</span>)   <span class="h-c">// コンパイルは通る。null が返る</span>
-</code></pre>
-<p><code>Request</code> そのものには本文もクエリも入っていません。</p>
-<p><strong>対処</strong>: <code>bodyAll()</code>（またはどこから来た値か決め打ちで <code>bodyJson()</code> など）を通します。</p>
+<h2 id="送られてこなかった値が-null-のまま-db-に入る">送られてこなかった値が null のまま DB に入る<a class="anchor" href="#送られてこなかった値が-null-のまま-db-に入る">#</a></h2>
+<p><strong>症状</strong>: <code>Column 'title' cannot be null</code> で落ちる。フォームには項目がある。</p>
+<p><strong>原因</strong>: 無いキーの <code>getString</code> は <code>null</code> です（例外にはなりません）。</p>
 <pre class="code"><code class="lang-java">Data input = context.request().bodyAll();
-String title = input.getString(<span class="h-s">"title"</span>);
+String title = input.getString(<span class="h-s">"title"</span>);   <span class="h-c">// 送られてこなければ null</span>
 </code></pre>
-<p>無いキーの <code>getString</code> は <code>null</code> です。<strong>そのまま NOT NULL の列に入れると
-<code>Column 'title' cannot be null</code> になります。</strong></p>
+<p><strong>対処</strong>: 読む前に <a href="./validation">検証</a> を通します。<code>required()</code> はキーが無いときも失敗にします。</p>
 <h2 id="セッションが保存されていない">セッションが保存されていない<a class="anchor" href="#セッションが保存されていない">#</a></h2>
 <p><strong>症状</strong>: <code>put()</code> したのに次のリクエストで消えている。</p>
 <p><strong>原因</strong>: <code>save()</code> を呼んでいません。自動保存はしません。</p>
@@ -263,6 +258,7 @@ String title = input.getString(<span class="h-s">"title"</span>);
 
 <span class="h-c">// 明示的に保存する（要件 F-S-02）。自動保存はしない</span>
 context.session().save();</code></pre>
+<p>変えるのは <code>session().put(...)</code> です。<code>session().data()</code> は読み取り専用の写しで、書き換えると例外になります。</p>
 <h2 id="select-の結果が取れない">select の結果が取れない<a class="anchor" href="#select-の結果が取れない">#</a></h2>
 <p><strong>症状</strong>: <code>row.getString(&quot;title&quot;)</code> が空。</p>
 <p><strong>原因</strong>: 結果はテーブル名でネストしています。</p>
@@ -270,7 +266,7 @@ context.session().save();</code></pre>
 	SQL.select()
 		.from(Post.instance())
 		.where(Post.id.eq(<span class="h-n">1L</span>))
-);
+).orElseThrow();
 
 <span class="h-c">// SELECT の結果はテーブル名でネストする（要件 F-D-02）</span>
 String title = row.getData(<span class="h-s">"post"</span>).getString(<span class="h-s">"title"</span>);
@@ -278,33 +274,32 @@ String title = row.getData(<span class="h-s">"post"</span>).getString(<span clas
 <span class="h-c">// Column で引けば、途中の文字列が出てこない</span>
 String same = row.getString(Post.title);</code></pre>
 <p><code>Column</code> で引けば間違えません。</p>
-<h2 id="db-のエラーに気づかない">DB のエラーに気づかない<a class="anchor" href="#db-のエラーに気づかない">#</a></h2>
-<p><strong>症状</strong>: 0件のはずがないのに0件。あるいは NPE。</p>
-<p><strong>原因</strong>: DB のエラーは例外ではなく戻り値です。<code>select</code> は <code>null</code>、更新系は <code>-1</code>。</p>
+<h2 id="トランザクションの中で-db-の失敗を受け止めると確定できない">トランザクションの中で DB の失敗を受け止めると、確定できない<a class="anchor" href="#トランザクションの中で-db-の失敗を受け止めると確定できない">#</a></h2>
+<p><strong>症状</strong>: <code>tx.commit()</code> が <code>TransactionException</code>（<code>DB_004</code>）で落ち、何も保存されない。</p>
+<p><strong>原因</strong>: DB の失敗は <code>SqlExecuteException</code> です。トランザクションの中でそれを <code>catch</code> して続けても、
+<strong>その Tx は確定できません</strong>。<code>commit()</code> が断り、全部巻き戻します。</p>
+<p><strong>対処</strong>: 分岐したい失敗は一意制約くらいです。<strong>トランザクションの外で</strong> <code>DuplicateKeyException</code> だけを受け止めます。
+ほかの失敗は書かずに上まで飛ばします（500 になり、トランザクションは巻き戻ります）。</p>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 
+	<span class="h-c">/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */</span>
 	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
 
-	<span class="h-c">/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */</span>
-	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
-		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
-		<span class="h-k">return</span>;
+	<span class="h-c">// 分岐したい失敗は一意制約くらい。それだけを受け止める</span>
+	<span class="h-k">try</span> {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, <span class="h-s">"hello"</span>));
+	} <span class="h-k">catch</span> (DuplicateKeyException ex) {
+		Log.info(<span class="h-s">"もうあります"</span>);
 	}
 
 }</code></pre>
-<h2 id="トランザクションが続いていない">トランザクションが続いていない<a class="anchor" href="#トランザクションが続いていない">#</a></h2>
-<p><strong>症状</strong>: <code>commit()</code> のあとの更新が、ロールバックしても戻らない。</p>
-<p><strong>原因</strong>: これは移送元の話です。移送元の <code>commit()</code> はトランザクションを
-終わらせていたので、そこから先が自動コミットになっていました。
-jimble では <code>commit()</code> は終わらせません。終わらせるのは <code>commitEndTransaction()</code> です。</p>
-<p><strong>移送してきたコードを見るときは、<code>commit()</code> の後ろを確認してください。</strong></p>
 <h2 id="コミットもロールバックもされていないが出る">「コミットもロールバックもされていない」が出る<a class="anchor" href="#コミットもロールバックもされていないが出る">#</a></h2>
-<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+<pre class="code"><code class="lang-text">ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: main
 </code></pre>
-<p><strong>原因</strong>: try-with-resources で囲まずに <code>beginTransaction()</code> して、途中で <code>return</code> しています。</p>
+<p><strong>原因</strong>: try-with-resources で囲まずに <code>db.begin()</code> して、途中で <code>return</code> しています。</p>
 <p><strong>対処</strong>: 囲んでください。jimble は実行の終わりに拾ってロールバックしますが、
 それは事故の後始末であって、正しい書き方ではありません。</p>
 <h2 id="入口によって用意されるテーブルが違う">入口によって用意されるテーブルが違う<a class="anchor" href="#入口によって用意されるテーブルが違う">#</a></h2>
@@ -323,10 +318,8 @@ jimble では <code>commit()</code> は終わらせません。終わらせる�
 
 		Migration.install();                                  <span class="h-c">// DBUtil.load より前</span>
 
-		<span class="h-c">// 繋がらなければ false。見ずに進むと、あとで DB の話をしない例外で落ちる</span>
-		<span class="h-k">if</span> (!DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>)) {
-			<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"DB を読み込めませんでした"</span>);
-		}
+		<span class="h-c">// 繋がらなければ SqlExecuteException（DB_007）で起動が止まる</span>
+		DBUtil.load(Conf.conf().config(), Bootstrap.<span class="h-k">class</span>);
 
 		BatchTables.install(DBUtil.getMainDB());
 		<span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
@@ -428,6 +421,16 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 </tbody>
 </table>
 <p><strong>ビルドスクリプトは、実際に使うバージョンで一度は流してください。</strong></p>
+<h2 id="20-でなくなった落とし穴">2.0 でなくなった落とし穴<a class="anchor" href="#20-でなくなった落とし穴">#</a></h2>
+<p>1.x にあった次の落とし穴は、2.0 で<strong>コンパイルエラーか例外</strong>になりました。詳しくは <a href="./migrate-2">2.0 への移行</a> を読んでください。</p>
+<ul>
+<li><code>context.request().getString(&quot;x&quot;)</code> が黙って <code>null</code> を返す → <code>Request</code> は <code>Data</code> ではなくなり、コンパイルエラー</li>
+<li><code>select</code> の <code>null</code>・更新系の <code>-1</code> を見落とす → 失敗は <code>SqlExecuteException</code></li>
+<li><code>DBUtil.load(...)</code> の戻り値を捨てて、繋がらないまま進む → 例外で起動が止まる</li>
+<li>移送元の <code>commit()</code> と jimble の <code>commit()</code> の意味が違う → <code>tx.commit()</code> は確定して終わる。続けるなら <code>tx.checkpoint()</code></li>
+<li><code>session().data().put(...)</code> が保存されない → <code>UnsupportedOperationException</code></li>
+<li><code>required()</code> がキーごと送られない項目を通す → 失敗になる</li>
+</ul>
 
 		</article>
 
@@ -447,11 +450,10 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 			<li class="level-2"><a href="#ローカルで-cookie-が効かない">ローカルで Cookie が効かない</a></li>
 			<li class="level-2"><a href="#ルートが登録されていない">ルートが登録されていない</a></li>
 			<li class="level-2"><a href="#before-が効いていない同じパスなのに">before が効いていない（同じパスなのに）</a></li>
-			<li class="level-2"><a href="#request-から直接読むと黙って空になる">request() から直接読むと、黙って空になる</a></li>
+			<li class="level-2"><a href="#送られてこなかった値が-null-のまま-db-に入る">送られてこなかった値が null のまま DB に入る</a></li>
 			<li class="level-2"><a href="#セッションが保存されていない">セッションが保存されていない</a></li>
 			<li class="level-2"><a href="#select-の結果が取れない">select の結果が取れない</a></li>
-			<li class="level-2"><a href="#db-のエラーに気づかない">DB のエラーに気づかない</a></li>
-			<li class="level-2"><a href="#トランザクションが続いていない">トランザクションが続いていない</a></li>
+			<li class="level-2"><a href="#トランザクションの中で-db-の失敗を受け止めると確定できない">トランザクションの中で DB の失敗を受け止めると、確定できない</a></li>
 			<li class="level-2"><a href="#コミットもロールバックもされていないが出る">「コミットもロールバックもされていない」が出る</a></li>
 			<li class="level-2"><a href="#入口によって用意されるテーブルが違う">入口によって用意されるテーブルが違う</a></li>
 			<li class="level-2"><a href="#製品を変えたら生成物の列順が変わる">製品を変えたら生成物の列順が変わる</a></li>
@@ -465,6 +467,7 @@ HTTP のヘッダが見えるのは <code>onUpgrade</code> の時点だけです
 			<li class="level-2"><a href="#kotlin-のコメントが入れ子になる">Kotlin のコメントが入れ子になる</a></li>
 			<li class="level-2"><a href="#gitignore-の-docs-が全階層に効く">.gitignore の docs/ が全階層に効く</a></li>
 			<li class="level-2"><a href="#gradle-9-で落ちるビルドスクリプト">Gradle 9 で落ちるビルドスクリプト</a></li>
+			<li class="level-2"><a href="#20-でなくなった落とし穴">2.0 でなくなった落とし穴</a></li>
 		</ul>
 	</nav>
 </div>

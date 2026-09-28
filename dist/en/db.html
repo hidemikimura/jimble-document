@@ -358,10 +358,7 @@ See <a href="./codegen">Splitting SQL per product</a></li>
 
 	Migration.install();                                <span class="h-c">// startup migrations (if you want them; before DBUtil.load)</span>
 
-	<span class="h-c">// false when it could not connect. Stop here</span>
-	<span class="h-k">if</span> (!DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>)) {
-		<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"could not load the DB (the reason is in the log just above)"</span>);
-	}
+	DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>);       <span class="h-c">// throws if it cannot connect. Startup stops here</span>
 
 	JimbleServer.start(<span class="h-k">new</span> App());
 
@@ -369,12 +366,11 @@ See <a href="./codegen">Splitting SQL per product</a></li>
 </code></pre>
 <p>The second argument to <code>DBUtil.load</code> is the <strong>classpath anchor</strong> — migration SQL is
 looked up from there. Pass a class of your own application.</p>
-<div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong>Do not throw the return value away.</strong> <code>DBUtil.load</code> does not throw when it cannot
-connect — it logs the reason and returns <code>false</code>. Throw that away and <strong>the server
-starts anyway</strong>, then falls over on the first request that arrives.
-<code>DBUtil.getMainDB()</code> fails saying the DB was never loaded, so you will not be lost,
-but <strong>noticing at startup is faster</strong>.</p>
+<p><strong>When it cannot connect it throws <code>SqlExecuteException</code> (<code>DB_007</code>), and startup stops there.</strong>
+There is no return value (<code>void</code>). Do not catch it; let it propagate out of <code>main</code>.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>In 1.x, <code>DBUtil.load</code> only returned <code>false</code> when it could not connect, and throwing that away let the server start anyway.
+2.0 made it an exception (<a href="./migrate-2">Moving to 2.0</a>).</p>
 </div>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>If your app has more than one entry point, put this sequence in one place.</strong>
@@ -448,13 +444,16 @@ If you do not commit them, you cannot build in an environment with no DB.</p>
 	SQL.select()
 		.from(Post.instance())
 		.where(Post.id.eq(<span class="h-n">1L</span>))
-);
+).orElseThrow();
 
 <span class="h-c">// SELECT の結果はテーブル名でネストする（要件 F-D-02）</span>
 String title = row.getData(<span class="h-s">"post"</span>).getString(<span class="h-s">"title"</span>);
 
 <span class="h-c">// Column で引けば、途中の文字列が出てこない</span>
 String same = row.getString(Post.title);</code></pre>
+<p><strong><code>select</code> returns <code>Optional&lt;Data&gt;</code>.</strong> It is empty when there are no rows
+(the <code>.orElseThrow()</code> above is how you take it out when the row must be there).
+When the row cannot be read you get an exception, not an empty result (see &quot;Reading errors&quot; below).</p>
 <p><strong>A SELECT result nests under the table name.</strong>
 Join <code>post</code> and <code>comment</code> and the <code>id</code> on each side does not collide.</p>
 <p>Query with <code>Column</code> and no string keys show up in your code.
@@ -480,63 +479,88 @@ To get the JSON text itself, convert it in SQL: <code>CAST(col AS CHAR)</code> o
 <h2 id="reading-errors">Reading errors<a class="anchor" href="#reading-errors">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 
+	<span class="h-c">/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */</span>
 	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
 
-	<span class="h-c">/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */</span>
-	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
-		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
-		<span class="h-k">return</span>;
+	<span class="h-c">// 分岐したい失敗は一意制約くらい。それだけを受け止める</span>
+	<span class="h-k">try</span> {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, <span class="h-s">"hello"</span>));
+	} <span class="h-k">catch</span> (DuplicateKeyException ex) {
+		Log.info(<span class="h-s">"もうあります"</span>);
 	}
 
 }</code></pre>
-<p>DB errors come back as return values, not exceptions.
-<code>select</code> returns <code>null</code>, <code>insert</code> returns <code>-1</code>, <code>update</code> / <code>delete</code> return <code>-1</code>.
-The reason is in <code>db.getError()</code>.</p>
-<h3 id="telling-no-rows-apart-from-could-not-read">Telling &quot;no rows&quot; apart from &quot;could not read&quot;<a class="anchor" href="#telling-no-rows-apart-from-could-not-read">#</a></h3>
-<p><code>null</code> from <code>select</code> has <strong>two meanings</strong>.</p>
-<pre class="code"><code class="lang-java">Data user = db.select(sql, id);
-<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> nobody; }   <span class="h-c">// ← taken even when the DB cannot be read</span>
-</code></pre>
-<p>Written this way, <strong>the day the DB goes down your app answers &quot;no such user&quot;.</strong>
-No exception, nothing in the log (because <code>isError()</code> was never checked).</p>
-<p>There are two ways to tell them apart.</p>
-<pre class="code"><code class="lang-java"><span class="h-c">// 1. Check isError(), as before</span>
-Data user = db.select(sql, id);
-<span class="h-k">if</span> (db.isError()) { <span class="h-k">throw</span> ...; }
-<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> nobody; }
-
-<span class="h-c">// 2. Have it thrown for you (since 1.1)</span>
-Data user = db.selectOrThrow(sql, id);
-<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> nobody; }   <span class="h-c">// null means "no rows", nothing else</span>
-</code></pre>
+<p><strong>DB failures come back as exceptions.</strong> When a statement fails or the connection cannot be made, you get <code>SqlExecuteException</code> (unchecked).
+Leave it uncaught and it travels up to a 500; inside a transaction, the transaction rolls back.
+The code is in <code>getCode()</code> (<code>DB_999</code> etc.), and the original JDBC exception is at <code>getCause().getCause()</code>.</p>
+<p><strong>No rows is not a failure.</strong> It comes back as an empty <code>Optional</code>, an empty list, or a count of 0.</p>
 <table>
 <thead>
 <tr>
 <th>Method</th>
 <th>Returns</th>
+<th>With no rows</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>selectOrThrow</code></td>
-<td>One row. <strong><code>null</code> means &quot;no rows&quot; only</strong>. <code>SqlExecuteException</code> if it cannot be read</td>
+<td><code>select</code> / <code>selectCached</code></td>
+<td><code>Optional&lt;Data&gt;</code></td>
+<td>An empty <code>Optional</code></td>
 </tr>
 <tr>
-<td><code>selectListOrThrow</code></td>
-<td>Rows. <strong>Empty list for no rows</strong>. <code>SqlExecuteException</code> if it cannot be read</td>
+<td><code>selectList</code> / <code>selectListCached</code> / <code>selectListPerformance</code></td>
+<td><code>List&lt;Data&gt;</code> (never <code>null</code>)</td>
+<td>An empty list</td>
+</tr>
+<tr>
+<td><code>insert</code></td>
+<td>Nothing (<code>void</code>)</td>
+<td>——</td>
 </tr>
 <tr>
 <td><code>insertKey</code></td>
-<td><strong>The generated key only</strong>. <code>SqlExecuteException</code> if there is no generated column, or the insert failed</td>
+<td>The generated key. <code>SqlExecuteException</code> if no key was generated</td>
+<td>——</td>
+</tr>
+<tr>
+<td><code>update</code> / <code>delete</code></td>
+<td>The number of rows affected (<code>int</code>)</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>execute</code></td>
+<td>The number of rows affected (<code>int</code>). <code>0</code> for DDL and statements that return a result set</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>executeBatch</code> / <code>insertBatch</code></td>
+<td>A list of counts per statement / generated keys</td>
+<td>An empty list for empty input</td>
 </tr>
 </tbody>
 </table>
-<p><strong>A unique-constraint violation gets its own type</strong> (since 1.5.0).
-The <code>...OrThrow</code> methods and <code>insertKey</code> throw <code>DuplicateKeyException</code> (a subclass of <code>SqlExecuteException</code>);
-with the return-value style, <code>db.isDuplicateKeyError()</code> tells it apart.</p>
+<p><strong><code>executeBatch</code> / <code>insertBatch</code> require every statement to be the same SQL.</strong> A mix throws with <code>DB_998</code>.</p>
+<h3 id="no-rows-and-could-not-read">&quot;No rows&quot; and &quot;could not read&quot;<a class="anchor" href="#no-rows-and-could-not-read">#</a></h3>
+<p><strong>They come back as different things.</strong> An empty <code>Optional</code> means &quot;no rows&quot; and nothing else; a failure to read throws.</p>
+<pre class="code"><code class="lang-java">Optional&lt;Data&gt; user = db.select(sql, id);      <span class="h-c">// throws SqlExecuteException here if it cannot be read</span>
+<span class="h-k">if</span> (user.isEmpty()) { <span class="h-k">return</span> nobody; }         <span class="h-c">// empty means "no rows", nothing else</span>
+
+Data post = db.select(sql, id)
+	.orElseThrow(() -&gt; <span class="h-k">new</span> HttpException(<span class="h-n">404</span>, <span class="h-s">"no such post"</span>));
+</code></pre>
+<p>The day the DB goes down, your app does not answer &quot;no such user&quot;.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>In 1.x, <code>select</code> returned <code>null</code> both for no rows and for a failure (you had to check <code>isError()</code> to tell them apart).
+2.0 separates them. <code>selectOrThrow</code> / <code>selectListOrThrow</code> now mean the same as <code>select</code> / <code>selectList</code>, so they are
+deprecated (they go away during 2.x).</p>
+</div>
+<h3 id="catching-only-unique-constraint-violations">Catching only unique-constraint violations<a class="anchor" href="#catching-only-unique-constraint-violations">#</a></h3>
+<p>The only failure you usually want to branch on is a unique-constraint violation. <strong>That one has its own type.</strong>
+Hitting a unique constraint throws <code>DuplicateKeyException</code> (a subclass of <code>SqlExecuteException</code>) — from <code>insert</code>, <code>insertKey</code>, <code>update</code> or any other statement.</p>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> {
 	<span class="h-k">long</span> id = db.insertKey(SQL.insert(User.instance()).value(User.email, email));
 } <span class="h-k">catch</span> (DuplicateKeyException e) {
@@ -544,12 +568,54 @@ with the return-value style, <code>db.isDuplicateKeyError()</code> tells it apar
 }
 </code></pre>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong>The return value of <code>insert</code> also carries two meanings.</strong>
-It is the generated key when one comes back, and <strong>the number of rows inserted</strong> when one does not.
-Whether <code>1</code> means &quot;inserted id=1&quot; or &quot;inserted 1 row&quot;
-<strong>depends on whether the table has a generated column</strong>——
-<strong>add one auto-increment column and the meaning changes without touching the caller.</strong></p>
-<p>Use <code>insertKey</code> for the key and <code>insertNoReturnKey</code> for the count.</p>
+<p><strong>Catch it inside a transaction and carry on, and that Tx can no longer commit.</strong>
+<code>tx.commit()</code> refuses with <code>TransactionException</code> (<code>DB_004</code>) and rolls everything back (<a href="./transaction">Transactions</a>).
+To use it as &quot;update if it exists&quot;, catch it outside the transaction or write it in SQL
+(<code>INSERT ... ON DUPLICATE KEY UPDATE</code> on MySQL, <code>INSERT ... ON CONFLICT</code> on PostgreSQL).</p>
+</div>
+<h3 id="where-to-catch">Where to catch<a class="anchor" href="#where-to-catch">#</a></h3>
+<p><strong>DB exceptions are unchecked, so the compiler never asks you to catch them.</strong> Decide where to catch with the table below. Anything not in it is left alone: the framework replies 500 and rolls back.</p>
+<table>
+<thead>
+<tr>
+<th>When you</th>
+<th>Catch</th>
+<th>Reply with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Insert or change user input in a column with a unique constraint (UNIQUE or primary key) — email address, login ID and the like</td>
+<td><code>DuplicateKeyException</code></td>
+<td>&quot;Already taken&quot; (409 or similar)</td>
+</tr>
+<tr>
+<td>Take <code>RedisLock.lock(...)</code> for a user action</td>
+<td><code>RedisLockException</code></td>
+<td>&quot;Already in progress&quot; (409 or similar; or branch on an empty <code>tryLock(...)</code>)</td>
+</tr>
+<tr>
+<td>Anything else (<code>SqlExecuteException</code> / <code>TransactionException</code>)</td>
+<td>Nothing</td>
+<td>The framework replies 500 and logs it</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Checking with <code>select</code> first does not let you skip the catch.</strong> If two requests arrive together, both pass the check and one hits the constraint</li>
+<li><strong>Catch outside the transaction</strong> (see the TRAP above)</li>
+<li>Write one test that inserts the same value twice; a forgotten catch shows up there as a 500</li>
+</ul>
+<h3 id="generated-keys-and-counts">Generated keys and counts<a class="anchor" href="#generated-keys-and-counts">#</a></h3>
+<p><strong><code>insert</code> returns nothing.</strong> Use <code>insertKey</code> for the generated key, and <code>execute</code> when you need a count, as with <code>INSERT ... SELECT</code>.</p>
+<pre class="code"><code class="lang-java">db.insert(SQL.insert(Tag.instance()).value(Tag.name, name));             <span class="h-c">// just insert</span>
+<span class="h-k">long</span> id = db.insertKey(SQL.insert(Post.instance()).value(...));          <span class="h-c">// the generated key</span>
+<span class="h-k">int</span> count = db.execute(<span class="h-s">"INSERT INTO archive SELECT * FROM post WHERE ..."</span>);  <span class="h-c">// the count</span>
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>In 1.x, <code>insert</code> returned the generated key when there was one and the number of rows inserted when there was not
+(adding one auto-increment column changed its meaning). 2.0 splits them.
+<code>insertNoReturnKey</code> is deprecated (it goes away during 2.x); use <code>insert</code> or <code>execute</code>.</p>
 </div>
 <h2 id="migrations">Migrations<a class="anchor" href="#migrations">#</a></h2>
 <p>Put them in <code>conf/migration/&lt;schema name&gt;/001_xxx.sql</code>.</p>
@@ -599,7 +665,10 @@ gets generated are all in
 			<li class="level-2"><a href="#selecting">Selecting</a></li>
 			<li class="level-3"><a href="#json-columns">JSON columns</a></li>
 			<li class="level-2"><a href="#reading-errors">Reading errors</a></li>
-			<li class="level-3"><a href="#telling-no-rows-apart-from-could-not-read">Telling "no rows" apart from "could not read"</a></li>
+			<li class="level-3"><a href="#no-rows-and-could-not-read">"No rows" and "could not read"</a></li>
+			<li class="level-3"><a href="#catching-only-unique-constraint-violations">Catching only unique-constraint violations</a></li>
+			<li class="level-3"><a href="#where-to-catch">Where to catch</a></li>
+			<li class="level-3"><a href="#generated-keys-and-counts">Generated keys and counts</a></li>
 			<li class="level-2"><a href="#migrations">Migrations</a></li>
 		</ul>
 	</nav>

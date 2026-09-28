@@ -351,10 +351,7 @@ PostGIS は経度・緯度です。jimble は吸収しないので、両方で�
 
 	Migration.install();                                <span class="h-c">// 起動時マイグレーション（要るなら。DBUtil.load より前）</span>
 
-	<span class="h-c">// 繋がらなければ false。ここで止めます</span>
-	<span class="h-k">if</span> (!DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>)) {
-		<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"DB を読み込めませんでした（このすぐ上のログに原因が出ています）"</span>);
-	}
+	DBUtil.load(Conf.conf().config(), App.<span class="h-k">class</span>);       <span class="h-c">// 繋がらなければ例外。ここで止まります</span>
 
 	JimbleServer.start(<span class="h-k">new</span> App());
 
@@ -362,12 +359,11 @@ PostGIS は経度・緯度です。jimble は吸収しないので、両方で�
 </code></pre>
 <p><code>DBUtil.load</code> の2つ目は<strong>クラスパスの起点</strong>です（マイグレーション SQL をここから探します）。
 自分のアプリのクラスを渡してください。</p>
-<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong>戻り値を捨てないでください。</strong><code>DBUtil.load</code> は繋がらなくても例外を投げません
-（原因をログに出して <code>false</code> を返します）。捨てると<strong>サーバーは起動してしまい</strong>、
-最初にリクエストが来たところで落ちます。
-<code>DBUtil.getMainDB()</code> が「DB が読み込めていません」と言って落ちるので迷子にはなりませんが、
-<strong>起動した時点で気づけるほうが早い</strong>です。</p>
+<p><strong>繋がらなければ <code>SqlExecuteException</code>（<code>DB_007</code>）を投げ、起動はそこで止まります。</strong>
+戻り値はありません（<code>void</code>）。受け止めずにそのまま <code>main</code> から投げてください。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>1.x の <code>DBUtil.load</code> は繋がらなくても <code>false</code> を返すだけで、捨てるとサーバーが起動してしまいました。
+2.0 で例外になりました（<a href="./migrate-2">2.0 への移行</a>）。</p>
 </div>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong>入口が複数あるなら、この並びを1か所にまとめてください。</strong>
@@ -440,13 +436,16 @@ DDL を書いて起動すれば、コードのほうが追いつきます。</p>
 	SQL.select()
 		.from(Post.instance())
 		.where(Post.id.eq(<span class="h-n">1L</span>))
-);
+).orElseThrow();
 
 <span class="h-c">// SELECT の結果はテーブル名でネストする（要件 F-D-02）</span>
 String title = row.getData(<span class="h-s">"post"</span>).getString(<span class="h-s">"title"</span>);
 
 <span class="h-c">// Column で引けば、途中の文字列が出てこない</span>
 String same = row.getString(Post.title);</code></pre>
+<p>**<code>select</code> は <code>Optional&lt;Data&gt;</code> を返します。**1件も無ければ空です
+（上の <code>.orElseThrow()</code> は「必ずある」と決めて取り出す書き方です）。
+読めなかったときは空ではなく例外です（下の「エラーの見方」）。</p>
 <p><strong>SELECT の結果はテーブル名でネストします。</strong>
 <code>post</code> と <code>comment</code> を join したとき、両方に <code>id</code> があっても衝突しません。</p>
 <p><code>Column</code> で引けば、文字列のキーがコードに出てきません。
@@ -472,63 +471,88 @@ JSON の文字のまま欲しいなら、SQL で文字にして読んでくだ�
 <h2 id="エラーの見方">エラーの見方<a class="anchor" href="#エラーの見方">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 
+	<span class="h-c">/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */</span>
 	List&lt;Data&gt; rows = db.selectList(SQL.select().from(Post.instance()));
 
-	<span class="h-c">/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */</span>
-	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
-		Log.error(<span class="h-s">"引けませんでした: "</span> + db.getError());
-		<span class="h-k">return</span>;
+	<span class="h-c">// 分岐したい失敗は一意制約くらい。それだけを受け止める</span>
+	<span class="h-k">try</span> {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, <span class="h-s">"hello"</span>));
+	} <span class="h-k">catch</span> (DuplicateKeyException ex) {
+		Log.info(<span class="h-s">"もうあります"</span>);
 	}
 
 }</code></pre>
-<p>DB のエラーは例外ではなく戻り値で返ります。
-<code>select</code> 系は <code>null</code>、<code>insert</code> は <code>-1</code>、<code>update</code> / <code>delete</code> は <code>-1</code> です。
-理由は <code>db.getError()</code> に入っています。</p>
-<h3 id="1件も無かったと読めなかったを見分ける">「1件も無かった」と「読めなかった」を見分ける<a class="anchor" href="#1件も無かったと読めなかったを見分ける">#</a></h3>
-<p><code>select</code> の <code>null</code> には<strong>2つの意味</strong>があります。</p>
-<pre class="code"><code class="lang-java">Data user = db.select(sql, id);
-<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> 誰でもない; }   <span class="h-c">// ← DB が読めなくても、ここを通ります</span>
-</code></pre>
-<p>これだと <strong>DB が落ちた日に「そんな利用者はいません」と答えます。</strong>
-例外も出ませんし、ログにも残りません（<code>isError()</code> を見ていないので）。</p>
-<p>見分ける書き方は2つあります。</p>
-<pre class="code"><code class="lang-java"><span class="h-c">// 1. これまでどおり isError() を見る</span>
-Data user = db.select(sql, id);
-<span class="h-k">if</span> (db.isError()) { <span class="h-k">throw</span> ...; }
-<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> 誰でもない; }
-
-<span class="h-c">// 2. 読めなければ投げてもらう（1.1 から）</span>
-Data user = db.selectOrThrow(sql, id);
-<span class="h-k">if</span> (user == <span class="h-k">null</span>) { <span class="h-k">return</span> 誰でもない; }   <span class="h-c">// null は「1件も無かった」だけ</span>
-</code></pre>
+<p>**DB の失敗は例外で返ります。**SQL が通らなかった・繋がらなかったときは <code>SqlExecuteException</code>（非検査）です。
+受け止めなければ上まで飛んで 500 になり、トランザクションの中なら巻き戻ります。
+コードは <code>getCode()</code>（<code>DB_999</code> など）、元の JDBC の例外は <code>getCause().getCause()</code> にあります。</p>
+<p>**0件は失敗ではありません。**空の <code>Optional</code>・空のリスト・件数 0 で返ります。</p>
 <table>
 <thead>
 <tr>
 <th>メソッド</th>
-<th>戻り値</th>
+<th>返すもの</th>
+<th>0件のとき</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>selectOrThrow</code></td>
-<td>1件。<strong><code>null</code> は「1件も無かった」だけ</strong>。読めなければ <code>SqlExecuteException</code></td>
+<td><code>select</code> / <code>selectCached</code></td>
+<td><code>Optional&lt;Data&gt;</code></td>
+<td>空の <code>Optional</code></td>
 </tr>
 <tr>
-<td><code>selectListOrThrow</code></td>
-<td>複数件。<strong>0件は空リスト</strong>。読めなければ <code>SqlExecuteException</code></td>
+<td><code>selectList</code> / <code>selectListCached</code> / <code>selectListPerformance</code></td>
+<td><code>List&lt;Data&gt;</code>（<code>null</code> は返しません）</td>
+<td>空リスト</td>
+</tr>
+<tr>
+<td><code>insert</code></td>
+<td>なし（<code>void</code>）</td>
+<td>——</td>
 </tr>
 <tr>
 <td><code>insertKey</code></td>
-<td><strong>採番された値だけ</strong>。採番列が無いか、入らなければ <code>SqlExecuteException</code></td>
+<td>採番された値。採番されなければ <code>SqlExecuteException</code></td>
+<td>——</td>
+</tr>
+<tr>
+<td><code>update</code> / <code>delete</code></td>
+<td>当たった件数（<code>int</code>）</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>execute</code></td>
+<td>当たった件数（<code>int</code>）。DDL と結果セットを返す文は <code>0</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>executeBatch</code> / <code>insertBatch</code></td>
+<td>文ごとの件数 / 採番値の一覧</td>
+<td>空の入力は空リスト</td>
 </tr>
 </tbody>
 </table>
-<p><strong>一意制約に当たったときだけは、型で分かれます</strong>（1.5.0 から）。
-<code>...OrThrow</code> 系と <code>insertKey</code> は <code>DuplicateKeyException</code>（<code>SqlExecuteException</code> の子）を投げ、
-戻り値で見る書き方なら <code>db.isDuplicateKeyError()</code> で見分けられます。</p>
+<p><code>executeBatch</code> / <code>insertBatch</code> は**SQL が全部同じでなければなりません。**違うものが混ざっていれば <code>DB_998</code> の例外です。</p>
+<h3 id="1件も無かったと読めなかった">「1件も無かった」と「読めなかった」<a class="anchor" href="#1件も無かったと読めなかった">#</a></h3>
+<p>**別のものとして返ります。**空の <code>Optional</code> は「1件も無かった」だけで、読めなかったときは例外です。</p>
+<pre class="code"><code class="lang-java">Optional&lt;Data&gt; user = db.select(sql, id);      <span class="h-c">// 読めなければ、ここで SqlExecuteException</span>
+<span class="h-k">if</span> (user.isEmpty()) { <span class="h-k">return</span> 誰でもない; }      <span class="h-c">// 空は「1件も無かった」だけ</span>
+
+Data post = db.select(sql, id)
+	.orElseThrow(() -&gt; <span class="h-k">new</span> HttpException(<span class="h-n">404</span>, <span class="h-s">"記事がありません"</span>));
+</code></pre>
+<p>DB が落ちた日に「そんな利用者はいません」と答えることはありません。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>1.x の <code>select</code> は、0件も失敗も <code>null</code> でした（<code>isError()</code> を見ないと見分けられませんでした）。
+2.0 で分かれました。<code>selectOrThrow</code> / <code>selectListOrThrow</code> は <code>select</code> / <code>selectList</code> と同じ意味になったので、
+非推奨です（2.x で消します）。</p>
+</div>
+<h3 id="一意制約だけを受け止める">一意制約だけを受け止める<a class="anchor" href="#一意制約だけを受け止める">#</a></h3>
+<p>分岐したい失敗は、たいてい一意制約だけです。<strong>それは型で分かれます。</strong>
+一意制約に当たると <code>DuplicateKeyException</code>（<code>SqlExecuteException</code> の子）が飛びます（<code>insert</code> / <code>insertKey</code> / <code>update</code> など、どれでも）。</p>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> {
 	<span class="h-k">long</span> id = db.insertKey(SQL.insert(User.instance()).value(User.email, email));
 } <span class="h-k">catch</span> (DuplicateKeyException e) {
@@ -536,12 +560,54 @@ Data user = db.selectOrThrow(sql, id);
 }
 </code></pre>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong><code>insert</code> の戻り値も2つの意味を持ちます。</strong>
-採番された値が取れればその値、取れなければ<strong>入った件数</strong>です。
-<code>1</code> が「id=1 を入れた」なのか「1件入った」なのかは、
-<strong>その表に採番列があるかどうかで決まります</strong>——
-<strong>採番列を1本足しただけで、呼ぶ側を触っていないのに意味が変わります。</strong></p>
-<p>採番値がほしいなら <code>insertKey</code>、件数がほしいなら <code>insertNoReturnKey</code> です。</p>
+<p><strong>トランザクションの中で受け止めて続けると、その Tx は確定できません。</strong>
+<code>tx.commit()</code> が <code>TransactionException</code>（<code>DB_004</code>）で断り、全部巻き戻します（<a href="./transaction">トランザクション</a>）。
+「あれば更新」に使うなら、トランザクションの外で受け止めるか、
+SQL で書いてください（MySQL は <code>INSERT ... ON DUPLICATE KEY UPDATE</code>、PostgreSQL は <code>INSERT ... ON CONFLICT</code>）。</p>
+</div>
+<h3 id="どこで-catch-するか">どこで catch するか<a class="anchor" href="#どこで-catch-するか">#</a></h3>
+<p>**DB の例外は非検査なので、コンパイラは catch を求めません。**受けるところは、次の表で決めてください。表に無いものは受けずに、500 と巻き戻しに任せます。</p>
+<table>
+<thead>
+<tr>
+<th>こう書くとき</th>
+<th>受ける例外</th>
+<th>返すもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>利用者の入力を、一意制約（UNIQUE・主キー）のある列に入れる・変える（メールアドレス・ログイン ID など）</td>
+<td><code>DuplicateKeyException</code></td>
+<td>409 などの「もう使われています」</td>
+</tr>
+<tr>
+<td>利用者の操作で <code>RedisLock.lock(...)</code> を取る</td>
+<td><code>RedisLockException</code></td>
+<td>409 などの「処理中です」（<code>tryLock(...)</code> の空で分けてもよい）</td>
+</tr>
+<tr>
+<td>それ以外（<code>SqlExecuteException</code> / <code>TransactionException</code>）</td>
+<td>受けない</td>
+<td>枠組みが 500 を返し、ログに出す</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>**先に <code>select</code> で「まだ無い」と確かめても、catch は省けません。**同時に2つ来れば、両方が確かめを通って片方が一意制約に当たります</li>
+<li><strong>受けるのはトランザクションの外です</strong>（上の TRAP）</li>
+<li>同じ値を2回入れるテストを1本書いておくと、catch を忘れたところが 500 で見つかります</li>
+</ul>
+<h3 id="採番値と件数">採番値と件数<a class="anchor" href="#採番値と件数">#</a></h3>
+<p>**<code>insert</code> は何も返しません。**採番値が要るなら <code>insertKey</code>、件数が要る <code>INSERT ... SELECT</code> などは <code>execute</code> です。</p>
+<pre class="code"><code class="lang-java">db.insert(SQL.insert(Tag.instance()).value(Tag.name, name));             <span class="h-c">// 入れるだけ</span>
+<span class="h-k">long</span> id = db.insertKey(SQL.insert(Post.instance()).value(...));          <span class="h-c">// 採番値</span>
+<span class="h-k">int</span> count = db.execute(<span class="h-s">"INSERT INTO archive SELECT * FROM post WHERE ..."</span>);  <span class="h-c">// 件数</span>
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>1.x の <code>insert</code> は、採番値が取れればその値、取れなければ入った件数を返していました
+（採番列を1本足しただけで意味が変わりました）。2.0 で分けました。
+<code>insertNoReturnKey</code> は非推奨です（2.x で消します）。<code>insert</code> か <code>execute</code> を使ってください。</p>
 </div>
 <h2 id="マイグレーション">マイグレーション<a class="anchor" href="#マイグレーション">#</a></h2>
 <p><code>conf/migration/&lt;スキーマ名&gt;/001_xxx.sql</code> に置きます。</p>
@@ -590,7 +656,10 @@ DROP TABLE `note`;
 			<li class="level-2"><a href="#引く">引く</a></li>
 			<li class="level-3"><a href="#json-の列">JSON の列</a></li>
 			<li class="level-2"><a href="#エラーの見方">エラーの見方</a></li>
-			<li class="level-3"><a href="#1件も無かったと読めなかったを見分ける">「1件も無かった」と「読めなかった」を見分ける</a></li>
+			<li class="level-3"><a href="#1件も無かったと読めなかった">「1件も無かった」と「読めなかった」</a></li>
+			<li class="level-3"><a href="#一意制約だけを受け止める">一意制約だけを受け止める</a></li>
+			<li class="level-3"><a href="#どこで-catch-するか">どこで catch するか</a></li>
+			<li class="level-3"><a href="#採番値と件数">採番値と件数</a></li>
 			<li class="level-2"><a href="#マイグレーション">マイグレーション</a></li>
 		</ul>
 	</nav>

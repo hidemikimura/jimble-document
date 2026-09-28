@@ -230,7 +230,7 @@
 <tr>
 <td>1リクエスト</td>
 <td><code>ValidationRules</code></td>
-<td>列ごとにルールを結びつけ、まとめて回す</td>
+<td>列ごとにルールを結びつけ、まとめて回す。<code>validate</code> は失敗したら <strong>422 の例外</strong></td>
 </tr>
 <tr>
 <td>1ルート</td>
@@ -291,7 +291,8 @@
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><strong><code>empty()</code> 以外は、空を通します。</strong>
 <code>textLengthMax(100)</code> は「入っているなら 100 文字以内」という意味で、
-空文字や <code>null</code> はエラーにしません。<strong>必須は必ず <code>empty()</code> で書いてください。</strong></p>
+空文字や <code>null</code> はエラーにしません。<strong>必須は必ず <code>empty()</code> で書いてください。</strong>
+<code>empty()</code> は<strong>キーごと送られてこないときも</strong>落とします。</p>
 </div>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><strong>形の検証は、値の全体と突き合わせます。</strong>
@@ -323,17 +324,18 @@ request.putData(Item.name, <span class="h-s">""</span>);
 request.putData(Item.age, <span class="h-s">"999"</span>);
 
 <span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
-Data errors = rules.validate(<span class="h-k">null</span>, request);
+Data errors = rules.errors(<span class="h-k">null</span>, request);
 
 Data messages = ValidationMessages.toMessages(errors);</code></pre>
 <ul>
 <li><strong>項目をまたいだエラーは全部集めます</strong>（1件ずつ言われるのが、入力し直す人にはいちばん困るため）</li>
-<li><strong>送られてこなかった項目は検証しません</strong>（<code>insertRequired()</code> を除く）</li>
+<li>**送られてこなかった項目は、<code>empty()</code>（<code>required()</code>）を積んだルールだけ落とします。**ほかのルールは見ません</li>
+<li><code>insertRequired()</code> を付けたルールは「登録のときだけ必須、更新は送られたときだけ見る」です（下の「登録のときだけ必須」）</li>
 <li>1つの列に配列が来たら、要素ごとに回します</li>
 <li><code>put(rule)</code>（列なし）で、項目に紐づかない相関チェックも書けます</li>
 </ul>
 <h3 id="生のエラーの形">生のエラーの形<a class="anchor" href="#生のエラーの形">#</a></h3>
-<p><code>validate</code> が返すのは<strong>文言ではありません。</strong>「どの種別で落ちたか」と「そのときの設定」です。</p>
+<p><code>errors(...)</code> が返すのは<strong>文言ではありません。</strong>「どの種別で落ちたか」と「そのときの設定」です。</p>
 <pre class="code"><code class="lang-java">{ <span class="h-s">"validation_type"</span>: Empty, <span class="h-s">"validation_setting"</span>: {}, <span class="h-s">"input"</span>: <span class="h-s">""</span> }
 </code></pre>
 <p>これを人が読む形に変えるのが <code>ValidationMessages.toMessages(errors)</code> で、
@@ -353,12 +355,39 @@ Data request = <span class="h-k">new</span> Data();
 request.putData(Item.name, <span class="h-s">""</span>);
 
 assertEquals(List.of(<span class="h-s">"required"</span>),
-	ValidationMessages.toMessages(rules.validate(<span class="h-k">null</span>, request)).get(<span class="h-s">"name"</span>));</code></pre>
+	ValidationMessages.toMessages(rules.errors(<span class="h-k">null</span>, request)).get(<span class="h-s">"name"</span>));</code></pre>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><code>ValidationMessages</code> は <strong>static でグローバル</strong>です。テストで差し替えたら
 <code>finally</code> で <code>ValidationMessages.reset()</code> してください。
 忘れると、<strong>あとから走ったテストだけが落ちます。</strong></p>
 </div>
+<h2 id="止めるか一覧を受け取るか">止めるか、一覧を受け取るか<a class="anchor" href="#止めるか一覧を受け取るか">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>通らなかったとき</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rules.validate(db, data)</code></td>
+<td><strong><code>ValidationException</code>（422）を投げて止まる</strong>。戻り値は無い</td>
+</tr>
+<tr>
+<td><code>rules.errors(db, data)</code></td>
+<td>エラーの一覧（<code>Data</code>）を返す。止めない。通れば空</td>
+</tr>
+</tbody>
+</table>
+<p>ふつうは <code>validate</code> を文として書きます。</p>
+<pre class="code"><code class="lang-java">rules.validate(db, context.request().bodyAll());   <span class="h-c">// 通らなければここで 422</span>
+db.insert(...);
+</code></pre>
+<p>何もしなければ枠組みが <strong>422</strong> で返し、本文は <code>{&quot;validation&quot;: {&quot;項目名&quot;: [&quot;メッセージ&quot;]}}</code> <strong>＋ 送られてきた入力値</strong>です
+（<code>ValidationExecutor</code> と同じ形）。例外なので <code>error(...)</code> フックは通ります（<a href="./errors">エラー処理</a>）。
+<code>ValidationException</code> は <code>HttpException</code> の子で、<code>errors()</code> で一覧を取り出せます。</p>
+<p>一覧を見て自分で分岐したいときは <code>errors(...)</code> です。複数の束をまとめるなら <code>Validator.validate(db, data, rules...)</code> / <code>Validator.errors(db, data, rules...)</code> です。</p>
 <h2 id="登録のときだけ必須">登録のときだけ必須<a class="anchor" href="#登録のときだけ必須">#</a></h2>
 <pre class="code"><code class="lang-java">ValidationRules rules = <span class="h-k">new</span> ValidationRules()
 	.put(Item.name, <span class="h-k">new</span> ValidationRule().insertRequired().empty())
@@ -366,11 +395,11 @@ assertEquals(List.of(<span class="h-s">"required"</span>),
 
 Data update = <span class="h-k">new</span> Data();
 update.put(<span class="h-s">"is_insert"</span>, <span class="h-k">false</span>);
-assertTrue(rules.validate(<span class="h-k">null</span>, update).isEmpty(), <span class="h-s">"更新なのに必須になっている"</span>);
+assertTrue(rules.errors(<span class="h-k">null</span>, update).isEmpty(), <span class="h-s">"更新なのに必須になっている"</span>);
 
 Data insert = <span class="h-k">new</span> Data();
 insert.put(<span class="h-s">"is_insert"</span>, <span class="h-k">true</span>);
-assertFalse(rules.validate(<span class="h-k">null</span>, insert).isEmpty(), <span class="h-s">"登録なのに必須になっていない"</span>);</code></pre>
+assertFalse(rules.errors(<span class="h-k">null</span>, insert).isEmpty(), <span class="h-s">"登録なのに必須になっていない"</span>);</code></pre>
 <p>「登録リクエストかどうか」の判定は <code>insertRequestChecker</code> に渡します。
 同じ判定が各バリデータの <code>isInsertRequest</code> にも届きます。</p>
 <h2 id="複数行を検証する">複数行を検証する<a class="anchor" href="#複数行を検証する">#</a></h2>
@@ -383,11 +412,12 @@ ok.putData(Item.name, <span class="h-s">"あ"</span>);
 Data ng = <span class="h-k">new</span> Data();
 ng.putData(Item.name, <span class="h-s">""</span>);
 
-List&lt;Data&gt; errors = rules.validate(<span class="h-k">null</span>, List.of(ok, ng, ok));
+List&lt;Data&gt; errors = rules.errors(<span class="h-k">null</span>, List.of(ok, ng, ok));
 
 assertEquals(<span class="h-n">1</span>, errors.size());
 assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h-s">"index"</span>), <span class="h-s">"行番号が違う"</span>);</code></pre>
 <p><strong>エラーのある行だけ</strong>返り、各行に <code>index</code> が入ります（<strong>1 始まり</strong>）。</p>
+<p><code>validate(db, list)</code> は、通らない行が1つでもあれば <code>ValidationException</code> です（例外の <code>errors()</code> は <code>{&quot;rows&quot;: [...]}</code>）。</p>
 <h2 id="ルートにかける">ルートにかける<a class="anchor" href="#ルートにかける">#</a></h2>
 <p><code>ValidationExecutor</code> を継承して <code>validate</code> だけ書きます。</p>
 <pre class="code"><code class="lang-java"><span class="h-k">private</span> <span class="h-k">class</span> Failing <span class="h-k">extends</span> ValidationExecutor {
@@ -440,10 +470,9 @@ assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h
 <p><code>ValidationRules</code> の結果をそのまま積むこともできます。</p>
 <pre class="code"><code class="lang-java">addErrors(rules.errors(db, context.request().bodyAll()));
 </code></pre>
-<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p>**<code>validate(...)</code> / <code>errors(...)</code> はエラーの一覧を返すだけで、止めません。**戻り値を捨てると、エラーがあっても素通りします。
-1.5.0 で足した <code>errors(...)</code> は <code>validate(...)</code> と同じもので、名前が中身を言っています。
-2.0 では <code>validate(...)</code> が「失敗したら 422 の例外」に変わる予定です。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>1.x の <code>validate(...)</code> は一覧を返すだけで、戻り値を捨てるとエラーがあっても素通りしていました。
+2.0 で <code>void</code> にし、通らなければ例外にしました。一覧が要るところは <code>errors(...)</code> に書き換えます（<a href="./migrate-2">2.0 への移行</a>）。</p>
 </div>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><code>ValidationExecutor</code> は <strong><code>WebContext</code> をフィールドに持ちません。</strong>
@@ -494,7 +523,8 @@ assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h
 </tr>
 </tbody>
 </table>
-<p><code>context.request().paging(20)</code> と書けば、<code>per</code> が来ていないときの既定を変えられます。</p>
+<p><code>context.request().paging(20)</code> と書けば、<code>per</code> が来ていないときの既定を変えられます。
+<code>Paging</code> は1リクエストに1つで、最初に作ったものを使い回します。<strong>先に <code>paging()</code> を呼んだあとで <code>paging(50)</code> と違う件数を渡すと <code>IllegalStateException</code> です</strong>。件数は最初の1回で渡してください。</p>
 <h3 id="select-にかける">SELECT にかける<a class="anchor" href="#select-にかける">#</a></h3>
 <pre class="code"><code class="lang-java">Paging paging = <span class="h-k">new</span> Paging();
 paging.load(request(<span class="h-s">"2"</span>, <span class="h-s">"10"</span>), <span class="h-n">0</span>);
@@ -599,6 +629,7 @@ SELECT 句や ORDER BY、LIMIT には影響されません。</p>
 			<li class="level-2"><a href="#列にまとめる">列にまとめる</a></li>
 			<li class="level-3"><a href="#生のエラーの形">生のエラーの形</a></li>
 			<li class="level-3"><a href="#文言を差し替える">文言を差し替える</a></li>
+			<li class="level-2"><a href="#止めるか一覧を受け取るか">止めるか、一覧を受け取るか</a></li>
 			<li class="level-2"><a href="#登録のときだけ必須">登録のときだけ必須</a></li>
 			<li class="level-2"><a href="#複数行を検証する">複数行を検証する</a></li>
 			<li class="level-2"><a href="#ルートにかける">ルートにかける</a></li>

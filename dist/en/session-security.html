@@ -219,6 +219,11 @@
 context.session().save();</code></pre>
 <p><strong>Nothing is saved automatically.</strong> Nothing is written unless you call <code>save()</code>.
 That is to avoid writing on every request that only ever read.</p>
+<p><strong>Change it with <code>session().put(...)</code> / <code>remove(...)</code> / <code>clear()</code>.</strong>
+<code>session().data()</code> (and <code>request().session()</code>) is <strong>a read-only copy</strong>; writing to it throws <code>UnsupportedOperationException</code>.
+That keeps you from a change that is never marked as changed and so never saved.</p>
+<p>A <code>put</code> / <code>remove</code> / <code>clear</code> after <code>session().destroy()</code> throws <code>IllegalStateException</code> (there is nowhere left to save it).
+If you want a value in after logout, put it in before <code>destroy()</code>, or on the next request.</p>
 <p>Choose where it is stored in <code>application.conf</code>.</p>
 <pre class="code"><code class="lang-conf">session {
 	store       = <span class="h-s">"db"</span>     <span class="h-c"># none | db | redis | cookie</span>
@@ -368,10 +373,8 @@ a different one.</p>
 <pre class="code"><code class="lang-java">context.cookies().putSigned(<span class="h-k">new</span> Cookie(<span class="h-s">"user"</span>, id).path(<span class="h-s">"/app"</span>).maxAge(<span class="h-n">3600</span>));    <span class="h-c">// signed (readable with get)</span>
 context.cookies().putUnsigned(<span class="h-k">new</span> Cookie(<span class="h-s">"theme"</span>, <span class="h-s">"dark"</span>).httpOnly(<span class="h-k">false</span>));      <span class="h-c">// not signed (for JavaScript)</span>
 </code></pre>
-<div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong><code>put(Cookie)</code> does not sign</strong> (while <code>put(name, value)</code> does). With <code>cookie.secret</code> set, the next request's
-<code>get</code> cannot read what you wrote and returns <code>&quot;&quot;</code>. Deprecated in 1.5.0, removed in 2.0.</p>
-</div>
+<p>The 1.x <code>put(Cookie)</code> did not sign, so 2.0 removed it (<a href="./migrate-2">Moving to 2.0</a>).</p>
+<p><strong>Writing a cookie after the response has been sent throws <code>IllegalStateException</code></strong> (it would never arrive). Write it before <code>send()</code>.</p>
 <p><strong>Read it back with <code>context.cookies().get(&quot;a name&quot;)</code> or <code>context.request().cookie(&quot;a name&quot;)</code>.</strong>
 A value whose signature did not check out never lands there — that is the point, so a tampered
 value cannot reach your code.</p>

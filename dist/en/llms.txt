@@ -60,4 +60,4 @@
 - [Migrating from jooby](https://jimble.io/en/migration-jooby.md): What works as it is, and what you have to rewrite
 - [Security](https://jimble.io/en/security.md): Where to report a vulnerability, and what happens after we get it
 - [Versions and compatibility](https://jimble.io/en/versioning.md): What counts as public API, when it can break, and what we do before breaking it
-- [Moving to 2.0](https://jimble.io/en/migrate-2.md): Rewrite on 1.5 and there is almost nothing left to fix when you move to 2.0
+- [Moving to 2.0](https://jimble.io/en/migrate-2.md): From 1.x to 2.0 — what was removed, what changed type, what now throws

@@ -212,7 +212,7 @@
 	<main id="main">
 		<article>
 			<h1 id="エラー処理">エラー処理<a class="anchor" href="#エラー処理">#</a></h1>
-<p>エラーが表に出る道は3本あります。<strong>通る場所が違います。</strong></p>
+<p>エラーが表に出る道は4本あります。<strong>通る場所が違います。</strong></p>
 <table>
 <thead>
 <tr>
@@ -233,7 +233,12 @@
 <td>404</td>
 </tr>
 <tr>
-<td>検証に失敗した</td>
+<td><code>validate(...)</code> が通らなかった（<code>ValidationException</code>）</td>
+<td><code>error(...)</code> フック</td>
+<td>422 と <code>validation</code> の JSON</td>
+</tr>
+<tr>
+<td><code>ValidationExecutor</code> の検証に失敗した</td>
 <td><code>ValidationExecutor</code>（<code>error</code> は通らない）</td>
 <td>422 と <code>validation</code> の JSON</td>
 </tr>
@@ -292,6 +297,10 @@
 <td>404</td>
 </tr>
 <tr>
+<td><code>ValidationException</code>（<code>HttpException</code> の子）</td>
+<td>422</td>
+</tr>
+<tr>
 <td>そのほか全部</td>
 <td><strong>500</strong></td>
 </tr>
@@ -329,7 +338,8 @@
 };</code></pre>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p><code>CodeException</code>（<code>io.jimble.util.exception.CodeException</code>）は <strong>HTTP のステータスには効きません。</strong>
-DB のエラー（<code>db.getError()</code>）とバリデータの中で使う検査例外で、投げれば 500 です。</p>
+コードつきの非検査例外（<code>RuntimeException</code> の子）で、投げれば 500 です。
+DB の失敗（<code>SqlExecuteException</code>）なども、何もしなければ 500 です（下の「枠組みが投げる例外」）。</p>
 </div>
 <h2 id="本文は誰が作るか">本文は誰が作るか<a class="anchor" href="#本文は誰が作るか">#</a></h2>
 <p>順番はこうです。</p>
@@ -416,7 +426,16 @@ Allow: GET
 <strong>本物の 500 が埋もれます。</strong></p>
 </div>
 <p><code>after</code> と <code>onComplete</code> の中で例外が出た場合も、握ってログに出します（レスポンスは返ります）。</p>
-<h2 id="検証の失敗は-error-を通らない">検証の失敗は error を通らない<a class="anchor" href="#検証の失敗は-error-を通らない">#</a></h2>
+<h2 id="検証の失敗">検証の失敗<a class="anchor" href="#検証の失敗">#</a></h2>
+<h3 id="validate-は例外で返る">validate(...) は例外で返る<a class="anchor" href="#validate-は例外で返る">#</a></h3>
+<p><code>ValidationRules.validate(db, data)</code> / <code>Validator.validate(...)</code> は、通らなければ
+<strong><code>ValidationException</code></strong>（422。<code>HttpException</code> の子）を投げます。
+ほかの例外と同じく <code>error(...)</code> を通り、<strong>誰も本文を作らなければ</strong>枠組みが次の形（<code>ValidationExecutor</code> と同じ）で返します。</p>
+<pre class="code"><code class="lang-java">rules.validate(db, data);   <span class="h-c">// 通らなければここで抜けて 422</span>
+</code></pre>
+<p>一覧を自分で扱いたいときは <code>errors(db, data)</code> で受け取ってください（例外にしません）。
+一覧の検査は <code>validate(db, List)</code> / <code>errors(db, List)</code> で、本文は <code>{&quot;rows&quot;: [...]}</code> です。</p>
+<h3 id="validationexecutor-は-error-を通らない">ValidationExecutor は error を通らない<a class="anchor" href="#validationexecutor-は-error-を通らない">#</a></h3>
 <p><code>ValidationExecutor</code> は<strong>例外を投げません。</strong>
 自分をキャンセルして、後続の Executor を捨て、そのまま返します。</p>
 <pre class="code"><code class="lang-java">context.response().putForm(context.request().bodyAll());
@@ -431,9 +450,130 @@ context.response().code(<span class="h-n">422</span>);
 }
 </code></pre>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong><code>error(...)</code> に検証エラーの整形を書いても呼ばれません。</strong>
-422 の見た目を変えたいときは <code>ValidationExecutor</code> 側（<code>onCancel</code>）を見てください。</p>
+<p><strong><code>ValidationExecutor</code> の失敗は、<code>error(...)</code> に整形を書いても呼ばれません。</strong>
+422 の見た目を変えたいときは <code>ValidationExecutor</code> 側（<code>onCancel</code>）を見てください。
+<code>validate(...)</code> の <code>ValidationException</code> のほうは <code>error(...)</code> で組み立てられます。</p>
 </div>
+<h2 id="枠組みが投げる例外">枠組みが投げる例外<a class="anchor" href="#枠組みが投げる例外">#</a></h2>
+<p>どれも<strong>非検査例外</strong>です。<code>HttpException</code> の子のほかは、何もしなければ <strong>500</strong> になります。</p>
+<table>
+<thead>
+<tr>
+<th>例外</th>
+<th>いつ</th>
+<th>親</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SqlExecuteException</code></td>
+<td>SQL が失敗した。<code>getCode()</code> でコードが取れる（下の表）</td>
+<td><code>RuntimeException</code></td>
+</tr>
+<tr>
+<td><code>DuplicateKeyException</code></td>
+<td>一意制約に当たった</td>
+<td><code>SqlExecuteException</code></td>
+</tr>
+<tr>
+<td><code>TransactionException</code></td>
+<td>トランザクションを確定・開始・巻き戻しできなかった</td>
+<td><code>SqlExecuteException</code></td>
+</tr>
+<tr>
+<td><code>SqlBuildException</code></td>
+<td>SQL を組めない（<code>eq(null)</code> / <code>not(null)</code> など）</td>
+<td><code>RuntimeException</code></td>
+</tr>
+<tr>
+<td><code>RedisLockException</code></td>
+<td><code>RedisLock.lock(...)</code> でロックが取れなかった</td>
+<td><code>RuntimeException</code></td>
+</tr>
+<tr>
+<td><code>DataConversionException</code></td>
+<td>Data の値が、あるのに読めない（<code>getInt</code> に <code>&quot;abc&quot;</code> など）</td>
+<td><code>IllegalArgumentException</code></td>
+</tr>
+<tr>
+<td><code>JsonParseException</code></td>
+<td><code>Data.fromJsonString</code> / <code>Dson.decodes</code> に壊れた JSON</td>
+<td><code>IllegalArgumentException</code></td>
+</tr>
+<tr>
+<td><code>ValidationException</code></td>
+<td><code>validate(...)</code> が通らなかった（<strong>422</strong>）</td>
+<td><code>HttpException</code></td>
+</tr>
+<tr>
+<td><code>CodeException</code></td>
+<td>コードつきの失敗（ほかの例外の <code>getCause()</code> に入っていることが多い）</td>
+<td><code>RuntimeException</code></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>本文が <code>application/json</code> なのに読めないときは、<code>body()</code> / <code>bodyJson()</code> / <code>bodyAll()</code> が <strong>400</strong> の <code>HttpException</code> を投げます。
+<code>JsonParseException</code>（500）にはなりません。</p>
+</div>
+<p>DB のコードはこうです。元の JDBC の例外は <code>getCause().getCause()</code> にあります。</p>
+<table>
+<thead>
+<tr>
+<th>コード</th>
+<th>例外</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB_001</code></td>
+<td><code>TransactionException</code></td>
+<td>トランザクションを始められなかった</td>
+</tr>
+<tr>
+<td><code>DB_002</code></td>
+<td><code>TransactionException</code></td>
+<td>巻き戻せなかった</td>
+</tr>
+<tr>
+<td><code>DB_003</code></td>
+<td><code>TransactionException</code></td>
+<td>コミットできなかった</td>
+</tr>
+<tr>
+<td><code>DB_004</code></td>
+<td><code>TransactionException</code></td>
+<td>トランザクションの中で SQL が失敗していたので、コミットしなかった（全部巻き戻した）</td>
+</tr>
+<tr>
+<td><code>DB_005</code></td>
+<td><code>TransactionException</code></td>
+<td>合流した中の <code>Tx</code> が巻き戻しを求めたので、外をコミットしなかった（全部巻き戻した）</td>
+</tr>
+<tr>
+<td><code>DB_006</code></td>
+<td><code>TransactionException</code></td>
+<td><code>transaction(tx -&gt; ...)</code> の中身が検査例外を投げた（包んで投げ直した）</td>
+</tr>
+<tr>
+<td><code>DB_007</code></td>
+<td><code>SqlExecuteException</code></td>
+<td><code>DBUtil.load(...)</code> がデータソースを作れなかった（起動が止まる）</td>
+</tr>
+<tr>
+<td><code>DB_998</code></td>
+<td><code>SqlExecuteException</code></td>
+<td><code>executeBatch</code> / <code>insertBatch</code> に違う SQL が混ざっていた</td>
+</tr>
+<tr>
+<td><code>DB_999</code></td>
+<td><code>SqlExecuteException</code> / <code>DuplicateKeyException</code></td>
+<td>SQL の実行に失敗した</td>
+</tr>
+</tbody>
+</table>
+<p>詳しくは <a href="./db">DB を使う</a> と <a href="./transaction">トランザクション</a> を見てください。</p>
 <h2 id="アプリ全体で差し替えられるもの">アプリ全体で差し替えられるもの<a class="anchor" href="#アプリ全体で差し替えられるもの">#</a></h2>
 <p><code>JimbleApp</code> で上書きできるのは3つだけです。</p>
 <table>
@@ -484,7 +624,10 @@ context.response().code(<span class="h-n">422</span>);
 			<li class="level-2"><a href="#405-と-404-は分かれます">405 と 404 は分かれます</a></li>
 			<li class="level-2"><a href="#ハンドラ自身が失敗したら">ハンドラ自身が失敗したら</a></li>
 			<li class="level-2"><a href="#ログの出しかた">ログの出しかた</a></li>
-			<li class="level-2"><a href="#検証の失敗は-error-を通らない">検証の失敗は error を通らない</a></li>
+			<li class="level-2"><a href="#検証の失敗">検証の失敗</a></li>
+			<li class="level-3"><a href="#validate-は例外で返る">validate(...) は例外で返る</a></li>
+			<li class="level-3"><a href="#validationexecutor-は-error-を通らない">ValidationExecutor は error を通らない</a></li>
+			<li class="level-2"><a href="#枠組みが投げる例外">枠組みが投げる例外</a></li>
 			<li class="level-2"><a href="#アプリ全体で差し替えられるもの">アプリ全体で差し替えられるもの</a></li>
 		</ul>
 	</nav>

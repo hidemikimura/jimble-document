@@ -302,7 +302,7 @@ When you want to swap one out, pass it through the constructor.</p>
 </tr>
 <tr>
 <td><code>@Transactional</code></td>
-<td><code>try (DBTransaction transaction = ...)</code></td>
+<td><code>db.transaction(tx -&gt; { ... })</code></td>
 </tr>
 <tr>
 <td><code>@Inject</code></td>
@@ -362,12 +362,14 @@ Replace it with the <code>io.jimble.jte</code> plugin.</p>
 <li>Make <code>App.java</code> extend <code>JimbleApp</code>. The route definitions are a straight paste</li>
 <li>Rewrite the insides of the handlers to <code>context.request()</code> / <code>context.response()</code></li>
 <li>Replace <code>@Inject</code> with <code>install()</code> and a constructor</li>
-<li>Replace <code>@Transactional</code> with <code>try (DBTransaction ...)</code></li>
+<li>Replace <code>@Transactional</code> with <code>db.transaction(tx -&gt; { ... })</code></li>
 <li>Start it up and <strong>check the route list and the configuration line</strong></li>
 </ol>
 <h2 id="what-you-do-not-have-to-migrate">What you do not have to migrate<a class="anchor" href="#what-you-do-not-have-to-migrate">#</a></h2>
-<p>The DB layer carries over. How you use <code>SQL</code> / <code>Column</code> / <code>Table</code> / <code>Data</code> / <code>DB</code> does not change.
+<p>The DB layer's classes (<code>SQL</code> / <code>Column</code> / <code>Table</code> / <code>Data</code> / <code>DB</code>) and the way you build SQL carry over.
 The generated table definition classes work as they are, too.</p>
+<p><strong>Failures, however, are exceptions, not return values.</strong> <code>select</code> returns <code>Optional&lt;Data&gt;</code>, and there is no <code>isError()</code>.
+Code that checked return values for failure needs rewriting (<a href="./db">DB</a>, <a href="./migrate-2">Moving to 2.0</a>).</p>
 
 		</article>
 

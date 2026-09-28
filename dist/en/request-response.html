@@ -255,17 +255,17 @@ You pull values out with <code>getString</code> <code>getInt</code> <code>getLon
 <strong>A missing key gives you <code>null</code> from <code>getString</code>, <code>0</code> from <code>getInt</code>, and <code>false</code> from
 <code>getBoolean</code></strong> — you cannot tell &quot;missing&quot; from &quot;0&quot;. When you need to, use the Object
 versions (<code>getIntObject</code> and friends) or <code>isNull(key)</code>. See <a href="./util">Utilities</a>.</p>
-<p><strong>Prefer the form that takes a default (since 1.5.0).</strong> <code>getInt(&quot;page&quot;, 1)</code> returns <code>1</code> only when the key
-is missing or blank; a value it cannot read, such as <code>&quot;abc&quot;</code>, stops with a <code>DataConversionException</code>
-instead of quietly becoming <code>0</code>.</p>
-<div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong>You cannot read straight off <code>context.request()</code>.</strong>
-<code>Request</code> is a <code>Data</code> too, so <code>context.request().getString(&quot;title&quot;)</code> <strong>compiles</strong> — and
-returns <strong><code>null</code></strong>, because neither the body nor the query string is in there.
+<p><strong>A value that is there but cannot be read</strong> (<code>&quot;abc&quot;</code> read with <code>getInt</code>, for example) is a <code>DataConversionException</code>
+instead of quietly becoming <code>0</code>. <strong>Run user input through <a href="./validation">validation</a> first.</strong> Read it unchecked and the
+exception becomes a 500. The form that takes a default (<code>getInt(&quot;page&quot;, 1)</code>) returns the default only when the key is missing or blank.</p>
+<p><strong><code>Request</code> is not a <code>Data</code>.</strong> You cannot read it like <code>context.request().getString(&quot;title&quot;)</code> (that is a compile error).
 Go through one of the methods in the table above (usually <code>bodyAll()</code>).</p>
 <pre class="code"><code class="lang-java">Data input = context.request().bodyAll();
 String title = input.getString(<span class="h-s">"title"</span>);
 </code></pre>
+<p><strong>When the <code>Content-Type</code> is <code>application/json</code> but the body cannot be read as JSON, <code>body()</code> / <code>bodyJson()</code> / <code>bodyAll()</code>
+throw a 400 <code>HttpException</code></strong> (the same on every read). Nothing carries on with a half-read body or an empty <code>Data</code>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong><code>getStringOptional</code> does give you an empty string when the key is missing — and it
 puts that empty string into the <code>Data</code>.</strong> Reading alone adds keys, so do not call it
 just before serialising to JSON or inside a loop (<a href="./util">Utilities</a>).</p>
@@ -328,15 +328,17 @@ request.putData(Item.name, <span class="h-s">""</span>);
 request.putData(Item.age, <span class="h-s">"999"</span>);
 
 <span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
-Data errors = rules.validate(<span class="h-k">null</span>, request);
+Data errors = rules.errors(<span class="h-k">null</span>, request);
 
 Data messages = ValidationMessages.toMessages(errors);</code></pre>
 <p><strong>Validation does not stop at the first error.</strong> It collects them all, then returns.
 For the person retyping the form, being told one problem at a time is the worst outcome.</p>
 <p><code>ValidationMessages.toMessages(errors)</code> turns them into a <code>Data</code> of field name → message.
 Return that as JSON or hand it to a template.</p>
+<p>When stopping is fine, write <code>rules.validate(db, input);</code> as a statement. If it fails, it throws <code>ValidationException</code> and the framework replies 422.</p>
 <p>The list of rules, the <code>ValidationExecutor</code> you can apply per route, and paging
-are all in <a href="./validation">Validation and paging</a>.</p>
+are all in <a href="./validation">Validation and paging</a>.
+Pass the page size <strong>on the first call</strong> (<code>paging(50)</code> with a different count after <code>paging()</code> throws <code>IllegalStateException</code>).</p>
 <h2 id="sending-a-response">Sending a response<a class="anchor" href="#sending-a-response">#</a></h2>
 <pre class="code"><code class="lang-java">context.response().send(<span class="h-s">"text"</span>);                   <span class="h-c">// text/plain</span>
 context.response().json(<span class="h-s">"posts"</span>, list);            <span class="h-c">// JSON</span>
@@ -346,6 +348,9 @@ context.response().download(file, <span class="h-s">"report.xlsx"</span>);  <spa
 context.response().code(<span class="h-n">201</span>).send();               <span class="h-c">// no body</span>
 </code></pre>
 <p><code>json()</code> only builds. Call it several times and it keeps adding to the same JSON document.</p>
+<p><strong>There is only one way to reply per response.</strong> Stack two different kinds out of <code>json</code> / <code>jsonl</code> / <code>text</code> / <code>cache</code> / <code>view</code> / <code>redirect</code> / <code>download</code>
+(<code>redirect(...)</code> after <code>json(...)</code>, say) and the second one throws <code>IllegalStateException</code>.
+Stacking the same kind again is fine.</p>
 <p><strong>You do not need a <code>send()</code> after <code>json()</code>.</strong> Once it is built, the dispatcher sends it at
 the end of the execution. Write <code>send()</code> explicitly only when you want to finish <strong>with no
 body</strong> (<code>code(204).send()</code>), or when you are returning text directly.</p>
@@ -372,7 +377,7 @@ be seen from inside one request.</p>
 </code></pre>
 <p><strong>Calling <code>outputStream()</code> fixes the status and headers.</strong>
 <code>code(...)</code>, cookies put in <code>cookies()</code> and the default <code>Cache-Control: no-store</code> (not overwritten if you set your own)
-are applied at that moment, so settle them first; changes made afterwards do not arrive.
+are applied at that moment, so settle them first. <strong>Writing a header or a cookie after the response has been sent throws <code>IllegalStateException</code></strong> (it would never arrive).
 For 204 / 205 / 304, whatever you write is dropped and a WARN is logged.</p>
 <p><strong>What you write stays buffered until you <code>flush()</code>.</strong> For something written to the end, like a CSV, that is fine as is;
 when the other side should see each piece as soon as it is ready (progress, relaying another server's response), <code>flush()</code> after each write.</p>

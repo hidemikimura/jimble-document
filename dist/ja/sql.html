@@ -253,6 +253,10 @@
 <strong>空の一覧（と <code>null</code>）は組み立て時に落ちます</strong>——<code>IN ()</code> は壊れた SQL で、
 <code>IN (NULL)</code> に潰すと<strong>どの行にも当たらないまま 0 件が返る</strong>ためです。</p>
 </div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>NULL</code> との比較は <code>is_null()</code> / <code>is_not_null()</code> で書きます。</strong>
+<code>eq(null)</code> / <code>not(null)</code> は組み立て時に <code>SqlBuildException</code> になります。<code>= NULL</code> はどの行にも当たらないためです。</p>
+</div>
 <h2 id="結合">結合<a class="anchor" href="#結合">#</a></h2>
 <pre class="code"><code class="lang-java">SQL.select()
 	.from(Post.instance())
@@ -264,7 +268,7 @@
 （1.4 までは、<code>from</code> がまだ素のテーブルのとき<strong>ON が黙って消えていました</strong>）。</p>
 <p>結果はテーブル名でネストするので、<code>row.getData(&quot;comment&quot;)</code> で取れます。</p>
 <h2 id="入れる直す消す">入れる・直す・消す<a class="anchor" href="#入れる直す消す">#</a></h2>
-<pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(
+<pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insertKey(
 	SQL.insert(Post.instance())
 		.value(Post.title, title)
 		.value(Post.created_at, <span class="h-k">new</span> Date())      <span class="h-c">// アプリ側の時計</span>
@@ -289,8 +293,13 @@
 台ごとに時計がずれていると、<b>あとから入れた行のほうが古い</b>ことが起こり、
 作成日時で並べた一覧が入れ替わります。</p>
 </div>
-<p><code>insert</code> は採番された ID を返します。ID が要らないときは
-<code>insertNoReturnKey</code> のほうが速いです。</p>
+<p><code>insertKey</code> は採番された ID を返します（採番されなければ例外）。ID が要らないときは
+<code>insert</code> です（戻り値はありません）。件数が要る <code>INSERT ... SELECT</code> などは <code>execute(...)</code> で流します。</p>
+<p><code>update</code> / <code>delete</code> は当たった件数を返します。<strong>失敗はどれも <code>SqlExecuteException</code></strong> で、
+一意制約の違反だけ <code>DuplicateKeyException</code> です（<a href="./db">DB を使う</a>）。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>現在時刻は <code>Dsl.now()</code> です。<strong>文字列の <code>&quot;now()&quot;</code> はただの文字列として入ります</strong>（1.x は現在時刻に置き換えていました）。</p>
+</div>
 <p>送られた項目だけ直す、という書き方はこうなります。</p>
 <pre class="code"><code class="lang-java">patch(<span class="h-s">"/posts/{id}"</span>, context -&gt; {
 
@@ -541,13 +550,13 @@ List&lt;Long&gt;    ids    = db.insertBatch(builderList);    <span class="h-c">/
 </code></pre>
 <p><strong>2つで戻り値が違います。</strong><code>executeBatch</code> は件数（<code>List&lt;Integer&gt;</code>）、
 <code>insertBatch</code> は採番値（<code>List&lt;Long&gt;</code>）です。
-件数のほうは <code>DB.isBatchSuccess(list)</code> で全部通ったか見られます。</p>
+**失敗は例外です。**空の一覧を渡すと空のリストが返ります。</p>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong>積んだビルダーの SQL は、全部同じでなければなりません。</strong>
 1本の文にパラメータだけを積み替えて流すためです。
 <code>value()</code> を積む順が途中で変わると SQL も変わるので、
 <strong>ループの中で順を揃えてください</strong>。
-揃っていなければ <code>DB_998</code> を立てて <code>null</code> が返ります
+揃っていなければ <code>DB_998</code> の <code>SqlExecuteException</code> になります
 （直すまでは、例外も警告も無しに<strong>値が横にずれて入っていました</strong>）。</p>
 </div>
 <h2 id="大きい結果">大きい結果<a class="anchor" href="#大きい結果">#</a></h2>

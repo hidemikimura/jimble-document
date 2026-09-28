@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Moving to 2.0 - jimble</title>
-<meta name="description" content="Rewrite on 1.5 and there is almost nothing left to fix when you move to 2.0">
+<meta name="description" content="From 1.x to 2.0 — what was removed, what changed type, what now throws">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
 <link rel="stylesheet" href="../static/site.css">
 </head>
@@ -213,17 +213,22 @@
 		<article>
 			<h1 id="moving-to-20">Moving to 2.0<a class="anchor" href="#moving-to-20">#</a></h1>
 <p>2.0 rebuilds the APIs that <strong>do nothing when you throw the return value away, or fail silently</strong>.
-Every break is either <strong>a compile error or an exception</strong>; nothing changes meaning silently.</p>
-<p><strong>The 2.0 way of writing is already in 1.5.</strong> Rewrite while you are on 1.5 and there is almost nothing left to fix when you move to 2.0.</p>
-<h2 id="1-run-jimblecheck-first">1. Run jimbleCheck first<a class="anchor" href="#1-run-jimblecheck-first">#</a></h2>
-<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleCheck                  # things with a replacement in 1.5 (J8xx)
-<span class="h-k">./gradlew</span> jimbleCheck --target=2.0     # plus things whose type or meaning changes in 2.0 (J9xx)
-</code></pre>
-<p>It lists every line to rewrite, <strong>with the line number and the new way of writing it</strong>. Fix them from the top.
-For a false positive, write <code>// jimble-check:ignore J803</code> on that line or the line before.</p>
-<p>1.5 marks what 2.0 removes with <code>@Deprecated(forRemoval = true)</code>, so the compiler's <code>[removal]</code> warnings give the same list.</p>
-<h2 id="2-what-to-rewrite-on-15">2. What to rewrite on 1.5<a class="anchor" href="#2-what-to-rewrite-on-15">#</a></h2>
-<p>The replacement is already in 1.5.</p>
+Every break is either <strong>a compile error or an exception</strong>. Nothing changes meaning silently.</p>
+<p><strong>Most of the 2.0 way of writing is already in 1.5.</strong> Rewrite while you are on 1.5 and there is less to fix when you move to 2.0.</p>
+<h2 id="1-the-order-to-upgrade-in">1. The order to upgrade in<a class="anchor" href="#1-the-order-to-upgrade-in">#</a></h2>
+<ol>
+<li><strong>Move to 1.5 and run <code>./gradlew jimbleCheck --target=2.0</code>.</strong> It lists every line to rewrite, with the line number and the new way of writing it. Fix what 1.5 already lets you fix (J8xx).</li>
+<li><strong>Move to 2.0 and compile.</strong> Everything that was removed or changed type is a compile error here (section 3).</li>
+<li><strong>Run <code>./gradlew jimbleCheck</code> again.</strong> The 2.0 jimbleCheck always reports J8xx and J9xx (<code>--target=2.0</code> makes no difference).</li>
+<li><strong>Run your tests.</strong> What now throws (section 4) is not caught by the compiler.</li>
+</ol>
+<p>For a false positive, write <code>// jimble-check:ignore J901</code> on that line or the line before.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong><code>select</code> returns <code>Optional&lt;Data&gt;</code> in 2.0.</strong> <code>Data row = db.select(...)</code> is a compile error, so you cannot miss it.
+If in doubt, the 1.x &quot;null when missing&quot; is <code>db.select(...).orElse(null)</code>, and &quot;404 when missing&quot; is <code>.orElseThrow(() -&gt; new HttpException(404, &quot;...&quot;))</code>.</p>
+</div>
+<h2 id="2-what-you-can-rewrite-on-15">2. What you can rewrite on 1.5<a class="anchor" href="#2-what-you-can-rewrite-on-15">#</a></h2>
+<p>The replacement is already in 1.5. In 2.0 the left-hand side is <strong>gone</strong>.</p>
 <table>
 <thead>
 <tr>
@@ -280,17 +285,12 @@ For a false positive, write <code>// jimble-check:ignore J803</code> on that lin
 </tr>
 <tr>
 <td>The string <code>&quot;now()&quot;</code> in <code>set(Data)</code> / <code>value(Data)</code></td>
-<td>Put <code>Dsl.now()</code> in as the value. For a flat row, <code>setRow(Data)</code> / <code>valueRow(Data)</code></td>
+<td>Put <code>Dsl.now()</code> in the value. For a flat row, <code>setRow(Data)</code> / <code>valueRow(Data)</code></td>
 <td>J808</td>
 </tr>
 <tr>
-<td><code>rules.validate(db, data);</code> (return value thrown away)</td>
-<td><code>Data errors = rules.errors(db, data);</code></td>
-<td>J809</td>
-</tr>
-<tr>
-<td><code>long id = db.insert(...)</code> (key or count, you cannot tell)</td>
-<td><code>db.insertKey(...)</code> (<code>insertNoReturnKey</code> for the count)</td>
+<td><code>long id = db.insert(...)</code></td>
+<td><code>db.insertKey(...)</code></td>
 <td>J810</td>
 </tr>
 <tr>
@@ -299,19 +299,14 @@ For a false positive, write <code>// jimble-check:ignore J803</code> on that lin
 <td>J101</td>
 </tr>
 <tr>
-<td><code>data.getInt(&quot;x&quot;)</code> (0 when missing)</td>
-<td><code>data.getInt(&quot;x&quot;, default)</code> (unreadable values throw)</td>
-<td>—</td>
+<td><code>Data errors = rules.validate(db, data)</code></td>
+<td><code>rules.errors(db, data)</code> (in 2.0, <code>validate</code> means &quot;422 if it fails&quot;)</td>
+<td>——</td>
 </tr>
 </tbody>
 </table>
-<div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>A <code>Tx</code> rolls back when you leave it by an exception.</strong> You can throw an <code>HttpException</code> halfway without writing a <code>rollback</code> yourself.
-If any SQL failed inside, <code>tx.commit()</code> does not commit and throws a <code>TransactionException</code> (<code>DB_004</code>).</p>
-</div>
-<h2 id="3-what-changes-type-or-meaning-in-20">3. What changes type or meaning in 2.0<a class="anchor" href="#3-what-changes-type-or-meaning-in-20">#</a></h2>
-<p>These are still correct on 1.5, but stop compiling or throw in 2.0.
-jimbleCheck lists them only with <code>--target=2.0</code>.</p>
+<h2 id="3-what-no-longer-compiles">3. What no longer compiles<a class="anchor" href="#3-what-no-longer-compiles">#</a></h2>
+<h3 id="db">DB<a class="anchor" href="#db">#</a></h3>
 <table>
 <thead>
 <tr>
@@ -322,144 +317,425 @@ jimbleCheck lists them only with <code>--target=2.0</code>.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>Data row = db.select(...)</code> (<code>null</code> for both no row and failure)</td>
-<td><code>Optional&lt;Data&gt;</code>; failure throws <code>SqlExecuteException</code></td>
+<td><code>Data row = db.select(...)</code> (<code>null</code> for no row and for failure)</td>
+<td><code>Optional&lt;Data&gt;</code>. Empty for no row; <code>SqlExecuteException</code> on failure. Same for <code>selectCached</code></td>
 <td>J901</td>
 </tr>
 <tr>
-<td><code>List&lt;Data&gt; rows = db.selectList(...)</code> (<code>null</code> on failure)</td>
-<td>Never <code>null</code>; failure throws</td>
-<td>—</td>
-</tr>
-<tr>
 <td><code>long db.insert(...)</code></td>
-<td><code>void</code>; use <code>insertKey</code> for the key</td>
+<td><code>void</code>. For the generated key, <code>insertKey(...)</code>. For a count (<code>INSERT ... SELECT</code>), <code>execute(...)</code></td>
 <td>J810</td>
 </tr>
 <tr>
-<td><code>int db.update(...)</code> / <code>delete(...)</code> (-1 on failure)</td>
-<td>The count; failure throws</td>
-<td>—</td>
-</tr>
-<tr>
 <td><code>boolean db.execute(...)</code></td>
-<td>The count (<code>int</code>); failure throws</td>
+<td><code>int</code> (rows affected; 0 for DDL). Throws on failure</td>
 <td>J902</td>
 </tr>
 <tr>
-<td><code>db.isError()</code></td>
-<td>Gone (failures throw)</td>
+<td><code>db.isError()</code> / <code>getError()</code> / <code>isDuplicateKeyError()</code></td>
+<td>Gone. Failures throw; catch <code>DuplicateKeyException</code> for unique violations</td>
 <td>J903</td>
 </tr>
 <tr>
-<td><code>boolean DBUtil.load(...)</code> / <code>DBLock.lock(...)</code> / <code>create(...)</code></td>
-<td><code>void</code>; failure throws. <code>lock</code> outside a transaction throws</td>
+<td><code>boolean DBUtil.load(...)</code></td>
+<td><code>void</code>. Throws <code>SqlExecuteException</code> (<code>DB_007</code>) if it cannot connect, so startup stops</td>
 <td>J904</td>
 </tr>
 <tr>
-<td><code>RedisLock.tryLock(...)</code></td>
-<td><code>Optional&lt;RedisLockResult&gt;</code>; <code>lock</code> throws when it cannot take the lock</td>
+<td><code>boolean DBLock.create(...)</code> / <code>lock(...)</code></td>
+<td><code>void</code>. Throws on failure</td>
+<td>J904</td>
+</tr>
+<tr>
+<td><code>RedisLockResult RedisLock.tryLock(...)</code></td>
+<td><code>Optional&lt;RedisLockResult&gt;</code> (empty if not acquired within the wait)</td>
 <td>J905</td>
 </tr>
 <tr>
-<td><code>selectOrThrow</code> / <code>selectListOrThrow</code> / <code>insertNoReturnKey</code> / <code>selectCached</code></td>
-<td>Deprecated (<code>select</code> / <code>selectList</code> / <code>insert</code> mean the same)</td>
-<td>J906</td>
+<td><code>DBTransaction</code>, DB's <code>beginTransaction</code> and friends</td>
+<td>Gone (section 2)</td>
+<td>J801 / J802</td>
 </tr>
 <tr>
-<td><code>eq(null)</code></td>
-<td>Throws</td>
-<td>J807</td>
-</tr>
-<tr>
-<td><code>data.getInt(&quot;x&quot;)</code> on a missing key</td>
-<td>Throws (<code>getInt(&quot;x&quot;, default)</code> is unchanged)</td>
-<td>—</td>
-</tr>
-<tr>
-<td><code>validate(...)</code> returns the list</td>
-<td>Throws a 422 on failure; the list comes from <code>errors(...)</code></td>
-<td>J809</td>
-</tr>
-<tr>
-<td><code>Request</code> extends <code>Data</code></td>
-<td>It does not (read from <code>bodyAll()</code> and friends)</td>
-<td>J101</td>
-</tr>
-<tr>
-<td><code>required()</code> skips a missing key</td>
-<td>A missing key fails</td>
-<td>—</td>
-</tr>
-<tr>
-<td>Both <code>json(...)</code> and <code>redirect(...)</code></td>
-<td>Throws when the second one is set</td>
-<td>—</td>
-</tr>
-<tr>
-<td>Checked exceptions (<code>throws Exception</code> / <code>CodeException</code>)</td>
-<td>Unchecked</td>
-<td>—</td>
+<td><code>db.close()</code> throws <code>IOException</code></td>
+<td>It does not (remove the <code>catch (IOException e)</code>, which is now a compile error)</td>
+<td>——</td>
 </tr>
 </tbody>
 </table>
-<h2 id="4-new-warnings-in-15">4. New warnings in 1.5<a class="anchor" href="#4-new-warnings-in-15">#</a></h2>
-<p>1.5 logs the ways of writing that throw in 2.0, <strong>once per process</strong>, with the calling line.
-They were silently not working, so fix them when you see them.</p>
+<p><strong>Deprecated in 2.0</strong> (<code>@Deprecated(forRemoval = true)</code>; removed during 2.x):</p>
 <table>
 <thead>
 <tr>
-<th>Warning</th>
-<th>What was happening</th>
+<th>Deprecated in 2.0</th>
+<th>Use instead</th>
+<th>jimbleCheck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>selectOrThrow</code> / <code>selectListOrThrow</code></td>
+<td><code>select</code> / <code>selectList</code> (they mean the same now)</td>
+<td>J906</td>
+</tr>
+<tr>
+<td><code>insertNoReturnKey</code></td>
+<td><code>insert</code> (<code>execute</code> if you need the count)</td>
+<td>J906</td>
+</tr>
+<tr>
+<td><code>DB.isBatchSuccess(...)</code></td>
+<td>Not needed (failures throw)</td>
+<td>——</td>
+</tr>
+<tr>
+<td><code>RedisLockStatus.Failed</code></td>
+<td>Not needed (<code>lock</code> throws, <code>tryLock</code> is empty)</td>
+<td>——</td>
+</tr>
+</tbody>
+</table>
+<h3 id="building-sql">Building SQL<a class="anchor" href="#building-sql">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>2.0</th>
+<th>jimbleCheck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>column.subtract(v)</code></td>
+<td>Gone. <code>divide</code> for division, <code>minus</code> for subtraction</td>
+<td>J804</td>
+</tr>
+<tr>
+<td><code>Dsl.and(w)</code> / <code>Dsl.or(w)</code></td>
+<td>Gone. <code>Dsl.allOf(...)</code> / <code>Dsl.anyOf(...)</code></td>
+<td>J805</td>
+</tr>
+</tbody>
+</table>
+<h3 id="web">Web<a class="anchor" href="#web">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>2.0</th>
+<th>jimbleCheck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Router.path(String)</code></td>
+<td>Gone. <code>path(path, admin -&gt; { ... })</code></td>
+<td>J803</td>
+</tr>
+<tr>
+<td><code>Cookies.put(Cookie)</code></td>
+<td>Gone. <code>putSigned</code> / <code>putUnsigned</code></td>
+<td>J806</td>
+</tr>
+<tr>
+<td><code>Request</code> extends <code>Data</code> (<code>request().getString(...)</code>)</td>
+<td>It does not. Read from <code>bodyAll()</code> / <code>body()</code> / <code>bodyQuery()</code></td>
+<td>J101</td>
+</tr>
+<tr>
+<td><code>Data errors = rules.validate(db, data)</code></td>
+<td><code>validate</code> is <code>void</code> (throws <code>ValidationException</code> if it fails). For the list, <code>errors(...)</code></td>
+<td>——</td>
+</tr>
+</tbody>
+</table>
+<h3 id="checked-exceptions-that-are-gone">Checked exceptions that are gone<a class="anchor" href="#checked-exceptions-that-are-gone">#</a></h3>
+<p>A <code>catch (IOException e)</code> or <code>throws CodeException</code> may now be a compile error because <strong>nothing in the block throws it</strong>. Remove it.</p>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CodeException</code> (checked)</td>
+<td>Extends <code>RuntimeException</code>. <code>catch (CodeException e)</code> still compiles</td>
+</tr>
+<tr>
+<td><code>LoadingCache.get()</code> / <code>LoadingCacheMulti.get(k)</code></td>
+<td>Unchecked (the loader's exception is the cause)</td>
+</tr>
+<tr>
+<td><code>Convertor.convert</code>, <code>CsvReader</code> / <code>CsvWriter</code>, <code>XmlBuilder.build</code>, <code>IOUtil.copy</code> / <code>readLines</code></td>
+<td>Unchecked (<code>IOException</code> becomes <code>UncheckedIOException</code>; others are wrapped in <code>CodeException</code>)</td>
+</tr>
+<tr>
+<td><code>DB.close()</code> / <code>RedisLockResult.close()</code> / <code>ResultSetFetcher.close()</code></td>
+<td>No checked exceptions</td>
+</tr>
+<tr>
+<td><code>throws CodeException</code> on <code>ValidationRule</code> / <code>IValidator</code></td>
+<td>Unchecked</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-what-now-throws-and-still-compiles">4. What now throws (and still compiles)<a class="anchor" href="#4-what-now-throws-and-still-compiles">#</a></h2>
+<p>Every one of these <strong>silently did something else in 1.x</strong>. Find them with your tests.</p>
+<h3 id="db-2">DB<a class="anchor" href="#db-2">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An SQL failure</td>
+<td>Returned <code>null</code> / <code>-1</code> / <code>false</code>; you checked <code>isError()</code></td>
+<td><code>SqlExecuteException</code> (<code>DuplicateKeyException</code> for unique violations)</td>
+</tr>
+<tr>
+<td><code>selectList(...)</code> fails</td>
+<td><code>null</code></td>
+<td>Throws. No rows is an empty list (never <code>null</code>)</td>
+</tr>
+<tr>
+<td><code>update</code> / <code>delete</code> fails</td>
+<td><code>-1</code></td>
+<td>Throws. The return value is the count</td>
+</tr>
+<tr>
+<td>Empty input to <code>executeBatch</code> / <code>insertBatch</code></td>
+<td><code>null</code></td>
+<td>An empty list</td>
+</tr>
+<tr>
+<td>Catching an SQL failure inside a transaction and carrying on</td>
+<td>Committed anyway</td>
+<td><code>tx.commit()</code> refuses with <code>TransactionException</code> (<code>DB_004</code>) and rolls everything back</td>
+</tr>
+<tr>
+<td><code>DBLock.lock(...)</code> outside a transaction</td>
+<td>The lock was released at the end of the statement and protected nothing</td>
+<td><code>IllegalStateException</code></td>
+</tr>
+<tr>
+<td><code>RedisLock.lock(...)</code> cannot acquire</td>
+<td><code>status()</code> was <code>Failed</code></td>
+<td><code>RedisLockException</code></td>
+</tr>
+<tr>
+<td>Failures inside the framework (DB cache, cache invalidation, batch history, migrations)</td>
+<td>Dropped without a log</td>
+<td>Throw</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>A <code>Tx</code> rolls back when you leave it with an exception.</strong> You do not need your own <code>rollback</code> before throwing an <code>HttpException</code>.
+To use a unique violation as &quot;update if it exists&quot;, catch <code>DuplicateKeyException</code> outside the transaction, or use <code>INSERT ... ON CONFLICT</code> (a Tx that caught a failure inside cannot commit).</p>
+</div>
+<h3 id="building-sql-2">Building SQL<a class="anchor" href="#building-sql-2">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>column.eq(null)</code> / <code>not(null)</code></td>
+<td>Built <code>= NULL</code>, which matches no row</td>
+<td><code>SqlBuildException</code>. Use <code>is_null()</code> / <code>is_not_null()</code></td>
+</tr>
+<tr>
+<td>An empty value (<code>null</code>, empty array) in <code>where(Data)</code></td>
+<td>Built <code>= NULL</code> and the like</td>
+<td>Throws (except <code>is_null</code> / <code>is_not_null</code> / <code>between</code> / <code>in</code> / <code>not_in</code>)</td>
+</tr>
+<tr>
+<td><code>where(Data)</code> with no <code>&quot;where&quot;</code> key</td>
+<td>No condition — <strong>every row</strong></td>
+<td>Throws (an empty Data does nothing). Select, Update and Delete</td>
+</tr>
+<tr>
+<td><code>set(Data)</code> / <code>value(Data)</code> with an unwrapped row, or only another table's part</td>
+<td>Silently set nothing</td>
+<td>Throws. For a flat row, <code>setRow</code> / <code>valueRow</code></td>
+</tr>
+<tr>
+<td>The string <code>&quot;now()&quot;</code></td>
+<td>Became the current time</td>
+<td>A plain string. Use <code>Dsl.now()</code> for the current time</td>
+</tr>
+</tbody>
+</table>
+<p><code>apply(Data)</code> reads all clauses together, so a missing clause just stays missing (no exception).</p>
+<h3 id="data">Data<a class="anchor" href="#data">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getInt</code> and friends on <strong>an unreadable value</strong> (<code>&quot;abc&quot;</code>, <code>&quot;1.5&quot;</code> as int, overflow, <code>&quot;yes&quot;</code> as boolean)</td>
+<td>Silently <code>0</code> / <code>false</code> / <code>null</code></td>
+<td><code>DataConversionException</code></td>
+</tr>
+<tr>
+<td><code>getEnum</code> with no match</td>
+<td><code>null</code></td>
+<td>Throws. If it may be absent, <code>getEnumOptional(key, type)</code></td>
+</tr>
+<tr>
+<td>Broken JSON to <code>Data.fromJsonString</code> / <code>Dson.decodes</code></td>
+<td><code>null</code> or a partial result</td>
+<td><code>JsonParseException</code> (an empty string and <code>&quot;null&quot;</code> give <code>null</code>)</td>
+</tr>
+<tr>
+<td>Reading as another type (<code>getStringList</code> on a list of numbers, <code>getData</code> on a JSON string)</td>
+<td><strong>Wrote the converted value back</strong> (just reading changed the JSON output)</td>
+<td>Does not write back</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>[!IMPORTANT]
+<strong>A missing key (no key, <code>null</code> or an empty string) still gives <code>0</code> / <code>false</code> / <code>null</code>.</strong> Only &quot;present but unreadable&quot; throws.
+When you read user input with <code>getInt</code> and friends, validate it first. An exception from an unvalidated read is a 500.
+<code>paging()</code> reads <code>?page=abc</code> leniently on the framework side and gives page 1.</p>
+</blockquote>
+<p>The Optional variants such as <code>getDataOptional</code> / <code>getStringListOptional</code> still &quot;create an empty one and put it in if missing&quot;, as the name says (a value written with <code>data.getDataOptional(&quot;x&quot;).put(...)</code> stays). An existing value is not rewritten.</p>
+<h3 id="web-2">Web<a class="anchor" href="#web-2">#</a></h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rules.validate(db, data);</code> fails</td>
+<td>Only returned the list (dropping it let everything through)</td>
+<td><code>ValidationException</code>. The framework replies <strong>422</strong> with <code>{&quot;validation&quot;: {field: [messages]}}</code></td>
+</tr>
+<tr>
+<td><code>required()</code> / <code>empty()</code> when <strong>the key is not sent at all</strong></td>
+<td>Passed</td>
+<td>Fails (rules with <code>insertRequired()</code> stay &quot;required only on insert&quot;)</td>
+</tr>
+<tr>
+<td>Queuing two kinds of reply (<code>json(...)</code> and <code>redirect(...)</code>, say)</td>
+<td>Only the first was sent; the rest were dropped</td>
+<td><code>IllegalStateException</code> as soon as the second is queued (repeating the same kind is fine)</td>
+</tr>
+<tr>
+<td>Headers or cookies after the response is sent</td>
+<td>Never arrived</td>
+<td>Throws</td>
+</tr>
+<tr>
+<td>An unreadable <code>application/json</code> body</td>
+<td>An empty Data</td>
+<td><code>body()</code> / <code>bodyJson()</code> / <code>bodyAll()</code> throw a 400 <code>HttpException</code> (MCP replies <code>PARSE_ERROR</code>)</td>
+</tr>
+<tr>
+<td><code>put</code> / <code>remove</code> / <code>clear</code> after <code>session().destroy()</code></td>
+<td>Not saved</td>
+<td><code>IllegalStateException</code></td>
+</tr>
+<tr>
+<td><code>session().data().put(...)</code></td>
+<td>Not marked as changed, so not saved</td>
+<td><code>UnsupportedOperationException</code> (a read-only copy). Use <code>session().put(...)</code></td>
+</tr>
+<tr>
+<td><code>paging(50)</code> after <code>paging()</code></td>
+<td>The 50 had no effect</td>
+<td><code>IllegalStateException</code></td>
+</tr>
+<tr>
+<td><code>AbstractExecutor.cancel()</code></td>
+<td>Only set a flag; the following lines still ran</td>
+<td>Leaves right there and goes to <code>onCancel</code></td>
+</tr>
+</tbody>
+</table>
+<p>To build the 422 body yourself, get the list with <code>errors(...)</code> (the same <code>errors</code> as in 1.5).
+For a list of rows, use <code>errors(db, List)</code> / <code>validate(db, List)</code> (the body is <code>{&quot;rows&quot;: [...]}</code>).</p>
+<h2 id="5-what-changed-in-jimblecheck">5. What changed in jimbleCheck<a class="anchor" href="#5-what-changed-in-jimblecheck">#</a></h2>
+<ul>
+<li>It <strong>always</strong> reports J8xx and J9xx (<code>--target=2.0</code> is accepted and does nothing).</li>
+<li>J901 / J905 do not report code that takes the result as an <code>Optional</code> (<code>.orElse(...)</code>, <code>Optional&lt;...&gt; x =</code> and so on).</li>
+<li><code>selectCached</code> / <code>selectListCached</code> are no longer in J906 (the names stay; only their return types now match <code>select</code> / <code>selectList</code>).</li>
+<li>New J907: <code>session().data().put(...)</code> and the like (throws in 2.0).</li>
+<li>J809 (dropping the result of <code>validate</code>) is gone. Calling <code>validate(...)</code> as a statement is the right way in 2.0.</li>
+</ul>
+<h2 id="6-the-warnings-15-started-logging">6. The warnings 1.5 started logging<a class="anchor" href="#6-the-warnings-15-started-logging">#</a></h2>
+<p>1.5 logged each 2.0 exception case <strong>once per process</strong>, with the calling line.
+<strong>If 1.5 logged none of these, you do not hit most of section 4.</strong></p>
+<table>
+<thead>
+<tr>
+<th>1.5 warning</th>
+<th>2.0</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>eq(null) は「= NULL」を組み…</code> (eq(null) builds &quot;= NULL&quot;)</td>
-<td>It matched no rows (so did an empty value in <code>where(Data)</code>)</td>
+<td><code>SqlBuildException</code></td>
 </tr>
 <tr>
 <td><code>set(Data) は {&quot;set&quot;: …} の形を読みます</code> (set(Data) reads the wrapped form)</td>
-<td>An unwrapped row inserted nothing</td>
+<td>Throws</td>
 </tr>
 <tr>
 <td><code>set(Data) は文字列 &quot;now()&quot; を…</code> (the string &quot;now()&quot;)</td>
-<td>User input <code>&quot;now()&quot;</code> became the current time</td>
+<td>A plain string</td>
 </tr>
 <tr>
 <td><code>返し方が2つ以上積まれています</code> (more than one way of responding)</td>
-<td>Only the first one was sent; the rest were dropped</td>
+<td><code>IllegalStateException</code></td>
 </tr>
 <tr>
 <td><code>送ったあとにヘッダ…</code> / <code>応答を送ったあとに Cookie…</code> (header / cookie after sending)</td>
-<td>They never arrived</td>
+<td>Throws</td>
 </tr>
 <tr>
 <td><code>本文の JSON を読めませんでした</code> (could not read the JSON body)</td>
-<td>It was treated as an empty Data</td>
+<td>400</td>
 </tr>
 <tr>
 <td><code>paging(50) の件数は効きません</code> (paging(50) has no effect)</td>
-<td>An earlier <code>paging()</code> had already been built; 50 was ignored</td>
+<td><code>IllegalStateException</code></td>
 </tr>
 <tr>
 <td><code>request().getString(&quot;x&quot;) は送られてきた値を読みません</code> (does not read submitted values)</td>
-<td>It was always <code>null</code></td>
+<td>Compile error</td>
 </tr>
 <tr>
 <td><code>required() / empty() はキーが無いと検査しません</code> (skips a missing key)</td>
-<td>A key that was not sent at all passed</td>
+<td>Fails</td>
 </tr>
 <tr>
 <td><code>destroy() のあとにセッションを変えても保存されません</code> (changes after destroy())</td>
-<td>Values set after logout were dropped</td>
+<td><code>IllegalStateException</code></td>
 </tr>
 </tbody>
 </table>
-<div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>Changing the session after <code>save()</code> is now saved if you call <code>save()</code> again</strong> (up to 1.4 it was silently dropped).
-<code>Auth.login(...)</code> calls <code>save()</code> internally, which is why values set right after logging in used to disappear.</p>
-</div>
 
 		</article>
 
@@ -473,10 +749,20 @@ They were silently not working, so fix them when you see them.</p>
 	<nav class="toc" aria-label="On this page">
 		<p class="section">On this page</p>
 		<ul>
-			<li class="level-2"><a href="#1-run-jimblecheck-first">1. Run jimbleCheck first</a></li>
-			<li class="level-2"><a href="#2-what-to-rewrite-on-15">2. What to rewrite on 1.5</a></li>
-			<li class="level-2"><a href="#3-what-changes-type-or-meaning-in-20">3. What changes type or meaning in 2.0</a></li>
-			<li class="level-2"><a href="#4-new-warnings-in-15">4. New warnings in 1.5</a></li>
+			<li class="level-2"><a href="#1-the-order-to-upgrade-in">1. The order to upgrade in</a></li>
+			<li class="level-2"><a href="#2-what-you-can-rewrite-on-15">2. What you can rewrite on 1.5</a></li>
+			<li class="level-2"><a href="#3-what-no-longer-compiles">3. What no longer compiles</a></li>
+			<li class="level-3"><a href="#db">DB</a></li>
+			<li class="level-3"><a href="#building-sql">Building SQL</a></li>
+			<li class="level-3"><a href="#web">Web</a></li>
+			<li class="level-3"><a href="#checked-exceptions-that-are-gone">Checked exceptions that are gone</a></li>
+			<li class="level-2"><a href="#4-what-now-throws-and-still-compiles">4. What now throws (and still compiles)</a></li>
+			<li class="level-3"><a href="#db-2">DB</a></li>
+			<li class="level-3"><a href="#building-sql-2">Building SQL</a></li>
+			<li class="level-3"><a href="#data">Data</a></li>
+			<li class="level-3"><a href="#web-2">Web</a></li>
+			<li class="level-2"><a href="#5-what-changed-in-jimblecheck">5. What changed in jimbleCheck</a></li>
+			<li class="level-2"><a href="#6-the-warnings-15-started-logging">6. The warnings 1.5 started logging</a></li>
 		</ul>
 	</nav>
 </div>

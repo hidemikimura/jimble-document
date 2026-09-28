@@ -380,7 +380,7 @@ so the admin screen shows how far along a running batch is.</p>
 <h3 id="the-reading-db-and-the-writing-db-are-different">The reading DB and the writing DB are different<a class="anchor" href="#the-reading-db-and-the-writing-db-are-different">#</a></h3>
 <p>The <code>db</code> handed to <code>reader()</code> and the <code>db</code> handed to <code>write()</code> are <strong>different instances</strong>.
 <strong>Use the one you are given.</strong></p>
-<p>Closing a <code>DBTransaction</code> returns the connection to the pool, so if you read through the same
+<p>When a chunk's transaction (<code>Tx</code>) ends the connection goes back to the pool, so if you read through the same
 <code>DB</code>, <strong>your open read dies the moment the first chunk commits.</strong></p>
 <div class="callout callout-tip"><p class="callout-title">Tip</p>
 <p><strong>Prefer <code>KeyPagingReader</code> over a cursor (<code>selectListWithFetcher</code>).</strong>
@@ -393,9 +393,11 @@ rewritten while the batch runs.</strong> If a full page comes back without the k
 better that than spinning forever in silence.</p>
 <blockquote>
 <p>[!WARNING]
-<strong><code>db.insert()</code> and friends do not throw when they fail.</strong>
-<code>db.isError()</code> only holds the result of <strong>the statement just before it</strong>.
-If <code>write()</code> runs several statements, check after each one or throw yourself.</p>
+<strong>When SQL inside <code>write()</code> fails, it throws <code>SqlExecuteException</code>.</strong> That chunk is rolled back
+and the batch fails (see &quot;When it fails partway&quot; above).
+You do not need to check the result of each statement.
+<strong>Do not <code>catch</code> the failure and carry on.</strong> Committing that chunk is then refused with
+<code>TransactionException</code> (<code>DB_004</code>) and everything in it is rolled back.</p>
 </blockquote>
 <h2 id="double-starts">Double starts<a class="anchor" href="#double-starts">#</a></h2>
 <p>How many copies of the same batch may run at once is set by <code>allowConcurrentExecutionCount()</code>.

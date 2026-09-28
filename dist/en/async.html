@@ -300,11 +300,6 @@ a query that is going to fail. You can tell it failed from <code>isLoadFailed()<
 			.orderBy(Comment.post_id, Comment.created_at)
 	);
 
-	<span class="h-k">if</span> (rows == <span class="h-k">null</span>) {
-		<span class="h-c">// 引けなかった。1つも読み込み済みにしないよう、例外にして個別読みへ落とす</span>
-		<span class="h-k">throw</span> <span class="h-k">new</span> IllegalStateException(<span class="h-s">"コメントを引けませんでした: "</span> + BlogExample.db().getError());
-	}
-
 	Map&lt;Object, List&lt;Data&gt;&gt; byPost = <span class="h-k">new</span> LinkedHashMap&lt;&gt;();
 
 	<span class="h-k">for</span> (Data row : rows) {

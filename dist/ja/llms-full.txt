@@ -228,7 +228,7 @@ jimble には守っている決めごとがいくつかあります。
   どこで始まってどこで終わるかが、メソッドの外にあるため
 
 かわりに `new` を書きます。`install(AdminController::new)` と書きます。
-`try (DBTransaction transaction = ...)` と書きます。数行増えます。
+`db.transaction(tx -> { ... })` と書きます。数行増えます。
 
 ## 2. 起動時にクラスパスを走査しない
 
@@ -260,30 +260,36 @@ jimble は「静かに効かなくなる」状態を潰すことに時間を使�
 - ドキュメントのコード片は実コードから抜いています。
   印の付いた場所が消えたら、**サイトのビルドが落ちます**
 
-## 4. 例外にしないところ
+## 4. 失敗は例外にする
 
-DB のエラーは例外ではなく戻り値で返します。
-`select` 系は `null`、更新系は `-1` です。
+**失敗は例外（非検査）です。**戻り値で失敗を返すことはしません。
+戻り値は捨てられます。捨てた失敗は、黙って素通りします。
+
+- 0件は失敗ではありません。`select` は空の `Optional`、`selectList` は空のリスト、`update` は 0 を返します
+- DB の失敗は `SqlExecuteException` です。分岐したいのは一意制約くらいなので、それだけ `DuplicateKeyException` で受けます
+- 書かなければ上まで飛んで 500 になります。トランザクションの中なら巻き戻ります
 
 ```java
 try (DB db = BlogExample.db()) {
 
+	/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */
 	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
 
-	/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */
-	if (rows == null) {
-		Log.error("引けませんでした: " + db.getError());
-		return;
+	// 分岐したい失敗は一意制約くらい。それだけを受け止める
+	try {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, "hello"));
+	} catch (DuplicateKeyException ex) {
+		Log.info("もうあります");
 	}
 
 }
 ```
 
-理由は、DB のエラーの多くが「呼び出し側が分岐したいもの」だからです。
-例外にすると `try` で囲むか、囲み忘れて上まで飛ばすかの二択になります。
+使い方を間違えたときも同じです。**壊れ方はコンパイルエラーか例外だけ**で、黙って違うことはしません
+（2.0 で作り直したものは [2.0 への移行](./migrate-2) にあります）。
 
 ## 5. 一つの実行 = 一つの Context
 
@@ -674,20 +680,22 @@ Data json = response.json();
 （「無い」と「0」は区別できません。区別したいときは `getIntObject` などの Object 版か `isNull(key)`。
 詳しくは [ユーティリティ](./util)）。
 
-**既定値を渡す形（1.5.0 から）を勧めます。**`getInt("page", 1)` は、無い・空欄のときだけ `1` を返し、
-`"abc"` のように読めない値は `DataConversionException` で止まります（黙って `0` になりません）。
+**あるのに読めない値**（`"abc"` を `getInt` で読むなど）は `DataConversionException` です（黙って `0` になりません）。
+**利用者の入力は、先に [検証](./validation) を通してください。**通さずに読んで例外になると 500 です。
+既定値を渡す形（`getInt("page", 1)`）は、無い・空欄のときだけ既定値を返します。
+
+**`Request` は `Data` ではありません。**`context.request().getString("title")` のようには読めません（コンパイルエラーです）。
+上の表のどれか（ふつうは `bodyAll()`）を通してください。
+
+```java
+Data input = context.request().bodyAll();
+String title = input.getString("title");
+```
+
+**`Content-Type` が `application/json` なのに本文が JSON として読めないと、`body()` / `bodyJson()` / `bodyAll()` が 400 の `HttpException` を投げます**（何度読んでも同じです）。
+途中まで読んだ本文や空の `Data` で先へ進むことはありません。
 
 > [!TRAP]
-> **`context.request()` から直接は読めません。**
-> `Request` も `Data` なので `context.request().getString("title")` は<b>コンパイルが通り</b>ますが、
-> 本文もクエリも入っていないので **`null` が返ります。**
-> 上の表のどれか（ふつうは `bodyAll()`）を通してください。
->
-> ```java
-> Data input = context.request().bodyAll();
-> String title = input.getString("title");
-> ```
->
 > **`getStringOptional` は「無ければ空文字」ですが、その空文字を `Data` に入れます。**
 > 読んだだけでキーが増えるので、JSON にして返す直前やループの中では使わないでください
 > （[ユーティリティ](./util)）。
@@ -742,7 +750,7 @@ request.putData(Item.name, "");
 request.putData(Item.age, "999");
 
 // エラーは最初の1件で止めず、全部集める（要件 F-V-03）
-Data errors = rules.validate(null, request);
+Data errors = rules.errors(null, request);
 
 Data messages = ValidationMessages.toMessages(errors);
 ```
@@ -753,8 +761,11 @@ Data messages = ValidationMessages.toMessages(errors);
 `ValidationMessages.toMessages(errors)` で、項目名 → メッセージの `Data` になります。
 そのまま JSON で返すか、テンプレートに渡します。
 
+止めてよいなら `rules.validate(db, input);` と文で書きます。通らなければ `ValidationException` で、枠組みが 422 を返します。
+
 ルールの一覧、ルート単位でかける `ValidationExecutor`、ページングは
 [検証とページング](./validation) にまとめてあります。
+ページングの件数は**最初の1回で**渡します（`paging()` のあとに `paging(50)` と違う件数を渡すと `IllegalStateException` です）。
 
 ## 返す
 
@@ -768,6 +779,10 @@ context.response().code(201).send();               // 本文なし
 ```
 
 `json()` は組み立てるだけです。複数回呼ぶと、1つの JSON に足されていきます。
+
+**返し方は1つだけです。**`json` / `jsonl` / `text` / `cache` / `view` / `redirect` / `download` のうち、
+違う種類を2つ積んだ時点で `IllegalStateException` になります（`json(...)` のあとに `redirect(...)` など）。
+同じ種類を重ねるのは構いません。
 
 **`json()` のあとに `send()` を書く必要はありません。**
 組み立てておけば、ディスパッチャが実行の終わりに送ります。
@@ -804,7 +819,7 @@ try (OutputStream out = context.response().outputStream()) {
 
 **`outputStream()` を呼んだ時点でステータスとヘッダが決まります。**
 `code(...)`・`cookies()` に積んだ Cookie・既定の `Cache-Control: no-store`（自分で決めていれば上書きしません）は、
-その前に済ませてください。あとから変えても届きません。
+その前に済ませてください。**送ったあとにヘッダや Cookie を書くと `IllegalStateException` です**（もう届きません）。
 204 / 205 / 304 のときは、書いたものは捨てられて WARN が出ます。
 
 **書いたものは `flush()` するまで溜まります。**CSV のように最後まで書き切るものはそのままで構いませんが、
@@ -1023,7 +1038,7 @@ context.response().stream(in, "text/csv", length);  // 長さが分かってい�
 | 段 | クラス | 何をするか |
 | --- | --- | --- |
 | 1項目 | `ValidationRule` | 「空でない」「1〜120 の整数」を積む |
-| 1リクエスト | `ValidationRules` | 列ごとにルールを結びつけ、まとめて回す |
+| 1リクエスト | `ValidationRules` | 列ごとにルールを結びつけ、まとめて回す。`validate` は失敗したら **422 の例外** |
 | 1ルート | `ValidationExecutor` | 失敗したら**後続の処理を止めて 422 を返す** |
 
 下だけ、上だけ、どちらでも使えます。
@@ -1053,6 +1068,7 @@ ValidationRule rule = new ValidationRule()
 > **`empty()` 以外は、空を通します。**
 > `textLengthMax(100)` は「入っているなら 100 文字以内」という意味で、
 > 空文字や `null` はエラーにしません。**必須は必ず `empty()` で書いてください。**
+> `empty()` は**キーごと送られてこないときも**落とします。
 
 > [!NOTE]
 > **形の検証は、値の全体と突き合わせます。**
@@ -1086,19 +1102,20 @@ request.putData(Item.name, "");
 request.putData(Item.age, "999");
 
 // エラーは最初の1件で止めず、全部集める（要件 F-V-03）
-Data errors = rules.validate(null, request);
+Data errors = rules.errors(null, request);
 
 Data messages = ValidationMessages.toMessages(errors);
 ```
 
 - **項目をまたいだエラーは全部集めます**（1件ずつ言われるのが、入力し直す人にはいちばん困るため）
-- **送られてこなかった項目は検証しません**（`insertRequired()` を除く）
+- **送られてこなかった項目は、`empty()`（`required()`）を積んだルールだけ落とします。**ほかのルールは見ません
+- `insertRequired()` を付けたルールは「登録のときだけ必須、更新は送られたときだけ見る」です（下の「登録のときだけ必須」）
 - 1つの列に配列が来たら、要素ごとに回します
 - `put(rule)`（列なし）で、項目に紐づかない相関チェックも書けます
 
 ### 生のエラーの形
 
-`validate` が返すのは**文言ではありません。**「どの種別で落ちたか」と「そのときの設定」です。
+`errors(...)` が返すのは**文言ではありません。**「どの種別で落ちたか」と「そのときの設定」です。
 
 ```java
 { "validation_type": Empty, "validation_setting": {}, "input": "" }
@@ -1126,13 +1143,33 @@ Data request = new Data();
 request.putData(Item.name, "");
 
 assertEquals(List.of("required"),
-	ValidationMessages.toMessages(rules.validate(null, request)).get("name"));
+	ValidationMessages.toMessages(rules.errors(null, request)).get("name"));
 ```
 
 > [!TRAP]
 > `ValidationMessages` は **static でグローバル**です。テストで差し替えたら
 > `finally` で `ValidationMessages.reset()` してください。
 > 忘れると、**あとから走ったテストだけが落ちます。**
+
+## 止めるか、一覧を受け取るか
+
+| メソッド | 通らなかったとき |
+| --- | --- |
+| `rules.validate(db, data)` | **`ValidationException`（422）を投げて止まる**。戻り値は無い |
+| `rules.errors(db, data)` | エラーの一覧（`Data`）を返す。止めない。通れば空 |
+
+ふつうは `validate` を文として書きます。
+
+```java
+rules.validate(db, context.request().bodyAll());   // 通らなければここで 422
+db.insert(...);
+```
+
+何もしなければ枠組みが **422** で返し、本文は `{"validation": {"項目名": ["メッセージ"]}}` **＋ 送られてきた入力値**です
+（`ValidationExecutor` と同じ形）。例外なので `error(...)` フックは通ります（[エラー処理](./errors)）。
+`ValidationException` は `HttpException` の子で、`errors()` で一覧を取り出せます。
+
+一覧を見て自分で分岐したいときは `errors(...)` です。複数の束をまとめるなら `Validator.validate(db, data, rules...)` / `Validator.errors(db, data, rules...)` です。
 
 ## 登録のときだけ必須
 
@@ -1143,11 +1180,11 @@ ValidationRules rules = new ValidationRules()
 
 Data update = new Data();
 update.put("is_insert", false);
-assertTrue(rules.validate(null, update).isEmpty(), "更新なのに必須になっている");
+assertTrue(rules.errors(null, update).isEmpty(), "更新なのに必須になっている");
 
 Data insert = new Data();
 insert.put("is_insert", true);
-assertFalse(rules.validate(null, insert).isEmpty(), "登録なのに必須になっていない");
+assertFalse(rules.errors(null, insert).isEmpty(), "登録なのに必須になっていない");
 ```
 
 「登録リクエストかどうか」の判定は `insertRequestChecker` に渡します。
@@ -1165,13 +1202,15 @@ ok.putData(Item.name, "あ");
 Data ng = new Data();
 ng.putData(Item.name, "");
 
-List<Data> errors = rules.validate(null, List.of(ok, ng, ok));
+List<Data> errors = rules.errors(null, List.of(ok, ng, ok));
 
 assertEquals(1, errors.size());
 assertEquals(2, errors.getFirst().getInt("index"), "行番号が違う");
 ```
 
 **エラーのある行だけ**返り、各行に `index` が入ります（**1 始まり**）。
+
+`validate(db, list)` は、通らない行が1つでもあれば `ValidationException` です（例外の `errors()` は `{"rows": [...]}`）。
 
 ## ルートにかける
 
@@ -1219,10 +1258,9 @@ JimbleApp app = new JimbleApp() {
 addErrors(rules.errors(db, context.request().bodyAll()));
 ```
 
-> [!TRAP]
-> **`validate(...)` / `errors(...)` はエラーの一覧を返すだけで、止めません。**戻り値を捨てると、エラーがあっても素通りします。
-> 1.5.0 で足した `errors(...)` は `validate(...)` と同じもので、名前が中身を言っています。
-> 2.0 では `validate(...)` が「失敗したら 422 の例外」に変わる予定です。
+> [!NOTE]
+> 1.x の `validate(...)` は一覧を返すだけで、戻り値を捨てるとエラーがあっても素通りしていました。
+> 2.0 で `void` にし、通らなければ例外にしました。一覧が要るところは `errors(...)` に書き換えます（[2.0 への移行](./migrate-2)）。
 
 > [!NOTE]
 > `ValidationExecutor` は **`WebContext` をフィールドに持ちません。**
@@ -1253,6 +1291,7 @@ Paging paging = context.request().paging();
 | 数値でない値 | 無視して既定を使います |
 
 `context.request().paging(20)` と書けば、`per` が来ていないときの既定を変えられます。
+`Paging` は1リクエストに1つで、最初に作ったものを使い回します。**先に `paging()` を呼んだあとで `paging(50)` と違う件数を渡すと `IllegalStateException` です**。件数は最初の1回で渡してください。
 
 ### SELECT にかける
 
@@ -1331,13 +1370,14 @@ SELECT 句や ORDER BY、LIMIT には影響されません。
 
 # エラー処理
 
-エラーが表に出る道は3本あります。**通る場所が違います。**
+エラーが表に出る道は4本あります。**通る場所が違います。**
 
 | 何が起きたか | 誰が拾うか | 既定の返り |
 | --- | --- | --- |
 | 例外が投げられた | `error(...)` フック | ステータスは例外しだい。本文はアプリが作る |
 | ルートに当たらなかった | **いちばん外側の** `error(...)` | 404 |
-| 検証に失敗した | `ValidationExecutor`（`error` は通らない） | 422 と `validation` の JSON |
+| `validate(...)` が通らなかった（`ValidationException`） | `error(...)` フック | 422 と `validation` の JSON |
+| `ValidationExecutor` の検証に失敗した | `ValidationExecutor`（`error` は通らない） | 422 と `validation` の JSON |
 
 ## error の書き方
 
@@ -1393,6 +1433,7 @@ JimbleApp app = new JimbleApp() {
 | --- | --- |
 | `HttpException` | `statusCode()` の値 |
 | `NotFoundException`（`HttpException` の子） | 404 |
+| `ValidationException`（`HttpException` の子） | 422 |
 | そのほか全部 | **500** |
 
 ```java
@@ -1434,7 +1475,8 @@ JimbleApp app = new JimbleApp() {
 
 > [!WARN]
 > `CodeException`（`io.jimble.util.exception.CodeException`）は **HTTP のステータスには効きません。**
-> DB のエラー（`db.getError()`）とバリデータの中で使う検査例外で、投げれば 500 です。
+> コードつきの非検査例外（`RuntimeException` の子）で、投げれば 500 です。
+> DB の失敗（`SqlExecuteException`）なども、何もしなければ 500 です（下の「枠組みが投げる例外」）。
 
 ## 本文は誰が作るか
 
@@ -1529,7 +1571,22 @@ Allow: GET
 
 `after` と `onComplete` の中で例外が出た場合も、握ってログに出します（レスポンスは返ります）。
 
-## 検証の失敗は error を通らない
+## 検証の失敗
+
+### validate(...) は例外で返る
+
+`ValidationRules.validate(db, data)` / `Validator.validate(...)` は、通らなければ
+**`ValidationException`**（422。`HttpException` の子）を投げます。
+ほかの例外と同じく `error(...)` を通り、**誰も本文を作らなければ**枠組みが次の形（`ValidationExecutor` と同じ）で返します。
+
+```java
+rules.validate(db, data);   // 通らなければここで抜けて 422
+```
+
+一覧を自分で扱いたいときは `errors(db, data)` で受け取ってください（例外にしません）。
+一覧の検査は `validate(db, List)` / `errors(db, List)` で、本文は `{"rows": [...]}` です。
+
+### ValidationExecutor は error を通らない
 
 `ValidationExecutor` は**例外を投げません。**
 自分をキャンセルして、後続の Executor を捨て、そのまま返します。
@@ -1551,8 +1608,45 @@ context.response().code(422);
 ```
 
 > [!TRAP]
-> **`error(...)` に検証エラーの整形を書いても呼ばれません。**
+> **`ValidationExecutor` の失敗は、`error(...)` に整形を書いても呼ばれません。**
 > 422 の見た目を変えたいときは `ValidationExecutor` 側（`onCancel`）を見てください。
+> `validate(...)` の `ValidationException` のほうは `error(...)` で組み立てられます。
+
+## 枠組みが投げる例外
+
+どれも**非検査例外**です。`HttpException` の子のほかは、何もしなければ **500** になります。
+
+| 例外 | いつ | 親 |
+| --- | --- | --- |
+| `SqlExecuteException` | SQL が失敗した。`getCode()` でコードが取れる（下の表） | `RuntimeException` |
+| `DuplicateKeyException` | 一意制約に当たった | `SqlExecuteException` |
+| `TransactionException` | トランザクションを確定・開始・巻き戻しできなかった | `SqlExecuteException` |
+| `SqlBuildException` | SQL を組めない（`eq(null)` / `not(null)` など） | `RuntimeException` |
+| `RedisLockException` | `RedisLock.lock(...)` でロックが取れなかった | `RuntimeException` |
+| `DataConversionException` | Data の値が、あるのに読めない（`getInt` に `"abc"` など） | `IllegalArgumentException` |
+| `JsonParseException` | `Data.fromJsonString` / `Dson.decodes` に壊れた JSON | `IllegalArgumentException` |
+| `ValidationException` | `validate(...)` が通らなかった（**422**） | `HttpException` |
+| `CodeException` | コードつきの失敗（ほかの例外の `getCause()` に入っていることが多い） | `RuntimeException` |
+
+> [!NOTE]
+> 本文が `application/json` なのに読めないときは、`body()` / `bodyJson()` / `bodyAll()` が **400** の `HttpException` を投げます。
+> `JsonParseException`（500）にはなりません。
+
+DB のコードはこうです。元の JDBC の例外は `getCause().getCause()` にあります。
+
+| コード | 例外 | 意味 |
+| --- | --- | --- |
+| `DB_001` | `TransactionException` | トランザクションを始められなかった |
+| `DB_002` | `TransactionException` | 巻き戻せなかった |
+| `DB_003` | `TransactionException` | コミットできなかった |
+| `DB_004` | `TransactionException` | トランザクションの中で SQL が失敗していたので、コミットしなかった（全部巻き戻した） |
+| `DB_005` | `TransactionException` | 合流した中の `Tx` が巻き戻しを求めたので、外をコミットしなかった（全部巻き戻した） |
+| `DB_006` | `TransactionException` | `transaction(tx -> ...)` の中身が検査例外を投げた（包んで投げ直した） |
+| `DB_007` | `SqlExecuteException` | `DBUtil.load(...)` がデータソースを作れなかった（起動が止まる） |
+| `DB_998` | `SqlExecuteException` | `executeBatch` / `insertBatch` に違う SQL が混ざっていた |
+| `DB_999` | `SqlExecuteException` / `DuplicateKeyException` | SQL の実行に失敗した |
+
+詳しくは [DB を使う](./db) と [トランザクション](./transaction) を見てください。
 
 ## アプリ全体で差し替えられるもの
 
@@ -1917,6 +2011,13 @@ context.session().save();
 **自動保存はしません。** `save()` を呼ばなければ書かれません。
 「読んだだけのリクエストで毎回書き込む」を避けるためです。
 
+**変えるのは `session().put(...)` / `remove(...)` / `clear()` です。**
+`session().data()`（と `request().session()`）は**読み取り専用の写し**で、書き換えると `UnsupportedOperationException` になります。
+「変えた」印が付かずに保存されない、を起こさないためです。
+
+`session().destroy()` のあとに `put` / `remove` / `clear` すると `IllegalStateException` です（保存先が無いので残りません）。
+ログアウトのあとに入れたい値は、`destroy()` の前に入れるか、次のリクエストで入れてください。
+
 保存先は `application.conf` で選びます。
 
 ```conf
@@ -2073,9 +2174,9 @@ context.cookies().putSigned(new Cookie("user", id).path("/app").maxAge(3600));  
 context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));      // 署名しない（JavaScript に読ませる）
 ```
 
-> [!TRAP]
-> **`put(Cookie)` は署名しません**（`put(名前, 値)` は署名するのに）。`cookie.secret` を設定していると、
-> 書いた Cookie を次のリクエストの `get` が読めず `""` になります。1.5.0 で非推奨にし、2.0 で消します。
+1.x の `put(Cookie)` は署名しなかったので、2.0 で消しました（[2.0 への移行](./migrate-2)）。
+
+**応答を送ったあとに Cookie を書くと `IllegalStateException` です**（もう届きません）。`send()` より前に書いてください。
 
 **読むときは `context.cookies().get("名前")` か `context.request().cookie("名前")` です。**
 署名が合わなかった値はここに入りません（改ざんされた値がアプリに渡らないようにするためです）。
@@ -3028,7 +3129,8 @@ post("/save", () -> new SaveExecutor());
 ```
 
 - キューは実行中にも積めます（`context.addExecutor(...)`）
-- `cancel()` を呼んでも**その場では止まりません**。`execute` から戻ったあとに残りが捨てられ、`onCancel` が呼ばれます
+- `cancel()` は**その場で `execute` を抜けます**（`ExecutorCanceled` を投げ、枠組みが受け止めます）。残りの Executor が捨てられ、`onCancel` が呼ばれます。
+  `catch (Exception e)` で囲んだ中で呼ぶと、そこで受け止められてあとの行が走るので、`try` の外で呼んでください（1.x は印を立てるだけで、あとの行も走っていました）
 - `OPTIONS` はプリフライト専用なので、**キューを回しません**（要件 F-W-19）
 
 ## どこが何のスレッドで動くか
@@ -3246,10 +3348,7 @@ public static void main (String[] args) {
 
 	Migration.install();                                // 起動時マイグレーション（要るなら。DBUtil.load より前）
 
-	// 繋がらなければ false。ここで止めます
-	if (!DBUtil.load(Conf.conf().config(), App.class)) {
-		throw new IllegalStateException("DB を読み込めませんでした（このすぐ上のログに原因が出ています）");
-	}
+	DBUtil.load(Conf.conf().config(), App.class);       // 繋がらなければ例外。ここで止まります
 
 	JimbleServer.start(new App());
 
@@ -3259,12 +3358,12 @@ public static void main (String[] args) {
 `DBUtil.load` の2つ目は**クラスパスの起点**です（マイグレーション SQL をここから探します）。
 自分のアプリのクラスを渡してください。
 
-> [!TRAP]
-> **戻り値を捨てないでください。**`DBUtil.load` は繋がらなくても例外を投げません
-> （原因をログに出して `false` を返します）。捨てると**サーバーは起動してしまい**、
-> 最初にリクエストが来たところで落ちます。
-> `DBUtil.getMainDB()` が「DB が読み込めていません」と言って落ちるので迷子にはなりませんが、
-> **起動した時点で気づけるほうが早い**です。
+**繋がらなければ `SqlExecuteException`（`DB_007`）を投げ、起動はそこで止まります。**
+戻り値はありません（`void`）。受け止めずにそのまま `main` から投げてください。
+
+> [!NOTE]
+> 1.x の `DBUtil.load` は繋がらなくても `false` を返すだけで、捨てるとサーバーが起動してしまいました。
+> 2.0 で例外になりました（[2.0 への移行](./migrate-2)）。
 
 > [!TRAP]
 > **入口が複数あるなら、この並びを1か所にまとめてください。**
@@ -3359,7 +3458,7 @@ Data row = db.select(
 	SQL.select()
 		.from(Post.instance())
 		.where(Post.id.eq(1L))
-);
+).orElseThrow();
 
 // SELECT の結果はテーブル名でネストする（要件 F-D-02）
 String title = row.getData("post").getString("title");
@@ -3367,6 +3466,10 @@ String title = row.getData("post").getString("title");
 // Column で引けば、途中の文字列が出てこない
 String same = row.getString(Post.title);
 ```
+
+**`select` は `Optional<Data>` を返します。**1件も無ければ空です
+（上の `.orElseThrow()` は「必ずある」と決めて取り出す書き方です）。
+読めなかったときは空ではなく例外です（下の「エラーの見方」）。
 
 **SELECT の結果はテーブル名でネストします。**
 `post` と `comment` を join したとき、両方に `id` があっても衝突しません。
@@ -3402,58 +3505,63 @@ JSON の文字のまま欲しいなら、SQL で文字にして読んでくだ�
 ```java
 try (DB db = BlogExample.db()) {
 
+	/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */
 	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
 
-	/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */
-	if (rows == null) {
-		Log.error("引けませんでした: " + db.getError());
-		return;
+	// 分岐したい失敗は一意制約くらい。それだけを受け止める
+	try {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, "hello"));
+	} catch (DuplicateKeyException ex) {
+		Log.info("もうあります");
 	}
 
 }
 ```
 
-DB のエラーは例外ではなく戻り値で返ります。
-`select` 系は `null`、`insert` は `-1`、`update` / `delete` は `-1` です。
-理由は `db.getError()` に入っています。
+**DB の失敗は例外で返ります。**SQL が通らなかった・繋がらなかったときは `SqlExecuteException`（非検査）です。
+受け止めなければ上まで飛んで 500 になり、トランザクションの中なら巻き戻ります。
+コードは `getCode()`（`DB_999` など）、元の JDBC の例外は `getCause().getCause()` にあります。
 
-### 「1件も無かった」と「読めなかった」を見分ける
+**0件は失敗ではありません。**空の `Optional`・空のリスト・件数 0 で返ります。
 
-`select` の `null` には**2つの意味**があります。
+| メソッド | 返すもの | 0件のとき |
+| --- | --- | --- |
+| `select` / `selectCached` | `Optional<Data>` | 空の `Optional` |
+| `selectList` / `selectListCached` / `selectListPerformance` | `List<Data>`（`null` は返しません） | 空リスト |
+| `insert` | なし（`void`） | —— |
+| `insertKey` | 採番された値。採番されなければ `SqlExecuteException` | —— |
+| `update` / `delete` | 当たった件数（`int`） | `0` |
+| `execute` | 当たった件数（`int`）。DDL と結果セットを返す文は `0` | `0` |
+| `executeBatch` / `insertBatch` | 文ごとの件数 / 採番値の一覧 | 空の入力は空リスト |
+
+`executeBatch` / `insertBatch` は**SQL が全部同じでなければなりません。**違うものが混ざっていれば `DB_998` の例外です。
+
+### 「1件も無かった」と「読めなかった」
+
+**別のものとして返ります。**空の `Optional` は「1件も無かった」だけで、読めなかったときは例外です。
 
 ```java
-Data user = db.select(sql, id);
-if (user == null) { return 誰でもない; }   // ← DB が読めなくても、ここを通ります
+Optional<Data> user = db.select(sql, id);      // 読めなければ、ここで SqlExecuteException
+if (user.isEmpty()) { return 誰でもない; }      // 空は「1件も無かった」だけ
+
+Data post = db.select(sql, id)
+	.orElseThrow(() -> new HttpException(404, "記事がありません"));
 ```
 
-これだと **DB が落ちた日に「そんな利用者はいません」と答えます。**
-例外も出ませんし、ログにも残りません（`isError()` を見ていないので）。
+DB が落ちた日に「そんな利用者はいません」と答えることはありません。
 
-見分ける書き方は2つあります。
+> [!NOTE]
+> 1.x の `select` は、0件も失敗も `null` でした（`isError()` を見ないと見分けられませんでした）。
+> 2.0 で分かれました。`selectOrThrow` / `selectListOrThrow` は `select` / `selectList` と同じ意味になったので、
+> 非推奨です（2.x で消します）。
 
-```java
-// 1. これまでどおり isError() を見る
-Data user = db.select(sql, id);
-if (db.isError()) { throw ...; }
-if (user == null) { return 誰でもない; }
+### 一意制約だけを受け止める
 
-// 2. 読めなければ投げてもらう（1.1 から）
-Data user = db.selectOrThrow(sql, id);
-if (user == null) { return 誰でもない; }   // null は「1件も無かった」だけ
-```
-
-| メソッド | 戻り値 |
-| --- | --- |
-| `selectOrThrow` | 1件。**`null` は「1件も無かった」だけ**。読めなければ `SqlExecuteException` |
-| `selectListOrThrow` | 複数件。**0件は空リスト**。読めなければ `SqlExecuteException` |
-| `insertKey` | **採番された値だけ**。採番列が無いか、入らなければ `SqlExecuteException` |
-
-**一意制約に当たったときだけは、型で分かれます**（1.5.0 から）。
-`...OrThrow` 系と `insertKey` は `DuplicateKeyException`（`SqlExecuteException` の子）を投げ、
-戻り値で見る書き方なら `db.isDuplicateKeyError()` で見分けられます。
+分岐したい失敗は、たいてい一意制約だけです。**それは型で分かれます。**
+一意制約に当たると `DuplicateKeyException`（`SqlExecuteException` の子）が飛びます（`insert` / `insertKey` / `update` など、どれでも）。
 
 ```java
 try {
@@ -3464,13 +3572,39 @@ try {
 ```
 
 > [!TRAP]
-> **`insert` の戻り値も2つの意味を持ちます。**
-> 採番された値が取れればその値、取れなければ**入った件数**です。
-> `1` が「id=1 を入れた」なのか「1件入った」なのかは、
-> **その表に採番列があるかどうかで決まります**——
-> **採番列を1本足しただけで、呼ぶ側を触っていないのに意味が変わります。**
->
-> 採番値がほしいなら `insertKey`、件数がほしいなら `insertNoReturnKey` です。
+> **トランザクションの中で受け止めて続けると、その Tx は確定できません。**
+> `tx.commit()` が `TransactionException`（`DB_004`）で断り、全部巻き戻します（[トランザクション](./transaction)）。
+> 「あれば更新」に使うなら、トランザクションの外で受け止めるか、
+> SQL で書いてください（MySQL は `INSERT ... ON DUPLICATE KEY UPDATE`、PostgreSQL は `INSERT ... ON CONFLICT`）。
+
+### どこで catch するか
+
+**DB の例外は非検査なので、コンパイラは catch を求めません。**受けるところは、次の表で決めてください。表に無いものは受けずに、500 と巻き戻しに任せます。
+
+| こう書くとき | 受ける例外 | 返すもの |
+| --- | --- | --- |
+| 利用者の入力を、一意制約（UNIQUE・主キー）のある列に入れる・変える（メールアドレス・ログイン ID など） | `DuplicateKeyException` | 409 などの「もう使われています」 |
+| 利用者の操作で `RedisLock.lock(...)` を取る | `RedisLockException` | 409 などの「処理中です」（`tryLock(...)` の空で分けてもよい） |
+| それ以外（`SqlExecuteException` / `TransactionException`） | 受けない | 枠組みが 500 を返し、ログに出す |
+
+- **先に `select` で「まだ無い」と確かめても、catch は省けません。**同時に2つ来れば、両方が確かめを通って片方が一意制約に当たります
+- **受けるのはトランザクションの外です**（上の TRAP）
+- 同じ値を2回入れるテストを1本書いておくと、catch を忘れたところが 500 で見つかります
+
+### 採番値と件数
+
+**`insert` は何も返しません。**採番値が要るなら `insertKey`、件数が要る `INSERT ... SELECT` などは `execute` です。
+
+```java
+db.insert(SQL.insert(Tag.instance()).value(Tag.name, name));             // 入れるだけ
+long id = db.insertKey(SQL.insert(Post.instance()).value(...));          // 採番値
+int count = db.execute("INSERT INTO archive SELECT * FROM post WHERE ...");  // 件数
+```
+
+> [!NOTE]
+> 1.x の `insert` は、採番値が取れればその値、取れなければ入った件数を返していました
+> （採番列を1本足しただけで意味が変わりました）。2.0 で分けました。
+> `insertNoReturnKey` は非推奨です（2.x で消します）。`insert` か `execute` を使ってください。
 
 
 ## マイグレーション
@@ -3565,6 +3699,10 @@ OR や括弧は `Dsl.anyOf(...)` / `Dsl.allOf(...)` でまとめます（1.5.0 �
 > **空の一覧（と `null`）は組み立て時に落ちます**——`IN ()` は壊れた SQL で、
 > `IN (NULL)` に潰すと**どの行にも当たらないまま 0 件が返る**ためです。
 
+> [!NOTE]
+> **`NULL` との比較は `is_null()` / `is_not_null()` で書きます。**
+> `eq(null)` / `not(null)` は組み立て時に `SqlBuildException` になります。`= NULL` はどの行にも当たらないためです。
+
 ## 結合
 
 ```java
@@ -3583,7 +3721,7 @@ SQL.select()
 ## 入れる・直す・消す
 
 ```java
-long id = db.insert(
+long id = db.insertKey(
 	SQL.insert(Post.instance())
 		.value(Post.title, title)
 		.value(Post.created_at, new Date())      // アプリ側の時計
@@ -3612,8 +3750,14 @@ int deleted = db.delete(
 > 台ごとに時計がずれていると、<b>あとから入れた行のほうが古い</b>ことが起こり、
 > 作成日時で並べた一覧が入れ替わります。
 
-`insert` は採番された ID を返します。ID が要らないときは
-`insertNoReturnKey` のほうが速いです。
+`insertKey` は採番された ID を返します（採番されなければ例外）。ID が要らないときは
+`insert` です（戻り値はありません）。件数が要る `INSERT ... SELECT` などは `execute(...)` で流します。
+
+`update` / `delete` は当たった件数を返します。**失敗はどれも `SqlExecuteException`** で、
+一意制約の違反だけ `DuplicateKeyException` です（[DB を使う](./db)）。
+
+> [!NOTE]
+> 現在時刻は `Dsl.now()` です。**文字列の `"now()"` はただの文字列として入ります**（1.x は現在時刻に置き換えていました）。
 
 送られた項目だけ直す、という書き方はこうなります。
 
@@ -3831,14 +3975,14 @@ List<Long>    ids    = db.insertBatch(builderList);    // 採番値のリスト
 
 **2つで戻り値が違います。**`executeBatch` は件数（`List<Integer>`）、
 `insertBatch` は採番値（`List<Long>`）です。
-件数のほうは `DB.isBatchSuccess(list)` で全部通ったか見られます。
+**失敗は例外です。**空の一覧を渡すと空のリストが返ります。
 
 > [!TRAP]
 > **積んだビルダーの SQL は、全部同じでなければなりません。**
 > 1本の文にパラメータだけを積み替えて流すためです。
 > `value()` を積む順が途中で変わると SQL も変わるので、
 > **ループの中で順を揃えてください**。
-> 揃っていなければ `DB_998` を立てて `null` が返ります
+> 揃っていなければ `DB_998` の `SqlExecuteException` になります
 > （直すまでは、例外も警告も無しに**値が横にずれて入っていました**）。
 
 ## 大きい結果
@@ -3914,84 +4058,11 @@ try (Tx tx = db.begin()) {
 }
 ```
 
-## 使い分け
+`db.begin()` が返す `Tx` を try-with-resources で囲み、最後に `tx.commit()` を呼びます。
+**`commit()` を呼ばずに抜けたら巻き戻ります**（`return` でも例外でも）。
+上の例では、記事が入らなかったときに `return -1` で抜けるので、何も残りません。
 
-| メソッド | 何をするか |
-| --- | --- |
-| `beginTransaction()` | 始める。他で始まっていれば**合流する**（下の「入れ子」） |
-| `commit()` | 確定する。**トランザクションは続く** |
-| `commitEndTransaction()` | 確定して終わる |
-| `rollback()` | 戻す。トランザクションは続く |
-| `rollbackEndTransaction()` | 戻して終わる |
-| `close()` | 開いたままなら戻す |
-
-`commit()` と `commitEndTransaction()` の違いに注意してください。
-`commit()` は「ここまでを確定して、まだ続ける」です。
-移送元のコードでは `commit()` が中で終わらせていたため、
-**そこから先が黙って自動コミットになる**という穴がありました。jimble では直っています。
-
-## 入れ子（合流）
-
-外でトランザクションが始まっているところで `DBTransaction` を始めると、**新しくは始めず、外に合流します。**
-
-| 中でしたこと | どうなるか |
-| --- | --- |
-| `commit()` / `commitEndTransaction()` | 何もしない。確定させるのは外 |
-| `rollback()` / `rollbackEndTransaction()` | **外を巻き戻し専用にする** |
-| commit せずに閉じた（例外で抜けた） | **外を巻き戻し専用にする** |
-
-巻き戻し専用になった外の `commitEndTransaction()` は、全部を巻き戻して `CodeException`（`DB_005`）を投げます。
-外で続けたいときは、外で `rollback()` してから書き直します。
-
-> [!TRAP]
-> **1.4 までは、中の `rollback()` は黙って何もせず、外がそのままコミットしていました。**
-> 中で「失敗したので戻す」と書いたつもりの行が、外のコミットで入っていました。
-> また「合流しているか」を**作った瞬間にだけ**見ていたので、作ってから外が始まると、
-> 中の `commitEndTransaction()` が**外のトランザクションを終わらせていました**。
-
-## 畳み忘れ
-
-try-with-resources を使わずに `beginTransaction()` して、途中で `return` すると、
-ロールバックもされず接続もプールへ戻りません。
-
-jimble は**実行（`Context`）の終わりに拾います**。
-
-```
-ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: blog_example
-```
-
-黙って戻すと「入れたつもりが入っていない」が残るので、ERROR を出してからロールバックします。
-このログが出たら、囲み忘れです。
-
-**拾うのは `DBTransaction` を使ったときだけではありません。**
-`db.beginTransaction()` を直に呼んだときも同じです
-（コネクションを握っているのは `DB` のほうなので、そちらで見ています）。
-
-## 閉じ忘れた `DB`
-
-**ふつうの SQL は、`DB` を閉じ忘れても漏れません。**
-1文ごとにコネクションをプールへ返しているので、`DBUtil.getMainDB()` を
-使い捨てにする書き方でかまいません。
-
-**握ったまま抜ける道は2つだけ**で、どちらも実行の終わりに拾います。
-
-| 握るもの | いつ返るか |
-| --- | --- |
-| トランザクション中 | `commitEndTransaction()` / `rollbackEndTransaction()` / `close()` |
-| カーソル（`selectListWithFetcher`） | `db.close()` |
-
-```
-ERROR 閉じられていない DB が残っていました。閉じます: blog_example（selectListWithFetcher はカーソルなので、close() までコネクションを返しません）
-```
-
-> [!TRAP]
-> **拾うのは最後の砦です。**拾われた時点で ERROR が出ているので、
-> <b>ログが出たら直す</b>ものだと思ってください。
-> 実行が長いバッチでは、実行の終わりまで1本が握られたままになります。
-
-## 2.0 の形（1.5.0 から）
-
-**新しく書くならこちらを勧めます。**検査例外を投げず、`commit()` は確定して**終わります**。
+## 書き方は3つ
 
 ```java
 db.transaction(tx -> {
@@ -4007,77 +4078,74 @@ try (Tx tx = db.begin()) {            // 自分で確定したいとき
 }
 ```
 
-| | `Tx` | `DBTransaction` |
-| --- | --- | --- |
-| 確定して終わる | `commit()` | `commitEndTransaction()` |
-| 確定して続ける | `checkpoint()` | `commit()` |
-| 巻き戻して終わる | `rollback()` | `rollbackEndTransaction()` |
-| 失敗 | `TransactionException`（非検査。`getCode()` で `DB_004` など） | `CodeException`（検査） |
-| 2度目の `commit()` | 例外 | 何もしない |
+**ふつうは `db.transaction(...)` がいちばん短く書けます。**
+途中で抜けたいとき（上の `return -1` のような）や、確定を自分で決めたいときは `db.begin()` です。
 
-中身が検査例外を投げたら、巻き戻して `TransactionException`（`DB_006`）に包みます。
-入れ子のときの動き（合流・巻き戻し専用・`DB_005`）は下の「入れ子」と同じです。
-2.0 では `DBTransaction` と `db.beginTransaction()` などを消し、こちらだけにします。
+`transaction` と `transactionResult` で名前が分かれているのは、
+`tx -> db.update(...)` のような式のラムダが「値を返す」とも「返さない」とも読めて、
+同じ名前だと呼び分けられないためです。
 
-## 短く書く
+## `Tx` のメソッド
+
+| メソッド | 何をするか |
+| --- | --- |
+| `commit()` | 確定して**終わる** |
+| `checkpoint()` | ここまでを確定して、**続ける** |
+| `rollback()` | 巻き戻して終わる |
+| `close()` | 終わっていなければ巻き戻す（try-with-resources が呼びます） |
+
+失敗は `TransactionException`（非検査。`SqlExecuteException` の子）です。`getCode()` で `DB_004` などが取れます。
+
+**`commit()` と `rollback()` は1度だけです。**終わったあとにもう一度呼ぶと `IllegalStateException` になります。
+確定して続けたいなら `checkpoint()` を使います。`checkpoint()` のあとに書いた分は、`commit()` しなければ巻き戻ります。
+
+`db.transaction(...)` の中で `tx.commit()` / `tx.rollback()` を自分で呼んでもかまいません。そのときは、抜けたあとに何もしません。
+
+> [!NOTE]
+> 1.x の `DBTransaction` と、DB の `beginTransaction()` / `commit()` / `commitEndTransaction()` などは 2.0 で消しました。
+> `DBTransaction.commit()` は終わらせない確定だったので、そのあとに書いた分が `close()` で黙って巻き戻っていました。
+> 2.0 では、終わらせる確定が `commit()`、続ける確定が `checkpoint()` です（[2.0 への移行](./migrate-2)）。
+
+## 中で SQL が失敗したら
+
+**SQL の失敗は例外です**（[DB を使う](./db)）。受け止めなければ Tx から抜けて、全部巻き戻ります。
+途中まで入ることはありません。
+
+**受け止めて続けても、その Tx は確定できません。**
 
 ```java
-DBTransaction.transaction(db, transaction -> {
-	db.insert(...);
-	db.update(...);
-});
+db.transaction(tx -> {
+	db.insert(...);                  // 通った
+	try {
+		db.update(...);              // 一意制約に当たった
+	} catch (DuplicateKeyException e) {
+		// 受け止めて続ける
+	}
+	db.insert(...);                  // 通った
+});                                  // ← ここで TransactionException（DB_004）。全部巻き戻る
 ```
 
-始めて、渡した処理を走らせて、`commitEndTransaction()` まで済ませます。
-例外が出れば `close()` がロールバックします。
+トランザクションを始めてから1度でも SQL が失敗していたら、`commit()` は全部を巻き戻して
+`TransactionException`（`DB_004`）を投げます。**失敗のあとに成功する文があっても素通りしません。**
+`checkpoint()` も同じように断ります。
 
-## エラーが出ていたらコミットしません
+### 失敗を見て、別の道で書き直したいとき
 
-**jimble の DB はエラーを例外ではなく戻り値で返します**（[原則](./principles)）。
-つまり中の `db.update(...)` が `-1` を返しても、**処理は正常に終わったように見えます。**
-
-```java
-DBTransaction.transaction(db, transaction -> {
-	db.insert(...);          // 通った
-	db.update(...);          // -1。例外は出ない
-	db.insert(...);          // 通った
-});
-```
-
-**この形はコミットしません。**トランザクションの中で1度でもエラーが出ていたら、
-`commitEndTransaction()` はロールバックして `CodeException`（`DB_004`）を投げます。
-
-> [!TRAP]
-> **0.6.0 まではコミットしていました。**しかも失敗した文の中で枠組みが `rollback()` を呼ぶので、
-> **そこまでの文は巻き戻り、そこから先の文だけがコミットされる**という壊れ方でした。
-> 例外もログも出ないので、**データが半分だけ入ったことに誰も気づけません**。
-
-`db.isError()` は**直前の1文についてだけ**答えます。
-コミットしてよいかの判断はトランザクション全体を見ているので、
-**失敗のあとに成功する文が1つあっても素通りしません。**
-
-### エラーを見て、分岐して続けたいとき
-
-**いったん `rollback()` してから書き直します。**
+**その Tx は巻き戻して、新しい Tx で書き直します。**
 
 ```java
-db.beginTransaction();
-
-insert(...);
-db.commit();                 // ここまでは確定。トランザクションは続く
-
-update(...);                 // 失敗した
-
-if (db.isError()) {
-	db.rollback();           // 決着を付ける
-	insertFallback(...);     // 別の道で書き直す
+try {
+	db.transaction(tx -> {
+		insert(...);
+		update(...);                 // 一意制約に当たるかもしれない
+	});                              // 例外で抜けたので、ここで巻き戻っている
+} catch (DuplicateKeyException e) {
+	db.transaction(tx -> insertFallback(...));   // 新しい Tx で、別の道
 }
-
-db.commitEndTransaction();
 ```
 
-**`rollback()` はエラーの持ち越しも畳みます。**畳まないと、
-書き直したあとの `commit()` が「まだエラーが出ている」と言って断ります。
+外にもトランザクションがあるときは、中の Tx は外に合流しています（下の「入れ子」）。
+その場合は、外ごと書き直してください。
 
 > [!TRAP]
 > **失敗のあとの文が通るかどうかは、製品によって違います。**
@@ -4089,11 +4157,54 @@ db.commitEndTransaction();
 >
 > **どちらにも寄りかからないでください。**jimble が約束するのは
 > 「**コミットは拒まれ、1行も残らない**」ところまでです。
-> 失敗したら、**続けて書く前に `rollback()` してください**。
->
-> **0.6.x はこの違いを隠していました。**各文の `catch` がその場で `rollback()` を呼んでいたので、
-> **どちらの製品でも続けて書けているように見えて、実は前の文が全部消えていました**——
-> それが部分コミットの正体です。
+> 失敗を受け止めたら、続けて書かずに、その Tx を終わらせてください。
+
+## 中身が検査例外を投げたら
+
+`db.transaction(...)` / `transactionResult(...)` の中身は、検査例外を投げてもかまいません（`throws` は要りません）。
+**非検査例外はそのまま、検査例外は `TransactionException`（`DB_006`）に包んで**、巻き戻してから投げ直します。
+元の例外は `getCause().getCause()` にあります。
+
+## 入れ子（合流）
+
+すでにトランザクションが始まっている DB で `db.begin()`（や `db.transaction(...)`）を呼ぶと、
+**新しくは始めず、外に合流します。**合流しているかは `tx.isJoined()` で分かります。
+
+| 中でしたこと | どうなるか |
+| --- | --- |
+| `commit()` / `checkpoint()` | 何もしない。確定させるのは外 |
+| `rollback()` | **外を巻き戻し専用にする** |
+| commit せずに閉じた（例外で抜けた） | **外を巻き戻し専用にする** |
+
+巻き戻し専用になった外の `commit()` は、全部を巻き戻して `TransactionException`（`DB_005`）を投げます。
+**中の例外を外で受け止めて続けても、外は確定できません。**
+外を途中まで確定させることもできません（中の `checkpoint()` は何もしません）。
+
+## DB の行でロックする（`DBLock`）
+
+Redis が無い場所では、`DBLock` で「同じキーの処理を1つずつ」にできます。
+
+```java
+DBLock.create(db, "daily");            // キーの行を作る（あれば何もしない）。先に1回
+
+db.transaction(tx -> {
+	DBLock.lock(db, "daily");          // SELECT ... FOR UPDATE。トランザクションが終わるまで1つだけ
+	...
+});
+```
+
+**`DBLock.lock` はトランザクションの中で呼びます。**外で呼ぶと `IllegalStateException` です
+（`FOR UPDATE` の鍵は文の終わりで外れるので、外で取っても何も守りません）。
+
+- キーが無い（`create` していない）ときも `IllegalStateException` です
+- `create` / `lock` は戻り値がありません（`void`）。SQL の失敗は `SqlExecuteException` です
+- 解放は**トランザクションの終わり**です。明示的に外す口はありません
+
+> [!NOTE]
+> 1.x の `DBLock.lock` は `boolean` を返し、トランザクションの外で呼んでも `true` を返していました。
+> 何も守らないまま先へ進んでいたので、2.0 で例外にしました。
+
+Redis を使うロックは [キャッシュとロック](./cache) にあります。
 
 ## 外へ出すものと、DB に積むもの
 
@@ -4105,17 +4216,13 @@ db.commitEndTransaction();
 | **外へ出す**（SSE・メール送信・外部 API） | **コミットしたあと** | 戻せないので、先に流すと取り返しがつきません |
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+db.transaction(tx -> {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(...);
+	long id = db.insertKey(...);
 
 	new NoticeExecutor().put(db, data);      // ← 中で積む（DB のキュー）
 
-	transaction.commitEndTransaction();
-
-}
+});
 
 PostFeedHandler.notifyNewPost(title);        // ← 外へ出すのはコミットしてから
 ```
@@ -4131,6 +4238,43 @@ PostFeedHandler.notifyNewPost(title);        // ← 外へ出すのはコミッ�
 > トランザクションの中で `put()` して、実際の送信は
 > [MQ](./mq) の `execute()` に書きます。こうすると、
 > <b>「どちらの中で呼ぶか」を考えなくてよくなります。</b>
+
+## 畳み忘れ
+
+try-with-resources を使わずに `Tx tx = db.begin()` として、`commit()` も `rollback()` もせずに途中で `return` すると、
+ロールバックもされず接続もプールへ戻りません。
+
+jimble は**実行（`Context`）の終わりに拾います**。
+
+```
+ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: blog_example
+```
+
+黙って戻すと「入れたつもりが入っていない」が残るので、ERROR を出してからロールバックします。
+このログが出たら、囲み忘れです。
+（見ているのは `DB` の側です。コネクションを握っているのは `DB` なので。）
+
+## 閉じ忘れた `DB`
+
+**ふつうの SQL は、`DB` を閉じ忘れても漏れません。**
+1文ごとにコネクションをプールへ返しているので、`DBUtil.getMainDB()` を
+使い捨てにする書き方でかまいません。
+
+**握ったまま抜ける道は2つだけ**で、どちらも実行の終わりに拾います。
+
+| 握るもの | いつ返るか |
+| --- | --- |
+| トランザクション中 | `tx.commit()` / `tx.rollback()` / `tx.close()` |
+| カーソル（`selectListWithFetcher`） | `db.close()` |
+
+```
+ERROR 閉じられていない DB が残っていました。閉じます: blog_example（selectListWithFetcher はカーソルなので、close() までコネクションを返しません）
+```
+
+> [!TRAP]
+> **拾うのは最後の砦です。**拾われた時点で ERROR が出ているので、
+> <b>ログが出たら直す</b>ものだと思ってください。
+> 実行が長いバッチでは、実行の終わりまで1本が握られたままになります。
 
 
 
@@ -4236,11 +4380,6 @@ protected Map<Object, List<Data>> loadBatch (List<Object> ids) {
 			.where(Comment.post_id.in(ids))
 			.orderBy(Comment.post_id, Comment.created_at)
 	);
-
-	if (rows == null) {
-		// 引けなかった。1つも読み込み済みにしないよう、例外にして個別読みへ落とす
-		throw new IllegalStateException("コメントを引けませんでした: " + BlogExample.db().getError());
-	}
 
 	Map<Object, List<Data>> byPost = new LinkedHashMap<>();
 
@@ -4449,7 +4588,7 @@ cache.remove("top:posts");
 | メソッド | 返り |
 | --- | --- |
 | `getString(key)` | 文字列。無ければ `null`（メモリ実装だけ `""`） |
-| `get(key)` | `CacheData`（作成日時・種類つき）。**`isError()` を見る** |
+| `get(key)` | `CacheData`（作成日時・種類つき）。無ければ **`isError()` が true** |
 | `set(key, value, contentType[, group])` | 入ったら `true` |
 | `has(key, group)` / `remove(key)` / `removeGroup(group)` | |
 
@@ -4486,7 +4625,7 @@ sql_cache.enabled = true
 ```
 
 ```java
-Data customer = db.selectCached(
+Optional<Data> customer = db.selectCached(
 	SQL.select()
 		.from(Customer.instance())
 		.inner(Shop.instance()).on(Customer.shop_id.eq(Shop.id))
@@ -4615,6 +4754,7 @@ List<Data> posts = cache.get();
 | 期限 | `Duration` を渡さなければ**無期限** |
 | 他の台が `clear()` したとき | **1分に1回**だけ共有キャッシュを見に行って捨てる |
 | ローダーに渡る `DB` | 新しい接続（呼び出し元のトランザクションとは別） |
+| ローダーが失敗したとき | `get()` が非検査例外を投げる（元の例外は `getCause()`） |
 
 > [!TRAP]
 > **ローダーが `null` を返しても「読み込み済み」になります。**
@@ -4626,30 +4766,32 @@ List<Data> posts = cache.get();
 **Redis を使います。**「複数台のうち1台だけに処理させたい」ときのものです。
 
 ```java
-RedisLockResult result = RedisLock.lock(key);
-
-assertEquals(RedisLockStatus.Success, result.status());
-
-closeQuietly(result);
+// 取れなければ RedisLockException。抜けたら外れる
+try (RedisLockResult result = RedisLock.lock(key)) {
+	assertEquals(RedisLockStatus.Success, result.status());
+}
 ```
 
 ```java
 // 100ms 待って取れなければあきらめる。取れたら 30 秒保持する
-try (RedisLockResult lock = RedisLock.tryLock("batch:daily", 100, 30000)) {
+Optional<RedisLockResult> lock = RedisLock.tryLock("batch:daily", 100, 30000);
+if (lock.isEmpty()) {
+	return;   // 誰かが動かしている
+}
 
-	if (lock.status() != RedisLockStatus.Success) {
-		return;   // 誰かが動かしている
-	}
-
+try (RedisLockResult held = lock.get()) {
 	// ここが1台だけになる
-
-} catch (IOException ignore) {
 }
 ```
 
-> [!WARN]
-> **取れなくても例外は飛びません。**`status()` を必ず見てください。
-> 見ないと「ロックしていないのに処理が進む」形になります。
+| | 取れなかったとき |
+| --- | --- |
+| `RedisLock.lock(key)` | **`RedisLockException`**（非検査） |
+| `RedisLock.tryLock(key, 待ち, 保持)` | 待っても取れなければ**空の `Optional`**。Redis に繋がらなければ `RedisLockException` |
+
+**取れないまま中へ進むことはありません。**
+1.x は `status()` が `Failed` になるだけで、見なければロック無しで進んでいました。
+`close()` は検査例外を投げないので、`catch (IOException e)` は要りません。
 
 > [!TRAP]
 > **同じスレッドからは同じキーを取れてしまいます**（再入できるロックのため）。
@@ -4665,18 +4807,26 @@ Redis を設定していないときは、**黙って成功させずに例外**�
 
 ### DB だけでロックする
 
-Redis が無い場所では `DBLock` を使えます。**トランザクションの中で**、
-先に行を作ってから取ります。
+Redis が無い場所では `DBLock` を使えます。先に行を作っておき、**トランザクションの中で**取ります。
 
 ```java
-DBLock.create(db, "daily");           // 1回だけ
+DBLock.create(db, "daily");           // 1回だけ（あれば何もしない）
 ...
-if (DBLock.lock(db, "daily")) {       // SELECT ... FOR UPDATE
+db.transaction(tx -> {
+	DBLock.lock(db, "daily");         // SELECT ... FOR UPDATE
 	// トランザクションが終わるまで1つだけ
-}
+});
 ```
 
-行が無ければ `false` です。解放は**トランザクションの終わり**で、明示的に外す口はありません。
+`create` も `lock` も戻り値はありません。**失敗は例外です。**
+
+| | どうなるか |
+| --- | --- |
+| トランザクションの外で `lock` を呼ぶ | `IllegalStateException`（`FOR UPDATE` の鍵は文の終わりで外れ、何も守らないため） |
+| `create` していないキーを `lock` する | `IllegalStateException` |
+| SQL が失敗した | `SqlExecuteException` |
+
+解放は**トランザクションの終わり**で、明示的に外す口はありません。
 
 ## 設定キー
 
@@ -5196,7 +5346,7 @@ public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
 `reader()` に渡る `db` と `write()` に渡る `db` は**別のインスタンス**です。
 **渡されたものをそのまま使ってください。**
 
-`DBTransaction` を閉じるとコネクションがプールへ返るので、
+かたまりのトランザクション（`Tx`）が終わるとコネクションがプールへ返るので、
 同じ `DB` で読んでいると**最初のかたまりを確定した時点で読みかけが死にます。**
 
 > [!TIP]
@@ -5209,9 +5359,9 @@ public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
 キーが進まないまま満杯のページが返ってきたときは例外になります（黙って無限に回るより落ちたほうがよいためです）。
 
 > [!WARNING]
-> **`db.insert()` などは失敗しても例外を投げません。**
-> `db.isError()` に**その直前の1文**の結果が入るだけです。
-> `write()` の中で複数の文を流すなら、1文ごとに見るか、自分で例外を投げてください。
+> **`write()` の中の SQL が失敗すると `SqlExecuteException` が飛びます。**そのかたまりは巻き戻り、バッチは失敗になります（上の「途中で落ちたとき」）。
+> 1文ごとに結果を確かめる必要はありません。
+> **失敗を `catch` して続けないでください。**そのかたまりの確定が `TransactionException`（`DB_004`）で断られ、全部巻き戻ります。
 
 ## 二重起動
 
@@ -6082,7 +6232,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.5.1-SNAPSHOT
+jimble 2.0.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6105,7 +6255,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`1.5.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.0.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6234,9 +6384,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.5.0"
-	id("io.jimble.run") version "1.5.0"
-	id("io.jimble.db")  version "1.5.0"
+	id("io.jimble.jte") version "2.0.0"
+	id("io.jimble.run") version "2.0.0"
+	id("io.jimble.db")  version "2.0.0"
 }
 ```
 
@@ -6278,9 +6428,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.5.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "1.5.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "1.5.0"   // DB を使うなら
+	id("io.jimble.jte") version "2.0.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.0.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.0.0"   // DB を使うなら
 }
 
 repositories {
@@ -6295,7 +6445,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.5.0")
+	implementation("io.jimble:jimble-web:2.0.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6329,7 +6479,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.0.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -6521,14 +6671,14 @@ jimbleRun {
 `ERROR` が1つでもあれば落ち、`WARN` だけなら落ちません。
 
 ```
-[J101 ERROR] src/main/java/demo/App.java:83  context.request().get〜(...) で読んでいる。Request の中身は空なので、コンパイルは通って null / 空を返す
-    直し方: 送られてきた値は context.request().bodyAll().getString("x")（クエリだけなら bodyQuery()、JSON だけなら bodyJson()）
-    詳しく: https://jimble.io/ja/request-response.md
+[J903 WARN] src/main/java/demo/PostController.java:83  isError() は 2.0 で無くなった（DB の失敗は SqlExecuteException）
+    直し方: db.transaction(...) の中なら確定しないことで守られる。分岐したいのは一意制約くらいなので DuplicateKeyException で受ける
+    詳しく: https://jimble.io/ja/migrate-2.md
 ```
 
 | 規則 | 重さ | 見るもの |
 | --- | --- | --- |
-| J101 | ERROR | `context.request().getString(...)` など（`Request` の中身は空。`bodyAll()` を通す） |
+| J101 | ERROR | `context.request().getString(...)` など（`Request` は `Data` ではない。`bodyAll()` を通す） |
 | J201 | WARN | 設定の `${ENV}` に `?` が無い（環境変数が無い環境で起動時に落ちる） |
 | J202 | ERROR | `${?ENV}` の行のあとで同じキーを書き直している（環境変数が効かない） |
 | J301 | ERROR | `Migration.install()` が `DBUtil.load(...)` のあと（マイグレーションが流れない） |
@@ -6537,7 +6687,30 @@ jimbleRun {
 | J304 | WARN | codegen を使っているのに、MQ の表（`mq_scheduler` など）を `codegen.exclude_tables` に書いていない |
 | J401 | ERROR | 外側の `before(Auth::guard)` と、`Auth.REALM` のブロックの中の `Remember.restore`（覚えていても毎回 401） |
 | J501 | WARN | skill が使っている jimble の版のものではない（`jimbleSkills` で揃える） |
-| J701 | WARN | `DBTransaction` を使うファイルの空の `catch`（コミットされていないのに成功を返す） |
+| J701 | WARN | トランザクション（`db.begin()` / `db.transaction(...)` / `TransactionException`）を使うファイルの空の `catch`（確定していないのに成功を返す） |
+
+**1.x の書き方で、2.0 で消えたもの・型や意味が変わったもの**も出します（どれも WARN。書き換え先は [2.0 への移行](./migrate-2)）。
+
+| 規則 | 見るもの |
+| --- | --- |
+| J801 | `new DBTransaction(...)` / `DBTransaction.transaction(...)`（2.0 で消えた） |
+| J802 | DB の `beginTransaction()` / `commitEndTransaction()` / `rollbackEndTransaction()` / `endTransaction()`（2.0 で消えた） |
+| J803 | `Router x = router.path("/x")`（2.0 で消えた。ブロックの `path("/x", r -> { ... })` にする） |
+| J804 | 列の `subtract(...)`（2.0 で消えた。割り算を出していた） |
+| J805 | `Dsl.or(...)` / `Dsl.and(...)`（2.0 で消えた。`Dsl.anyOf` / `Dsl.allOf` にする） |
+| J806 | `cookies().put(cookie)`（2.0 で消えた。署名しなかった） |
+| J807 | `eq(null)` / `not(null)`（2.0 で例外。`is_null()` / `is_not_null()` にする） |
+| J808 | 文字列 `"now()"`（2.0 ではただの文字列。`Dsl.now()` にする） |
+| J810 | `long id = db.insert(...)`（2.0 の `insert` は値を返さない。`insertKey` にする） |
+| J901 | `Data row = db.select(...)` / `selectCached(...)`（2.0 は `Optional<Data>`。`.orElse(...)` などで受けているものは出さない） |
+| J902 | `if (!db.execute(...))` / `boolean x = db.execute(...)`（2.0 は件数を返し、失敗は例外） |
+| J903 | `isError()`（2.0 で無くなった） |
+| J904 | `DBUtil.load` / `DBLock.lock` / `DBLock.create` の戻り値を `if (!...)` などで見ている（2.0 は値を返さず、失敗は例外） |
+| J905 | `RedisLock.tryLock(...)`（2.0 は `Optional<RedisLockResult>`。`Optional` で受けているものは出さない） |
+| J906 | `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey`（2.0 で非推奨） |
+| J907 | `session().data().put(...)`（と `putData` / `remove` / `clear` / `putAll`。2.0 で例外） |
+
+J8xx と J9xx は**いつも出します**。`--target=2.0` は 1.5 のころのスクリプトがそのまま動くように受け付けますが、何もしません。
 
 > [!NOTE]
 > Java は構文木にせず、コメントと文字列を除いてから読んでいます。**誤検知は、その行か前の行に
@@ -8367,27 +8540,18 @@ install(() -> new SpaController("/admin", ...));   // ← 認証されない
 「足したのに効かない」を黙って通さないためです。
 ルート定義はコントローラの初期化ブロックの中で完結させてください。
 
-## request() から直接読むと、黙って空になる
+## 送られてこなかった値が null のまま DB に入る
 
-**症状**: フォームも JSON も送っているのに、値が取れない。例外は出ない。
+**症状**: `Column 'title' cannot be null` で落ちる。フォームには項目がある。
 
-**原因**: `Request` も `Data` なので、こう書けてしまいます。
-
-```java
-context.request().getString("title")   // コンパイルは通る。null が返る
-```
-
-`Request` そのものには本文もクエリも入っていません。
-
-**対処**: `bodyAll()`（またはどこから来た値か決め打ちで `bodyJson()` など）を通します。
+**原因**: 無いキーの `getString` は `null` です（例外にはなりません）。
 
 ```java
 Data input = context.request().bodyAll();
-String title = input.getString("title");
+String title = input.getString("title");   // 送られてこなければ null
 ```
 
-無いキーの `getString` は `null` です。**そのまま NOT NULL の列に入れると
-`Column 'title' cannot be null` になります。**
+**対処**: 読む前に [検証](./validation) を通します。`required()` はキーが無いときも失敗にします。
 
 ## セッションが保存されていない
 
@@ -8402,6 +8566,8 @@ context.session().put("user_id", 42);
 context.session().save();
 ```
 
+変えるのは `session().put(...)` です。`session().data()` は読み取り専用の写しで、書き換えると例外になります。
+
 ## select の結果が取れない
 
 **症状**: `row.getString("title")` が空。
@@ -8413,7 +8579,7 @@ Data row = db.select(
 	SQL.select()
 		.from(Post.instance())
 		.where(Post.id.eq(1L))
-);
+).orElseThrow();
 
 // SELECT の結果はテーブル名でネストする（要件 F-D-02）
 String title = row.getData("post").getString("title");
@@ -8424,46 +8590,42 @@ String same = row.getString(Post.title);
 
 `Column` で引けば間違えません。
 
-## DB のエラーに気づかない
+## トランザクションの中で DB の失敗を受け止めると、確定できない
 
-**症状**: 0件のはずがないのに0件。あるいは NPE。
+**症状**: `tx.commit()` が `TransactionException`（`DB_004`）で落ち、何も保存されない。
 
-**原因**: DB のエラーは例外ではなく戻り値です。`select` は `null`、更新系は `-1`。
+**原因**: DB の失敗は `SqlExecuteException` です。トランザクションの中でそれを `catch` して続けても、
+**その Tx は確定できません**。`commit()` が断り、全部巻き戻します。
+
+**対処**: 分岐したい失敗は一意制約くらいです。**トランザクションの外で** `DuplicateKeyException` だけを受け止めます。
+ほかの失敗は書かずに上まで飛ばします（500 になり、トランザクションは巻き戻ります）。
 
 ```java
 try (DB db = BlogExample.db()) {
 
+	/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */
 	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
 
-	/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */
-	if (rows == null) {
-		Log.error("引けませんでした: " + db.getError());
-		return;
+	// 分岐したい失敗は一意制約くらい。それだけを受け止める
+	try {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, "hello"));
+	} catch (DuplicateKeyException ex) {
+		Log.info("もうあります");
 	}
 
 }
 ```
 
-## トランザクションが続いていない
-
-**症状**: `commit()` のあとの更新が、ロールバックしても戻らない。
-
-**原因**: これは移送元の話です。移送元の `commit()` はトランザクションを
-終わらせていたので、そこから先が自動コミットになっていました。
-jimble では `commit()` は終わらせません。終わらせるのは `commitEndTransaction()` です。
-
-**移送してきたコードを見るときは、`commit()` の後ろを確認してください。**
-
 ## 「コミットもロールバックもされていない」が出る
 
 ```
-ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックします
+ERROR コミットもロールバックもされていないトランザクションが残っていました。ロールバックして閉じます: main
 ```
 
-**原因**: try-with-resources で囲まずに `beginTransaction()` して、途中で `return` しています。
+**原因**: try-with-resources で囲まずに `db.begin()` して、途中で `return` しています。
 
 **対処**: 囲んでください。jimble は実行の終わりに拾ってロールバックしますが、
 それは事故の後始末であって、正しい書き方ではありません。
@@ -8492,10 +8654,8 @@ public final class Bootstrap {
 
 		Migration.install();                                  // DBUtil.load より前
 
-		// 繋がらなければ false。見ずに進むと、あとで DB の話をしない例外で落ちる
-		if (!DBUtil.load(Conf.conf().config(), Bootstrap.class)) {
-			throw new IllegalStateException("DB を読み込めませんでした");
-		}
+		// 繋がらなければ SqlExecuteException（DB_007）で起動が止まる
+		DBUtil.load(Conf.conf().config(), Bootstrap.class);
 
 		BatchTables.install(DBUtil.getMainDB());
 		new MqQueue(NoticeExecutor.QUEUE_NAME).install();
@@ -8635,6 +8795,17 @@ Gradle 8 では通り、9 で落ちるものがあります。
 
 **ビルドスクリプトは、実際に使うバージョンで一度は流してください。**
 
+## 2.0 でなくなった落とし穴
+
+1.x にあった次の落とし穴は、2.0 で**コンパイルエラーか例外**になりました。詳しくは [2.0 への移行](./migrate-2) を読んでください。
+
+- `context.request().getString("x")` が黙って `null` を返す → `Request` は `Data` ではなくなり、コンパイルエラー
+- `select` の `null`・更新系の `-1` を見落とす → 失敗は `SqlExecuteException`
+- `DBUtil.load(...)` の戻り値を捨てて、繋がらないまま進む → 例外で起動が止まる
+- 移送元の `commit()` と jimble の `commit()` の意味が違う → `tx.commit()` は確定して終わる。続けるなら `tx.checkpoint()`
+- `session().data().put(...)` が保存されない → `UnsupportedOperationException`
+- `required()` がキーごと送られない項目を通す → 失敗になる
+
 
 
 ---
@@ -8676,19 +8847,26 @@ DB の値は**列（`Column`）で読み書き**します。列版は**テーブ
 | `flattenTable(Table)` / `extractTableData(Table)` | 平らにする / 取り出す。**無ければ `null`** |
 
 > [!TRAP]
-> **`getStringOptional` などの Optional 版は Data を書き換えます。**
-> 無ければ空文字を **`put` してから**返すので、読んだだけでキーが増えます。
-> JSON にして返す直前やループの中で呼ぶと、出力が変わります。
+> **`getDataOptional` / `getStringListOptional` などの Optional 版は Data を書き換えます。**
+> 名前どおり「無ければ空を作って **`put` してから**返す」ので、`data.getDataOptional("x").put(...)` と書いた値が残ります。
+> そのかわり、読んだだけでキーが増えます。JSON にして返す直前やループの中で呼ぶと、出力が変わります。
+> あった値は書き換えません。`getStringOptional` は空文字を返すだけで、書き込みません。
 
 > [!TRAP]
-> **「無い」と「0」が区別できません。**`getString` は `null`、
+> **「無い」と「0」が区別できません。**キーが無い・`null`・空文字のとき、`getString` は `null`、
 > `getInt` は `0`、`getBoolean` は `false` を返します。
 > 区別したいときは `getIntObject` など **Object 版**か `isNull(key)` を使ってください。
->
-> **1.5.0 からは既定値を渡す形があります**（`getInt(key, 既定値)` / `getLong` / `getDouble` / `getBoolean` / `getString`）。
-> 既定値を返すのは**無い・`null`・空文字のときだけ**で、読めない値（`"abc"`、int に `"1.5"`、桁あふれ、
-> 真偽に `"yes"`）は `DataConversionException` になります。**書き込みもしません**（Optional 版と違います）。
-> 2.0 では `getInt(key)` も「無ければ例外」になります。
+> 既定値を渡す形もあります（`getInt(key, 既定値)` / `getLong` / `getDouble` / `getBoolean` / `getString`）。
+
+**あるのに読めない値は `DataConversionException` です。**`"abc"`、int に `"1.5"`、桁あふれ、真偽に `"yes"`（読めるのは `true` / `false` / `1` / `0` だけ）などです。
+`getEnum` も一致しなければ例外で、無くてよいなら `getEnumOptional(key, 型)` を使います。
+利用者の入力を `getInt` などで読むなら、**先にバリデーションを通してください。**通さずに読んで例外になると 500 です。
+
+- 型を変えて読んでも（数の一覧を `getStringList` で読むなど）、**元の Data には書き戻しません**
+- 書き換えられない写しが要るときは `readOnlyCopy()`（書き込むと `UnsupportedOperationException`）
+
+> [!NOTE]
+> 1.x は読めない値でも黙って `0` / `false` / `null` を返していました（[2.0 への移行](./migrate-2)）。
 
 > [!NOTE]
 > **`toString()` は要約です**（キーと型だけ）。
@@ -8726,16 +8904,20 @@ assertEquals(List.of("あ", "い"), restored.getStringList("tags"));
 | ストリームに直接 | `data.outputJsonString(outputStream)` |
 | 組み立てずに逐次書く | `JsonHashWriter` / `JsonArrayWriter` |
 
-> [!WARN]
-> **`Dson.encodes` / `decodes`（static 版）は失敗しても `null` を返すだけ**です。
-> 理由が要るなら `new Dson()` を作り、`decode(...)` のあとに `isError()` /
-> `getErrorException()` を見てください。
+**壊れた JSON は `JsonParseException`（非検査）です。**`Data.fromJsonString` も `Dson.decodes` も同じです。
+括弧が閉じていない・後ろに余分なものがある・JSON ですらない、のどれでも例外になります。
+空文字と `"null"` は `null` を返します（例外にしません）。
+
+> [!NOTE]
+> **形しか見ません。**読み手は寛容なので、括弧が閉じていれば、値の無い `"a":` のような文法の誤りは通ります。
+> インスタンスの `new Dson().decode(...)` は例外を投げず、これまでどおり `isError()` / `getErrorException()` で見ます。
 
 ## 型変換
 
 `Convertor.convert(conf, src, 変換先.class)` が入口です。
 Bean ↔ `Data` ↔ Map ↔ List ↔ プリミティブが同じ1本を通ります。
 `data.convert(new MyBean())` も中身は同じものです。
+変換できなければ**非検査例外**です（`throws` も `catch` も要りません）。
 
 > [!TRAP]
 > **`Configration` は使い回さないでください。**変換の途中で階層カウンタと
@@ -8763,7 +8945,7 @@ Data json = res.getContentJson();
 - POST は `HttpPostExecutor`。`addBodyForm(name, value)` / `setBodyJson(data)`
 - **ファイルを1つでも足すと multipart になります**（`addBodyForm(name, file, contentType)`）
 - プロキシは `setProxy(new HttpProxy(host, port, id, pass))`
-- **例外を投げません。**`isError` を見てください（DB と同じ流儀）
+- **例外を投げません。**`isError` を見てください
 
 > [!WARN]
 > **タイムアウトの既定は 30 秒**で、接続と応答の**両方に同じ値**が入ります。個別には指定できません。
@@ -8784,6 +8966,7 @@ try (CsvReader reader = new CsvReader(new File("in.csv"))) {
 ```
 
 **1行ずつ読みます**（全部メモリに載せません）。書くほうは `CsvWriter#writeLine(Object...)`。
+`CsvReader` / `CsvWriter` は**検査例外を投げません**。読み書きの失敗は `UncheckedIOException` です。
 
 > [!WARN]
 > **文字コードを省略すると、判定に失敗したときは Shift_JIS になります。**
@@ -8792,7 +8975,7 @@ try (CsvReader reader = new CsvReader(new File("in.csv"))) {
 ## XML
 
 `XmlParser.parse(file)` で `XmlData` の木にします（**全部メモリに載ります**）。
-組み立ては `XmlBuilder.build(xmlData)`。
+組み立ては `XmlBuilder.build(xmlData)`（検査例外は投げません）。
 
 ## ハッシュと暗号
 
@@ -8834,7 +9017,7 @@ String value = DBValue.getString(db, "last_imported_at", "");
 | URL | `UrlUtil` / `UrlBuilder`（ドメイン抽出・punycode・エンコード） |
 | 数値・パース | `Parse.parseInt` など（**失敗しても例外を投げません**） |
 | 正規表現 | `Patterns`（メール・URL・ドメイン・電話） |
-| ファイル | `FileUtil` / `IOUtil` / `FileCharDetecter`（文字コード判定） |
+| ファイル | `FileUtil` / `IOUtil`（`copy` / `readLines` の失敗は `UncheckedIOException`）/ `FileCharDetecter`（文字コード判定） |
 | スレッド | `VirtualThreadManager` / `ThreadManager`（[実行モデル](./execution)） |
 | 計測 | `StopWatch` |
 
@@ -8916,7 +9099,7 @@ install(() -> new PostController(new PostService(db)));
 | jooby | jimble |
 | --- | --- |
 | `@GET @Path("/x")` | `get("/x", ...)` |
-| `@Transactional` | `try (DBTransaction transaction = ...)` |
+| `@Transactional` | `db.transaction(tx -> { ... })` |
 | `@Inject` | コンストラクタで渡す |
 
 ### 起動
@@ -8966,13 +9149,16 @@ jooby の jte モジュールを使っていたなら、テンプレートはそ
 2. `App.java` を `JimbleApp` にする。ルート定義は貼るだけ
 3. ハンドラの中を `context.request()` / `context.response()` に書き換える
 4. `@Inject` を `install()` とコンストラクタに置き換える
-5. `@Transactional` を `try (DBTransaction ...)` に置き換える
+5. `@Transactional` を `db.transaction(tx -> { ... })` に置き換える
 6. 起動して、**ルート一覧と構成行を確認する**
 
 ## 移行しなくてよいもの
 
-DB 層はそのままです。`SQL` / `Column` / `Table` / `Data` / `DB` の使い方は変わりません。
+DB 層のクラス（`SQL` / `Column` / `Table` / `Data` / `DB`）と SQL の組み方はそのままです。
 生成されたテーブル定義のクラスも、そのまま使えます。
+
+ただし**失敗は戻り値ではなく例外です**。`select` は `Optional<Data>` を返し、`isError()` はありません。
+戻り値で失敗を見ていたところは書き換えが要ります（[DB](./db)・[2.0 への移行](./migrate-2)）。
 
 
 
@@ -9169,8 +9355,8 @@ jimble でこれまで実際に起きた壊れ方は、**ほとんどがシグ�
 > ビルドの警告が出るだけです。**警告を切らないでください**——
 > 消えたことに気づくのが、上げたあとになります。
 
-**2.0 で消すもの・変わるものの一覧は [2.0 への移行](./migrate-2) にあります。**
-`./gradlew jimbleCheck --target=2.0` で、書き換える行を出せます。
+**2.0 で消したもの・変わったものの一覧は [2.0 への移行](./migrate-2) にあります。**
+`./gradlew jimbleCheck` で、書き換える行を出せます（1.5 では `--target=2.0` を付けます）。
 
 ## 版を選ぶ
 
@@ -9188,27 +9374,27 @@ jimble でこれまで実際に起きた壊れ方は、**ほとんどがシグ�
 
 # 2.0 への移行
 
-2.0 では、**戻り値を捨てると効かない・黙って何もしない**API を作り直します。
-壊れ方は**コンパイルエラーか例外だけ**で、黙って意味が変わる変更はしません。
+2.0 では、**戻り値を捨てると効かない・黙って何もしない**API を作り直しました。
+壊れ方は**コンパイルエラーか例外だけ**です。黙って意味が変わる変更はしていません。
 
-**2.0 の書き方は、1.5 に先に入っています。**1.5 のうちに書き換えておけば、2.0 に上げたときに直すところはほとんど残りません。
+**2.0 の書き方の多くは 1.5 に先に入っています。**1.5 のうちに書き換えておくと、2.0 に上げたときに直すところが少なくなります。
 
-## 1. まず jimbleCheck を流す
+## 1. 上げる順番
 
-```bash
-./gradlew jimbleCheck                  # 1.5 で置き換え先があるもの（J8xx）
-./gradlew jimbleCheck --target=2.0     # 2.0 で型や意味が変わるもの（J9xx）も
-```
+1. **1.5 に上げて、`./gradlew jimbleCheck --target=2.0` を流す。**書き換える行が行番号と新しい書き方つきで出ます。1.5 のうちに直せるもの（J8xx）は直しておきます。
+2. **2.0 に上げてコンパイルする。**消したもの・型が変わったものは、ここで全部エラーになります（下の 3.）。
+3. **`./gradlew jimbleCheck` をもう一度流す。**2.0 の jimbleCheck は J8xx と J9xx をいつも出します（`--target=2.0` は付けても付けなくても同じ）。
+4. **テストを流す。**例外になった書き方（下の 4.）は、コンパイルでは見つかりません。
 
-書き換える行が**行番号と新しい書き方つきで**出ます。上から直してください。
-誤検知は、その行か前の行に `// jimble-check:ignore J803` と書くと出なくなります。
+誤検知は、その行か前の行に `// jimble-check:ignore J901` と書くと出なくなります。
 
-1.5 は、2.0 で消すものに `@Deprecated(forRemoval = true)` を付けています。
-コンパイラの警告（`[removal]`）も同じ一覧です。
+> [!NOTE]
+> **2.0 の `select` は `Optional<Data>` です。**`Data row = db.select(...)` はコンパイルエラーになるので、見落としません。
+> 迷ったら、1.x と同じ「無ければ null」は `db.select(...).orElse(null)`、「無ければ 404」は `.orElseThrow(() -> new HttpException(404, "..."))` です。
 
-## 2. 1.5 のうちに書き換えるもの
+## 2. 1.5 のうちに書き換えられるもの
 
-置き換え先がもう 1.5 にあります。
+置き換え先が 1.5 にあります。2.0 では左の書き方が**消えています**。
 
 | 1.x | 1.5 からの書き方 | jimbleCheck |
 | --- | --- | --- |
@@ -9222,58 +9408,152 @@ jimble でこれまで実際に起きた壊れ方は、**ほとんどがシグ�
 | `cookies().put(cookie)`（署名しない） | `cookies().putSigned(cookie)` / `putUnsigned(cookie)` | J806 |
 | `列.eq(null)` / `not(null)` | `列.is_null()` / `is_not_null()` | J807 |
 | 文字列 `"now()"` を `set(Data)` / `value(Data)` に入れる | `Dsl.now()` を値に入れる。平らな行なら `setRow(Data)` / `valueRow(Data)` | J808 |
-| `rules.validate(db, data);`（戻り値を捨てる） | `Data errors = rules.errors(db, data);` | J809 |
-| `long id = db.insert(...)`（採番値か件数か分からない） | `db.insertKey(...)`（件数なら `insertNoReturnKey`） | J810 |
+| `long id = db.insert(...)` | `db.insertKey(...)` | J810 |
 | `context.request().getString("x")` | `context.request().bodyAll().getString("x")` | J101 |
-| `data.getInt("x")`（無くても 0） | `data.getInt("x", 既定値)`（読めない値は例外） | —— |
+| `Data errors = rules.validate(db, data)` | `rules.errors(db, data)`（2.0 の `validate` は「通らなければ 422」） | —— |
 
-> [!NOTE]
-> **`Tx` は例外で抜けたら巻き戻ります。**途中で `HttpException` を投げるのに、自分で `rollback` を書く必要はありません。
-> 中で1度でも SQL が失敗していたら、`tx.commit()` は確定せずに `TransactionException`（`DB_004`）を投げます。
+## 3. コンパイルが通らなくなるもの
 
-## 3. 2.0 で型や意味が変わるもの
-
-1.5 ではまだ正しい書き方ですが、2.0 でコンパイルが通らなくなるか、例外になります。
-`--target=2.0` のときだけ jimbleCheck が出します。
+### DB
 
 | 1.x | 2.0 | jimbleCheck |
 | --- | --- | --- |
-| `Data row = db.select(...)`（0件も失敗も `null`） | `Optional<Data>`。失敗は `SqlExecuteException` | J901 |
-| `List<Data> rows = db.selectList(...)`（失敗は `null`） | `null` を返さない。失敗は例外 | —— |
-| `long db.insert(...)` | `void`。採番値は `insertKey` | J810 |
-| `int db.update(...)` / `delete(...)`（失敗は -1） | 件数。失敗は例外 | —— |
-| `boolean db.execute(...)` | 件数（`int`）。失敗は例外 | J902 |
-| `db.isError()` | 無くなる（失敗は例外） | J903 |
-| `boolean DBUtil.load(...)` / `DBLock.lock(...)` / `create(...)` | `void`。失敗は例外。`lock` はトランザクションの外で呼ぶと例外 | J904 |
-| `RedisLock.tryLock(...)` | `Optional<RedisLockResult>`。`lock` は取れなければ例外 | J905 |
-| `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey` / `selectCached` | 非推奨（`select` / `selectList` / `insert` が同じ意味になる） | J906 |
-| `eq(null)` | 例外 | J807 |
-| `data.getInt("x")` で無いキー | 例外（`getInt("x", 既定値)` は変わらない） | —— |
-| `validate(...)` が一覧を返す | 失敗したら 422 の例外。一覧は `errors(...)` | J809 |
-| `Request` が `Data` を継ぐ | 継がない（`bodyAll()` などから読む） | J101 |
-| `required()` はキーが無いと検査しない | キーが無ければ失敗 | —— |
-| `json(...)` と `redirect(...)` を両方積む | 2つ目を積んだ時点で例外 | —— |
-| 検査例外（`throws Exception` / `CodeException`） | 非検査例外 | —— |
+| `Data row = db.select(...)`（0件も失敗も `null`） | `Optional<Data>`。0件は空、失敗は `SqlExecuteException`。`selectCached` も同じ | J901 |
+| `long db.insert(...)` | `void`。採番値は `insertKey(...)`。件数が要る `INSERT ... SELECT` は `execute(...)` | J810 |
+| `boolean db.execute(...)` | `int`（当たった件数。DDL は 0）。失敗は例外 | J902 |
+| `db.isError()` / `getError()` / `isDuplicateKeyError()` | 無い。失敗は例外で、一意制約は `DuplicateKeyException` で受ける | J903 |
+| `boolean DBUtil.load(...)` | `void`。繋がらなければ `SqlExecuteException`（`DB_007`）で起動が止まる | J904 |
+| `boolean DBLock.create(...)` / `lock(...)` | `void`。失敗は例外 | J904 |
+| `RedisLockResult RedisLock.tryLock(...)` | `Optional<RedisLockResult>`（待っても取れなければ空） | J905 |
+| `DBTransaction`・DB の `beginTransaction` など | 無い（上の 2.） | J801 / J802 |
+| `db.close()` が `IOException` を投げる | 投げない（`try` の `catch (IOException e)` がエラーになるので消す） | —— |
 
-## 4. 1.5 で出るようになった警告
+**非推奨になったもの**（2.0 で `@Deprecated(forRemoval = true)`。2.x のうちに消します）：
 
-1.5 は、2.0 で例外になる書き方を**プロセスで1度だけ**ログに出します（呼び出し元の行つき）。
-黙って効いていなかったものなので、出たら直してください。
+| 2.0 で非推奨 | 置き換え | jimbleCheck |
+| --- | --- | --- |
+| `selectOrThrow` / `selectListOrThrow` | `select` / `selectList`（同じ意味になった） | J906 |
+| `insertNoReturnKey` | `insert`（件数が要るなら `execute`） | J906 |
+| `DB.isBatchSuccess(...)` | 要らない（失敗は例外） | —— |
+| `RedisLockStatus.Failed` | 要らない（`lock` は例外、`tryLock` は空） | —— |
 
-| 警告 | 何が起きていたか |
+### SQL を組む側
+
+| 1.x | 2.0 | jimbleCheck |
+| --- | --- | --- |
+| `列.subtract(v)` | 無い。割り算は `divide`、引き算は `minus` | J804 |
+| `Dsl.and(w)` / `Dsl.or(w)` | 無い。`Dsl.allOf(...)` / `Dsl.anyOf(...)` | J805 |
+
+### Web
+
+| 1.x | 2.0 | jimbleCheck |
+| --- | --- | --- |
+| `Router.path(String)` | 無い。`path(パス, admin -> { ... })` | J803 |
+| `Cookies.put(Cookie)` | 無い。`putSigned` / `putUnsigned` | J806 |
+| `Request` が `Data` を継ぐ（`request().getString(...)`） | 継がない。`bodyAll()` / `body()` / `bodyQuery()` から読む | J101 |
+| `Data errors = rules.validate(db, data)` | `validate` は `void`（通らなければ `ValidationException`）。一覧は `errors(...)` | —— |
+
+### 検査例外が無くなったもの
+
+`catch (IOException e)` や `throws CodeException` は、**投げないものを捕まえている**としてコンパイルエラーになることがあります。消してください。
+
+| 1.x | 2.0 |
 | --- | --- |
-| `eq(null) は「= NULL」を組み…` | どの行にも当たっていなかった（`where(Data)` の空の値も） |
-| `set(Data) は {"set": …} の形を読みます` | 包まない行を渡して、何も入っていなかった |
-| `set(Data) は文字列 "now()" を…` | 利用者の入力 `"now()"` が現在時刻になっていた |
-| `返し方が2つ以上積まれています` | 最初の1つだけが返り、残りは捨てられていた |
-| `送ったあとにヘッダ…` / `応答を送ったあとに Cookie…` | 届いていなかった |
-| `本文の JSON を読めませんでした` | 空の Data として扱われていた |
-| `paging(50) の件数は効きません` | 先に `paging()` を呼んでいて、50 が無視されていた |
-| `request().getString("x") は送られてきた値を読みません` | いつも `null` だった |
-| `required() / empty() はキーが無いと検査しません` | キーごと送られないと素通りしていた |
-| `destroy() のあとにセッションを変えても保存されません` | ログアウトのあとの値が捨てられていた |
+| `CodeException`（検査例外） | `RuntimeException` の子。`catch (CodeException e)` はそのまま書ける |
+| `LoadingCache.get()` / `LoadingCacheMulti.get(k)` | 非検査（読み込みの例外は cause） |
+| `Convertor.convert`、`CsvReader` / `CsvWriter`、`XmlBuilder.build`、`IOUtil.copy` / `readLines` | 非検査（`IOException` は `UncheckedIOException`、ほかは `CodeException` で包む） |
+| `DB.close()` / `RedisLockResult.close()` / `ResultSetFetcher.close()` | 検査例外を投げない |
+| `ValidationRule` / `IValidator` の `throws CodeException` | 非検査 |
+
+## 4. 例外になったもの（コンパイルは通る）
+
+どれも **1.x では黙って違うことをしていた**書き方です。テストで見つけてください。
+
+### DB
+
+| 書き方 | 1.x | 2.0 |
+| --- | --- | --- |
+| SQL の失敗 | `null` / `-1` / `false` を返し、`isError()` で見る | `SqlExecuteException`（一意制約は `DuplicateKeyException`） |
+| `selectList(...)` の失敗 | `null` | 例外。0件は空リスト（`null` を返さない） |
+| `update` / `delete` の失敗 | `-1` | 例外。戻り値は件数 |
+| `executeBatch` / `insertBatch` の空の入力 | `null` | 空のリスト |
+| トランザクションの中で SQL の失敗を catch して続ける | そのままコミットされた | `tx.commit()` が `TransactionException`（`DB_004`）で断り、全部巻き戻す |
+| `DBLock.lock(...)` をトランザクションの外で呼ぶ | 鍵が文の終わりで外れ、何も守らなかった | `IllegalStateException` |
+| `RedisLock.lock(...)` で取れない | `status()` が `Failed` | `RedisLockException` |
+| 枠組みの中の失敗（DB のキャッシュ・キャッシュの無効化・バッチの履歴・マイグレーション） | ログも出ずに捨てていた | 例外 |
 
 > [!NOTE]
-> **`save()` のあとにセッションを変えると、もう一度 `save()` すれば保存されるようになりました**（1.4 までは黙って捨てていました）。
-> `Auth.login(...)` は中で `save()` するので、ログインの直後に入れた値が消えていたのはこのためです。
+> **`Tx` は例外で抜けたら巻き戻ります。**途中で `HttpException` を投げるのに、自分で `rollback` を書く必要はありません。
+> 一意制約を「あれば更新」に使うなら、トランザクションの外で `catch (DuplicateKeyException e)` するか、`INSERT ... ON CONFLICT` を使ってください（中で受け止めると、その Tx は確定できません）。
+
+### SQL を組む側
+
+| 書き方 | 1.x | 2.0 |
+| --- | --- | --- |
+| `列.eq(null)` / `not(null)` | `= NULL` を組み、どの行にも当たらない | `SqlBuildException`。`is_null()` / `is_not_null()` |
+| `where(Data)` の空の値（`null`・空の配列） | `= NULL` などを組んでいた | 例外（`is_null` / `is_not_null` / `between` / `in` / `not_in` は別） |
+| `where(Data)` に `"where"` キーの無い Data | 条件が付かずに**全件** | 例外（空の Data は何もしない）。Select / Update / Delete すべて |
+| `set(Data)` / `value(Data)` に包まない行・別のテーブルの分だけの Data | 黙って何も入れない | 例外。平らな行は `setRow` / `valueRow` |
+| 文字列 `"now()"` | 現在時刻になった | ただの文字列。現在時刻は `Dsl.now()` |
+
+`apply(Data)` は句をまとめて読むので、無い句は無いままです（例外にしません）。
+
+### Data
+
+| 書き方 | 1.x | 2.0 |
+| --- | --- | --- |
+| `getInt` などで**読めない値**（`"abc"`、int に `"1.5"`、桁あふれ、真偽に `"yes"`） | 黙って `0` / `false` / `null` | `DataConversionException` |
+| `getEnum` で一致しない | `null` | 例外。無くてよいなら `getEnumOptional(key, 型)` |
+| `Data.fromJsonString` / `Dson.decodes` に壊れた JSON | `null` か途中まで | `JsonParseException`（空文字と `"null"` は `null`） |
+| 型を変えて読む（`getStringList` で数の一覧を読む、JSON の文字を `getData` で読む） | 変換した値を**書き戻していた**（読んだだけで JSON の出力が変わった） | 書き戻さない |
+
+> [!IMPORTANT]
+> **無いキー（キーが無い・`null`・空文字）は、これまでどおり `0` / `false` / `null` です。**例外になるのは「あるのに読めない」ときだけです。
+> 利用者の入力を `getInt` などで読むなら、先にバリデーションを通してください。通さずに読んで例外になると 500 です。
+> `?page=abc` の `paging()` は枠組みの側で寛容に読み、1 ページ目にします。
+
+`getDataOptional` / `getStringListOptional` などの Optional 版は、名前どおり「無ければ空を作って入れる」を残しています（`data.getDataOptional("x").put(...)` と書いた値は残ります）。あった値は書き換えません。
+
+### Web
+
+| 書き方 | 1.x | 2.0 |
+| --- | --- | --- |
+| `rules.validate(db, data);` で通らない | 一覧を返すだけ（捨てると素通り） | `ValidationException`。枠組みが **422** で `{"validation": {項目: [メッセージ]}}` を返す |
+| `required()` / `empty()` で**キーごと送られない** | 素通り | 失敗（`insertRequired()` の規則は「登録のときだけ必須」のまま） |
+| 返し方を2つ積む（`json(...)` と `redirect(...)` など） | 最初の1つだけ返り、残りは捨てた | 2つ目を積んだ時点で `IllegalStateException`（同じ種類を重ねるのはよい） |
+| 送ったあとのヘッダ・Cookie | 届いていなかった | 例外 |
+| `application/json` の本文が読めない | 空の Data | `body()` / `bodyJson()` / `bodyAll()` が 400 の `HttpException`（MCP は `PARSE_ERROR`） |
+| `session().destroy()` のあとの `put` / `remove` / `clear` | 保存されなかった | `IllegalStateException` |
+| `session().data().put(...)` | 「変えた」印が付かず保存されなかった | `UnsupportedOperationException`（読み取り専用の写し）。`session().put(...)` を使う |
+| `paging()` のあとの `paging(50)` | 50 が効かなかった | `IllegalStateException` |
+| `AbstractExecutor.cancel()` | 印を立てるだけで、あとの行も走った | そこで抜けて `onCancel` へ |
+
+422 の本文を自分で作りたいときは、`errors(...)` で一覧を受け取ってください（1.5 の `errors` と同じです）。
+一覧の検査は `errors(db, List)` / `validate(db, List)` です（本文は `{"rows": [...]}`）。
+
+## 5. jimbleCheck の変わったところ
+
+- J8xx と J9xx を**いつも**出します（`--target=2.0` は受け付けて何もしません）。
+- J901 / J905 は、`Optional` として受け取っている書き方（`.orElse(...)`、`Optional<...> x =` など）は出しません。
+- J906 から `selectCached` / `selectListCached` を外しました（名前はそのまま。戻り値の形が `select` / `selectList` と揃っただけです）。
+- J907 を足しました：`session().data().put(...)` など（2.0 で例外）。
+- J809（`validate` の戻り値を捨てている）を外しました。文として書く `validate(...)` が 2.0 の正しい書き方です。
+
+## 6. 1.5 で出るようになった警告
+
+1.5 は、2.0 で例外になる書き方を**プロセスで1度だけ**ログに出していました（呼び出し元の行つき）。
+**1.5 で警告が出ていなければ、上の 4. の多くには当たっていません。**
+
+| 1.5 の警告 | 2.0 |
+| --- | --- |
+| `eq(null) は「= NULL」を組み…` | `SqlBuildException` |
+| `set(Data) は {"set": …} の形を読みます` | 例外 |
+| `set(Data) は文字列 "now()" を…` | ただの文字列 |
+| `返し方が2つ以上積まれています` | `IllegalStateException` |
+| `送ったあとにヘッダ…` / `応答を送ったあとに Cookie…` | 例外 |
+| `本文の JSON を読めませんでした` | 400 |
+| `paging(50) の件数は効きません` | `IllegalStateException` |
+| `request().getString("x") は送られてきた値を読みません` | コンパイルエラー |
+| `required() / empty() はキーが無いと検査しません` | 失敗 |
+| `destroy() のあとにセッションを変えても保存されません` | `IllegalStateException` |
 

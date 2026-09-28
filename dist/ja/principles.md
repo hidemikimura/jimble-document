@@ -19,7 +19,7 @@ jimble には守っている決めごとがいくつかあります。
   どこで始まってどこで終わるかが、メソッドの外にあるため
 
 かわりに `new` を書きます。`install(AdminController::new)` と書きます。
-`try (DBTransaction transaction = ...)` と書きます。数行増えます。
+`db.transaction(tx -> { ... })` と書きます。数行増えます。
 
 ## 2. 起動時にクラスパスを走査しない
 
@@ -51,30 +51,36 @@ jimble は「静かに効かなくなる」状態を潰すことに時間を使�
 - ドキュメントのコード片は実コードから抜いています。
   印の付いた場所が消えたら、**サイトのビルドが落ちます**
 
-## 4. 例外にしないところ
+## 4. 失敗は例外にする
 
-DB のエラーは例外ではなく戻り値で返します。
-`select` 系は `null`、更新系は `-1` です。
+**失敗は例外（非検査）です。**戻り値で失敗を返すことはしません。
+戻り値は捨てられます。捨てた失敗は、黙って素通りします。
+
+- 0件は失敗ではありません。`select` は空の `Optional`、`selectList` は空のリスト、`update` は 0 を返します
+- DB の失敗は `SqlExecuteException` です。分岐したいのは一意制約くらいなので、それだけ `DuplicateKeyException` で受けます
+- 書かなければ上まで飛んで 500 になります。トランザクションの中なら巻き戻ります
 
 ```java
 try (DB db = BlogExample.db()) {
 
+	/*
+	 * 0件は空（空リスト・空の Optional・件数 0）、失敗は SqlExecuteException（2.0）。
+	 * 書かなければ上まで飛んで 500。トランザクションの中なら巻き戻る。
+	 */
 	List<Data> rows = db.selectList(SQL.select().from(Post.instance()));
 
-	/*
-	 * DB のエラーは例外ではなく戻り値で返る（要件 F-D-11）。
-	 * select 系は null、更新系は -1。
-	 */
-	if (rows == null) {
-		Log.error("引けませんでした: " + db.getError());
-		return;
+	// 分岐したい失敗は一意制約くらい。それだけを受け止める
+	try {
+		db.insert(SQL.insert(Post.instance()).value(Post.title, "hello"));
+	} catch (DuplicateKeyException ex) {
+		Log.info("もうあります");
 	}
 
 }
 ```
 
-理由は、DB のエラーの多くが「呼び出し側が分岐したいもの」だからです。
-例外にすると `try` で囲むか、囲み忘れて上まで飛ばすかの二択になります。
+使い方を間違えたときも同じです。**壊れ方はコンパイルエラーか例外だけ**で、黙って違うことはしません
+（2.0 で作り直したものは [2.0 への移行](./migrate-2) にあります）。
 
 ## 5. 一つの実行 = 一つの Context
 

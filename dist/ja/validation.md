@@ -7,7 +7,7 @@
 | 段 | クラス | 何をするか |
 | --- | --- | --- |
 | 1項目 | `ValidationRule` | 「空でない」「1〜120 の整数」を積む |
-| 1リクエスト | `ValidationRules` | 列ごとにルールを結びつけ、まとめて回す |
+| 1リクエスト | `ValidationRules` | 列ごとにルールを結びつけ、まとめて回す。`validate` は失敗したら **422 の例外** |
 | 1ルート | `ValidationExecutor` | 失敗したら**後続の処理を止めて 422 を返す** |
 
 下だけ、上だけ、どちらでも使えます。
@@ -37,6 +37,7 @@ ValidationRule rule = new ValidationRule()
 > **`empty()` 以外は、空を通します。**
 > `textLengthMax(100)` は「入っているなら 100 文字以内」という意味で、
 > 空文字や `null` はエラーにしません。**必須は必ず `empty()` で書いてください。**
+> `empty()` は**キーごと送られてこないときも**落とします。
 
 > [!NOTE]
 > **形の検証は、値の全体と突き合わせます。**
@@ -70,19 +71,20 @@ request.putData(Item.name, "");
 request.putData(Item.age, "999");
 
 // エラーは最初の1件で止めず、全部集める（要件 F-V-03）
-Data errors = rules.validate(null, request);
+Data errors = rules.errors(null, request);
 
 Data messages = ValidationMessages.toMessages(errors);
 ```
 
 - **項目をまたいだエラーは全部集めます**（1件ずつ言われるのが、入力し直す人にはいちばん困るため）
-- **送られてこなかった項目は検証しません**（`insertRequired()` を除く）
+- **送られてこなかった項目は、`empty()`（`required()`）を積んだルールだけ落とします。**ほかのルールは見ません
+- `insertRequired()` を付けたルールは「登録のときだけ必須、更新は送られたときだけ見る」です（下の「登録のときだけ必須」）
 - 1つの列に配列が来たら、要素ごとに回します
 - `put(rule)`（列なし）で、項目に紐づかない相関チェックも書けます
 
 ### 生のエラーの形
 
-`validate` が返すのは**文言ではありません。**「どの種別で落ちたか」と「そのときの設定」です。
+`errors(...)` が返すのは**文言ではありません。**「どの種別で落ちたか」と「そのときの設定」です。
 
 ```java
 { "validation_type": Empty, "validation_setting": {}, "input": "" }
@@ -110,13 +112,33 @@ Data request = new Data();
 request.putData(Item.name, "");
 
 assertEquals(List.of("required"),
-	ValidationMessages.toMessages(rules.validate(null, request)).get("name"));
+	ValidationMessages.toMessages(rules.errors(null, request)).get("name"));
 ```
 
 > [!TRAP]
 > `ValidationMessages` は **static でグローバル**です。テストで差し替えたら
 > `finally` で `ValidationMessages.reset()` してください。
 > 忘れると、**あとから走ったテストだけが落ちます。**
+
+## 止めるか、一覧を受け取るか
+
+| メソッド | 通らなかったとき |
+| --- | --- |
+| `rules.validate(db, data)` | **`ValidationException`（422）を投げて止まる**。戻り値は無い |
+| `rules.errors(db, data)` | エラーの一覧（`Data`）を返す。止めない。通れば空 |
+
+ふつうは `validate` を文として書きます。
+
+```java
+rules.validate(db, context.request().bodyAll());   // 通らなければここで 422
+db.insert(...);
+```
+
+何もしなければ枠組みが **422** で返し、本文は `{"validation": {"項目名": ["メッセージ"]}}` **＋ 送られてきた入力値**です
+（`ValidationExecutor` と同じ形）。例外なので `error(...)` フックは通ります（[エラー処理](./errors)）。
+`ValidationException` は `HttpException` の子で、`errors()` で一覧を取り出せます。
+
+一覧を見て自分で分岐したいときは `errors(...)` です。複数の束をまとめるなら `Validator.validate(db, data, rules...)` / `Validator.errors(db, data, rules...)` です。
 
 ## 登録のときだけ必須
 
@@ -127,11 +149,11 @@ ValidationRules rules = new ValidationRules()
 
 Data update = new Data();
 update.put("is_insert", false);
-assertTrue(rules.validate(null, update).isEmpty(), "更新なのに必須になっている");
+assertTrue(rules.errors(null, update).isEmpty(), "更新なのに必須になっている");
 
 Data insert = new Data();
 insert.put("is_insert", true);
-assertFalse(rules.validate(null, insert).isEmpty(), "登録なのに必須になっていない");
+assertFalse(rules.errors(null, insert).isEmpty(), "登録なのに必須になっていない");
 ```
 
 「登録リクエストかどうか」の判定は `insertRequestChecker` に渡します。
@@ -149,13 +171,15 @@ ok.putData(Item.name, "あ");
 Data ng = new Data();
 ng.putData(Item.name, "");
 
-List<Data> errors = rules.validate(null, List.of(ok, ng, ok));
+List<Data> errors = rules.errors(null, List.of(ok, ng, ok));
 
 assertEquals(1, errors.size());
 assertEquals(2, errors.getFirst().getInt("index"), "行番号が違う");
 ```
 
 **エラーのある行だけ**返り、各行に `index` が入ります（**1 始まり**）。
+
+`validate(db, list)` は、通らない行が1つでもあれば `ValidationException` です（例外の `errors()` は `{"rows": [...]}`）。
 
 ## ルートにかける
 
@@ -203,10 +227,9 @@ JimbleApp app = new JimbleApp() {
 addErrors(rules.errors(db, context.request().bodyAll()));
 ```
 
-> [!TRAP]
-> **`validate(...)` / `errors(...)` はエラーの一覧を返すだけで、止めません。**戻り値を捨てると、エラーがあっても素通りします。
-> 1.5.0 で足した `errors(...)` は `validate(...)` と同じもので、名前が中身を言っています。
-> 2.0 では `validate(...)` が「失敗したら 422 の例外」に変わる予定です。
+> [!NOTE]
+> 1.x の `validate(...)` は一覧を返すだけで、戻り値を捨てるとエラーがあっても素通りしていました。
+> 2.0 で `void` にし、通らなければ例外にしました。一覧が要るところは `errors(...)` に書き換えます（[2.0 への移行](./migrate-2)）。
 
 > [!NOTE]
 > `ValidationExecutor` は **`WebContext` をフィールドに持ちません。**
@@ -237,6 +260,7 @@ Paging paging = context.request().paging();
 | 数値でない値 | 無視して既定を使います |
 
 `context.request().paging(20)` と書けば、`per` が来ていないときの既定を変えられます。
+`Paging` は1リクエストに1つで、最初に作ったものを使い回します。**先に `paging()` を呼んだあとで `paging(50)` と違う件数を渡すと `IllegalStateException` です**。件数は最初の1回で渡してください。
 
 ### SELECT にかける
 

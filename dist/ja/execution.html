@@ -251,7 +251,8 @@ onComplete ※必ず通る
 </code></pre>
 <ul>
 <li>キューは実行中にも積めます（<code>context.addExecutor(...)</code>）</li>
-<li><code>cancel()</code> を呼んでも<strong>その場では止まりません</strong>。<code>execute</code> から戻ったあとに残りが捨てられ、<code>onCancel</code> が呼ばれます</li>
+<li><code>cancel()</code> は<strong>その場で <code>execute</code> を抜けます</strong>（<code>ExecutorCanceled</code> を投げ、枠組みが受け止めます）。残りの Executor が捨てられ、<code>onCancel</code> が呼ばれます。
+<code>catch (Exception e)</code> で囲んだ中で呼ぶと、そこで受け止められてあとの行が走るので、<code>try</code> の外で呼んでください（1.x は印を立てるだけで、あとの行も走っていました）</li>
 <li><code>OPTIONS</code> はプリフライト専用なので、<strong>キューを回しません</strong>（要件 F-W-19）</li>
 </ul>
 <h2 id="どこが何のスレッドで動くか">どこが何のスレッドで動くか<a class="anchor" href="#どこが何のスレッドで動くか">#</a></h2>

@@ -254,6 +254,10 @@ and <code>a_c</code> does not match <code>abc</code> (<code>%</code> and <code>_
 <strong>An empty list (or <code>null</code>) fails while the SQL is being built</strong> — <code>IN ()</code> is broken SQL, and
 collapsing it to <code>IN (NULL)</code> <strong>matches no row and quietly returns nothing</strong>.</p>
 </div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Compare with <code>NULL</code> using <code>is_null()</code> / <code>is_not_null()</code>.</strong>
+<code>eq(null)</code> / <code>not(null)</code> throw <code>SqlBuildException</code> while the SQL is being built, because <code>= NULL</code> matches no row.</p>
+</div>
 <h2 id="joins">Joins<a class="anchor" href="#joins">#</a></h2>
 <pre class="code"><code class="lang-java">SQL.select()
 	.from(Post.instance())
@@ -265,7 +269,7 @@ Calling it twice joins the conditions with AND. <strong>Calling <code>on()</code
 (up to 1.4, when <code>from</code> was still a plain table, <strong>the ON was silently dropped</strong>).</p>
 <p>The result nests under the table name, so you get it with <code>row.getData(&quot;comment&quot;)</code>.</p>
 <h2 id="inserting-updating-deleting">Inserting, updating, deleting<a class="anchor" href="#inserting-updating-deleting">#</a></h2>
-<pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(
+<pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insertKey(
 	SQL.insert(Post.instance())
 		.value(Post.title, title)
 		.value(Post.created_at, <span class="h-k">new</span> Date())      <span class="h-c">// the application's clock</span>
@@ -290,8 +294,13 @@ Calling it twice joins the conditions with AND. <strong>Calling <code>on()</code
 nodes' clocks drift, <strong>a row inserted later can carry an earlier timestamp</strong>, and a
 list ordered by creation time silently swaps rows around.</p>
 </div>
-<p><code>insert</code> returns the generated key. When you do not need the ID,
-<code>insertNoReturnKey</code> is faster.</p>
+<p><code>insertKey</code> returns the generated key (it throws if no key was generated). When you do not need the ID,
+use <code>insert</code> (it returns nothing). For <code>INSERT ... SELECT</code> and anything else where you need the count, use <code>execute(...)</code>.</p>
+<p><code>update</code> / <code>delete</code> return the number of rows hit. <strong>Every failure is a <code>SqlExecuteException</code></strong>;
+a unique-constraint violation alone is a <code>DuplicateKeyException</code> (<a href="./db">Using the DB</a>).</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The current time is <code>Dsl.now()</code>. <strong>The string <code>&quot;now()&quot;</code> goes in as a plain string</strong> (1.x replaced it with the current time).</p>
+</div>
 <p>Updating only the fields that were sent looks like this.</p>
 <pre class="code"><code class="lang-java">patch(<span class="h-s">"/posts/{id}"</span>, context -&gt; {
 
@@ -549,12 +558,12 @@ List&lt;Long&gt;    ids    = db.insertBatch(builderList);    <span class="h-c">/
 </code></pre>
 <p><strong>The two return different things.</strong> <code>executeBatch</code> gives you row counts
 (<code>List&lt;Integer&gt;</code>); <code>insertBatch</code> gives you the generated keys (<code>List&lt;Long&gt;</code>).
-For the counts, <code>DB.isBatchSuccess(list)</code> tells you whether all of them went through.</p>
+<strong>Failures are exceptions.</strong> Pass an empty list and you get an empty list back.</p>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>Every builder you stack has to produce the same SQL.</strong> The point of a batch is
 one statement with the parameters swapped in, so if the order you call <code>value()</code>
 changes partway through, the SQL changes too — <strong>keep the order the same inside
-the loop</strong>. When it does not match, <code>DB_998</code> is set and <code>null</code> comes back
+the loop</strong>. When it does not match, you get a <code>SqlExecuteException</code> with <code>DB_998</code>
 (until this was fixed, <strong>the values were silently shifted sideways</strong> with no
 exception and no warning).</p>
 </div>

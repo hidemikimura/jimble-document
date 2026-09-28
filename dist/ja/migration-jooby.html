@@ -302,7 +302,7 @@ install(PostController::<span class="h-k">new</span>);
 </tr>
 <tr>
 <td><code>@Transactional</code></td>
-<td><code>try (DBTransaction transaction = ...)</code></td>
+<td><code>db.transaction(tx -&gt; { ... })</code></td>
 </tr>
 <tr>
 <td><code>@Inject</code></td>
@@ -361,12 +361,14 @@ install(PostController::<span class="h-k">new</span>);
 <li><code>App.java</code> を <code>JimbleApp</code> にする。ルート定義は貼るだけ</li>
 <li>ハンドラの中を <code>context.request()</code> / <code>context.response()</code> に書き換える</li>
 <li><code>@Inject</code> を <code>install()</code> とコンストラクタに置き換える</li>
-<li><code>@Transactional</code> を <code>try (DBTransaction ...)</code> に置き換える</li>
+<li><code>@Transactional</code> を <code>db.transaction(tx -&gt; { ... })</code> に置き換える</li>
 <li>起動して、<strong>ルート一覧と構成行を確認する</strong></li>
 </ol>
 <h2 id="移行しなくてよいもの">移行しなくてよいもの<a class="anchor" href="#移行しなくてよいもの">#</a></h2>
-<p>DB 層はそのままです。<code>SQL</code> / <code>Column</code> / <code>Table</code> / <code>Data</code> / <code>DB</code> の使い方は変わりません。
+<p>DB 層のクラス（<code>SQL</code> / <code>Column</code> / <code>Table</code> / <code>Data</code> / <code>DB</code>）と SQL の組み方はそのままです。
 生成されたテーブル定義のクラスも、そのまま使えます。</p>
+<p>ただし<strong>失敗は戻り値ではなく例外です</strong>。<code>select</code> は <code>Optional&lt;Data&gt;</code> を返し、<code>isError()</code> はありません。
+戻り値で失敗を見ていたところは書き換えが要ります（<a href="./db">DB</a>・<a href="./migrate-2">2.0 への移行</a>）。</p>
 
 		</article>
 

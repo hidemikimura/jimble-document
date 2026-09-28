@@ -255,16 +255,17 @@
 <strong>無いキーは <code>getString</code> なら <code>null</code>、<code>getInt</code> なら <code>0</code>、<code>getBoolean</code> なら <code>false</code></strong> です
 （「無い」と「0」は区別できません。区別したいときは <code>getIntObject</code> などの Object 版か <code>isNull(key)</code>。
 詳しくは <a href="./util">ユーティリティ</a>）。</p>
-<p><strong>既定値を渡す形（1.5.0 から）を勧めます。</strong><code>getInt(&quot;page&quot;, 1)</code> は、無い・空欄のときだけ <code>1</code> を返し、
-<code>&quot;abc&quot;</code> のように読めない値は <code>DataConversionException</code> で止まります（黙って <code>0</code> になりません）。</p>
-<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong><code>context.request()</code> から直接は読めません。</strong>
-<code>Request</code> も <code>Data</code> なので <code>context.request().getString(&quot;title&quot;)</code> は<b>コンパイルが通り</b>ますが、
-本文もクエリも入っていないので <strong><code>null</code> が返ります。</strong>
+<p><strong>あるのに読めない値</strong>（<code>&quot;abc&quot;</code> を <code>getInt</code> で読むなど）は <code>DataConversionException</code> です（黙って <code>0</code> になりません）。
+**利用者の入力は、先に <a href="./validation">検証</a> を通してください。**通さずに読んで例外になると 500 です。
+既定値を渡す形（<code>getInt(&quot;page&quot;, 1)</code>）は、無い・空欄のときだけ既定値を返します。</p>
+<p><strong><code>Request</code> は <code>Data</code> ではありません。</strong><code>context.request().getString(&quot;title&quot;)</code> のようには読めません（コンパイルエラーです）。
 上の表のどれか（ふつうは <code>bodyAll()</code>）を通してください。</p>
 <pre class="code"><code class="lang-java">Data input = context.request().bodyAll();
 String title = input.getString(<span class="h-s">"title"</span>);
 </code></pre>
+<p><strong><code>Content-Type</code> が <code>application/json</code> なのに本文が JSON として読めないと、<code>body()</code> / <code>bodyJson()</code> / <code>bodyAll()</code> が 400 の <code>HttpException</code> を投げます</strong>（何度読んでも同じです）。
+途中まで読んだ本文や空の <code>Data</code> で先へ進むことはありません。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>getStringOptional</code> は「無ければ空文字」ですが、その空文字を <code>Data</code> に入れます。</strong>
 読んだだけでキーが増えるので、JSON にして返す直前やループの中では使わないでください
 （<a href="./util">ユーティリティ</a>）。</p>
@@ -327,15 +328,17 @@ request.putData(Item.name, <span class="h-s">""</span>);
 request.putData(Item.age, <span class="h-s">"999"</span>);
 
 <span class="h-c">// エラーは最初の1件で止めず、全部集める（要件 F-V-03）</span>
-Data errors = rules.validate(<span class="h-k">null</span>, request);
+Data errors = rules.errors(<span class="h-k">null</span>, request);
 
 Data messages = ValidationMessages.toMessages(errors);</code></pre>
 <p><strong>エラーは最初の1件で止めません。</strong> 全部集めてから返します。
 入力し直す人にとって、1件ずつ言われるのがいちばん困るからです。</p>
 <p><code>ValidationMessages.toMessages(errors)</code> で、項目名 → メッセージの <code>Data</code> になります。
 そのまま JSON で返すか、テンプレートに渡します。</p>
+<p>止めてよいなら <code>rules.validate(db, input);</code> と文で書きます。通らなければ <code>ValidationException</code> で、枠組みが 422 を返します。</p>
 <p>ルールの一覧、ルート単位でかける <code>ValidationExecutor</code>、ページングは
-<a href="./validation">検証とページング</a> にまとめてあります。</p>
+<a href="./validation">検証とページング</a> にまとめてあります。
+ページングの件数は<strong>最初の1回で</strong>渡します（<code>paging()</code> のあとに <code>paging(50)</code> と違う件数を渡すと <code>IllegalStateException</code> です）。</p>
 <h2 id="返す">返す<a class="anchor" href="#返す">#</a></h2>
 <pre class="code"><code class="lang-java">context.response().send(<span class="h-s">"text"</span>);                   <span class="h-c">// text/plain</span>
 context.response().json(<span class="h-s">"posts"</span>, list);            <span class="h-c">// JSON</span>
@@ -345,6 +348,9 @@ context.response().download(file, <span class="h-s">"報告書.xlsx"</span>);  <
 context.response().code(<span class="h-n">201</span>).send();               <span class="h-c">// 本文なし</span>
 </code></pre>
 <p><code>json()</code> は組み立てるだけです。複数回呼ぶと、1つの JSON に足されていきます。</p>
+<p><strong>返し方は1つだけです。</strong><code>json</code> / <code>jsonl</code> / <code>text</code> / <code>cache</code> / <code>view</code> / <code>redirect</code> / <code>download</code> のうち、
+違う種類を2つ積んだ時点で <code>IllegalStateException</code> になります（<code>json(...)</code> のあとに <code>redirect(...)</code> など）。
+同じ種類を重ねるのは構いません。</p>
 <p><strong><code>json()</code> のあとに <code>send()</code> を書く必要はありません。</strong>
 組み立てておけば、ディスパッチャが実行の終わりに送ります。
 <code>send()</code> を明示するのは、<strong>本文なしで終わらせたいとき</strong>（<code>code(204).send()</code>）や、
@@ -370,7 +376,7 @@ context.response().code(<span class="h-n">201</span>).send();               <spa
 </code></pre>
 <p><strong><code>outputStream()</code> を呼んだ時点でステータスとヘッダが決まります。</strong>
 <code>code(...)</code>・<code>cookies()</code> に積んだ Cookie・既定の <code>Cache-Control: no-store</code>（自分で決めていれば上書きしません）は、
-その前に済ませてください。あとから変えても届きません。
+その前に済ませてください。<strong>送ったあとにヘッダや Cookie を書くと <code>IllegalStateException</code> です</strong>（もう届きません）。
 204 / 205 / 304 のときは、書いたものは捨てられて WARN が出ます。</p>
 <p>**書いたものは <code>flush()</code> するまで溜まります。**CSV のように最後まで書き切るものはそのままで構いませんが、
 届いたそばから相手に見せたいとき（途中経過・ほかのサーバーの応答の中継）は、書くたびに <code>flush()</code> してください。</p>

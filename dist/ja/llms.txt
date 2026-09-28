@@ -60,4 +60,4 @@
 - [jooby からの移行](https://jimble.io/ja/migration-jooby.md): 何がそのまま動き、何を書き換えるか
 - [セキュリティ](https://jimble.io/ja/security.md): 脆弱性の報告先と、受け取ったあとに何をするか
 - [版と互換性](https://jimble.io/ja/versioning.md): どこまでが公開 API か。いつ壊れうるか。壊すときに何をするか
-- [2.0 への移行](https://jimble.io/ja/migrate-2.md): 1.5 のうちに書き換えておけば、2.0 に上げてもほぼ直すところが無い
+- [2.0 への移行](https://jimble.io/ja/migrate-2.md): 1.x から 2.0 へ。消したもの・型が変わったもの・例外になったもの
