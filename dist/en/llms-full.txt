@@ -684,6 +684,10 @@ You pull values out with `getString` `getInt` `getLong` `getBoolean` `getData` `
 `getBoolean`** — you cannot tell "missing" from "0". When you need to, use the Object
 versions (`getIntObject` and friends) or `isNull(key)`. See [Utilities](./util).
 
+**Prefer the form that takes a default (since 1.5.0).** `getInt("page", 1)` returns `1` only when the key
+is missing or blank; a value it cannot read, such as `"abc"`, stops with a `DataConversionException`
+instead of quietly becoming `0`.
+
 > [!TRAP]
 > **You cannot read straight off `context.request()`.**
 > `Request` is a `Data` too, so `context.request().getString("title")` **compiles** — and
@@ -1224,8 +1228,13 @@ When it fails, this is what you get.
 You can also stack the result of `ValidationRules` directly.
 
 ```java
-addErrors(rules.validate(db, context.request().bodyAll()));
+addErrors(rules.errors(db, context.request().bodyAll()));
 ```
+
+> [!TRAP]
+> **`validate(...)` / `errors(...)` only return the list of errors; they do not stop anything.** Throw the return value away
+> and invalid input goes straight through. `errors(...)`, added in 1.5.0, is the same as `validate(...)` with a name that says
+> what it returns. In 2.0, `validate(...)` is planned to throw a 422 when validation fails.
 
 > [!NOTE]
 > `ValidationExecutor` **does not hold `WebContext` in a field.**
@@ -2071,7 +2080,16 @@ String lastPost = context.cookies().get("last_post");
 were visible, every re-read of a CSRF token you had issued a moment ago would hand you
 a different one.
 
-To sign a value, sign it with `Cookies.sign(value)` and put it in with `put(Cookie, plaintext)`.
+When you write a `Cookie` whose attributes (`Path`, `Max-Age`) you set yourself, **pick signing by name** (since 1.5.0).
+
+```java
+context.cookies().putSigned(new Cookie("user", id).path("/app").maxAge(3600));    // signed (readable with get)
+context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));      // not signed (for JavaScript)
+```
+
+> [!TRAP]
+> **`put(Cookie)` does not sign** (while `put(name, value)` does). With `cookie.secret` set, the next request's
+> `get` cannot read what you wrote and returns `""`. Deprecated in 1.5.0, removed in 2.0.
 
 **Read it back with `context.cookies().get("a name")` or `context.request().cookie("a name")`.**
 A value whose signature did not check out never lands there — that is the point, so a tampered
@@ -3402,6 +3420,24 @@ Query with `Column` and no string keys show up in your code.
 > serialising that to JSON **leaves one level of nesting in**. To flatten, use
 > `getData(table)` or `flattenTable(table)`.
 
+> [!TRAP]
+> **Results of a hand-written SQL string (`db.select("SELECT ...")`) do not nest.** The nesting comes from the builder
+> aliasing columns as `post__title`, so your own SQL gives a flat Data. In a join, **columns with the same name
+> (`id` …) silently overwrite each other with the later value** — give them aliases.
+
+### JSON columns
+
+MySQL `JSON` and PostgreSQL `json` / `jsonb` columns **come back already decoded, as `Data` (objects) or `List` (arrays).**
+
+```java
+row.getStringList("tags");      // ["a", "b"]  an array column
+row.getData("options");         // an object column
+row.getString("tags");          // "a"  <- only the first element, not JSON text
+```
+
+**`getString` on an array column returns only the first element** (a WARN is logged the first time it happens).
+To get the JSON text itself, convert it in SQL: `CAST(col AS CHAR)` on MySQL, `col::text` on PostgreSQL.
+
 ## Reading errors
 
 ```java
@@ -3455,6 +3491,18 @@ if (user == null) { return nobody; }   // null means "no rows", nothing else
 | `selectOrThrow` | One row. **`null` means "no rows" only**. `SqlExecuteException` if it cannot be read |
 | `selectListOrThrow` | Rows. **Empty list for no rows**. `SqlExecuteException` if it cannot be read |
 | `insertKey` | **The generated key only**. `SqlExecuteException` if there is no generated column, or the insert failed |
+
+**A unique-constraint violation gets its own type** (since 1.5.0).
+The `...OrThrow` methods and `insertKey` throw `DuplicateKeyException` (a subclass of `SqlExecuteException`);
+with the return-value style, `db.isDuplicateKeyError()` tells it apart.
+
+```java
+try {
+	long id = db.insertKey(SQL.insert(User.instance()).value(User.email, email));
+} catch (DuplicateKeyException e) {
+	return "that email address is taken";
+}
+```
 
 > [!TRAP]
 > **The return value of `insert` also carries two meanings.**
@@ -3536,6 +3584,19 @@ SQL.select(Post.id, Post.title).from(Post.instance())
 
 Call `where` more than once and the conditions are joined with AND.
 
+For OR and parentheses, group with `Dsl.anyOf(...)` / `Dsl.allOf(...)` (since 1.5.0).
+
+```java
+.where(Post.shop_id.eq(shopId), Dsl.anyOf(Post.status.eq("draft"), Post.status.eq("review")))
+// WHERE (shop_id = ?) AND ( status = ? OR status = ?)
+```
+
+> [!TRAP]
+> **One condition holds one comparison.** `Post.id.ge(1).le(9)` fails when the SQL is built —
+> up to 1.4 **only the last `le(9)` survived, with no exception**. Use `between(a, b)` for a range
+> and `.and(Post.id.le(9))` for a second condition.
+> Calling `and(...)` / `or(...)` directly on a column also fails (up to 1.4 it returned `null`).
+
 > [!NOTE]
 > **`contains`, `starts_with` and `ends_with` look for the text you passed, literally.**
 > A `50%` typed into a search box is looked up as the string **`50%`**, not as "anything starting with 50",
@@ -3557,6 +3618,8 @@ SQL.select()
 ```
 
 Inner joins are `inner(...)`. An `on()` attaches to the join right before it.
+Calling it twice joins the conditions with AND. **Calling `on()` where there is no join fails**
+(up to 1.4, when `from` was still a plain table, **the ON was silently dropped**).
 
 The result nests under the table name, so you get it with `row.getData("comment")`.
 
@@ -3868,29 +3931,27 @@ try (DB db = BlogExample.db();
 There are no annotations. **What you wrapped is the transaction.**
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+try (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString("title"))
-			.value(Post.body, request.getString("body"))
-			.value(Post.image_name, request.getStringOptional("image_name"))
-			.value(Post.published, request.getBoolean("published"))
-			.value(Post.created_at, new Date())
-	);
-
-	if (id <= 0) {
-		transaction.rollbackEndTransaction();
-		return -1;
+	long id;
+	try {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString("title"))
+				.value(Post.body, request.getString("body"))
+				.value(Post.image_name, request.getStringOptional("image_name"))
+				.value(Post.published, request.getBoolean("published"))
+				.value(Post.created_at, new Date())
+		);
+	} catch (SqlExecuteException ex) {
+		return -1;                   // tx.commit() まで来ないので、抜けたら巻き戻る
 	}
 
 	new NoticeExecutor().put(db, new Data()
 		.putData("post_id", id)
 		.putData("title", request.getString("title")));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     // 記事とキューを一緒に確定して終わる
 
 	/*
 	 * コミットしてから流す。
@@ -3908,7 +3969,7 @@ try (DBTransaction transaction = new DBTransaction(db)) {
 
 | Method | What it does |
 | --- | --- |
-| `beginTransaction()` | Starts one. Does nothing if one is already open |
+| `beginTransaction()` | Starts one. If one is already open, **joins it** (see "Nesting" below) |
 | `commit()` | Commits. **The transaction continues** |
 | `commitEndTransaction()` | Commits and ends |
 | `rollback()` | Rolls back. The transaction continues |
@@ -3919,6 +3980,25 @@ Watch the difference between `commit()` and `commitEndTransaction()`.
 `commit()` means "settle what has happened so far, and carry on".
 In the code this was ported from, `commit()` ended the transaction internally, which
 left a hole: **everything after it silently became auto-commit.** jimble fixes that.
+
+## Nesting (joining)
+
+Starting a `DBTransaction` while one is already open **does not start a new one; it joins the outer one.**
+
+| What the inner one does | What happens |
+| --- | --- |
+| `commit()` / `commitEndTransaction()` | Nothing. The outer one commits |
+| `rollback()` / `rollbackEndTransaction()` | **Marks the outer one rollback-only** |
+| Closed without committing (left by an exception) | **Marks the outer one rollback-only** |
+
+A rollback-only outer `commitEndTransaction()` rolls everything back and throws `CodeException` (`DB_005`).
+To carry on in the outer one, call `rollback()` there and write again.
+
+> [!TRAP]
+> **Up to 1.4, the inner `rollback()` silently did nothing and the outer one committed anyway.**
+> Rows the inner code meant to undo went in with the outer commit.
+> Whether it had joined was also decided **only when it was constructed**, so if the outer one started
+> afterwards, the inner `commitEndTransaction()` **ended the outer transaction**.
 
 ## Forgetting to close
 
@@ -3960,6 +4040,36 @@ ERROR 閉じられていない DB が残っていました。閉じます: blog_
 > **This is a last line of defence.** By the time it fires an ERROR has been logged, so
 > treat the line as something to fix rather than something to rely on. In a long-running
 > batch the connection stays held until the execution ends.
+
+## The 2.0 shape (since 1.5.0)
+
+**Prefer this for new code.** It throws no checked exceptions, and `commit()` commits **and ends** the transaction.
+
+```java
+db.transaction(tx -> {
+	db.insert(...);
+	db.update(...);
+});                                   // commits if the body returns normally; rolls back and rethrows otherwise
+
+long id = db.transactionResult(tx -> db.insertKey(...));   // returns a value
+
+try (Tx tx = db.begin()) {            // when you want to commit yourself
+	db.update(...);
+	tx.commit();                      // commits and ends; leaving without it rolls back
+}
+```
+
+| | `Tx` | `DBTransaction` |
+| --- | --- | --- |
+| Commit and end | `commit()` | `commitEndTransaction()` |
+| Commit and carry on | `checkpoint()` | `commit()` |
+| Roll back and end | `rollback()` | `rollbackEndTransaction()` |
+| Failure | `TransactionException` (unchecked; `getCode()` gives `DB_004` etc.) | `CodeException` (checked) |
+| A second `commit()` | Throws | Does nothing |
+
+If the body throws a checked exception, it rolls back and wraps it in a `TransactionException` (`DB_006`).
+Nesting behaves as in "Nesting" below (joining, rollback-only, `DB_005`).
+In 2.0, `DBTransaction`, `db.beginTransaction()` and friends go away and only this remains.
 
 ## The short form
 
@@ -5321,29 +5431,27 @@ public class NoticeExecutor extends MqExecutor {
 ## Enqueueing
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+try (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString("title"))
-			.value(Post.body, request.getString("body"))
-			.value(Post.image_name, request.getStringOptional("image_name"))
-			.value(Post.published, request.getBoolean("published"))
-			.value(Post.created_at, new Date())
-	);
-
-	if (id <= 0) {
-		transaction.rollbackEndTransaction();
-		return -1;
+	long id;
+	try {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString("title"))
+				.value(Post.body, request.getString("body"))
+				.value(Post.image_name, request.getStringOptional("image_name"))
+				.value(Post.published, request.getBoolean("published"))
+				.value(Post.created_at, new Date())
+		);
+	} catch (SqlExecuteException ex) {
+		return -1;                   // tx.commit() まで来ないので、抜けたら巻き戻る
 	}
 
 	new NoticeExecutor().put(db, new Data()
 		.putData("post_id", id)
 		.putData("title", request.getString("title")));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     // 記事とキューを一緒に確定して終わる
 
 	/*
 	 * コミットしてから流す。
@@ -6098,7 +6206,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.4.3-SNAPSHOT
+jimble 1.5.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6122,7 +6230,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`1.4.3-SNAPSHOT`, say),
+was built from**. If that version is not published (`1.5.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6153,7 +6261,18 @@ my-blog/
 	conf/application.conf
 	conf/logback.xml
 	conf/migration/my_blog/001_create_note.sql.example
+	AGENTS.md
+	CLAUDE.md
+	.claude/skills/jimble/SKILL.md
+	.claude/skills/jimble-db/SKILL.md
+	.claude/skills/jimble-web/SKILL.md
+	.claude/skills/jimble-batch/SKILL.md
+	.claude/jimble-skills.properties
 ```
+
+**It also places guidance for AI assistants** (`AGENTS.md`, a `CLAUDE.md` that only loads it, and the skills under
+`.claude/skills/`). `.claude/jimble-skills.properties` records what was placed, so that after you upgrade jimble,
+`./gradlew jimbleSkills` only replaces the skills nobody edited ([Gradle plugins](./gradle)).
 
 **It does not create empty directories.** Create them when you need them.
 Anything ending in `.example` becomes live once you rename it.
@@ -6244,9 +6363,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.4.2"
-	id("io.jimble.run") version "1.4.2"
-	id("io.jimble.db")  version "1.4.2"
+	id("io.jimble.jte") version "1.5.0"
+	id("io.jimble.run") version "1.5.0"
+	id("io.jimble.db")  version "1.5.0"
 }
 ```
 
@@ -6289,9 +6408,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.4.2"   // if you use src/main/jte
-	id("io.jimble.run") version "1.4.2"   // if you want hot reload
-	id("io.jimble.db")  version "1.4.2"   // if you use a database
+	id("io.jimble.jte") version "1.5.0"   // if you use src/main/jte
+	id("io.jimble.run") version "1.5.0"   // if you want hot reload
+	id("io.jimble.db")  version "1.5.0"   // if you use a database
 }
 
 repositories {
@@ -6306,7 +6425,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.4.2")
+	implementation("io.jimble:jimble-web:1.5.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6340,7 +6459,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.4.2' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -6511,6 +6630,55 @@ Fix it, save, reload, and you carry on.
 > The build calls `gradlew` **in a child process** (a running build cannot invoke
 > a task of the same project from inside itself).
 > If `gradlew` is broken, it says why and falls back to `gradle` from your PATH.
+
+## Tasks for AI assistants
+
+**Every jimble plugin (`io.jimble.jte` / `io.jimble.run` / `io.jimble.db`) adds them.**
+
+| Task | What it does |
+| --- | --- |
+| `./gradlew jimbleSkills` | Brings `.claude/skills/` in line with **the skills of the jimble version you use**. Places `AGENTS.md` / `CLAUDE.md` if they are missing |
+| `./gradlew jimbleCheck` | Finds jimble's **known pitfalls** in your source and configuration, each with a fix and a link to read |
+
+### jimbleSkills
+
+`jimble new` **copies** the skills in, so upgrading jimble leaves the copies behind and your
+application's AI keeps reading the old version's explanations. **Run it after you upgrade.**
+
+```bash
+./gradlew jimbleSkills
+./gradlew jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record
+```
+
+- **Hand-edited skills are never overwritten.** The hash of what was placed is recorded in
+  `.claude/jimble-skills.properties`; a file that still matches (untouched since jimble placed it) is replaced,
+  anything else is left alone
+- **Skills with no record** (placed by a `jimble new` from before the record existed) are left alone too, since there is
+  no telling whether they were edited. If you did not edit them, use `--overwrite`
+- **Put your application's own rules in `AGENTS.md`, not in the skills.** An edited skill can no longer be brought up to date
+- `AGENTS.md` / `CLAUDE.md` are **placed only if missing, never touched otherwise** (`CLAUDE.md` just says `@AGENTS.md`)
+
+### jimbleCheck
+
+It only looks for things that **go wrong silently at run time** (anything that fails at startup and tells you
+how to fix it is left out). Any `ERROR` fails the task; `WARN` alone does not.
+
+| Rule | Level | What it looks for |
+| --- | --- | --- |
+| J101 | ERROR | `context.request().getString(...)` and friends (`Request` itself is empty; go through `bodyAll()`) |
+| J201 | WARN | `${ENV}` without `?` in configuration (fails at startup wherever the variable is not set) |
+| J202 | ERROR | The same key written again after its `${?ENV}` line (the environment variable never wins) |
+| J301 | ERROR | `Migration.install()` after `DBUtil.load(...)` (migrations never run) |
+| J302 | ERROR | `BatchRegistry.sync` is used but `BatchTables.install` is called nowhere |
+| J303 | ERROR | `BatchRegistry.sync` before `BatchRegistry.add` (every batch becomes `nothing`) |
+| J304 | WARN | codegen is in use but MQ tables (`mq_scheduler` …) are missing from `codegen.exclude_tables` |
+| J401 | ERROR | An outer `before(Auth::guard)` with `Remember.restore` inside an `Auth.REALM` block (401 every time despite remember-me) |
+| J501 | WARN | The skills are not from the jimble version you use (run `jimbleSkills`) |
+| J701 | WARN | An empty `catch` in a file that uses `DBTransaction` (reports success when nothing was committed) |
+
+> [!NOTE]
+> Java is not parsed into a syntax tree; comments and strings are blanked out first. **Silence a false positive
+> with `// jimble-check:ignore J101` on that line or the one above** (`# jimble-check:ignore J201` in configuration).
 
 
 
@@ -8692,6 +8860,11 @@ DB values are **read and written by column (`Column`)**. The column versions **f
 > **You cannot tell "missing" from "0".** `getString` returns `null`,
 > `getInt` returns `0`, `getBoolean` returns `false`.
 > When you need to tell them apart, use the **Object versions** — `getIntObject` and friends — or `isNull(key)`.
+>
+> **Since 1.5.0 there is a form that takes a default** (`getInt(key, default)` / `getLong` / `getDouble` / `getBoolean` / `getString`).
+> It returns the default **only when the key is missing, `null` or blank**; a value it cannot read (`"abc"`, `"1.5"` as an int,
+> an overflow, `"yes"` as a boolean) throws a `DataConversionException`. **It does not write either** (unlike the Optional versions).
+> In 2.0, `getInt(key)` will also throw when the key is missing.
 
 > [!NOTE]
 > **`toString()` is a summary** (keys and types only).
@@ -9178,6 +9351,9 @@ buried under "fixed".
 > warning. **Do not switch those warnings off** — otherwise you find out it is gone
 > after you upgrade.
 
+**The list of what 2.0 removes or changes is in [Moving to 2.0](./migrate-2).**
+`./gradlew jimbleCheck --target=2.0` lists the lines to rewrite.
+
 ## Choosing a version
 
 **Releases are on [Maven Central](https://repo.maven.apache.org/maven2/io/jimble/).**
@@ -9185,4 +9361,101 @@ The dependency coordinates and a build file that works as it stands are on the
 [Gradle plugins](./gradle) page.
 
 **This site describes the latest release** (see [About versions](./index)).
+
+
+
+---
+
+<!-- https://jimble.io/en/migrate-2 -->
+
+
+# Moving to 2.0
+
+2.0 rebuilds the APIs that **do nothing when you throw the return value away, or fail silently**.
+Every break is either **a compile error or an exception**; nothing changes meaning silently.
+
+**The 2.0 way of writing is already in 1.5.** Rewrite while you are on 1.5 and there is almost nothing left to fix when you move to 2.0.
+
+## 1. Run jimbleCheck first
+
+```bash
+./gradlew jimbleCheck                  # things with a replacement in 1.5 (J8xx)
+./gradlew jimbleCheck --target=2.0     # plus things whose type or meaning changes in 2.0 (J9xx)
+```
+
+It lists every line to rewrite, **with the line number and the new way of writing it**. Fix them from the top.
+For a false positive, write `// jimble-check:ignore J803` on that line or the line before.
+
+1.5 marks what 2.0 removes with `@Deprecated(forRemoval = true)`, so the compiler's `[removal]` warnings give the same list.
+
+## 2. What to rewrite on 1.5
+
+The replacement is already in 1.5.
+
+| 1.x | From 1.5 | jimbleCheck |
+| --- | --- | --- |
+| `new DBTransaction(db)` / `DBTransaction.transaction(...)` | `db.transaction(tx -> { ... })` or `try (Tx tx = db.begin()) { ...; tx.commit(); }` | J801 |
+| `transaction.commitEndTransaction()` | `tx.commit()` (commits **and ends**) | J801 |
+| `transaction.commit()` (does not end) | `tx.checkpoint()` | J801 |
+| `db.beginTransaction()` / `commitEndTransaction()` / `rollbackEndTransaction()` | `db.begin()` / `tx.commit()` / `tx.rollback()` | J802 |
+| `Router admin = router.path("/admin")` | `router.path("/admin", admin -> { ... })` | J803 |
+| `column.subtract(v)` (emits a division) | `column.divide(v)` (`minus` for subtraction) | J804 |
+| `Dsl.or(w)` / `Dsl.and(w)` | `Dsl.anyOf(a, b, ...)` / `Dsl.allOf(a, b, ...)` | J805 |
+| `cookies().put(cookie)` (not signed) | `cookies().putSigned(cookie)` / `putUnsigned(cookie)` | J806 |
+| `column.eq(null)` / `not(null)` | `column.is_null()` / `is_not_null()` | J807 |
+| The string `"now()"` in `set(Data)` / `value(Data)` | Put `Dsl.now()` in as the value. For a flat row, `setRow(Data)` / `valueRow(Data)` | J808 |
+| `rules.validate(db, data);` (return value thrown away) | `Data errors = rules.errors(db, data);` | J809 |
+| `long id = db.insert(...)` (key or count, you cannot tell) | `db.insertKey(...)` (`insertNoReturnKey` for the count) | J810 |
+| `context.request().getString("x")` | `context.request().bodyAll().getString("x")` | J101 |
+| `data.getInt("x")` (0 when missing) | `data.getInt("x", default)` (unreadable values throw) | — |
+
+> [!NOTE]
+> **A `Tx` rolls back when you leave it by an exception.** You can throw an `HttpException` halfway without writing a `rollback` yourself.
+> If any SQL failed inside, `tx.commit()` does not commit and throws a `TransactionException` (`DB_004`).
+
+## 3. What changes type or meaning in 2.0
+
+These are still correct on 1.5, but stop compiling or throw in 2.0.
+jimbleCheck lists them only with `--target=2.0`.
+
+| 1.x | 2.0 | jimbleCheck |
+| --- | --- | --- |
+| `Data row = db.select(...)` (`null` for both no row and failure) | `Optional<Data>`; failure throws `SqlExecuteException` | J901 |
+| `List<Data> rows = db.selectList(...)` (`null` on failure) | Never `null`; failure throws | — |
+| `long db.insert(...)` | `void`; use `insertKey` for the key | J810 |
+| `int db.update(...)` / `delete(...)` (-1 on failure) | The count; failure throws | — |
+| `boolean db.execute(...)` | The count (`int`); failure throws | J902 |
+| `db.isError()` | Gone (failures throw) | J903 |
+| `boolean DBUtil.load(...)` / `DBLock.lock(...)` / `create(...)` | `void`; failure throws. `lock` outside a transaction throws | J904 |
+| `RedisLock.tryLock(...)` | `Optional<RedisLockResult>`; `lock` throws when it cannot take the lock | J905 |
+| `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey` / `selectCached` | Deprecated (`select` / `selectList` / `insert` mean the same) | J906 |
+| `eq(null)` | Throws | J807 |
+| `data.getInt("x")` on a missing key | Throws (`getInt("x", default)` is unchanged) | — |
+| `validate(...)` returns the list | Throws a 422 on failure; the list comes from `errors(...)` | J809 |
+| `Request` extends `Data` | It does not (read from `bodyAll()` and friends) | J101 |
+| `required()` skips a missing key | A missing key fails | — |
+| Both `json(...)` and `redirect(...)` | Throws when the second one is set | — |
+| Checked exceptions (`throws Exception` / `CodeException`) | Unchecked | — |
+
+## 4. New warnings in 1.5
+
+1.5 logs the ways of writing that throw in 2.0, **once per process**, with the calling line.
+They were silently not working, so fix them when you see them.
+
+| Warning | What was happening |
+| --- | --- |
+| `eq(null) は「= NULL」を組み…` (eq(null) builds "= NULL") | It matched no rows (so did an empty value in `where(Data)`) |
+| `set(Data) は {"set": …} の形を読みます` (set(Data) reads the wrapped form) | An unwrapped row inserted nothing |
+| `set(Data) は文字列 "now()" を…` (the string "now()") | User input `"now()"` became the current time |
+| `返し方が2つ以上積まれています` (more than one way of responding) | Only the first one was sent; the rest were dropped |
+| `送ったあとにヘッダ…` / `応答を送ったあとに Cookie…` (header / cookie after sending) | They never arrived |
+| `本文の JSON を読めませんでした` (could not read the JSON body) | It was treated as an empty Data |
+| `paging(50) の件数は効きません` (paging(50) has no effect) | An earlier `paging()` had already been built; 50 was ignored |
+| `request().getString("x") は送られてきた値を読みません` (does not read submitted values) | It was always `null` |
+| `required() / empty() はキーが無いと検査しません` (skips a missing key) | A key that was not sent at all passed |
+| `destroy() のあとにセッションを変えても保存されません` (changes after destroy()) | Values set after logout were dropped |
+
+> [!NOTE]
+> **Changing the session after `save()` is now saved if you call `save()` again** (up to 1.4 it was silently dropped).
+> `Auth.login(...)` calls `save()` internally, which is why values set right after logging in used to disappear.
 

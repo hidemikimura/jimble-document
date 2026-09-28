@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -434,8 +438,13 @@ assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h
 </tbody>
 </table>
 <p>You can also stack the result of <code>ValidationRules</code> directly.</p>
-<pre class="code"><code class="lang-java">addErrors(rules.validate(db, context.request().bodyAll()));
+<pre class="code"><code class="lang-java">addErrors(rules.errors(db, context.request().bodyAll()));
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>validate(...)</code> / <code>errors(...)</code> only return the list of errors; they do not stop anything.</strong> Throw the return value away
+and invalid input goes straight through. <code>errors(...)</code>, added in 1.5.0, is the same as <code>validate(...)</code> with a name that says
+what it returns. In 2.0, <code>validate(...)</code> is planned to throw a 422 when validation fails.</p>
+</div>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p><code>ValidationExecutor</code> <strong>does not hold <code>WebContext</code> in a field.</strong>
 It receives it as the argument to <code>validate(WebContext)</code>.

@@ -674,6 +674,9 @@ Data json = response.json();
 （「無い」と「0」は区別できません。区別したいときは `getIntObject` などの Object 版か `isNull(key)`。
 詳しくは [ユーティリティ](./util)）。
 
+**既定値を渡す形（1.5.0 から）を勧めます。**`getInt("page", 1)` は、無い・空欄のときだけ `1` を返し、
+`"abc"` のように読めない値は `DataConversionException` で止まります（黙って `0` になりません）。
+
 > [!TRAP]
 > **`context.request()` から直接は読めません。**
 > `Request` も `Data` なので `context.request().getString("title")` は<b>コンパイルが通り</b>ますが、
@@ -1213,8 +1216,13 @@ JimbleApp app = new JimbleApp() {
 `ValidationRules` の結果をそのまま積むこともできます。
 
 ```java
-addErrors(rules.validate(db, context.request().bodyAll()));
+addErrors(rules.errors(db, context.request().bodyAll()));
 ```
+
+> [!TRAP]
+> **`validate(...)` / `errors(...)` はエラーの一覧を返すだけで、止めません。**戻り値を捨てると、エラーがあっても素通りします。
+> 1.5.0 で足した `errors(...)` は `validate(...)` と同じもので、名前が中身を言っています。
+> 2.0 では `validate(...)` が「失敗したら 422 の例外」に変わる予定です。
 
 > [!NOTE]
 > `ValidationExecutor` は **`WebContext` をフィールドに持ちません。**
@@ -2058,7 +2066,16 @@ String lastPost = context.cookies().get("last_post");
 **書いた値は同じリクエストの中で読み返せます。** 受信した Cookie しか見えないと、
 発行したばかりの CSRF トークンを読み直すたびに別のものが出てしまうためです。
 
-署名を付けたいときは `Cookies.sign(value)` で署名し、`put(Cookie, 平文)` で入れます。
+属性（`Path` や `Max-Age`）を自分で決めた `Cookie` を書くときは、**署名するかどうかを名前で選びます**（1.5.0 から）。
+
+```java
+context.cookies().putSigned(new Cookie("user", id).path("/app").maxAge(3600));    // 署名する（get で読める）
+context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));      // 署名しない（JavaScript に読ませる）
+```
+
+> [!TRAP]
+> **`put(Cookie)` は署名しません**（`put(名前, 値)` は署名するのに）。`cookie.secret` を設定していると、
+> 書いた Cookie を次のリクエストの `get` が読めず `""` になります。1.5.0 で非推奨にし、2.0 で消します。
 
 **読むときは `context.cookies().get("名前")` か `context.request().cookie("名前")` です。**
 署名が合わなかった値はここに入りません（改ざんされた値がアプリに渡らないようにするためです）。
@@ -3362,6 +3379,24 @@ String same = row.getString(Post.title);
 > そのまま JSON にすると**入れ子が1段残ります**。
 > 平らにしたいときは `getData(テーブル)` か `flattenTable(テーブル)` です。
 
+> [!TRAP]
+> **文字列の SQL（`db.select("SELECT ...")`）の結果はネストしません。**ネストはビルダーが列に
+> `post__title` の別名を付けるから起きるので、自分で書いた SQL は平らな Data になります。
+> 結合すると**同じ名前の列（`id` など）はあとの値で黙って上書き**されるので、別名を付けてください。
+
+### JSON の列
+
+MySQL の `JSON`、PostgreSQL の `json` / `jsonb` の列は、**読んだ時点で `Data`（オブジェクト）か `List`（配列）になります。**
+
+```java
+row.getStringList("tags");      // ["a", "b"]  配列の列
+row.getData("options");         // オブジェクトの列
+row.getString("tags");          // "a"  ← 配列の先頭の要素だけ。JSON の文字ではない
+```
+
+**配列の列を `getString` すると先頭の要素だけが返ります**（そうしたときは1度だけ WARN が出ます）。
+JSON の文字のまま欲しいなら、SQL で文字にして読んでください——MySQL は `CAST(列 AS CHAR)`、PostgreSQL は `列::text` です。
+
 ## エラーの見方
 
 ```java
@@ -3415,6 +3450,18 @@ if (user == null) { return 誰でもない; }   // null は「1件も無かっ�
 | `selectOrThrow` | 1件。**`null` は「1件も無かった」だけ**。読めなければ `SqlExecuteException` |
 | `selectListOrThrow` | 複数件。**0件は空リスト**。読めなければ `SqlExecuteException` |
 | `insertKey` | **採番された値だけ**。採番列が無いか、入らなければ `SqlExecuteException` |
+
+**一意制約に当たったときだけは、型で分かれます**（1.5.0 から）。
+`...OrThrow` 系と `insertKey` は `DuplicateKeyException`（`SqlExecuteException` の子）を投げ、
+戻り値で見る書き方なら `db.isDuplicateKeyError()` で見分けられます。
+
+```java
+try {
+	long id = db.insertKey(SQL.insert(User.instance()).value(User.email, email));
+} catch (DuplicateKeyException e) {
+	return 「そのメールアドレスは使われています」;
+}
+```
 
 > [!TRAP]
 > **`insert` の戻り値も2つの意味を持ちます。**
@@ -3494,6 +3541,19 @@ SQL.select(Post.id, Post.title).from(Post.instance())
 
 `where` を複数回呼ぶと AND で繋がります。
 
+OR や括弧は `Dsl.anyOf(...)` / `Dsl.allOf(...)` でまとめます（1.5.0 から）。
+
+```java
+.where(Post.shop_id.eq(shopId), Dsl.anyOf(Post.status.eq("draft"), Post.status.eq("review")))
+// WHERE (shop_id = ?) AND ( status = ? OR status = ?)
+```
+
+> [!TRAP]
+> **1つの条件に比較は1つだけです。**`Post.id.ge(1).le(9)` は組み立て時に落ちます——
+> 1.4 までは**後ろの `le(9)` だけが残り、例外も出ませんでした**。範囲は `between(a, b)`、
+> 別の条件は `.and(Post.id.le(9))` で書きます。
+> 列に直接 `and(...)` / `or(...)` を付けるのも落ちます（1.4 までは `null` が返っていました）。
+
 > [!NOTE]
 > **`contains` / `starts_with` / `ends_with` は、渡した文字を「文字として」探します。**
 > 検索欄に打たれた `50%` は「50 で始まる何か」ではなく **`50%` という文字列**として探し、
@@ -3515,6 +3575,8 @@ SQL.select()
 ```
 
 内部結合は `inner(...)` です。`on()` は直前の結合に付きます。
+2度呼ぶと AND で繋がります。**結合の無いところで `on()` を呼ぶと落ちます**
+（1.4 までは、`from` がまだ素のテーブルのとき**ON が黙って消えていました**）。
 
 結果はテーブル名でネストするので、`row.getData("comment")` で取れます。
 
@@ -3818,29 +3880,27 @@ try (DB db = BlogExample.db();
 注釈はありません。**囲んだところがトランザクションです。**
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+try (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString("title"))
-			.value(Post.body, request.getString("body"))
-			.value(Post.image_name, request.getStringOptional("image_name"))
-			.value(Post.published, request.getBoolean("published"))
-			.value(Post.created_at, new Date())
-	);
-
-	if (id <= 0) {
-		transaction.rollbackEndTransaction();
-		return -1;
+	long id;
+	try {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString("title"))
+				.value(Post.body, request.getString("body"))
+				.value(Post.image_name, request.getStringOptional("image_name"))
+				.value(Post.published, request.getBoolean("published"))
+				.value(Post.created_at, new Date())
+		);
+	} catch (SqlExecuteException ex) {
+		return -1;                   // tx.commit() まで来ないので、抜けたら巻き戻る
 	}
 
 	new NoticeExecutor().put(db, new Data()
 		.putData("post_id", id)
 		.putData("title", request.getString("title")));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     // 記事とキューを一緒に確定して終わる
 
 	/*
 	 * コミットしてから流す。
@@ -3858,7 +3918,7 @@ try (DBTransaction transaction = new DBTransaction(db)) {
 
 | メソッド | 何をするか |
 | --- | --- |
-| `beginTransaction()` | 始める。他で始まっていれば何もしない |
+| `beginTransaction()` | 始める。他で始まっていれば**合流する**（下の「入れ子」） |
 | `commit()` | 確定する。**トランザクションは続く** |
 | `commitEndTransaction()` | 確定して終わる |
 | `rollback()` | 戻す。トランザクションは続く |
@@ -3869,6 +3929,25 @@ try (DBTransaction transaction = new DBTransaction(db)) {
 `commit()` は「ここまでを確定して、まだ続ける」です。
 移送元のコードでは `commit()` が中で終わらせていたため、
 **そこから先が黙って自動コミットになる**という穴がありました。jimble では直っています。
+
+## 入れ子（合流）
+
+外でトランザクションが始まっているところで `DBTransaction` を始めると、**新しくは始めず、外に合流します。**
+
+| 中でしたこと | どうなるか |
+| --- | --- |
+| `commit()` / `commitEndTransaction()` | 何もしない。確定させるのは外 |
+| `rollback()` / `rollbackEndTransaction()` | **外を巻き戻し専用にする** |
+| commit せずに閉じた（例外で抜けた） | **外を巻き戻し専用にする** |
+
+巻き戻し専用になった外の `commitEndTransaction()` は、全部を巻き戻して `CodeException`（`DB_005`）を投げます。
+外で続けたいときは、外で `rollback()` してから書き直します。
+
+> [!TRAP]
+> **1.4 までは、中の `rollback()` は黙って何もせず、外がそのままコミットしていました。**
+> 中で「失敗したので戻す」と書いたつもりの行が、外のコミットで入っていました。
+> また「合流しているか」を**作った瞬間にだけ**見ていたので、作ってから外が始まると、
+> 中の `commitEndTransaction()` が**外のトランザクションを終わらせていました**。
 
 ## 畳み忘れ
 
@@ -3909,6 +3988,36 @@ ERROR 閉じられていない DB が残っていました。閉じます: blog_
 > **拾うのは最後の砦です。**拾われた時点で ERROR が出ているので、
 > <b>ログが出たら直す</b>ものだと思ってください。
 > 実行が長いバッチでは、実行の終わりまで1本が握られたままになります。
+
+## 2.0 の形（1.5.0 から）
+
+**新しく書くならこちらを勧めます。**検査例外を投げず、`commit()` は確定して**終わります**。
+
+```java
+db.transaction(tx -> {
+	db.insert(...);
+	db.update(...);
+});                                   // 例外なく終われば確定、例外が出れば巻き戻して投げ直す
+
+long id = db.transactionResult(tx -> db.insertKey(...));   // 値を返す版
+
+try (Tx tx = db.begin()) {            // 自分で確定したいとき
+	db.update(...);
+	tx.commit();                      // 確定して終わる。呼ばずに抜けたら巻き戻す
+}
+```
+
+| | `Tx` | `DBTransaction` |
+| --- | --- | --- |
+| 確定して終わる | `commit()` | `commitEndTransaction()` |
+| 確定して続ける | `checkpoint()` | `commit()` |
+| 巻き戻して終わる | `rollback()` | `rollbackEndTransaction()` |
+| 失敗 | `TransactionException`（非検査。`getCode()` で `DB_004` など） | `CodeException`（検査） |
+| 2度目の `commit()` | 例外 | 何もしない |
+
+中身が検査例外を投げたら、巻き戻して `TransactionException`（`DB_006`）に包みます。
+入れ子のときの動き（合流・巻き戻し専用・`DB_005`）は下の「入れ子」と同じです。
+2.0 では `DBTransaction` と `db.beginTransaction()` などを消し、こちらだけにします。
 
 ## 短く書く
 
@@ -5207,29 +5316,27 @@ public class NoticeExecutor extends MqExecutor {
 ## 積む
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+try (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString("title"))
-			.value(Post.body, request.getString("body"))
-			.value(Post.image_name, request.getStringOptional("image_name"))
-			.value(Post.published, request.getBoolean("published"))
-			.value(Post.created_at, new Date())
-	);
-
-	if (id <= 0) {
-		transaction.rollbackEndTransaction();
-		return -1;
+	long id;
+	try {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString("title"))
+				.value(Post.body, request.getString("body"))
+				.value(Post.image_name, request.getStringOptional("image_name"))
+				.value(Post.published, request.getBoolean("published"))
+				.value(Post.created_at, new Date())
+		);
+	} catch (SqlExecuteException ex) {
+		return -1;                   // tx.commit() まで来ないので、抜けたら巻き戻る
 	}
 
 	new NoticeExecutor().put(db, new Data()
 		.putData("post_id", id)
 		.putData("title", request.getString("title")));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     // 記事とキューを一緒に確定して終わる
 
 	/*
 	 * コミットしてから流す。
@@ -5975,7 +6082,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.4.3-SNAPSHOT
+jimble 1.5.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -5998,7 +6105,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`1.4.3-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`1.5.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6028,7 +6135,18 @@ my-blog/
 	conf/application.conf
 	conf/logback.xml
 	conf/migration/my_blog/001_create_note.sql.example
+	AGENTS.md
+	CLAUDE.md
+	.claude/skills/jimble/SKILL.md
+	.claude/skills/jimble-db/SKILL.md
+	.claude/skills/jimble-web/SKILL.md
+	.claude/skills/jimble-batch/SKILL.md
+	.claude/jimble-skills.properties
 ```
+
+**AI への案内も置きます**（`AGENTS.md` と、それを読み込むだけの `CLAUDE.md`、`.claude/skills/` の skill）。
+`.claude/jimble-skills.properties` は置いた skill の控えで、jimble の版を上げたときに
+`./gradlew jimbleSkills` が「手で直していないもの」だけを入れ替えるのに使います（[Gradle プラグイン](./gradle)）。
 
 **空のディレクトリは作りません。** 使う段になってから作ってください。
 `.example` が付いているものは、名前を変えれば有効になります。
@@ -6116,9 +6234,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "1.4.2"
-	id("io.jimble.run") version "1.4.2"
-	id("io.jimble.db")  version "1.4.2"
+	id("io.jimble.jte") version "1.5.0"
+	id("io.jimble.run") version "1.5.0"
+	id("io.jimble.db")  version "1.5.0"
 }
 ```
 
@@ -6160,9 +6278,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "1.4.2"   // src/main/jte を使うなら
-	id("io.jimble.run") version "1.4.2"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "1.4.2"   // DB を使うなら
+	id("io.jimble.jte") version "1.5.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "1.5.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "1.5.0"   // DB を使うなら
 }
 
 repositories {
@@ -6177,7 +6295,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:1.4.2")
+	implementation("io.jimble:jimble-web:1.5.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6211,7 +6329,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:1.4.2' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -6370,6 +6488,60 @@ jimbleRun {
 > ビルドは `gradlew` を**子プロセスで**叩きます（動いているビルドの中から
 > 同じプロジェクトのタスクは呼べないため）。
 > `gradlew` が壊れていたら、理由を出して PATH の `gradle` に逃がします。
+
+## AI 向けのタスク
+
+**どの jimble のプラグイン（`io.jimble.jte` / `io.jimble.run` / `io.jimble.db`）を当てても付きます。**
+
+| タスク | すること |
+| --- | --- |
+| `./gradlew jimbleSkills` | `.claude/skills/` を、**使っている jimble の版の skill** に揃える。`AGENTS.md` / `CLAUDE.md` が無ければ置く |
+| `./gradlew jimbleCheck` | jimble の**既知の落とし穴**をソースと設定から見つける。見つけたものには直し方と引き先を付ける |
+
+### jimbleSkills
+
+`jimble new` は skill を**写して**置くので、jimble の版を上げても写しは古いままです。
+アプリの AI は古い jimble の説明を読み続けます。**版を上げたら流してください。**
+
+```bash
+./gradlew jimbleSkills
+./gradlew jimbleSkills --overwrite   # 手で直したもの・控えの無いものも入れ替える
+```
+
+- **手で直した skill は上書きしません。**置いたときの中身のハッシュを `.claude/jimble-skills.properties` に控えていて、
+  控えと同じ（jimble が置いたまま）なら入れ替え、違えば触りません
+- **控えの無い skill**（控えを書くようになる前の `jimble new` で置いたもの）も、直したかどうか分からないので触りません。
+  直していなければ `--overwrite` で入れ替えてください
+- **アプリ固有の決まりは skill ではなく `AGENTS.md` に書きます。**skill を直すと、次の版に揃えられなくなります
+- `AGENTS.md` / `CLAUDE.md` は**無ければ置き、あれば触りません**（`CLAUDE.md` は `@AGENTS.md` と書いて読み込むだけ）
+
+### jimbleCheck
+
+**動かしても黙って間違えるもの**だけを見ます（起動時に落ちて直し方を言うものは見ません）。
+`ERROR` が1つでもあれば落ち、`WARN` だけなら落ちません。
+
+```
+[J101 ERROR] src/main/java/demo/App.java:83  context.request().get〜(...) で読んでいる。Request の中身は空なので、コンパイルは通って null / 空を返す
+    直し方: 送られてきた値は context.request().bodyAll().getString("x")（クエリだけなら bodyQuery()、JSON だけなら bodyJson()）
+    詳しく: https://jimble.io/ja/request-response.md
+```
+
+| 規則 | 重さ | 見るもの |
+| --- | --- | --- |
+| J101 | ERROR | `context.request().getString(...)` など（`Request` の中身は空。`bodyAll()` を通す） |
+| J201 | WARN | 設定の `${ENV}` に `?` が無い（環境変数が無い環境で起動時に落ちる） |
+| J202 | ERROR | `${?ENV}` の行のあとで同じキーを書き直している（環境変数が効かない） |
+| J301 | ERROR | `Migration.install()` が `DBUtil.load(...)` のあと（マイグレーションが流れない） |
+| J302 | ERROR | `BatchRegistry.sync` はあるのに `BatchTables.install` がどこにも無い |
+| J303 | ERROR | `BatchRegistry.sync` が `BatchRegistry.add` より前（全部のバッチが `nothing` になる） |
+| J304 | WARN | codegen を使っているのに、MQ の表（`mq_scheduler` など）を `codegen.exclude_tables` に書いていない |
+| J401 | ERROR | 外側の `before(Auth::guard)` と、`Auth.REALM` のブロックの中の `Remember.restore`（覚えていても毎回 401） |
+| J501 | WARN | skill が使っている jimble の版のものではない（`jimbleSkills` で揃える） |
+| J701 | WARN | `DBTransaction` を使うファイルの空の `catch`（コミットされていないのに成功を返す） |
+
+> [!NOTE]
+> Java は構文木にせず、コメントと文字列を除いてから読んでいます。**誤検知は、その行か前の行に
+> `// jimble-check:ignore J101` と書けば出なくなります**（設定ファイルは `# jimble-check:ignore J201`）。
 
 
 
@@ -8512,6 +8684,11 @@ DB の値は**列（`Column`）で読み書き**します。列版は**テーブ
 > **「無い」と「0」が区別できません。**`getString` は `null`、
 > `getInt` は `0`、`getBoolean` は `false` を返します。
 > 区別したいときは `getIntObject` など **Object 版**か `isNull(key)` を使ってください。
+>
+> **1.5.0 からは既定値を渡す形があります**（`getInt(key, 既定値)` / `getLong` / `getDouble` / `getBoolean` / `getString`）。
+> 既定値を返すのは**無い・`null`・空文字のときだけ**で、読めない値（`"abc"`、int に `"1.5"`、桁あふれ、
+> 真偽に `"yes"`）は `DataConversionException` になります。**書き込みもしません**（Optional 版と違います）。
+> 2.0 では `getInt(key)` も「無ければ例外」になります。
 
 > [!NOTE]
 > **`toString()` は要約です**（キーと型だけ）。
@@ -8992,10 +9169,111 @@ jimble でこれまで実際に起きた壊れ方は、**ほとんどがシグ�
 > ビルドの警告が出るだけです。**警告を切らないでください**——
 > 消えたことに気づくのが、上げたあとになります。
 
+**2.0 で消すもの・変わるものの一覧は [2.0 への移行](./migrate-2) にあります。**
+`./gradlew jimbleCheck --target=2.0` で、書き換える行を出せます。
+
 ## 版を選ぶ
 
 **公開されているものは [Maven Central](https://repo.maven.apache.org/maven2/io/jimble/) にあります。**
 依存の座標と、そのまま動くビルドファイルは [Gradle プラグイン](./gradle) にあります。
 
 **このドキュメントサイトは、いちばん新しいリリースの内容です**（[版について](./index)）。
+
+
+
+---
+
+<!-- https://jimble.io/ja/migrate-2 -->
+
+
+# 2.0 への移行
+
+2.0 では、**戻り値を捨てると効かない・黙って何もしない**API を作り直します。
+壊れ方は**コンパイルエラーか例外だけ**で、黙って意味が変わる変更はしません。
+
+**2.0 の書き方は、1.5 に先に入っています。**1.5 のうちに書き換えておけば、2.0 に上げたときに直すところはほとんど残りません。
+
+## 1. まず jimbleCheck を流す
+
+```bash
+./gradlew jimbleCheck                  # 1.5 で置き換え先があるもの（J8xx）
+./gradlew jimbleCheck --target=2.0     # 2.0 で型や意味が変わるもの（J9xx）も
+```
+
+書き換える行が**行番号と新しい書き方つきで**出ます。上から直してください。
+誤検知は、その行か前の行に `// jimble-check:ignore J803` と書くと出なくなります。
+
+1.5 は、2.0 で消すものに `@Deprecated(forRemoval = true)` を付けています。
+コンパイラの警告（`[removal]`）も同じ一覧です。
+
+## 2. 1.5 のうちに書き換えるもの
+
+置き換え先がもう 1.5 にあります。
+
+| 1.x | 1.5 からの書き方 | jimbleCheck |
+| --- | --- | --- |
+| `new DBTransaction(db)` / `DBTransaction.transaction(...)` | `db.transaction(tx -> { ... })` か `try (Tx tx = db.begin()) { ...; tx.commit(); }` | J801 |
+| `transaction.commitEndTransaction()` | `tx.commit()`（確定して**終わる**） | J801 |
+| `transaction.commit()`（終わらない） | `tx.checkpoint()` | J801 |
+| `db.beginTransaction()` / `commitEndTransaction()` / `rollbackEndTransaction()` | `db.begin()` / `tx.commit()` / `tx.rollback()` | J802 |
+| `Router admin = router.path("/admin")` | `router.path("/admin", admin -> { ... })` | J803 |
+| `列.subtract(v)`（割り算を出す） | `列.divide(v)`（引き算なら `minus`） | J804 |
+| `Dsl.or(w)` / `Dsl.and(w)` | `Dsl.anyOf(a, b, ...)` / `Dsl.allOf(a, b, ...)` | J805 |
+| `cookies().put(cookie)`（署名しない） | `cookies().putSigned(cookie)` / `putUnsigned(cookie)` | J806 |
+| `列.eq(null)` / `not(null)` | `列.is_null()` / `is_not_null()` | J807 |
+| 文字列 `"now()"` を `set(Data)` / `value(Data)` に入れる | `Dsl.now()` を値に入れる。平らな行なら `setRow(Data)` / `valueRow(Data)` | J808 |
+| `rules.validate(db, data);`（戻り値を捨てる） | `Data errors = rules.errors(db, data);` | J809 |
+| `long id = db.insert(...)`（採番値か件数か分からない） | `db.insertKey(...)`（件数なら `insertNoReturnKey`） | J810 |
+| `context.request().getString("x")` | `context.request().bodyAll().getString("x")` | J101 |
+| `data.getInt("x")`（無くても 0） | `data.getInt("x", 既定値)`（読めない値は例外） | —— |
+
+> [!NOTE]
+> **`Tx` は例外で抜けたら巻き戻ります。**途中で `HttpException` を投げるのに、自分で `rollback` を書く必要はありません。
+> 中で1度でも SQL が失敗していたら、`tx.commit()` は確定せずに `TransactionException`（`DB_004`）を投げます。
+
+## 3. 2.0 で型や意味が変わるもの
+
+1.5 ではまだ正しい書き方ですが、2.0 でコンパイルが通らなくなるか、例外になります。
+`--target=2.0` のときだけ jimbleCheck が出します。
+
+| 1.x | 2.0 | jimbleCheck |
+| --- | --- | --- |
+| `Data row = db.select(...)`（0件も失敗も `null`） | `Optional<Data>`。失敗は `SqlExecuteException` | J901 |
+| `List<Data> rows = db.selectList(...)`（失敗は `null`） | `null` を返さない。失敗は例外 | —— |
+| `long db.insert(...)` | `void`。採番値は `insertKey` | J810 |
+| `int db.update(...)` / `delete(...)`（失敗は -1） | 件数。失敗は例外 | —— |
+| `boolean db.execute(...)` | 件数（`int`）。失敗は例外 | J902 |
+| `db.isError()` | 無くなる（失敗は例外） | J903 |
+| `boolean DBUtil.load(...)` / `DBLock.lock(...)` / `create(...)` | `void`。失敗は例外。`lock` はトランザクションの外で呼ぶと例外 | J904 |
+| `RedisLock.tryLock(...)` | `Optional<RedisLockResult>`。`lock` は取れなければ例外 | J905 |
+| `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey` / `selectCached` | 非推奨（`select` / `selectList` / `insert` が同じ意味になる） | J906 |
+| `eq(null)` | 例外 | J807 |
+| `data.getInt("x")` で無いキー | 例外（`getInt("x", 既定値)` は変わらない） | —— |
+| `validate(...)` が一覧を返す | 失敗したら 422 の例外。一覧は `errors(...)` | J809 |
+| `Request` が `Data` を継ぐ | 継がない（`bodyAll()` などから読む） | J101 |
+| `required()` はキーが無いと検査しない | キーが無ければ失敗 | —— |
+| `json(...)` と `redirect(...)` を両方積む | 2つ目を積んだ時点で例外 | —— |
+| 検査例外（`throws Exception` / `CodeException`） | 非検査例外 | —— |
+
+## 4. 1.5 で出るようになった警告
+
+1.5 は、2.0 で例外になる書き方を**プロセスで1度だけ**ログに出します（呼び出し元の行つき）。
+黙って効いていなかったものなので、出たら直してください。
+
+| 警告 | 何が起きていたか |
+| --- | --- |
+| `eq(null) は「= NULL」を組み…` | どの行にも当たっていなかった（`where(Data)` の空の値も） |
+| `set(Data) は {"set": …} の形を読みます` | 包まない行を渡して、何も入っていなかった |
+| `set(Data) は文字列 "now()" を…` | 利用者の入力 `"now()"` が現在時刻になっていた |
+| `返し方が2つ以上積まれています` | 最初の1つだけが返り、残りは捨てられていた |
+| `送ったあとにヘッダ…` / `応答を送ったあとに Cookie…` | 届いていなかった |
+| `本文の JSON を読めませんでした` | 空の Data として扱われていた |
+| `paging(50) の件数は効きません` | 先に `paging()` を呼んでいて、50 が無視されていた |
+| `request().getString("x") は送られてきた値を読みません` | いつも `null` だった |
+| `required() / empty() はキーが無いと検査しません` | キーごと送られないと素通りしていた |
+| `destroy() のあとにセッションを変えても保存されません` | ログアウトのあとの値が捨てられていた |
+
+> [!NOTE]
+> **`save()` のあとにセッションを変えると、もう一度 `save()` すれば保存されるようになりました**（1.4 までは黙って捨てていました）。
+> `Auth.login(...)` は中で `save()` するので、ログインの直後に入れた値が消えていたのはこのためです。
 

@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -237,9 +241,9 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.4.2"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.4.2"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.4.2"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>
 }
 </code></pre>
 <p>**Plugin Portal には出していません。**Maven Central から取るので、
@@ -272,9 +276,9 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.4.2"</span>   <span class="h-c">// src/main/jte を使うなら</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.4.2"</span>   <span class="h-c">// ホットリロードを使うなら</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.4.2"</span>   <span class="h-c">// DB を使うなら</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// src/main/jte を使うなら</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// ホットリロードを使うなら</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>   <span class="h-c">// DB を使うなら</span>
 }
 
 repositories {
@@ -289,7 +293,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:1.4.2"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:1.5.0"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -320,7 +324,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p>**ツールチェーンの指定は要ります。**書かないと、依存の解決の時点で止まります。</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:1.4.2' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="どれを依存に足すか">どれを依存に足すか<a class="anchor" href="#どれを依存に足すか">#</a></h2>
@@ -590,6 +594,112 @@ SQL も設定もリソース側にあるので、これで足ります。</p>
 同じプロジェクトのタスクは呼べないため）。
 <code>gradlew</code> が壊れていたら、理由を出して PATH の <code>gradle</code> に逃がします。</p>
 </div>
+<h2 id="ai-向けのタスク">AI 向けのタスク<a class="anchor" href="#ai-向けのタスク">#</a></h2>
+<p><strong>どの jimble のプラグイン（<code>io.jimble.jte</code> / <code>io.jimble.run</code> / <code>io.jimble.db</code>）を当てても付きます。</strong></p>
+<table>
+<thead>
+<tr>
+<th>タスク</th>
+<th>すること</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>./gradlew jimbleSkills</code></td>
+<td><code>.claude/skills/</code> を、<strong>使っている jimble の版の skill</strong> に揃える。<code>AGENTS.md</code> / <code>CLAUDE.md</code> が無ければ置く</td>
+</tr>
+<tr>
+<td><code>./gradlew jimbleCheck</code></td>
+<td>jimble の<strong>既知の落とし穴</strong>をソースと設定から見つける。見つけたものには直し方と引き先を付ける</td>
+</tr>
+</tbody>
+</table>
+<h3 id="jimbleskills">jimbleSkills<a class="anchor" href="#jimbleskills">#</a></h3>
+<p><code>jimble new</code> は skill を<strong>写して</strong>置くので、jimble の版を上げても写しは古いままです。
+アプリの AI は古い jimble の説明を読み続けます。<strong>版を上げたら流してください。</strong></p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleSkills
+<span class="h-k">./gradlew</span> jimbleSkills --overwrite   # 手で直したもの・控えの無いものも入れ替える
+</code></pre>
+<ul>
+<li>**手で直した skill は上書きしません。**置いたときの中身のハッシュを <code>.claude/jimble-skills.properties</code> に控えていて、
+控えと同じ（jimble が置いたまま）なら入れ替え、違えば触りません</li>
+<li><strong>控えの無い skill</strong>（控えを書くようになる前の <code>jimble new</code> で置いたもの）も、直したかどうか分からないので触りません。
+直していなければ <code>--overwrite</code> で入れ替えてください</li>
+<li>**アプリ固有の決まりは skill ではなく <code>AGENTS.md</code> に書きます。**skill を直すと、次の版に揃えられなくなります</li>
+<li><code>AGENTS.md</code> / <code>CLAUDE.md</code> は<strong>無ければ置き、あれば触りません</strong>（<code>CLAUDE.md</code> は <code>@AGENTS.md</code> と書いて読み込むだけ）</li>
+</ul>
+<h3 id="jimblecheck">jimbleCheck<a class="anchor" href="#jimblecheck">#</a></h3>
+<p><strong>動かしても黙って間違えるもの</strong>だけを見ます（起動時に落ちて直し方を言うものは見ません）。
+<code>ERROR</code> が1つでもあれば落ち、<code>WARN</code> だけなら落ちません。</p>
+<pre class="code"><code class="lang-text">[J101 ERROR] src/main/java/demo/App.java:83  context.request().get〜(...) で読んでいる。Request の中身は空なので、コンパイルは通って null / 空を返す
+    直し方: 送られてきた値は context.request().bodyAll().getString("x")（クエリだけなら bodyQuery()、JSON だけなら bodyJson()）
+    詳しく: https://jimble.io/ja/request-response.md
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>規則</th>
+<th>重さ</th>
+<th>見るもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J101</td>
+<td>ERROR</td>
+<td><code>context.request().getString(...)</code> など（<code>Request</code> の中身は空。<code>bodyAll()</code> を通す）</td>
+</tr>
+<tr>
+<td>J201</td>
+<td>WARN</td>
+<td>設定の <code>${ENV}</code> に <code>?</code> が無い（環境変数が無い環境で起動時に落ちる）</td>
+</tr>
+<tr>
+<td>J202</td>
+<td>ERROR</td>
+<td><code>${?ENV}</code> の行のあとで同じキーを書き直している（環境変数が効かない）</td>
+</tr>
+<tr>
+<td>J301</td>
+<td>ERROR</td>
+<td><code>Migration.install()</code> が <code>DBUtil.load(...)</code> のあと（マイグレーションが流れない）</td>
+</tr>
+<tr>
+<td>J302</td>
+<td>ERROR</td>
+<td><code>BatchRegistry.sync</code> はあるのに <code>BatchTables.install</code> がどこにも無い</td>
+</tr>
+<tr>
+<td>J303</td>
+<td>ERROR</td>
+<td><code>BatchRegistry.sync</code> が <code>BatchRegistry.add</code> より前（全部のバッチが <code>nothing</code> になる）</td>
+</tr>
+<tr>
+<td>J304</td>
+<td>WARN</td>
+<td>codegen を使っているのに、MQ の表（<code>mq_scheduler</code> など）を <code>codegen.exclude_tables</code> に書いていない</td>
+</tr>
+<tr>
+<td>J401</td>
+<td>ERROR</td>
+<td>外側の <code>before(Auth::guard)</code> と、<code>Auth.REALM</code> のブロックの中の <code>Remember.restore</code>（覚えていても毎回 401）</td>
+</tr>
+<tr>
+<td>J501</td>
+<td>WARN</td>
+<td>skill が使っている jimble の版のものではない（<code>jimbleSkills</code> で揃える）</td>
+</tr>
+<tr>
+<td>J701</td>
+<td>WARN</td>
+<td><code>DBTransaction</code> を使うファイルの空の <code>catch</code>（コミットされていないのに成功を返す）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>Java は構文木にせず、コメントと文字列を除いてから読んでいます。<strong>誤検知は、その行か前の行に
+<code>// jimble-check:ignore J101</code> と書けば出なくなります</strong>（設定ファイルは <code># jimble-check:ignore J201</code>）。</p>
+</div>
 
 		</article>
 
@@ -612,6 +722,9 @@ SQL も設定もリソース側にあるので、これで足ります。</p>
 			<li class="level-2"><a href="#iojimblejte">io.jimble.jte</a></li>
 			<li class="level-2"><a href="#iojimblerun">io.jimble.run</a></li>
 			<li class="level-3"><a href="#ビルドに失敗したら">ビルドに失敗したら</a></li>
+			<li class="level-2"><a href="#ai-向けのタスク">AI 向けのタスク</a></li>
+			<li class="level-3"><a href="#jimbleskills">jimbleSkills</a></li>
+			<li class="level-3"><a href="#jimblecheck">jimbleCheck</a></li>
 		</ul>
 	</nav>
 </div>

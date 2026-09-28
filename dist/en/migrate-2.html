@@ -1,0 +1,493 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moving to 2.0 - jimble</title>
+<meta name="description" content="Rewrite on 1.5 and there is almost nothing left to fix when you move to 2.0">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">Versions and compatibility</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="current">Moving to 2.0</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="moving-to-20">Moving to 2.0<a class="anchor" href="#moving-to-20">#</a></h1>
+<p>2.0 rebuilds the APIs that <strong>do nothing when you throw the return value away, or fail silently</strong>.
+Every break is either <strong>a compile error or an exception</strong>; nothing changes meaning silently.</p>
+<p><strong>The 2.0 way of writing is already in 1.5.</strong> Rewrite while you are on 1.5 and there is almost nothing left to fix when you move to 2.0.</p>
+<h2 id="1-run-jimblecheck-first">1. Run jimbleCheck first<a class="anchor" href="#1-run-jimblecheck-first">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleCheck                  # things with a replacement in 1.5 (J8xx)
+<span class="h-k">./gradlew</span> jimbleCheck --target=2.0     # plus things whose type or meaning changes in 2.0 (J9xx)
+</code></pre>
+<p>It lists every line to rewrite, <strong>with the line number and the new way of writing it</strong>. Fix them from the top.
+For a false positive, write <code>// jimble-check:ignore J803</code> on that line or the line before.</p>
+<p>1.5 marks what 2.0 removes with <code>@Deprecated(forRemoval = true)</code>, so the compiler's <code>[removal]</code> warnings give the same list.</p>
+<h2 id="2-what-to-rewrite-on-15">2. What to rewrite on 1.5<a class="anchor" href="#2-what-to-rewrite-on-15">#</a></h2>
+<p>The replacement is already in 1.5.</p>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>From 1.5</th>
+<th>jimbleCheck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>new DBTransaction(db)</code> / <code>DBTransaction.transaction(...)</code></td>
+<td><code>db.transaction(tx -&gt; { ... })</code> or <code>try (Tx tx = db.begin()) { ...; tx.commit(); }</code></td>
+<td>J801</td>
+</tr>
+<tr>
+<td><code>transaction.commitEndTransaction()</code></td>
+<td><code>tx.commit()</code> (commits <strong>and ends</strong>)</td>
+<td>J801</td>
+</tr>
+<tr>
+<td><code>transaction.commit()</code> (does not end)</td>
+<td><code>tx.checkpoint()</code></td>
+<td>J801</td>
+</tr>
+<tr>
+<td><code>db.beginTransaction()</code> / <code>commitEndTransaction()</code> / <code>rollbackEndTransaction()</code></td>
+<td><code>db.begin()</code> / <code>tx.commit()</code> / <code>tx.rollback()</code></td>
+<td>J802</td>
+</tr>
+<tr>
+<td><code>Router admin = router.path(&quot;/admin&quot;)</code></td>
+<td><code>router.path(&quot;/admin&quot;, admin -&gt; { ... })</code></td>
+<td>J803</td>
+</tr>
+<tr>
+<td><code>column.subtract(v)</code> (emits a division)</td>
+<td><code>column.divide(v)</code> (<code>minus</code> for subtraction)</td>
+<td>J804</td>
+</tr>
+<tr>
+<td><code>Dsl.or(w)</code> / <code>Dsl.and(w)</code></td>
+<td><code>Dsl.anyOf(a, b, ...)</code> / <code>Dsl.allOf(a, b, ...)</code></td>
+<td>J805</td>
+</tr>
+<tr>
+<td><code>cookies().put(cookie)</code> (not signed)</td>
+<td><code>cookies().putSigned(cookie)</code> / <code>putUnsigned(cookie)</code></td>
+<td>J806</td>
+</tr>
+<tr>
+<td><code>column.eq(null)</code> / <code>not(null)</code></td>
+<td><code>column.is_null()</code> / <code>is_not_null()</code></td>
+<td>J807</td>
+</tr>
+<tr>
+<td>The string <code>&quot;now()&quot;</code> in <code>set(Data)</code> / <code>value(Data)</code></td>
+<td>Put <code>Dsl.now()</code> in as the value. For a flat row, <code>setRow(Data)</code> / <code>valueRow(Data)</code></td>
+<td>J808</td>
+</tr>
+<tr>
+<td><code>rules.validate(db, data);</code> (return value thrown away)</td>
+<td><code>Data errors = rules.errors(db, data);</code></td>
+<td>J809</td>
+</tr>
+<tr>
+<td><code>long id = db.insert(...)</code> (key or count, you cannot tell)</td>
+<td><code>db.insertKey(...)</code> (<code>insertNoReturnKey</code> for the count)</td>
+<td>J810</td>
+</tr>
+<tr>
+<td><code>context.request().getString(&quot;x&quot;)</code></td>
+<td><code>context.request().bodyAll().getString(&quot;x&quot;)</code></td>
+<td>J101</td>
+</tr>
+<tr>
+<td><code>data.getInt(&quot;x&quot;)</code> (0 when missing)</td>
+<td><code>data.getInt(&quot;x&quot;, default)</code> (unreadable values throw)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>A <code>Tx</code> rolls back when you leave it by an exception.</strong> You can throw an <code>HttpException</code> halfway without writing a <code>rollback</code> yourself.
+If any SQL failed inside, <code>tx.commit()</code> does not commit and throws a <code>TransactionException</code> (<code>DB_004</code>).</p>
+</div>
+<h2 id="3-what-changes-type-or-meaning-in-20">3. What changes type or meaning in 2.0<a class="anchor" href="#3-what-changes-type-or-meaning-in-20">#</a></h2>
+<p>These are still correct on 1.5, but stop compiling or throw in 2.0.
+jimbleCheck lists them only with <code>--target=2.0</code>.</p>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>2.0</th>
+<th>jimbleCheck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Data row = db.select(...)</code> (<code>null</code> for both no row and failure)</td>
+<td><code>Optional&lt;Data&gt;</code>; failure throws <code>SqlExecuteException</code></td>
+<td>J901</td>
+</tr>
+<tr>
+<td><code>List&lt;Data&gt; rows = db.selectList(...)</code> (<code>null</code> on failure)</td>
+<td>Never <code>null</code>; failure throws</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>long db.insert(...)</code></td>
+<td><code>void</code>; use <code>insertKey</code> for the key</td>
+<td>J810</td>
+</tr>
+<tr>
+<td><code>int db.update(...)</code> / <code>delete(...)</code> (-1 on failure)</td>
+<td>The count; failure throws</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>boolean db.execute(...)</code></td>
+<td>The count (<code>int</code>); failure throws</td>
+<td>J902</td>
+</tr>
+<tr>
+<td><code>db.isError()</code></td>
+<td>Gone (failures throw)</td>
+<td>J903</td>
+</tr>
+<tr>
+<td><code>boolean DBUtil.load(...)</code> / <code>DBLock.lock(...)</code> / <code>create(...)</code></td>
+<td><code>void</code>; failure throws. <code>lock</code> outside a transaction throws</td>
+<td>J904</td>
+</tr>
+<tr>
+<td><code>RedisLock.tryLock(...)</code></td>
+<td><code>Optional&lt;RedisLockResult&gt;</code>; <code>lock</code> throws when it cannot take the lock</td>
+<td>J905</td>
+</tr>
+<tr>
+<td><code>selectOrThrow</code> / <code>selectListOrThrow</code> / <code>insertNoReturnKey</code> / <code>selectCached</code></td>
+<td>Deprecated (<code>select</code> / <code>selectList</code> / <code>insert</code> mean the same)</td>
+<td>J906</td>
+</tr>
+<tr>
+<td><code>eq(null)</code></td>
+<td>Throws</td>
+<td>J807</td>
+</tr>
+<tr>
+<td><code>data.getInt(&quot;x&quot;)</code> on a missing key</td>
+<td>Throws (<code>getInt(&quot;x&quot;, default)</code> is unchanged)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>validate(...)</code> returns the list</td>
+<td>Throws a 422 on failure; the list comes from <code>errors(...)</code></td>
+<td>J809</td>
+</tr>
+<tr>
+<td><code>Request</code> extends <code>Data</code></td>
+<td>It does not (read from <code>bodyAll()</code> and friends)</td>
+<td>J101</td>
+</tr>
+<tr>
+<td><code>required()</code> skips a missing key</td>
+<td>A missing key fails</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Both <code>json(...)</code> and <code>redirect(...)</code></td>
+<td>Throws when the second one is set</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Checked exceptions (<code>throws Exception</code> / <code>CodeException</code>)</td>
+<td>Unchecked</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-new-warnings-in-15">4. New warnings in 1.5<a class="anchor" href="#4-new-warnings-in-15">#</a></h2>
+<p>1.5 logs the ways of writing that throw in 2.0, <strong>once per process</strong>, with the calling line.
+They were silently not working, so fix them when you see them.</p>
+<table>
+<thead>
+<tr>
+<th>Warning</th>
+<th>What was happening</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>eq(null) は「= NULL」を組み…</code> (eq(null) builds &quot;= NULL&quot;)</td>
+<td>It matched no rows (so did an empty value in <code>where(Data)</code>)</td>
+</tr>
+<tr>
+<td><code>set(Data) は {&quot;set&quot;: …} の形を読みます</code> (set(Data) reads the wrapped form)</td>
+<td>An unwrapped row inserted nothing</td>
+</tr>
+<tr>
+<td><code>set(Data) は文字列 &quot;now()&quot; を…</code> (the string &quot;now()&quot;)</td>
+<td>User input <code>&quot;now()&quot;</code> became the current time</td>
+</tr>
+<tr>
+<td><code>返し方が2つ以上積まれています</code> (more than one way of responding)</td>
+<td>Only the first one was sent; the rest were dropped</td>
+</tr>
+<tr>
+<td><code>送ったあとにヘッダ…</code> / <code>応答を送ったあとに Cookie…</code> (header / cookie after sending)</td>
+<td>They never arrived</td>
+</tr>
+<tr>
+<td><code>本文の JSON を読めませんでした</code> (could not read the JSON body)</td>
+<td>It was treated as an empty Data</td>
+</tr>
+<tr>
+<td><code>paging(50) の件数は効きません</code> (paging(50) has no effect)</td>
+<td>An earlier <code>paging()</code> had already been built; 50 was ignored</td>
+</tr>
+<tr>
+<td><code>request().getString(&quot;x&quot;) は送られてきた値を読みません</code> (does not read submitted values)</td>
+<td>It was always <code>null</code></td>
+</tr>
+<tr>
+<td><code>required() / empty() はキーが無いと検査しません</code> (skips a missing key)</td>
+<td>A key that was not sent at all passed</td>
+</tr>
+<tr>
+<td><code>destroy() のあとにセッションを変えても保存されません</code> (changes after destroy())</td>
+<td>Values set after logout were dropped</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Changing the session after <code>save()</code> is now saved if you call <code>save()</code> again</strong> (up to 1.4 it was silently dropped).
+<code>Auth.login(...)</code> calls <code>save()</code> internally, which is why values set right after logging in used to disappear.</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="versioning">
+				<span>Previous</span>Versions and compatibility
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#1-run-jimblecheck-first">1. Run jimbleCheck first</a></li>
+			<li class="level-2"><a href="#2-what-to-rewrite-on-15">2. What to rewrite on 1.5</a></li>
+			<li class="level-2"><a href="#3-what-changes-type-or-meaning-in-20">3. What changes type or meaning in 2.0</a></li>
+			<li class="level-2"><a href="#4-new-warnings-in-15">4. New warnings in 1.5</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

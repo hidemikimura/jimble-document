@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -257,6 +261,10 @@ JSON にして返す直前やループの中で呼ぶと、出力が変わりま
 <p><strong>「無い」と「0」が区別できません。</strong><code>getString</code> は <code>null</code>、
 <code>getInt</code> は <code>0</code>、<code>getBoolean</code> は <code>false</code> を返します。
 区別したいときは <code>getIntObject</code> など <strong>Object 版</strong>か <code>isNull(key)</code> を使ってください。</p>
+<p><strong>1.5.0 からは既定値を渡す形があります</strong>（<code>getInt(key, 既定値)</code> / <code>getLong</code> / <code>getDouble</code> / <code>getBoolean</code> / <code>getString</code>）。
+既定値を返すのは<strong>無い・<code>null</code>・空文字のときだけ</strong>で、読めない値（<code>&quot;abc&quot;</code>、int に <code>&quot;1.5&quot;</code>、桁あふれ、
+真偽に <code>&quot;yes&quot;</code>）は <code>DataConversionException</code> になります。<strong>書き込みもしません</strong>（Optional 版と違います）。
+2.0 では <code>getInt(key)</code> も「無ければ例外」になります。</p>
 </div>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><strong><code>toString()</code> は要約です</strong>（キーと型だけ）。

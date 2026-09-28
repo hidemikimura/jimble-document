@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -360,7 +364,14 @@ String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
 <p><strong>A value you write is readable again inside the same request.</strong> If only received cookies
 were visible, every re-read of a CSRF token you had issued a moment ago would hand you
 a different one.</p>
-<p>To sign a value, sign it with <code>Cookies.sign(value)</code> and put it in with <code>put(Cookie, plaintext)</code>.</p>
+<p>When you write a <code>Cookie</code> whose attributes (<code>Path</code>, <code>Max-Age</code>) you set yourself, <strong>pick signing by name</strong> (since 1.5.0).</p>
+<pre class="code"><code class="lang-java">context.cookies().putSigned(<span class="h-k">new</span> Cookie(<span class="h-s">"user"</span>, id).path(<span class="h-s">"/app"</span>).maxAge(<span class="h-n">3600</span>));    <span class="h-c">// signed (readable with get)</span>
+context.cookies().putUnsigned(<span class="h-k">new</span> Cookie(<span class="h-s">"theme"</span>, <span class="h-s">"dark"</span>).httpOnly(<span class="h-k">false</span>));      <span class="h-c">// not signed (for JavaScript)</span>
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>put(Cookie)</code> does not sign</strong> (while <code>put(name, value)</code> does). With <code>cookie.secret</code> set, the next request's
+<code>get</code> cannot read what you wrote and returns <code>&quot;&quot;</code>. Deprecated in 1.5.0, removed in 2.0.</p>
+</div>
 <p><strong>Read it back with <code>context.cookies().get(&quot;a name&quot;)</code> or <code>context.request().cookie(&quot;a name&quot;)</code>.</strong>
 A value whose signature did not check out never lands there — that is the point, so a tampered
 value cannot reach your code.</p>

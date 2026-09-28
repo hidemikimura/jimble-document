@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -460,6 +464,19 @@ Join <code>post</code> and <code>comment</code> and the <code>id</code> on each 
 serialising that to JSON <strong>leaves one level of nesting in</strong>. To flatten, use
 <code>getData(table)</code> or <code>flattenTable(table)</code>.</p>
 </div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Results of a hand-written SQL string (<code>db.select(&quot;SELECT ...&quot;)</code>) do not nest.</strong> The nesting comes from the builder
+aliasing columns as <code>post__title</code>, so your own SQL gives a flat Data. In a join, <strong>columns with the same name
+(<code>id</code> …) silently overwrite each other with the later value</strong> — give them aliases.</p>
+</div>
+<h3 id="json-columns">JSON columns<a class="anchor" href="#json-columns">#</a></h3>
+<p>MySQL <code>JSON</code> and PostgreSQL <code>json</code> / <code>jsonb</code> columns <strong>come back already decoded, as <code>Data</code> (objects) or <code>List</code> (arrays).</strong></p>
+<pre class="code"><code class="lang-java">row.getStringList(<span class="h-s">"tags"</span>);      <span class="h-c">// ["a", "b"]  an array column</span>
+row.getData(<span class="h-s">"options"</span>);         <span class="h-c">// an object column</span>
+row.getString(<span class="h-s">"tags"</span>);          <span class="h-c">// "a"  &lt;- only the first element, not JSON text</span>
+</code></pre>
+<p><strong><code>getString</code> on an array column returns only the first element</strong> (a WARN is logged the first time it happens).
+To get the JSON text itself, convert it in SQL: <code>CAST(col AS CHAR)</code> on MySQL, <code>col::text</code> on PostgreSQL.</p>
 <h2 id="reading-errors">Reading errors<a class="anchor" href="#reading-errors">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (DB db = BlogExample.db()) {
 
@@ -517,6 +534,15 @@ Data user = db.selectOrThrow(sql, id);
 </tr>
 </tbody>
 </table>
+<p><strong>A unique-constraint violation gets its own type</strong> (since 1.5.0).
+The <code>...OrThrow</code> methods and <code>insertKey</code> throw <code>DuplicateKeyException</code> (a subclass of <code>SqlExecuteException</code>);
+with the return-value style, <code>db.isDuplicateKeyError()</code> tells it apart.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> {
+	<span class="h-k">long</span> id = db.insertKey(SQL.insert(User.instance()).value(User.email, email));
+} <span class="h-k">catch</span> (DuplicateKeyException e) {
+	<span class="h-k">return</span> <span class="h-s">"that email address is taken"</span>;
+}
+</code></pre>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>The return value of <code>insert</code> also carries two meanings.</strong>
 It is the generated key when one comes back, and <strong>the number of rows inserted</strong> when one does not.
@@ -571,6 +597,7 @@ gets generated are all in
 			<li class="level-2"><a href="#when-there-is-more-than-one-data-source">When there is more than one data source</a></li>
 			<li class="level-2"><a href="#generate-table-definitions">Generate table definitions</a></li>
 			<li class="level-2"><a href="#selecting">Selecting</a></li>
+			<li class="level-3"><a href="#json-columns">JSON columns</a></li>
 			<li class="level-2"><a href="#reading-errors">Reading errors</a></li>
 			<li class="level-3"><a href="#telling-no-rows-apart-from-could-not-read">Telling "no rows" apart from "could not read"</a></li>
 			<li class="level-2"><a href="#migrations">Migrations</a></li>

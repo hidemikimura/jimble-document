@@ -33,7 +33,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.4.3-SNAPSHOT
+jimble 1.5.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -56,7 +56,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`1.4.3-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`1.5.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -86,7 +86,18 @@ my-blog/
 	conf/application.conf
 	conf/logback.xml
 	conf/migration/my_blog/001_create_note.sql.example
+	AGENTS.md
+	CLAUDE.md
+	.claude/skills/jimble/SKILL.md
+	.claude/skills/jimble-db/SKILL.md
+	.claude/skills/jimble-web/SKILL.md
+	.claude/skills/jimble-batch/SKILL.md
+	.claude/jimble-skills.properties
 ```
+
+**AI への案内も置きます**（`AGENTS.md` と、それを読み込むだけの `CLAUDE.md`、`.claude/skills/` の skill）。
+`.claude/jimble-skills.properties` は置いた skill の控えで、jimble の版を上げたときに
+`./gradlew jimbleSkills` が「手で直していないもの」だけを入れ替えるのに使います（[Gradle プラグイン](./gradle)）。
 
 **空のディレクトリは作りません。** 使う段になってから作ってください。
 `.example` が付いているものは、名前を変えれば有効になります。

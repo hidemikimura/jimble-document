@@ -5,29 +5,27 @@
 There are no annotations. **What you wrapped is the transaction.**
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+try (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString("title"))
-			.value(Post.body, request.getString("body"))
-			.value(Post.image_name, request.getStringOptional("image_name"))
-			.value(Post.published, request.getBoolean("published"))
-			.value(Post.created_at, new Date())
-	);
-
-	if (id <= 0) {
-		transaction.rollbackEndTransaction();
-		return -1;
+	long id;
+	try {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString("title"))
+				.value(Post.body, request.getString("body"))
+				.value(Post.image_name, request.getStringOptional("image_name"))
+				.value(Post.published, request.getBoolean("published"))
+				.value(Post.created_at, new Date())
+		);
+	} catch (SqlExecuteException ex) {
+		return -1;                   // tx.commit() まで来ないので、抜けたら巻き戻る
 	}
 
 	new NoticeExecutor().put(db, new Data()
 		.putData("post_id", id)
 		.putData("title", request.getString("title")));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     // 記事とキューを一緒に確定して終わる
 
 	/*
 	 * コミットしてから流す。
@@ -45,7 +43,7 @@ try (DBTransaction transaction = new DBTransaction(db)) {
 
 | Method | What it does |
 | --- | --- |
-| `beginTransaction()` | Starts one. Does nothing if one is already open |
+| `beginTransaction()` | Starts one. If one is already open, **joins it** (see "Nesting" below) |
 | `commit()` | Commits. **The transaction continues** |
 | `commitEndTransaction()` | Commits and ends |
 | `rollback()` | Rolls back. The transaction continues |
@@ -56,6 +54,25 @@ Watch the difference between `commit()` and `commitEndTransaction()`.
 `commit()` means "settle what has happened so far, and carry on".
 In the code this was ported from, `commit()` ended the transaction internally, which
 left a hole: **everything after it silently became auto-commit.** jimble fixes that.
+
+## Nesting (joining)
+
+Starting a `DBTransaction` while one is already open **does not start a new one; it joins the outer one.**
+
+| What the inner one does | What happens |
+| --- | --- |
+| `commit()` / `commitEndTransaction()` | Nothing. The outer one commits |
+| `rollback()` / `rollbackEndTransaction()` | **Marks the outer one rollback-only** |
+| Closed without committing (left by an exception) | **Marks the outer one rollback-only** |
+
+A rollback-only outer `commitEndTransaction()` rolls everything back and throws `CodeException` (`DB_005`).
+To carry on in the outer one, call `rollback()` there and write again.
+
+> [!TRAP]
+> **Up to 1.4, the inner `rollback()` silently did nothing and the outer one committed anyway.**
+> Rows the inner code meant to undo went in with the outer commit.
+> Whether it had joined was also decided **only when it was constructed**, so if the outer one started
+> afterwards, the inner `commitEndTransaction()` **ended the outer transaction**.
 
 ## Forgetting to close
 
@@ -97,6 +114,36 @@ ERROR 閉じられていない DB が残っていました。閉じます: blog_
 > **This is a last line of defence.** By the time it fires an ERROR has been logged, so
 > treat the line as something to fix rather than something to rely on. In a long-running
 > batch the connection stays held until the execution ends.
+
+## The 2.0 shape (since 1.5.0)
+
+**Prefer this for new code.** It throws no checked exceptions, and `commit()` commits **and ends** the transaction.
+
+```java
+db.transaction(tx -> {
+	db.insert(...);
+	db.update(...);
+});                                   // commits if the body returns normally; rolls back and rethrows otherwise
+
+long id = db.transactionResult(tx -> db.insertKey(...));   // returns a value
+
+try (Tx tx = db.begin()) {            // when you want to commit yourself
+	db.update(...);
+	tx.commit();                      // commits and ends; leaving without it rolls back
+}
+```
+
+| | `Tx` | `DBTransaction` |
+| --- | --- | --- |
+| Commit and end | `commit()` | `commitEndTransaction()` |
+| Commit and carry on | `checkpoint()` | `commit()` |
+| Roll back and end | `rollback()` | `rollbackEndTransaction()` |
+| Failure | `TransactionException` (unchecked; `getCode()` gives `DB_004` etc.) | `CodeException` (checked) |
+| A second `commit()` | Throws | Does nothing |
+
+If the body throws a checked exception, it rolls back and wraps it in a `TransactionException` (`DB_006`).
+Nesting behaves as in "Nesting" below (joining, rollback-only, `DB_005`).
+In 2.0, `DBTransaction`, `db.beginTransaction()` and friends go away and only this remains.
 
 ## The short form
 

@@ -5,29 +5,27 @@
 注釈はありません。**囲んだところがトランザクションです。**
 
 ```java
-try (DBTransaction transaction = new DBTransaction(db)) {
+try (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	long id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString("title"))
-			.value(Post.body, request.getString("body"))
-			.value(Post.image_name, request.getStringOptional("image_name"))
-			.value(Post.published, request.getBoolean("published"))
-			.value(Post.created_at, new Date())
-	);
-
-	if (id <= 0) {
-		transaction.rollbackEndTransaction();
-		return -1;
+	long id;
+	try {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString("title"))
+				.value(Post.body, request.getString("body"))
+				.value(Post.image_name, request.getStringOptional("image_name"))
+				.value(Post.published, request.getBoolean("published"))
+				.value(Post.created_at, new Date())
+		);
+	} catch (SqlExecuteException ex) {
+		return -1;                   // tx.commit() まで来ないので、抜けたら巻き戻る
 	}
 
 	new NoticeExecutor().put(db, new Data()
 		.putData("post_id", id)
 		.putData("title", request.getString("title")));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     // 記事とキューを一緒に確定して終わる
 
 	/*
 	 * コミットしてから流す。
@@ -45,7 +43,7 @@ try (DBTransaction transaction = new DBTransaction(db)) {
 
 | メソッド | 何をするか |
 | --- | --- |
-| `beginTransaction()` | 始める。他で始まっていれば何もしない |
+| `beginTransaction()` | 始める。他で始まっていれば**合流する**（下の「入れ子」） |
 | `commit()` | 確定する。**トランザクションは続く** |
 | `commitEndTransaction()` | 確定して終わる |
 | `rollback()` | 戻す。トランザクションは続く |
@@ -56,6 +54,25 @@ try (DBTransaction transaction = new DBTransaction(db)) {
 `commit()` は「ここまでを確定して、まだ続ける」です。
 移送元のコードでは `commit()` が中で終わらせていたため、
 **そこから先が黙って自動コミットになる**という穴がありました。jimble では直っています。
+
+## 入れ子（合流）
+
+外でトランザクションが始まっているところで `DBTransaction` を始めると、**新しくは始めず、外に合流します。**
+
+| 中でしたこと | どうなるか |
+| --- | --- |
+| `commit()` / `commitEndTransaction()` | 何もしない。確定させるのは外 |
+| `rollback()` / `rollbackEndTransaction()` | **外を巻き戻し専用にする** |
+| commit せずに閉じた（例外で抜けた） | **外を巻き戻し専用にする** |
+
+巻き戻し専用になった外の `commitEndTransaction()` は、全部を巻き戻して `CodeException`（`DB_005`）を投げます。
+外で続けたいときは、外で `rollback()` してから書き直します。
+
+> [!TRAP]
+> **1.4 までは、中の `rollback()` は黙って何もせず、外がそのままコミットしていました。**
+> 中で「失敗したので戻す」と書いたつもりの行が、外のコミットで入っていました。
+> また「合流しているか」を**作った瞬間にだけ**見ていたので、作ってから外が始まると、
+> 中の `commitEndTransaction()` が**外のトランザクションを終わらせていました**。
 
 ## 畳み忘れ
 
@@ -96,6 +113,36 @@ ERROR 閉じられていない DB が残っていました。閉じます: blog_
 > **拾うのは最後の砦です。**拾われた時点で ERROR が出ているので、
 > <b>ログが出たら直す</b>ものだと思ってください。
 > 実行が長いバッチでは、実行の終わりまで1本が握られたままになります。
+
+## 2.0 の形（1.5.0 から）
+
+**新しく書くならこちらを勧めます。**検査例外を投げず、`commit()` は確定して**終わります**。
+
+```java
+db.transaction(tx -> {
+	db.insert(...);
+	db.update(...);
+});                                   // 例外なく終われば確定、例外が出れば巻き戻して投げ直す
+
+long id = db.transactionResult(tx -> db.insertKey(...));   // 値を返す版
+
+try (Tx tx = db.begin()) {            // 自分で確定したいとき
+	db.update(...);
+	tx.commit();                      // 確定して終わる。呼ばずに抜けたら巻き戻す
+}
+```
+
+| | `Tx` | `DBTransaction` |
+| --- | --- | --- |
+| 確定して終わる | `commit()` | `commitEndTransaction()` |
+| 確定して続ける | `checkpoint()` | `commit()` |
+| 巻き戻して終わる | `rollback()` | `rollbackEndTransaction()` |
+| 失敗 | `TransactionException`（非検査。`getCode()` で `DB_004` など） | `CodeException`（検査） |
+| 2度目の `commit()` | 例外 | 何もしない |
+
+中身が検査例外を投げたら、巻き戻して `TransactionException`（`DB_006`）に包みます。
+入れ子のときの動き（合流・巻き戻し専用・`DB_005`）は下の「入れ子」と同じです。
+2.0 では `DBTransaction` と `db.beginTransaction()` などを消し、こちらだけにします。
 
 ## 短く書く
 

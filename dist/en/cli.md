@@ -42,7 +42,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 1.4.3-SNAPSHOT
+jimble 1.5.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -66,7 +66,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`1.4.3-SNAPSHOT`, say),
+was built from**. If that version is not published (`1.5.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -97,7 +97,18 @@ my-blog/
 	conf/application.conf
 	conf/logback.xml
 	conf/migration/my_blog/001_create_note.sql.example
+	AGENTS.md
+	CLAUDE.md
+	.claude/skills/jimble/SKILL.md
+	.claude/skills/jimble-db/SKILL.md
+	.claude/skills/jimble-web/SKILL.md
+	.claude/skills/jimble-batch/SKILL.md
+	.claude/jimble-skills.properties
 ```
+
+**It also places guidance for AI assistants** (`AGENTS.md`, a `CLAUDE.md` that only loads it, and the skills under
+`.claude/skills/`). `.claude/jimble-skills.properties` records what was placed, so that after you upgrade jimble,
+`./gradlew jimbleSkills` only replaces the skills nobody edited ([Gradle plugins](./gradle)).
 
 **It does not create empty directories.** Create them when you need them.
 Anything ending in `.example` becomes live once you rename it.

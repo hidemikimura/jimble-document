@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -251,6 +255,8 @@
 <strong>無いキーは <code>getString</code> なら <code>null</code>、<code>getInt</code> なら <code>0</code>、<code>getBoolean</code> なら <code>false</code></strong> です
 （「無い」と「0」は区別できません。区別したいときは <code>getIntObject</code> などの Object 版か <code>isNull(key)</code>。
 詳しくは <a href="./util">ユーティリティ</a>）。</p>
+<p><strong>既定値を渡す形（1.5.0 から）を勧めます。</strong><code>getInt(&quot;page&quot;, 1)</code> は、無い・空欄のときだけ <code>1</code> を返し、
+<code>&quot;abc&quot;</code> のように読めない値は <code>DataConversionException</code> で止まります（黙って <code>0</code> になりません）。</p>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>context.request()</code> から直接は読めません。</strong>
 <code>Request</code> も <code>Data</code> なので <code>context.request().getString(&quot;title&quot;)</code> は<b>コンパイルが通り</b>ますが、

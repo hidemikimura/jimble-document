@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -251,6 +255,9 @@ You pull values out with <code>getString</code> <code>getInt</code> <code>getLon
 <strong>A missing key gives you <code>null</code> from <code>getString</code>, <code>0</code> from <code>getInt</code>, and <code>false</code> from
 <code>getBoolean</code></strong> — you cannot tell &quot;missing&quot; from &quot;0&quot;. When you need to, use the Object
 versions (<code>getIntObject</code> and friends) or <code>isNull(key)</code>. See <a href="./util">Utilities</a>.</p>
+<p><strong>Prefer the form that takes a default (since 1.5.0).</strong> <code>getInt(&quot;page&quot;, 1)</code> returns <code>1</code> only when the key
+is missing or blank; a value it cannot read, such as <code>&quot;abc&quot;</code>, stops with a <code>DataConversionException</code>
+instead of quietly becoming <code>0</code>.</p>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>You cannot read straight off <code>context.request()</code>.</strong>
 <code>Request</code> is a <code>Data</code> too, so <code>context.request().getString(&quot;title&quot;)</code> <strong>compiles</strong> — and

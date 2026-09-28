@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -258,6 +262,10 @@ and the output changes.</p>
 <p><strong>You cannot tell &quot;missing&quot; from &quot;0&quot;.</strong> <code>getString</code> returns <code>null</code>,
 <code>getInt</code> returns <code>0</code>, <code>getBoolean</code> returns <code>false</code>.
 When you need to tell them apart, use the <strong>Object versions</strong> — <code>getIntObject</code> and friends — or <code>isNull(key)</code>.</p>
+<p><strong>Since 1.5.0 there is a form that takes a default</strong> (<code>getInt(key, default)</code> / <code>getLong</code> / <code>getDouble</code> / <code>getBoolean</code> / <code>getString</code>).
+It returns the default <strong>only when the key is missing, <code>null</code> or blank</strong>; a value it cannot read (<code>&quot;abc&quot;</code>, <code>&quot;1.5&quot;</code> as an int,
+an overflow, <code>&quot;yes&quot;</code> as a boolean) throws a <code>DataConversionException</code>. <strong>It does not write either</strong> (unlike the Optional versions).
+In 2.0, <code>getInt(key)</code> will also throw when the key is missing.</p>
 </div>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p><strong><code>toString()</code> is a summary</strong> (keys and types only).

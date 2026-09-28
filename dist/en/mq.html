@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -242,29 +246,27 @@ No separate middleware. The big thing you get is that it shares your transaction
 <li>Return anything other than <code>MqStatus.completed</code> and it runs again, up to <code>maxRetry()</code></li>
 </ul>
 <h2 id="enqueueing">Enqueueing<a class="anchor" href="#enqueueing">#</a></h2>
-<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	<span class="h-k">long</span> id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString(<span class="h-s">"title"</span>))
-			.value(Post.body, request.getString(<span class="h-s">"body"</span>))
-			.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
-			.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
-			.value(Post.created_at, <span class="h-k">new</span> Date())
-	);
-
-	<span class="h-k">if</span> (id &lt;= <span class="h-n">0</span>) {
-		transaction.rollbackEndTransaction();
-		<span class="h-k">return</span> -<span class="h-n">1</span>;
+	<span class="h-k">long</span> id;
+	<span class="h-k">try</span> {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString(<span class="h-s">"title"</span>))
+				.value(Post.body, request.getString(<span class="h-s">"body"</span>))
+				.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
+				.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
+				.value(Post.created_at, <span class="h-k">new</span> Date())
+		);
+	} <span class="h-k">catch</span> (SqlExecuteException ex) {
+		<span class="h-k">return</span> -<span class="h-n">1</span>;                   <span class="h-c">// tx.commit() まで来ないので、抜けたら巻き戻る</span>
 	}
 
 	<span class="h-k">new</span> NoticeExecutor().put(db, <span class="h-k">new</span> Data()
 		.putData(<span class="h-s">"post_id"</span>, id)
 		.putData(<span class="h-s">"title"</span>, request.getString(<span class="h-s">"title"</span>)));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     <span class="h-c">// 記事とキューを一緒に確定して終わる</span>
 
 	<span class="h-c">/*
 	 * コミットしてから流す。

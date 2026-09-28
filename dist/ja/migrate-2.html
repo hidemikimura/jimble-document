@@ -1,0 +1,494 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.0 への移行 - jimble</title>
+<meta name="description" content="1.5 のうちに書き換えておけば、2.0 に上げてもほぼ直すところが無い">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="page">日本語</a>
+		<a href="../en/"
+		 aria-current="false">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">ログインと認可</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble コマンド</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">版と互換性</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="current">2.0 への移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="20-への移行">2.0 への移行<a class="anchor" href="#20-への移行">#</a></h1>
+<p>2.0 では、<strong>戻り値を捨てると効かない・黙って何もしない</strong>API を作り直します。
+壊れ方は<strong>コンパイルエラーか例外だけ</strong>で、黙って意味が変わる変更はしません。</p>
+<p>**2.0 の書き方は、1.5 に先に入っています。**1.5 のうちに書き換えておけば、2.0 に上げたときに直すところはほとんど残りません。</p>
+<h2 id="1-まず-jimblecheck-を流す">1. まず jimbleCheck を流す<a class="anchor" href="#1-まず-jimblecheck-を流す">#</a></h2>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleCheck                  # 1.5 で置き換え先があるもの（J8xx）
+<span class="h-k">./gradlew</span> jimbleCheck --target=2.0     # 2.0 で型や意味が変わるもの（J9xx）も
+</code></pre>
+<p>書き換える行が<strong>行番号と新しい書き方つきで</strong>出ます。上から直してください。
+誤検知は、その行か前の行に <code>// jimble-check:ignore J803</code> と書くと出なくなります。</p>
+<p>1.5 は、2.0 で消すものに <code>@Deprecated(forRemoval = true)</code> を付けています。
+コンパイラの警告（<code>[removal]</code>）も同じ一覧です。</p>
+<h2 id="2-15-のうちに書き換えるもの">2. 1.5 のうちに書き換えるもの<a class="anchor" href="#2-15-のうちに書き換えるもの">#</a></h2>
+<p>置き換え先がもう 1.5 にあります。</p>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>1.5 からの書き方</th>
+<th>jimbleCheck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>new DBTransaction(db)</code> / <code>DBTransaction.transaction(...)</code></td>
+<td><code>db.transaction(tx -&gt; { ... })</code> か <code>try (Tx tx = db.begin()) { ...; tx.commit(); }</code></td>
+<td>J801</td>
+</tr>
+<tr>
+<td><code>transaction.commitEndTransaction()</code></td>
+<td><code>tx.commit()</code>（確定して<strong>終わる</strong>）</td>
+<td>J801</td>
+</tr>
+<tr>
+<td><code>transaction.commit()</code>（終わらない）</td>
+<td><code>tx.checkpoint()</code></td>
+<td>J801</td>
+</tr>
+<tr>
+<td><code>db.beginTransaction()</code> / <code>commitEndTransaction()</code> / <code>rollbackEndTransaction()</code></td>
+<td><code>db.begin()</code> / <code>tx.commit()</code> / <code>tx.rollback()</code></td>
+<td>J802</td>
+</tr>
+<tr>
+<td><code>Router admin = router.path(&quot;/admin&quot;)</code></td>
+<td><code>router.path(&quot;/admin&quot;, admin -&gt; { ... })</code></td>
+<td>J803</td>
+</tr>
+<tr>
+<td><code>列.subtract(v)</code>（割り算を出す）</td>
+<td><code>列.divide(v)</code>（引き算なら <code>minus</code>）</td>
+<td>J804</td>
+</tr>
+<tr>
+<td><code>Dsl.or(w)</code> / <code>Dsl.and(w)</code></td>
+<td><code>Dsl.anyOf(a, b, ...)</code> / <code>Dsl.allOf(a, b, ...)</code></td>
+<td>J805</td>
+</tr>
+<tr>
+<td><code>cookies().put(cookie)</code>（署名しない）</td>
+<td><code>cookies().putSigned(cookie)</code> / <code>putUnsigned(cookie)</code></td>
+<td>J806</td>
+</tr>
+<tr>
+<td><code>列.eq(null)</code> / <code>not(null)</code></td>
+<td><code>列.is_null()</code> / <code>is_not_null()</code></td>
+<td>J807</td>
+</tr>
+<tr>
+<td>文字列 <code>&quot;now()&quot;</code> を <code>set(Data)</code> / <code>value(Data)</code> に入れる</td>
+<td><code>Dsl.now()</code> を値に入れる。平らな行なら <code>setRow(Data)</code> / <code>valueRow(Data)</code></td>
+<td>J808</td>
+</tr>
+<tr>
+<td><code>rules.validate(db, data);</code>（戻り値を捨てる）</td>
+<td><code>Data errors = rules.errors(db, data);</code></td>
+<td>J809</td>
+</tr>
+<tr>
+<td><code>long id = db.insert(...)</code>（採番値か件数か分からない）</td>
+<td><code>db.insertKey(...)</code>（件数なら <code>insertNoReturnKey</code>）</td>
+<td>J810</td>
+</tr>
+<tr>
+<td><code>context.request().getString(&quot;x&quot;)</code></td>
+<td><code>context.request().bodyAll().getString(&quot;x&quot;)</code></td>
+<td>J101</td>
+</tr>
+<tr>
+<td><code>data.getInt(&quot;x&quot;)</code>（無くても 0）</td>
+<td><code>data.getInt(&quot;x&quot;, 既定値)</code>（読めない値は例外）</td>
+<td>——</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**<code>Tx</code> は例外で抜けたら巻き戻ります。**途中で <code>HttpException</code> を投げるのに、自分で <code>rollback</code> を書く必要はありません。
+中で1度でも SQL が失敗していたら、<code>tx.commit()</code> は確定せずに <code>TransactionException</code>（<code>DB_004</code>）を投げます。</p>
+</div>
+<h2 id="3-20-で型や意味が変わるもの">3. 2.0 で型や意味が変わるもの<a class="anchor" href="#3-20-で型や意味が変わるもの">#</a></h2>
+<p>1.5 ではまだ正しい書き方ですが、2.0 でコンパイルが通らなくなるか、例外になります。
+<code>--target=2.0</code> のときだけ jimbleCheck が出します。</p>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>2.0</th>
+<th>jimbleCheck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Data row = db.select(...)</code>（0件も失敗も <code>null</code>）</td>
+<td><code>Optional&lt;Data&gt;</code>。失敗は <code>SqlExecuteException</code></td>
+<td>J901</td>
+</tr>
+<tr>
+<td><code>List&lt;Data&gt; rows = db.selectList(...)</code>（失敗は <code>null</code>）</td>
+<td><code>null</code> を返さない。失敗は例外</td>
+<td>——</td>
+</tr>
+<tr>
+<td><code>long db.insert(...)</code></td>
+<td><code>void</code>。採番値は <code>insertKey</code></td>
+<td>J810</td>
+</tr>
+<tr>
+<td><code>int db.update(...)</code> / <code>delete(...)</code>（失敗は -1）</td>
+<td>件数。失敗は例外</td>
+<td>——</td>
+</tr>
+<tr>
+<td><code>boolean db.execute(...)</code></td>
+<td>件数（<code>int</code>）。失敗は例外</td>
+<td>J902</td>
+</tr>
+<tr>
+<td><code>db.isError()</code></td>
+<td>無くなる（失敗は例外）</td>
+<td>J903</td>
+</tr>
+<tr>
+<td><code>boolean DBUtil.load(...)</code> / <code>DBLock.lock(...)</code> / <code>create(...)</code></td>
+<td><code>void</code>。失敗は例外。<code>lock</code> はトランザクションの外で呼ぶと例外</td>
+<td>J904</td>
+</tr>
+<tr>
+<td><code>RedisLock.tryLock(...)</code></td>
+<td><code>Optional&lt;RedisLockResult&gt;</code>。<code>lock</code> は取れなければ例外</td>
+<td>J905</td>
+</tr>
+<tr>
+<td><code>selectOrThrow</code> / <code>selectListOrThrow</code> / <code>insertNoReturnKey</code> / <code>selectCached</code></td>
+<td>非推奨（<code>select</code> / <code>selectList</code> / <code>insert</code> が同じ意味になる）</td>
+<td>J906</td>
+</tr>
+<tr>
+<td><code>eq(null)</code></td>
+<td>例外</td>
+<td>J807</td>
+</tr>
+<tr>
+<td><code>data.getInt(&quot;x&quot;)</code> で無いキー</td>
+<td>例外（<code>getInt(&quot;x&quot;, 既定値)</code> は変わらない）</td>
+<td>——</td>
+</tr>
+<tr>
+<td><code>validate(...)</code> が一覧を返す</td>
+<td>失敗したら 422 の例外。一覧は <code>errors(...)</code></td>
+<td>J809</td>
+</tr>
+<tr>
+<td><code>Request</code> が <code>Data</code> を継ぐ</td>
+<td>継がない（<code>bodyAll()</code> などから読む）</td>
+<td>J101</td>
+</tr>
+<tr>
+<td><code>required()</code> はキーが無いと検査しない</td>
+<td>キーが無ければ失敗</td>
+<td>——</td>
+</tr>
+<tr>
+<td><code>json(...)</code> と <code>redirect(...)</code> を両方積む</td>
+<td>2つ目を積んだ時点で例外</td>
+<td>——</td>
+</tr>
+<tr>
+<td>検査例外（<code>throws Exception</code> / <code>CodeException</code>）</td>
+<td>非検査例外</td>
+<td>——</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-15-で出るようになった警告">4. 1.5 で出るようになった警告<a class="anchor" href="#4-15-で出るようになった警告">#</a></h2>
+<p>1.5 は、2.0 で例外になる書き方を<strong>プロセスで1度だけ</strong>ログに出します（呼び出し元の行つき）。
+黙って効いていなかったものなので、出たら直してください。</p>
+<table>
+<thead>
+<tr>
+<th>警告</th>
+<th>何が起きていたか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>eq(null) は「= NULL」を組み…</code></td>
+<td>どの行にも当たっていなかった（<code>where(Data)</code> の空の値も）</td>
+</tr>
+<tr>
+<td><code>set(Data) は {&quot;set&quot;: …} の形を読みます</code></td>
+<td>包まない行を渡して、何も入っていなかった</td>
+</tr>
+<tr>
+<td><code>set(Data) は文字列 &quot;now()&quot; を…</code></td>
+<td>利用者の入力 <code>&quot;now()&quot;</code> が現在時刻になっていた</td>
+</tr>
+<tr>
+<td><code>返し方が2つ以上積まれています</code></td>
+<td>最初の1つだけが返り、残りは捨てられていた</td>
+</tr>
+<tr>
+<td><code>送ったあとにヘッダ…</code> / <code>応答を送ったあとに Cookie…</code></td>
+<td>届いていなかった</td>
+</tr>
+<tr>
+<td><code>本文の JSON を読めませんでした</code></td>
+<td>空の Data として扱われていた</td>
+</tr>
+<tr>
+<td><code>paging(50) の件数は効きません</code></td>
+<td>先に <code>paging()</code> を呼んでいて、50 が無視されていた</td>
+</tr>
+<tr>
+<td><code>request().getString(&quot;x&quot;) は送られてきた値を読みません</code></td>
+<td>いつも <code>null</code> だった</td>
+</tr>
+<tr>
+<td><code>required() / empty() はキーが無いと検査しません</code></td>
+<td>キーごと送られないと素通りしていた</td>
+</tr>
+<tr>
+<td><code>destroy() のあとにセッションを変えても保存されません</code></td>
+<td>ログアウトのあとの値が捨てられていた</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>save()</code> のあとにセッションを変えると、もう一度 <code>save()</code> すれば保存されるようになりました</strong>（1.4 までは黙って捨てていました）。
+<code>Auth.login(...)</code> は中で <code>save()</code> するので、ログインの直後に入れた値が消えていたのはこのためです。</p>
+</div>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="versioning">
+				<span>前</span>版と互換性
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#1-まず-jimblecheck-を流す">1. まず jimbleCheck を流す</a></li>
+			<li class="level-2"><a href="#2-15-のうちに書き換えるもの">2. 1.5 のうちに書き換えるもの</a></li>
+			<li class="level-2"><a href="#3-20-で型や意味が変わるもの">3. 2.0 で型や意味が変わるもの</a></li>
+			<li class="level-2"><a href="#4-15-で出るようになった警告">4. 1.5 で出るようになった警告</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

@@ -281,6 +281,24 @@ Query with `Column` and no string keys show up in your code.
 > serialising that to JSON **leaves one level of nesting in**. To flatten, use
 > `getData(table)` or `flattenTable(table)`.
 
+> [!TRAP]
+> **Results of a hand-written SQL string (`db.select("SELECT ...")`) do not nest.** The nesting comes from the builder
+> aliasing columns as `post__title`, so your own SQL gives a flat Data. In a join, **columns with the same name
+> (`id` …) silently overwrite each other with the later value** — give them aliases.
+
+### JSON columns
+
+MySQL `JSON` and PostgreSQL `json` / `jsonb` columns **come back already decoded, as `Data` (objects) or `List` (arrays).**
+
+```java
+row.getStringList("tags");      // ["a", "b"]  an array column
+row.getData("options");         // an object column
+row.getString("tags");          // "a"  <- only the first element, not JSON text
+```
+
+**`getString` on an array column returns only the first element** (a WARN is logged the first time it happens).
+To get the JSON text itself, convert it in SQL: `CAST(col AS CHAR)` on MySQL, `col::text` on PostgreSQL.
+
 ## Reading errors
 
 ```java
@@ -334,6 +352,18 @@ if (user == null) { return nobody; }   // null means "no rows", nothing else
 | `selectOrThrow` | One row. **`null` means "no rows" only**. `SqlExecuteException` if it cannot be read |
 | `selectListOrThrow` | Rows. **Empty list for no rows**. `SqlExecuteException` if it cannot be read |
 | `insertKey` | **The generated key only**. `SqlExecuteException` if there is no generated column, or the insert failed |
+
+**A unique-constraint violation gets its own type** (since 1.5.0).
+The `...OrThrow` methods and `insertKey` throw `DuplicateKeyException` (a subclass of `SqlExecuteException`);
+with the return-value style, `db.isDuplicateKeyError()` tells it apart.
+
+```java
+try {
+	long id = db.insertKey(SQL.insert(User.instance()).value(User.email, email));
+} catch (DuplicateKeyException e) {
+	return "that email address is taken";
+}
+```
 
 > [!TRAP]
 > **The return value of `insert` also carries two meanings.**

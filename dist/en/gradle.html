@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -237,9 +241,9 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.4.2"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.4.2"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.4.2"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>
 }
 </code></pre>
 <p><strong>They are not on the Plugin Portal.</strong> They come from Maven Central, so write the
@@ -273,9 +277,9 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.4.2"</span>   <span class="h-c">// if you use src/main/jte</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.4.2"</span>   <span class="h-c">// if you want hot reload</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.4.2"</span>   <span class="h-c">// if you use a database</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// if you use src/main/jte</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"1.5.0"</span>   <span class="h-c">// if you want hot reload</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"1.5.0"</span>   <span class="h-c">// if you use a database</span>
 }
 
 repositories {
@@ -290,7 +294,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:1.4.2"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:1.5.0"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -321,7 +325,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>The toolchain block is required.</strong> Without it you stop at dependency resolution.</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:1.4.2' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:1.5.0' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="which-artifact-to-depend-on">Which artifact to depend on<a class="anchor" href="#which-artifact-to-depend-on">#</a></h2>
@@ -604,6 +608,109 @@ To change the heap, use <code>org.gradle.jvmargs</code> in <code>gradle.properti
 a task of the same project from inside itself).
 If <code>gradlew</code> is broken, it says why and falls back to <code>gradle</code> from your PATH.</p>
 </div>
+<h2 id="tasks-for-ai-assistants">Tasks for AI assistants<a class="anchor" href="#tasks-for-ai-assistants">#</a></h2>
+<p><strong>Every jimble plugin (<code>io.jimble.jte</code> / <code>io.jimble.run</code> / <code>io.jimble.db</code>) adds them.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>./gradlew jimbleSkills</code></td>
+<td>Brings <code>.claude/skills/</code> in line with <strong>the skills of the jimble version you use</strong>. Places <code>AGENTS.md</code> / <code>CLAUDE.md</code> if they are missing</td>
+</tr>
+<tr>
+<td><code>./gradlew jimbleCheck</code></td>
+<td>Finds jimble's <strong>known pitfalls</strong> in your source and configuration, each with a fix and a link to read</td>
+</tr>
+</tbody>
+</table>
+<h3 id="jimbleskills">jimbleSkills<a class="anchor" href="#jimbleskills">#</a></h3>
+<p><code>jimble new</code> <strong>copies</strong> the skills in, so upgrading jimble leaves the copies behind and your
+application's AI keeps reading the old version's explanations. <strong>Run it after you upgrade.</strong></p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleSkills
+<span class="h-k">./gradlew</span> jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record
+</code></pre>
+<ul>
+<li><strong>Hand-edited skills are never overwritten.</strong> The hash of what was placed is recorded in
+<code>.claude/jimble-skills.properties</code>; a file that still matches (untouched since jimble placed it) is replaced,
+anything else is left alone</li>
+<li><strong>Skills with no record</strong> (placed by a <code>jimble new</code> from before the record existed) are left alone too, since there is
+no telling whether they were edited. If you did not edit them, use <code>--overwrite</code></li>
+<li><strong>Put your application's own rules in <code>AGENTS.md</code>, not in the skills.</strong> An edited skill can no longer be brought up to date</li>
+<li><code>AGENTS.md</code> / <code>CLAUDE.md</code> are <strong>placed only if missing, never touched otherwise</strong> (<code>CLAUDE.md</code> just says <code>@AGENTS.md</code>)</li>
+</ul>
+<h3 id="jimblecheck">jimbleCheck<a class="anchor" href="#jimblecheck">#</a></h3>
+<p>It only looks for things that <strong>go wrong silently at run time</strong> (anything that fails at startup and tells you
+how to fix it is left out). Any <code>ERROR</code> fails the task; <code>WARN</code> alone does not.</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Level</th>
+<th>What it looks for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J101</td>
+<td>ERROR</td>
+<td><code>context.request().getString(...)</code> and friends (<code>Request</code> itself is empty; go through <code>bodyAll()</code>)</td>
+</tr>
+<tr>
+<td>J201</td>
+<td>WARN</td>
+<td><code>${ENV}</code> without <code>?</code> in configuration (fails at startup wherever the variable is not set)</td>
+</tr>
+<tr>
+<td>J202</td>
+<td>ERROR</td>
+<td>The same key written again after its <code>${?ENV}</code> line (the environment variable never wins)</td>
+</tr>
+<tr>
+<td>J301</td>
+<td>ERROR</td>
+<td><code>Migration.install()</code> after <code>DBUtil.load(...)</code> (migrations never run)</td>
+</tr>
+<tr>
+<td>J302</td>
+<td>ERROR</td>
+<td><code>BatchRegistry.sync</code> is used but <code>BatchTables.install</code> is called nowhere</td>
+</tr>
+<tr>
+<td>J303</td>
+<td>ERROR</td>
+<td><code>BatchRegistry.sync</code> before <code>BatchRegistry.add</code> (every batch becomes <code>nothing</code>)</td>
+</tr>
+<tr>
+<td>J304</td>
+<td>WARN</td>
+<td>codegen is in use but MQ tables (<code>mq_scheduler</code> …) are missing from <code>codegen.exclude_tables</code></td>
+</tr>
+<tr>
+<td>J401</td>
+<td>ERROR</td>
+<td>An outer <code>before(Auth::guard)</code> with <code>Remember.restore</code> inside an <code>Auth.REALM</code> block (401 every time despite remember-me)</td>
+</tr>
+<tr>
+<td>J501</td>
+<td>WARN</td>
+<td>The skills are not from the jimble version you use (run <code>jimbleSkills</code>)</td>
+</tr>
+<tr>
+<td>J701</td>
+<td>WARN</td>
+<td>An empty <code>catch</code> in a file that uses <code>DBTransaction</code> (reports success when nothing was committed)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>Java is not parsed into a syntax tree; comments and strings are blanked out first. <strong>Silence a false positive
+with <code>// jimble-check:ignore J101</code> on that line or the one above</strong> (<code># jimble-check:ignore J201</code> in configuration).</p>
+</div>
 
 		</article>
 
@@ -626,6 +733,9 @@ If <code>gradlew</code> is broken, it says why and falls back to <code>gradle</c
 			<li class="level-2"><a href="#iojimblejte">io.jimble.jte</a></li>
 			<li class="level-2"><a href="#iojimblerun">io.jimble.run</a></li>
 			<li class="level-3"><a href="#when-the-build-fails">When the build fails</a></li>
+			<li class="level-2"><a href="#tasks-for-ai-assistants">Tasks for AI assistants</a></li>
+			<li class="level-3"><a href="#jimbleskills">jimbleSkills</a></li>
+			<li class="level-3"><a href="#jimblecheck">jimbleCheck</a></li>
 		</ul>
 	</nav>
 </div>

@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -229,6 +233,16 @@ Pass columns to pick them.</p>
 .where(Post.id.<span class="h-k">in</span>(List.of(<span class="h-n">1L</span>, <span class="h-n">2L</span>, <span class="h-n">3L</span>)))
 </code></pre>
 <p>Call <code>where</code> more than once and the conditions are joined with AND.</p>
+<p>For OR and parentheses, group with <code>Dsl.anyOf(...)</code> / <code>Dsl.allOf(...)</code> (since 1.5.0).</p>
+<pre class="code"><code class="lang-java">.where(Post.shop_id.eq(shopId), Dsl.anyOf(Post.status.eq(<span class="h-s">"draft"</span>), Post.status.eq(<span class="h-s">"review"</span>)))
+<span class="h-c">// WHERE (shop_id = ?) AND ( status = ? OR status = ?)</span>
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>One condition holds one comparison.</strong> <code>Post.id.ge(1).le(9)</code> fails when the SQL is built —
+up to 1.4 <strong>only the last <code>le(9)</code> survived, with no exception</strong>. Use <code>between(a, b)</code> for a range
+and <code>.and(Post.id.le(9))</code> for a second condition.
+Calling <code>and(...)</code> / <code>or(...)</code> directly on a column also fails (up to 1.4 it returned <code>null</code>).</p>
+</div>
 <div class="callout callout-note"><p class="callout-title">Note</p>
 <p><strong><code>contains</code>, <code>starts_with</code> and <code>ends_with</code> look for the text you passed, literally.</strong>
 A <code>50%</code> typed into a search box is looked up as the string <strong><code>50%</code></strong>, not as &quot;anything starting with 50&quot;,
@@ -246,7 +260,9 @@ collapsing it to <code>IN (NULL)</code> <strong>matches no row and quietly retur
 	.left(Comment.instance()).on(Comment.post_id.eq(Post.id))
 	.where(Post.id.eq(id))
 </code></pre>
-<p>Inner joins are <code>inner(...)</code>. An <code>on()</code> attaches to the join right before it.</p>
+<p>Inner joins are <code>inner(...)</code>. An <code>on()</code> attaches to the join right before it.
+Calling it twice joins the conditions with AND. <strong>Calling <code>on()</code> where there is no join fails</strong>
+(up to 1.4, when <code>from</code> was still a plain table, <strong>the ON was silently dropped</strong>).</p>
 <p>The result nests under the table name, so you get it with <code>row.getData(&quot;comment&quot;)</code>.</p>
 <h2 id="inserting-updating-deleting">Inserting, updating, deleting<a class="anchor" href="#inserting-updating-deleting">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(

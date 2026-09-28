@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="current">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -354,6 +358,8 @@ javadoc に<b>代わりに何を使うか</b>を書きます</li>
 ビルドの警告が出るだけです。<strong>警告を切らないでください</strong>——
 消えたことに気づくのが、上げたあとになります。</p>
 </div>
+<p><strong>2.0 で消すもの・変わるものの一覧は <a href="./migrate-2">2.0 への移行</a> にあります。</strong>
+<code>./gradlew jimbleCheck --target=2.0</code> で、書き換える行を出せます。</p>
 <h2 id="版を選ぶ">版を選ぶ<a class="anchor" href="#版を選ぶ">#</a></h2>
 <p><strong>公開されているものは <a href="https://repo.maven.apache.org/maven2/io/jimble/">Maven Central</a> にあります。</strong>
 依存の座標と、そのまま動くビルドファイルは <a href="./gradle">Gradle プラグイン</a> にあります。</p>
@@ -364,6 +370,9 @@ javadoc に<b>代わりに何を使うか</b>を書きます</li>
 		<nav class="pager" aria-label="前後のページ">
 			<a class="prev" href="security">
 				<span>前</span>セキュリティ
+			</a>
+			<a class="next" href="migrate-2">
+				<span>次</span>2.0 への移行
 			</a>
 		</nav>
 	</main>

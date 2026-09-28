@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -228,6 +232,16 @@
 .where(Post.id.<span class="h-k">in</span>(List.of(<span class="h-n">1L</span>, <span class="h-n">2L</span>, <span class="h-n">3L</span>)))
 </code></pre>
 <p><code>where</code> を複数回呼ぶと AND で繋がります。</p>
+<p>OR や括弧は <code>Dsl.anyOf(...)</code> / <code>Dsl.allOf(...)</code> でまとめます（1.5.0 から）。</p>
+<pre class="code"><code class="lang-java">.where(Post.shop_id.eq(shopId), Dsl.anyOf(Post.status.eq(<span class="h-s">"draft"</span>), Post.status.eq(<span class="h-s">"review"</span>)))
+<span class="h-c">// WHERE (shop_id = ?) AND ( status = ? OR status = ?)</span>
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>1つの条件に比較は1つだけです。</strong><code>Post.id.ge(1).le(9)</code> は組み立て時に落ちます——
+1.4 までは<strong>後ろの <code>le(9)</code> だけが残り、例外も出ませんでした</strong>。範囲は <code>between(a, b)</code>、
+別の条件は <code>.and(Post.id.le(9))</code> で書きます。
+列に直接 <code>and(...)</code> / <code>or(...)</code> を付けるのも落ちます（1.4 までは <code>null</code> が返っていました）。</p>
+</div>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><strong><code>contains</code> / <code>starts_with</code> / <code>ends_with</code> は、渡した文字を「文字として」探します。</strong>
 検索欄に打たれた <code>50%</code> は「50 で始まる何か」ではなく <strong><code>50%</code> という文字列</strong>として探し、
@@ -245,7 +259,9 @@
 	.left(Comment.instance()).on(Comment.post_id.eq(Post.id))
 	.where(Post.id.eq(id))
 </code></pre>
-<p>内部結合は <code>inner(...)</code> です。<code>on()</code> は直前の結合に付きます。</p>
+<p>内部結合は <code>inner(...)</code> です。<code>on()</code> は直前の結合に付きます。
+2度呼ぶと AND で繋がります。<strong>結合の無いところで <code>on()</code> を呼ぶと落ちます</strong>
+（1.4 までは、<code>from</code> がまだ素のテーブルのとき<strong>ON が黙って消えていました</strong>）。</p>
 <p>結果はテーブル名でネストするので、<code>row.getData(&quot;comment&quot;)</code> で取れます。</p>
 <h2 id="入れる直す消す">入れる・直す・消す<a class="anchor" href="#入れる直す消す">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insert(

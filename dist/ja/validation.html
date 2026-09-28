@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -434,8 +438,13 @@ assertEquals(<span class="h-n">2</span>, errors.getFirst().getInt(<span class="h
 </tbody>
 </table>
 <p><code>ValidationRules</code> の結果をそのまま積むこともできます。</p>
-<pre class="code"><code class="lang-java">addErrors(rules.validate(db, context.request().bodyAll()));
+<pre class="code"><code class="lang-java">addErrors(rules.errors(db, context.request().bodyAll()));
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>validate(...)</code> / <code>errors(...)</code> はエラーの一覧を返すだけで、止めません。**戻り値を捨てると、エラーがあっても素通りします。
+1.5.0 で足した <code>errors(...)</code> は <code>validate(...)</code> と同じもので、名前が中身を言っています。
+2.0 では <code>validate(...)</code> が「失敗したら 422 の例外」に変わる予定です。</p>
+</div>
 <div class="callout callout-note"><p class="callout-title">補足</p>
 <p><code>ValidationExecutor</code> は <strong><code>WebContext</code> をフィールドに持ちません。</strong>
 <code>validate(WebContext)</code> の引数で受け取ります。

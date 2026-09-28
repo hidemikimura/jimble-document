@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">Versions and compatibility</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -209,29 +213,27 @@
 		<article>
 			<h1 id="transactions">Transactions<a class="anchor" href="#transactions">#</a></h1>
 <p>There are no annotations. <strong>What you wrapped is the transaction.</strong></p>
-<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	<span class="h-k">long</span> id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString(<span class="h-s">"title"</span>))
-			.value(Post.body, request.getString(<span class="h-s">"body"</span>))
-			.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
-			.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
-			.value(Post.created_at, <span class="h-k">new</span> Date())
-	);
-
-	<span class="h-k">if</span> (id &lt;= <span class="h-n">0</span>) {
-		transaction.rollbackEndTransaction();
-		<span class="h-k">return</span> -<span class="h-n">1</span>;
+	<span class="h-k">long</span> id;
+	<span class="h-k">try</span> {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString(<span class="h-s">"title"</span>))
+				.value(Post.body, request.getString(<span class="h-s">"body"</span>))
+				.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
+				.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
+				.value(Post.created_at, <span class="h-k">new</span> Date())
+		);
+	} <span class="h-k">catch</span> (SqlExecuteException ex) {
+		<span class="h-k">return</span> -<span class="h-n">1</span>;                   <span class="h-c">// tx.commit() まで来ないので、抜けたら巻き戻る</span>
 	}
 
 	<span class="h-k">new</span> NoticeExecutor().put(db, <span class="h-k">new</span> Data()
 		.putData(<span class="h-s">"post_id"</span>, id)
 		.putData(<span class="h-s">"title"</span>, request.getString(<span class="h-s">"title"</span>)));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     <span class="h-c">// 記事とキューを一緒に確定して終わる</span>
 
 	<span class="h-c">/*
 	 * コミットしてから流す。
@@ -254,7 +256,7 @@
 <tbody>
 <tr>
 <td><code>beginTransaction()</code></td>
-<td>Starts one. Does nothing if one is already open</td>
+<td>Starts one. If one is already open, <strong>joins it</strong> (see &quot;Nesting&quot; below)</td>
 </tr>
 <tr>
 <td><code>commit()</code></td>
@@ -282,6 +284,38 @@
 <code>commit()</code> means &quot;settle what has happened so far, and carry on&quot;.
 In the code this was ported from, <code>commit()</code> ended the transaction internally, which
 left a hole: <strong>everything after it silently became auto-commit.</strong> jimble fixes that.</p>
+<h2 id="nesting-joining">Nesting (joining)<a class="anchor" href="#nesting-joining">#</a></h2>
+<p>Starting a <code>DBTransaction</code> while one is already open <strong>does not start a new one; it joins the outer one.</strong></p>
+<table>
+<thead>
+<tr>
+<th>What the inner one does</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>commit()</code> / <code>commitEndTransaction()</code></td>
+<td>Nothing. The outer one commits</td>
+</tr>
+<tr>
+<td><code>rollback()</code> / <code>rollbackEndTransaction()</code></td>
+<td><strong>Marks the outer one rollback-only</strong></td>
+</tr>
+<tr>
+<td>Closed without committing (left by an exception)</td>
+<td><strong>Marks the outer one rollback-only</strong></td>
+</tr>
+</tbody>
+</table>
+<p>A rollback-only outer <code>commitEndTransaction()</code> rolls everything back and throws <code>CodeException</code> (<code>DB_005</code>).
+To carry on in the outer one, call <code>rollback()</code> there and write again.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Up to 1.4, the inner <code>rollback()</code> silently did nothing and the outer one committed anyway.</strong>
+Rows the inner code meant to undo went in with the outer commit.
+Whether it had joined was also decided <strong>only when it was constructed</strong>, so if the outer one started
+afterwards, the inner <code>commitEndTransaction()</code> <strong>ended the outer transaction</strong>.</p>
+</div>
 <h2 id="forgetting-to-close">Forgetting to close<a class="anchor" href="#forgetting-to-close">#</a></h2>
 <p>Call <code>beginTransaction()</code> without try-with-resources and <code>return</code> partway through, and
 nothing is rolled back and the connection never goes back to the pool.</p>
@@ -324,6 +358,59 @@ end of the execution.</p>
 treat the line as something to fix rather than something to rely on. In a long-running
 batch the connection stays held until the execution ends.</p>
 </div>
+<h2 id="the-20-shape-since-150">The 2.0 shape (since 1.5.0)<a class="anchor" href="#the-20-shape-since-150">#</a></h2>
+<p><strong>Prefer this for new code.</strong> It throws no checked exceptions, and <code>commit()</code> commits <strong>and ends</strong> the transaction.</p>
+<pre class="code"><code class="lang-java">db.transaction(tx -&gt; {
+	db.insert(...);
+	db.update(...);
+});                                   <span class="h-c">// commits if the body returns normally; rolls back and rethrows otherwise</span>
+
+<span class="h-k">long</span> id = db.transactionResult(tx -&gt; db.insertKey(...));   <span class="h-c">// returns a value</span>
+
+<span class="h-k">try</span> (Tx tx = db.begin()) {            <span class="h-c">// when you want to commit yourself</span>
+	db.update(...);
+	tx.commit();                      <span class="h-c">// commits and ends; leaving without it rolls back</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>Tx</code></th>
+<th><code>DBTransaction</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Commit and end</td>
+<td><code>commit()</code></td>
+<td><code>commitEndTransaction()</code></td>
+</tr>
+<tr>
+<td>Commit and carry on</td>
+<td><code>checkpoint()</code></td>
+<td><code>commit()</code></td>
+</tr>
+<tr>
+<td>Roll back and end</td>
+<td><code>rollback()</code></td>
+<td><code>rollbackEndTransaction()</code></td>
+</tr>
+<tr>
+<td>Failure</td>
+<td><code>TransactionException</code> (unchecked; <code>getCode()</code> gives <code>DB_004</code> etc.)</td>
+<td><code>CodeException</code> (checked)</td>
+</tr>
+<tr>
+<td>A second <code>commit()</code></td>
+<td>Throws</td>
+<td>Does nothing</td>
+</tr>
+</tbody>
+</table>
+<p>If the body throws a checked exception, it rolls back and wraps it in a <code>TransactionException</code> (<code>DB_006</code>).
+Nesting behaves as in &quot;Nesting&quot; below (joining, rollback-only, <code>DB_005</code>).
+In 2.0, <code>DBTransaction</code>, <code>db.beginTransaction()</code> and friends go away and only this remains.</p>
 <h2 id="the-short-form">The short form<a class="anchor" href="#the-short-form">#</a></h2>
 <pre class="code"><code class="lang-java">DBTransaction.transaction(db, transaction -&gt; {
 	db.insert(...);
@@ -458,8 +545,10 @@ to think about which side of the commit you are on.</strong></p>
 		<p class="section">On this page</p>
 		<ul>
 			<li class="level-2"><a href="#which-one-to-call">Which one to call</a></li>
+			<li class="level-2"><a href="#nesting-joining">Nesting (joining)</a></li>
 			<li class="level-2"><a href="#forgetting-to-close">Forgetting to close</a></li>
 			<li class="level-2"><a href="#an-unclosed-db">An unclosed DB</a></li>
+			<li class="level-2"><a href="#the-20-shape-since-150">The 2.0 shape (since 1.5.0)</a></li>
 			<li class="level-2"><a href="#the-short-form">The short form</a></li>
 			<li class="level-2"><a href="#an-error-inside-means-no-commit">An error inside means no commit</a></li>
 			<li class="level-3"><a href="#branching-on-an-error-and-carrying-on">Branching on an error and carrying on</a></li>

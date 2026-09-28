@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -209,29 +213,27 @@
 		<article>
 			<h1 id="トランザクション">トランザクション<a class="anchor" href="#トランザクション">#</a></h1>
 <p>注釈はありません。<strong>囲んだところがトランザクションです。</strong></p>
-<pre class="code"><code class="lang-java"><span class="h-k">try</span> (DBTransaction transaction = <span class="h-k">new</span> DBTransaction(db)) {
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (Tx tx = db.begin()) {
 
-	transaction.beginTransaction();
-
-	<span class="h-k">long</span> id = db.insert(
-		SQL.insert(Post.instance())
-			.value(Post.title, request.getString(<span class="h-s">"title"</span>))
-			.value(Post.body, request.getString(<span class="h-s">"body"</span>))
-			.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
-			.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
-			.value(Post.created_at, <span class="h-k">new</span> Date())
-	);
-
-	<span class="h-k">if</span> (id &lt;= <span class="h-n">0</span>) {
-		transaction.rollbackEndTransaction();
-		<span class="h-k">return</span> -<span class="h-n">1</span>;
+	<span class="h-k">long</span> id;
+	<span class="h-k">try</span> {
+		id = db.insertKey(
+			SQL.insert(Post.instance())
+				.value(Post.title, request.getString(<span class="h-s">"title"</span>))
+				.value(Post.body, request.getString(<span class="h-s">"body"</span>))
+				.value(Post.image_name, request.getStringOptional(<span class="h-s">"image_name"</span>))
+				.value(Post.published, request.getBoolean(<span class="h-s">"published"</span>))
+				.value(Post.created_at, <span class="h-k">new</span> Date())
+		);
+	} <span class="h-k">catch</span> (SqlExecuteException ex) {
+		<span class="h-k">return</span> -<span class="h-n">1</span>;                   <span class="h-c">// tx.commit() まで来ないので、抜けたら巻き戻る</span>
 	}
 
 	<span class="h-k">new</span> NoticeExecutor().put(db, <span class="h-k">new</span> Data()
 		.putData(<span class="h-s">"post_id"</span>, id)
 		.putData(<span class="h-s">"title"</span>, request.getString(<span class="h-s">"title"</span>)));
 
-	transaction.commitEndTransaction();
+	tx.commit();                     <span class="h-c">// 記事とキューを一緒に確定して終わる</span>
 
 	<span class="h-c">/*
 	 * コミットしてから流す。
@@ -254,7 +256,7 @@
 <tbody>
 <tr>
 <td><code>beginTransaction()</code></td>
-<td>始める。他で始まっていれば何もしない</td>
+<td>始める。他で始まっていれば<strong>合流する</strong>（下の「入れ子」）</td>
 </tr>
 <tr>
 <td><code>commit()</code></td>
@@ -282,6 +284,38 @@
 <code>commit()</code> は「ここまでを確定して、まだ続ける」です。
 移送元のコードでは <code>commit()</code> が中で終わらせていたため、
 <strong>そこから先が黙って自動コミットになる</strong>という穴がありました。jimble では直っています。</p>
+<h2 id="入れ子合流">入れ子（合流）<a class="anchor" href="#入れ子合流">#</a></h2>
+<p>外でトランザクションが始まっているところで <code>DBTransaction</code> を始めると、<strong>新しくは始めず、外に合流します。</strong></p>
+<table>
+<thead>
+<tr>
+<th>中でしたこと</th>
+<th>どうなるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>commit()</code> / <code>commitEndTransaction()</code></td>
+<td>何もしない。確定させるのは外</td>
+</tr>
+<tr>
+<td><code>rollback()</code> / <code>rollbackEndTransaction()</code></td>
+<td><strong>外を巻き戻し専用にする</strong></td>
+</tr>
+<tr>
+<td>commit せずに閉じた（例外で抜けた）</td>
+<td><strong>外を巻き戻し専用にする</strong></td>
+</tr>
+</tbody>
+</table>
+<p>巻き戻し専用になった外の <code>commitEndTransaction()</code> は、全部を巻き戻して <code>CodeException</code>（<code>DB_005</code>）を投げます。
+外で続けたいときは、外で <code>rollback()</code> してから書き直します。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>1.4 までは、中の <code>rollback()</code> は黙って何もせず、外がそのままコミットしていました。</strong>
+中で「失敗したので戻す」と書いたつもりの行が、外のコミットで入っていました。
+また「合流しているか」を<strong>作った瞬間にだけ</strong>見ていたので、作ってから外が始まると、
+中の <code>commitEndTransaction()</code> が<strong>外のトランザクションを終わらせていました</strong>。</p>
+</div>
 <h2 id="畳み忘れ">畳み忘れ<a class="anchor" href="#畳み忘れ">#</a></h2>
 <p>try-with-resources を使わずに <code>beginTransaction()</code> して、途中で <code>return</code> すると、
 ロールバックもされず接続もプールへ戻りません。</p>
@@ -323,6 +357,59 @@
 <b>ログが出たら直す</b>ものだと思ってください。
 実行が長いバッチでは、実行の終わりまで1本が握られたままになります。</p>
 </div>
+<h2 id="20-の形150-から">2.0 の形（1.5.0 から）<a class="anchor" href="#20-の形150-から">#</a></h2>
+<p><strong>新しく書くならこちらを勧めます。<strong>検査例外を投げず、<code>commit()</code> は確定して</strong>終わります</strong>。</p>
+<pre class="code"><code class="lang-java">db.transaction(tx -&gt; {
+	db.insert(...);
+	db.update(...);
+});                                   <span class="h-c">// 例外なく終われば確定、例外が出れば巻き戻して投げ直す</span>
+
+<span class="h-k">long</span> id = db.transactionResult(tx -&gt; db.insertKey(...));   <span class="h-c">// 値を返す版</span>
+
+<span class="h-k">try</span> (Tx tx = db.begin()) {            <span class="h-c">// 自分で確定したいとき</span>
+	db.update(...);
+	tx.commit();                      <span class="h-c">// 確定して終わる。呼ばずに抜けたら巻き戻す</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>Tx</code></th>
+<th><code>DBTransaction</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>確定して終わる</td>
+<td><code>commit()</code></td>
+<td><code>commitEndTransaction()</code></td>
+</tr>
+<tr>
+<td>確定して続ける</td>
+<td><code>checkpoint()</code></td>
+<td><code>commit()</code></td>
+</tr>
+<tr>
+<td>巻き戻して終わる</td>
+<td><code>rollback()</code></td>
+<td><code>rollbackEndTransaction()</code></td>
+</tr>
+<tr>
+<td>失敗</td>
+<td><code>TransactionException</code>（非検査。<code>getCode()</code> で <code>DB_004</code> など）</td>
+<td><code>CodeException</code>（検査）</td>
+</tr>
+<tr>
+<td>2度目の <code>commit()</code></td>
+<td>例外</td>
+<td>何もしない</td>
+</tr>
+</tbody>
+</table>
+<p>中身が検査例外を投げたら、巻き戻して <code>TransactionException</code>（<code>DB_006</code>）に包みます。
+入れ子のときの動き（合流・巻き戻し専用・<code>DB_005</code>）は下の「入れ子」と同じです。
+2.0 では <code>DBTransaction</code> と <code>db.beginTransaction()</code> などを消し、こちらだけにします。</p>
 <h2 id="短く書く">短く書く<a class="anchor" href="#短く書く">#</a></h2>
 <pre class="code"><code class="lang-java">DBTransaction.transaction(db, transaction -&gt; {
 	db.insert(...);
@@ -459,8 +546,10 @@ PostFeedHandler.notifyNewPost(title);        <span class="h-c">// ← 外へ出�
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#使い分け">使い分け</a></li>
+			<li class="level-2"><a href="#入れ子合流">入れ子（合流）</a></li>
 			<li class="level-2"><a href="#畳み忘れ">畳み忘れ</a></li>
 			<li class="level-2"><a href="#閉じ忘れた-db">閉じ忘れた DB</a></li>
+			<li class="level-2"><a href="#20-の形150-から">2.0 の形（1.5.0 から）</a></li>
 			<li class="level-2"><a href="#短く書く">短く書く</a></li>
 			<li class="level-2"><a href="#エラーが出ていたらコミットしません">エラーが出ていたらコミットしません</a></li>
 			<li class="level-3"><a href="#エラーを見て分岐して続けたいとき">エラーを見て、分岐して続けたいとき</a></li>

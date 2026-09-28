@@ -273,6 +273,24 @@ String same = row.getString(Post.title);
 > そのまま JSON にすると**入れ子が1段残ります**。
 > 平らにしたいときは `getData(テーブル)` か `flattenTable(テーブル)` です。
 
+> [!TRAP]
+> **文字列の SQL（`db.select("SELECT ...")`）の結果はネストしません。**ネストはビルダーが列に
+> `post__title` の別名を付けるから起きるので、自分で書いた SQL は平らな Data になります。
+> 結合すると**同じ名前の列（`id` など）はあとの値で黙って上書き**されるので、別名を付けてください。
+
+### JSON の列
+
+MySQL の `JSON`、PostgreSQL の `json` / `jsonb` の列は、**読んだ時点で `Data`（オブジェクト）か `List`（配列）になります。**
+
+```java
+row.getStringList("tags");      // ["a", "b"]  配列の列
+row.getData("options");         // オブジェクトの列
+row.getString("tags");          // "a"  ← 配列の先頭の要素だけ。JSON の文字ではない
+```
+
+**配列の列を `getString` すると先頭の要素だけが返ります**（そうしたときは1度だけ WARN が出ます）。
+JSON の文字のまま欲しいなら、SQL で文字にして読んでください——MySQL は `CAST(列 AS CHAR)`、PostgreSQL は `列::text` です。
+
 ## エラーの見方
 
 ```java
@@ -326,6 +344,18 @@ if (user == null) { return 誰でもない; }   // null は「1件も無かっ�
 | `selectOrThrow` | 1件。**`null` は「1件も無かった」だけ**。読めなければ `SqlExecuteException` |
 | `selectListOrThrow` | 複数件。**0件は空リスト**。読めなければ `SqlExecuteException` |
 | `insertKey` | **採番された値だけ**。採番列が無いか、入らなければ `SqlExecuteException` |
+
+**一意制約に当たったときだけは、型で分かれます**（1.5.0 から）。
+`...OrThrow` 系と `insertKey` は `DuplicateKeyException`（`SqlExecuteException` の子）を投げ、
+戻り値で見る書き方なら `db.isDuplicateKeyError()` で見分けられます。
+
+```java
+try {
+	long id = db.insertKey(SQL.insert(User.instance()).value(User.email, email));
+} catch (DuplicateKeyException e) {
+	return 「そのメールアドレスは使われています」;
+}
+```
 
 > [!TRAP]
 > **`insert` の戻り値も2つの意味を持ちます。**

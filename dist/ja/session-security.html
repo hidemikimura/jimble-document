@@ -202,6 +202,10 @@
 				<a href="versioning"
 				   class="">版と互換性</a>
 			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
 		</ul>
 	</nav>
 
@@ -356,7 +360,14 @@ String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
 </code></pre>
 <p><strong>書いた値は同じリクエストの中で読み返せます。</strong> 受信した Cookie しか見えないと、
 発行したばかりの CSRF トークンを読み直すたびに別のものが出てしまうためです。</p>
-<p>署名を付けたいときは <code>Cookies.sign(value)</code> で署名し、<code>put(Cookie, 平文)</code> で入れます。</p>
+<p>属性（<code>Path</code> や <code>Max-Age</code>）を自分で決めた <code>Cookie</code> を書くときは、<strong>署名するかどうかを名前で選びます</strong>（1.5.0 から）。</p>
+<pre class="code"><code class="lang-java">context.cookies().putSigned(<span class="h-k">new</span> Cookie(<span class="h-s">"user"</span>, id).path(<span class="h-s">"/app"</span>).maxAge(<span class="h-n">3600</span>));    <span class="h-c">// 署名する（get で読める）</span>
+context.cookies().putUnsigned(<span class="h-k">new</span> Cookie(<span class="h-s">"theme"</span>, <span class="h-s">"dark"</span>).httpOnly(<span class="h-k">false</span>));      <span class="h-c">// 署名しない（JavaScript に読ませる）</span>
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>put(Cookie)</code> は署名しません</strong>（<code>put(名前, 値)</code> は署名するのに）。<code>cookie.secret</code> を設定していると、
+書いた Cookie を次のリクエストの <code>get</code> が読めず <code>&quot;&quot;</code> になります。1.5.0 で非推奨にし、2.0 で消します。</p>
+</div>
 <p><strong>読むときは <code>context.cookies().get(&quot;名前&quot;)</code> か <code>context.request().cookie(&quot;名前&quot;)</code> です。</strong>
 署名が合わなかった値はここに入りません（改ざんされた値がアプリに渡らないようにするためです）。</p>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
