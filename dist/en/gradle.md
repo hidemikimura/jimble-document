@@ -13,9 +13,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.0.0"
-	id("io.jimble.run") version "2.0.0"
-	id("io.jimble.db")  version "2.0.0"
+	id("io.jimble.jte") version "2.1.0"
+	id("io.jimble.run") version "2.1.0"
+	id("io.jimble.db")  version "2.1.0"
 }
 ```
 
@@ -58,9 +58,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.0.0"   // if you use src/main/jte
-	id("io.jimble.run") version "2.0.0"   // if you want hot reload
-	id("io.jimble.db")  version "2.0.0"   // if you use a database
+	id("io.jimble.jte") version "2.1.0"   // if you use src/main/jte
+	id("io.jimble.run") version "2.1.0"   // if you want hot reload
+	id("io.jimble.db")  version "2.1.0"   // if you use a database
 }
 
 repositories {
@@ -75,7 +75,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.0.0")
+	implementation("io.jimble:jimble-web:2.1.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -109,7 +109,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.0.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.1.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -323,6 +323,7 @@ how to fix it is left out). Any `ERROR` fails the task; `WARN` alone does not.
 | J303 | ERROR | `BatchRegistry.sync` before `BatchRegistry.add` (every batch becomes `nothing`) |
 | J304 | WARN | codegen is in use but MQ tables (`mq_scheduler` …) are missing from `codegen.exclude_tables` |
 | J401 | ERROR | An outer `before(Auth::guard)` with `Remember.restore` inside an `Auth.REALM` block (401 every time despite remember-me) |
+| J402 | WARN | `Remember.forgetAll(...)` with no `Auth.revoke` / `revokeOthers` in the same file (sessions on other devices stay logged in) |
 | J501 | WARN | The skills are not from the jimble version you use (run `jimbleSkills`) |
 | J701 | WARN | An empty `catch` in a file that uses transactions (`db.begin()` / `db.transaction(...)` / `TransactionException`) (reports success when nothing was committed) |
 

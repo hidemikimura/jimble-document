@@ -388,6 +388,11 @@ auth {
 		grace       = <span class="h-n">60s</span>          <span class="h-c"># 回した直後、古いほうも通す時間</span>
 	}
 
+	revocation {
+		enabled     = <span class="h-k">true</span>         <span class="h-c"># DB が無ければ比べない（Auth.revoke は例外）</span>
+		cache_ttl   = <span class="h-n">5s</span>           <span class="h-c"># 引いた世代を控える時間。複数台ではほかの台で効くまでの遅れ。0s で毎回引く</span>
+	}
+
 	mfa {
 		enabled        = <span class="h-k">true</span>      <span class="h-c"># DB と secret_key が要る（下を参照）</span>
 		issuer         = <span class="h-s">""</span>        <span class="h-c"># 認証アプリの一覧に出る名前</span>

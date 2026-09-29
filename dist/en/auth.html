@@ -388,6 +388,72 @@ in the session instead and:</p>
 <p><strong>The whole session goes.</strong> Clear only the login keys and the shopping cart or the draft
 is <strong>still there for the next person</strong> (which matters on a shared machine).</p>
 <p>On a route with <code>Auth.REALM</code>, only <strong>that kind of login</strong> ends (below).</p>
+<h2 id="locking-someone-out-logging-them-out-everywhere-else">Locking someone out (logging them out everywhere else)<a class="anchor" href="#locking-someone-out-logging-them-out-everywhere-else">#</a></h2>
+<pre class="code"><code class="lang-java"><span class="h-c">// After a password change: keep this device, end every other login</span>
+Auth.revokeOthers(context);
+
+<span class="h-c">// From an admin screen, a batch or MQ: end all of that person's logins (no WebContext needed)</span>
+Auth.revoke(staffId);
+Auth.revoke(<span class="h-s">"operator"</span>, staffId);   <span class="h-c">// with a realm</span>
+</code></pre>
+<p><strong>On its next request, a locked-out device is turned away by <code>Auth.guard</code>.</strong> That kind of login
+is cleared, and an ordinary route answers 401. <strong>Remember-me memories go too</strong>, so the cookie
+cannot bring them back.</p>
+<p>Nothing hunts down sessions and deletes them. <strong>Each person has a number (a generation); locking
+them out bumps it, and sessions that logged in with an older number are no longer believed.</strong>
+That is why it works <strong>even with cookie sessions</strong>, whose contents live in the user's browser.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where it applies</td>
+<td>Requests that go through <code>Auth.guard</code>. <strong>Even on <code>Auth.PUBLIC</code> routes</strong> a locked-out person no longer looks logged in (<code>Auth.NO_SESSION</code> routes do not read the session, so they do not check)</td>
+</tr>
+<tr>
+<td>Delay</td>
+<td>Immediate on the server that called it. <strong>With several servers, up to 5 seconds on the others</strong> (<code>auth.revocation.cache_ttl</code>; <code>0s</code> reads the DB every time)</td>
+</tr>
+<tr>
+<td>Where it lives</td>
+<td>The <code>auth_revocation</code> table (created the first time it is needed). <strong>Only people who have been locked out</strong> get a row</td>
+</tr>
+<tr>
+<td>Realms</td>
+<td><code>revoke</code> with a realm ends <strong>only that kind of login</strong>. Other kinds of login in the same session stay</td>
+</tr>
+<tr>
+<td>Upgrading</td>
+<td>Sessions from before the upgrade keep working unless you lock someone out (<strong>nobody is logged out on upgrade day</strong>)</td>
+</tr>
+<tr>
+<td>Without a DB</td>
+<td><code>revoke</code> throws <code>IllegalStateException</code>. <code>guard</code> does not check</td>
+</tr>
+<tr>
+<td>Failures</td>
+<td><code>revoke</code> throws if it cannot write, <code>guard</code> throws if it cannot read (<strong>so a locked-out person is never let through</strong>)</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>auth.revocation.*</code> (<a href="./config">Configuration</a>)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>It does not stop future logins.</strong> Someone who knows the password can log in again after being
+locked out. To stop a stolen account, <strong>change the password or disable the account first</strong>, then call <code>revoke</code>.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Call <code>revoke</code> after changing someone's role.</strong> The role is copied into the session at login,
+so until the next login they keep the old one.</p>
+<p><strong>Open WebSocket connections are not closed.</strong> Your app holds the list of connections, so close
+them from there (<a href="./websocket">WebSocket</a>). Open SSE streams always end at their lifetime cap (5 minutes by default).</p>
+</div>
 <h2 id="separate-sessions-per-kind-of-login">Separate sessions per kind of login<a class="anchor" href="#separate-sessions-per-kind-of-login">#</a></h2>
 <p>When one browser should be able to log in to both, say, an operator console and a member admin
 screen, put <code>Auth.REALM</code> on each block. Each kind gets its own place inside the session, so
@@ -558,7 +624,7 @@ leave <strong>the real user locked out and the thief still in.</strong></p>
 </tr>
 <tr>
 <td>Password change</td>
-<td><strong>Call <code>Remember.forgetAll(userId)</code></strong> (below)</td>
+<td><strong>Call <code>Auth.revokeOthers(context)</code></strong> (below; <a href="#locking-someone-out-logging-them-out-everywhere-else">Locking someone out</a>)</td>
 </tr>
 <tr>
 <td>Settings</td>
@@ -567,9 +633,10 @@ leave <strong>the real user locked out and the thief still in.</strong></p>
 </tbody>
 </table>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong>Call <code>Remember.forgetAll(userId)</code> when the password changes.</strong> Without it <strong>a stolen
-cookie still works</strong> — which is the whole point of changing the password. It is also
-what &quot;log out everywhere&quot; is.</p>
+<p><strong>Call <code>Auth.revokeOthers(context)</code> when the password changes.</strong> Without it <strong>a stolen
+cookie and a stolen session still work</strong> — which is the whole point of changing the password.
+<strong><code>Remember.forgetAll(userId)</code> alone is not enough:</strong> it only removes remember-me memories, and
+sessions that are logged in on other devices right now keep working (<code>revokeOthers</code> calls <code>forgetAll</code> for you).</p>
 </div>
 <h3 id="more-than-one-kind-of-login">More than one kind of login<a class="anchor" href="#more-than-one-kind-of-login">#</a></h3>
 <p>If your IDs come from <strong>separate tables</strong> — an operator console and a member admin screen,
@@ -582,7 +649,7 @@ remembered for an operator is restored on the member screen as &quot;the member 
 });
 
 Remember.issue(context, principal, <span class="h-s">"operator"</span>);   <span class="h-c">// at login</span>
-Remember.forgetAll(<span class="h-s">"operator"</span>, staffId);          <span class="h-c">// when the password changes</span>
+Auth.revoke(<span class="h-s">"operator"</span>, staffId);                 <span class="h-c">// to lock them out (memories go too)</span>
 </code></pre>
 <ul>
 <li><strong>The cookie name is split per realm</strong> (<code>remember_operator</code>: the configured name + <code>_</code> + realm),
@@ -995,6 +1062,7 @@ in &quot;no realm&quot; and keeps using the same code (the framework adds the co
 			<li class="level-2"><a href="#when-someone-keeps-getting-it-wrong">When someone keeps getting it wrong</a></li>
 			<li class="level-2"><a href="#who-is-logged-in">Who is logged in</a></li>
 			<li class="level-2"><a href="#logging-out">Logging out</a></li>
+			<li class="level-2"><a href="#locking-someone-out-logging-them-out-everywhere-else">Locking someone out (logging them out everywhere else)</a></li>
 			<li class="level-2"><a href="#separate-sessions-per-kind-of-login">Separate sessions per kind of login</a></li>
 			<li class="level-2"><a href="#returning-401-and-403">Returning 401 and 403</a></li>
 			<li class="level-2"><a href="#staying-logged-in-remember-me">Staying logged in (remember-me)</a></li>

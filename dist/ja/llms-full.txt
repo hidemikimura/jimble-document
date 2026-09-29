@@ -2597,6 +2597,45 @@ Auth.logout(context);
 
 `Auth.REALM` を付けたルートでは、**その種別のログインだけ**を終えます（下記）。
 
+## 利用者を締め出す（ほかの端末からログアウトさせる）
+
+```java
+// パスワードを変えたあと：いまの端末だけ残して、ほかのログインを全部終わらせる
+Auth.revokeOthers(context);
+
+// 管理画面・バッチ・MQ から：その人のログインを全部終わらせる（WebContext は要りません）
+Auth.revoke(staffId);
+Auth.revoke("operator", staffId);   // 種別つき
+```
+
+**締め出された端末は、次のリクエストで `Auth.guard` が弾きます。**その種別のログインを消し、
+ふつうのルートなら 401 です。**remember-me の記憶も一緒に消える**ので、Cookie で入り直すこともできません。
+
+セッションを探して消すのではありません。**利用者ごとの番号（世代）を1つ上げ、それより古い番号でログインしたセッションを信じない**作りです。
+そのため、中身が利用者のブラウザにある **Cookie セッションでも効きます。**
+
+| | |
+| --- | --- |
+| 効くところ | `Auth.guard` を通るリクエスト。**`Auth.PUBLIC` のルートでも**、締め出された人をログイン中に見せません（`Auth.NO_SESSION` のルートはセッションを読まないので見ません） |
+| 遅れ | 呼んだ台では即座に。**複数台では、ほかの台で効くまで最大 5 秒**（`auth.revocation.cache_ttl`。`0s` にすれば毎回 DB を引きます） |
+| 置き場 | `auth_revocation` テーブル（初めて要ったときに作ります）。**締め出したことのある人だけ**行ができます |
+| 種別 | 種別つきの `revoke` は、**その種別のログインだけ**を終えます。同じセッションのほかの種別のログインは残ります |
+| 上げたとき | 上げる前のセッションは、締め出さなければそのまま入れます（**上げた日に誰もログアウトされません**） |
+| DB が無いとき | `revoke` は `IllegalStateException`。`guard` は比べません |
+| 失敗 | 書けなければ `revoke` が、引けなければ `guard` が例外を投げます（**締め出した人を通さない**ため） |
+| 設定 | `auth.revocation.*`（[設定](./config)） |
+
+> [!TRAP]
+> **これからのログインは止めません。**締め出したあとでも、パスワードを知っていれば入り直せます。
+> 盗まれたアカウントを止めるなら、**先にパスワードを変えるかアカウントを止めてから** `revoke` を呼んでください。
+
+> [!NOTE]
+> **役割を変えたら `revoke` してください。**役割はログインのときにセッションへ写すので、
+> そのままだと次にログインするまで古い役割のまま入れます。
+>
+> **張りっぱなしの WebSocket は切りません。**接続の一覧はアプリが持っているので、切るならそこから切ってください（[WebSocket](./websocket)）。
+> 開いている SSE は、寿命の上限（既定 5 分）で必ず終わります。
+
 ## ログインの種別でセッションを分ける
 
 運用者の画面と利用者の管理画面のように、**同じブラウザで両方にログインしたい**ときは、
@@ -2752,13 +2791,14 @@ Cookie には **`selector:validator`** の2つが入っていて、
 | 期限 | 最後に使ってから 30 日、**かつ**発行から 90 日（使い続けても、いつかは必ず切れます） |
 | 猶予 | 回した直後の 60 秒は古いほうも通します（**並列のリクエストで勝手にログアウトさせない**ため） |
 | ログアウト | `Auth.logout` が消します |
-| パスワード変更 | **`Remember.forgetAll(userId)` を呼んでください**（下記） |
+| パスワード変更 | **`Auth.revokeOthers(context)` を呼んでください**（下記。[利用者を締め出す](#利用者を締め出すほかの端末からログアウトさせる)） |
 | 設定 | `auth.remember.*`（[設定](./config)） |
 
 > [!TRAP]
-> **パスワードを変えたら `Remember.forgetAll(userId)` を呼んでください。**
-> 呼ばないと、**盗まれた Cookie はそのまま使えます**——変えた意味がありません。
-> 「全端末からログアウト」も同じものです。
+> **パスワードを変えたら `Auth.revokeOthers(context)` を呼んでください。**
+> 呼ばないと、**盗まれた Cookie とセッションはそのまま使えます**——変えた意味がありません。
+> **`Remember.forgetAll(userId)` だけでは足りません。**消えるのは remember-me の記憶だけで、
+> ほかの端末でいまログインしているセッションはそのまま入れます（`revokeOthers` は中で `forgetAll` も呼びます）。
 
 ### ログインの種別が複数あるとき
 
@@ -2774,7 +2814,7 @@ path("/ops", () -> {
 });
 
 Remember.issue(context, principal, "operator");   // ログインのとき
-Remember.forgetAll("operator", staffId);          // パスワードを変えたとき
+Auth.revoke("operator", staffId);                 // 締め出すとき（記憶も消えます）
 ```
 
 - **Cookie の名前が種別ごとに分かれます**（`remember_operator` のように、設定の名前 + `_` + 種別）。
@@ -6232,7 +6272,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.0.1-SNAPSHOT
+jimble 2.1.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6255,7 +6295,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.0.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.1.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6384,9 +6424,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.0.0"
-	id("io.jimble.run") version "2.0.0"
-	id("io.jimble.db")  version "2.0.0"
+	id("io.jimble.jte") version "2.1.0"
+	id("io.jimble.run") version "2.1.0"
+	id("io.jimble.db")  version "2.1.0"
 }
 ```
 
@@ -6428,9 +6468,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.0.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.0.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.0.0"   // DB を使うなら
+	id("io.jimble.jte") version "2.1.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.1.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.1.0"   // DB を使うなら
 }
 
 repositories {
@@ -6445,7 +6485,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.0.0")
+	implementation("io.jimble:jimble-web:2.1.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6479,7 +6519,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.0.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.1.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -6686,6 +6726,7 @@ jimbleRun {
 | J303 | ERROR | `BatchRegistry.sync` が `BatchRegistry.add` より前（全部のバッチが `nothing` になる） |
 | J304 | WARN | codegen を使っているのに、MQ の表（`mq_scheduler` など）を `codegen.exclude_tables` に書いていない |
 | J401 | ERROR | 外側の `before(Auth::guard)` と、`Auth.REALM` のブロックの中の `Remember.restore`（覚えていても毎回 401） |
+| J402 | WARN | `Remember.forgetAll(...)` があって、同じファイルに `Auth.revoke` / `revokeOthers` が無い（ほかの端末のセッションが残る） |
 | J501 | WARN | skill が使っている jimble の版のものではない（`jimbleSkills` で揃える） |
 | J701 | WARN | トランザクション（`db.begin()` / `db.transaction(...)` / `TransactionException`）を使うファイルの空の `catch`（確定していないのに成功を返す） |
 
@@ -7342,6 +7383,11 @@ auth {
 		sliding     = 30d          # 最後に使ってからこれだけ
 		absolute    = 90d          # 発行してからこれを超えたら、使っていても切れる
 		grace       = 60s          # 回した直後、古いほうも通す時間
+	}
+
+	revocation {
+		enabled     = true         # DB が無ければ比べない（Auth.revoke は例外）
+		cache_ttl   = 5s           # 引いた世代を控える時間。複数台ではほかの台で効くまでの遅れ。0s で毎回引く
 	}
 
 	mfa {

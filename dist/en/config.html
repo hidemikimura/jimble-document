@@ -396,6 +396,11 @@ auth {
 		grace       = <span class="h-n">60s</span>          <span class="h-c"># right after rotation, the old one still passes</span>
 	}
 
+	revocation {
+		enabled     = <span class="h-k">true</span>         <span class="h-c"># without a DB nothing is checked (Auth.revoke throws)</span>
+		cache_ttl   = <span class="h-n">5s</span>           <span class="h-c"># how long a looked-up generation is kept; the delay on other servers. 0s reads every time</span>
+	}
+
 	mfa {
 		enabled        = <span class="h-k">true</span>      <span class="h-c"># needs a database and secret_key (see below)</span>
 		issuer         = <span class="h-s">""</span>        <span class="h-c"># the name shown in the authenticator app</span>

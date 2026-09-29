@@ -13,9 +13,9 @@
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.0.0"
-	id("io.jimble.run") version "2.0.0"
-	id("io.jimble.db")  version "2.0.0"
+	id("io.jimble.jte") version "2.1.0"
+	id("io.jimble.run") version "2.1.0"
+	id("io.jimble.db")  version "2.1.0"
 }
 ```
 
@@ -57,9 +57,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.0.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.0.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.0.0"   // DB を使うなら
+	id("io.jimble.jte") version "2.1.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.1.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.1.0"   // DB を使うなら
 }
 
 repositories {
@@ -74,7 +74,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.0.0")
+	implementation("io.jimble:jimble-web:2.1.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -108,7 +108,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.0.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.1.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -315,6 +315,7 @@ jimbleRun {
 | J303 | ERROR | `BatchRegistry.sync` が `BatchRegistry.add` より前（全部のバッチが `nothing` になる） |
 | J304 | WARN | codegen を使っているのに、MQ の表（`mq_scheduler` など）を `codegen.exclude_tables` に書いていない |
 | J401 | ERROR | 外側の `before(Auth::guard)` と、`Auth.REALM` のブロックの中の `Remember.restore`（覚えていても毎回 401） |
+| J402 | WARN | `Remember.forgetAll(...)` があって、同じファイルに `Auth.revoke` / `revokeOthers` が無い（ほかの端末のセッションが残る） |
 | J501 | WARN | skill が使っている jimble の版のものではない（`jimbleSkills` で揃える） |
 | J701 | WARN | トランザクション（`db.begin()` / `db.transaction(...)` / `TransactionException`）を使うファイルの空の `catch`（確定していないのに成功を返す） |
 
