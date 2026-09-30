@@ -226,6 +226,9 @@
 </ol>
 <p><strong>It does not build the moment you save.</strong> It waits for a request.
 That is so a run of quick saves does not kick off build after build.</p>
+<p><strong>The <code>Host</code> header the browser sent reaches the application unchanged.</strong> Open <code>tenant1.localhost:9000</code>
+and the application receives <code>Host: tenant1.localhost:9000</code>: <code>request().host()</code> is <code>tenant1.localhost</code> and <code>port()</code> is <code>9000</code>
+(not the application's own <code>127.0.0.1:9100</code>, so an application that routes by host behaves the same in development).</p>
 <h2 id="it-runs-in-the-same-jvm-as-gradle">It runs in the same JVM as Gradle<a class="anchor" href="#it-runs-in-the-same-jvm-as-gradle">#</a></h2>
 <p><strong>The application runs inside the same process as Gradle.</strong>
 Debug <code>jimbleRun</code> from your IDE and <strong>you stop on breakpoints inside the

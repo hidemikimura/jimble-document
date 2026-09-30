@@ -226,6 +226,9 @@
 </ol>
 <p><strong>保存したそばからビルドはしません。</strong> リクエストが来るまで待ちます。
 連続して保存しているあいだ、何度もビルドが走るのを避けるためです。</p>
+<p><strong><code>Host</code> はブラウザが送ったものをそのままアプリへ渡します。</strong><code>tenant1.localhost:9000</code> で開けば、
+アプリには <code>Host: tenant1.localhost:9000</code> が届き、<code>request().host()</code> は <code>tenant1.localhost</code>、<code>port()</code> は <code>9000</code> です
+（アプリの待ち受け先の <code>127.0.0.1:9100</code> ではありません。ホストで振り分けるアプリも、開発のときに同じ動きになります）。</p>
 <h2 id="gradle-と同じ-jvm-で動きます">Gradle と同じ JVM で動きます<a class="anchor" href="#gradle-と同じ-jvm-で動きます">#</a></h2>
 <p><strong>アプリは Gradle と同じプロセスの中で動きます。</strong>
 IDE で <code>jimbleRun</code> を「デバッグ実行」すれば、<strong>そのままアプリの
