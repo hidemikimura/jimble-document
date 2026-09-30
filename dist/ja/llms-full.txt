@@ -6278,7 +6278,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.1.6-SNAPSHOT
+jimble 2.2.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6301,7 +6301,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.1.6-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.2.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6430,9 +6430,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.5"
-	id("io.jimble.run") version "2.1.5"
-	id("io.jimble.db")  version "2.1.5"
+	id("io.jimble.jte") version "2.2.0"
+	id("io.jimble.run") version "2.2.0"
+	id("io.jimble.db")  version "2.2.0"
 }
 ```
 
@@ -6474,9 +6474,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.5"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.1.5"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.1.5"   // DB を使うなら
+	id("io.jimble.jte") version "2.2.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.2.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.2.0"   // DB を使うなら
 }
 
 repositories {
@@ -6491,7 +6491,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.1.5")
+	implementation("io.jimble:jimble-web:2.2.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6525,7 +6525,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.1.5' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7617,7 +7617,7 @@ mcp {
 }
 
 jimble {
-	io.buffer_size       = 256KiB   # ファイルを送るときの読み書き単位
+	io.buffer_size       = 64KiB    # ファイル・ストリームを送るときに1回に写す大きさ／JSON を溜める上限
 	read_only_container  = false    # 書き込めないコンテナで動かすか
 
 	# server.port は -Djimble.server.port=8080 でも指定できる（システムプロパティが優先）
@@ -7911,6 +7911,29 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 `X-Forwarded-For` は**既存の値に足します**（上書きしません）。
 タイムアウトは `proxy.connect_timeout`（5秒）と `proxy.request_timeout`（30秒）で、
 転送に失敗したら **502** を返します。
+
+### nginx の proxy_set_header などに当たるもの
+
+設定したプロキシを `mount` に渡します。**設定は `mount` の前に済ませてください**（リクエストを受けたあとに変えると例外です）。
+
+```java
+install(() -> ReverseProxy.mount("/shop", new ReverseProxy("http://shop:9000")
+	.preserveHost()                                     // proxy_set_header Host $http_host
+	.setHeader("X-App", "front")                        // proxy_set_header X-App front
+	.setHeader("X-User", context -> userId(context))    // 値をリクエストから作る（null なら送らない）
+	.removeHeader("Cookie")                             // proxy_set_header Cookie ""
+	.hideResponseHeader("X-Powered-By")                 // proxy_hide_header X-Powered-By
+	.redirect("http://shop.internal/", "/shop/")        // proxy_redirect http://shop.internal/ /shop/
+	.cookieDomain("shop.internal", "example.com")       // proxy_cookie_domain shop.internal example.com
+	.cookiePath("/", "/shop/")));                       // proxy_cookie_path / /shop/
+```
+
+| | nginx と同じ既定 |
+| --- | --- |
+| `Host` | **転送先のもの**を送ります（`proxy_set_header Host $proxy_host`）。元の `Host` は `X-Forwarded-Host` / `X-Forwarded-Port` で渡します。転送先が **Host で振り分ける**なら `preserveHost()` を付けてください |
+| `Location` / `Refresh` | **転送先の URL で始まるものを、ブラウザから見えるパスに書き換えます**（`proxy_redirect default`。`http://backend:8080/moved` → `/api/moved`）。相対の値（`/moved`）はそのままです。切るなら `noRedirectRewrite()` |
+| 転送先との接続 | 1回ごとに切ります（keepalive は持ちません）。`https://` の転送先は証明書のホスト名を確かめます |
+| 圧縮 | 転送先が gzip で返した本文は、そのまま返します（もう一度圧縮しません） |
 
 
 

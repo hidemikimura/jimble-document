@@ -6409,7 +6409,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.1.6-SNAPSHOT
+jimble 2.2.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6433,7 +6433,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.1.6-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.2.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6566,9 +6566,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.5"
-	id("io.jimble.run") version "2.1.5"
-	id("io.jimble.db")  version "2.1.5"
+	id("io.jimble.jte") version "2.2.0"
+	id("io.jimble.run") version "2.2.0"
+	id("io.jimble.db")  version "2.2.0"
 }
 ```
 
@@ -6611,9 +6611,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.5"   // if you use src/main/jte
-	id("io.jimble.run") version "2.1.5"   // if you want hot reload
-	id("io.jimble.db")  version "2.1.5"   // if you use a database
+	id("io.jimble.jte") version "2.2.0"   // if you use src/main/jte
+	id("io.jimble.run") version "2.2.0"   // if you want hot reload
+	id("io.jimble.db")  version "2.2.0"   // if you use a database
 }
 
 repositories {
@@ -6628,7 +6628,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.1.5")
+	implementation("io.jimble:jimble-web:2.2.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6662,7 +6662,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.1.5' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -7780,7 +7780,7 @@ mcp {
 }
 
 jimble {
-	io.buffer_size       = 256KiB   # read/write unit when sending files
+	io.buffer_size       = 64KiB    # chunk size when sending files and streams / cap for buffering JSON
 	read_only_container  = false    # running in a container you cannot write to
 
 	# server.port also takes -Djimble.server.port=8080 (the system property wins)
@@ -8078,6 +8078,29 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 `X-Forwarded-For` is **appended to the existing value** (not overwritten).
 The timeouts are `proxy.connect_timeout` (5 seconds) and `proxy.request_timeout` (30 seconds),
 and a forward that fails returns **502**.
+
+### The equivalents of nginx's proxy_set_header and friends
+
+Pass a configured proxy to `mount`. **Finish the configuration before `mount`** (changing it after it has handled a request throws).
+
+```java
+install(() -> ReverseProxy.mount("/shop", new ReverseProxy("http://shop:9000")
+	.preserveHost()                                     // proxy_set_header Host $http_host
+	.setHeader("X-App", "front")                        // proxy_set_header X-App front
+	.setHeader("X-User", context -> userId(context))    // value built from the request (null: not sent)
+	.removeHeader("Cookie")                             // proxy_set_header Cookie ""
+	.hideResponseHeader("X-Powered-By")                 // proxy_hide_header X-Powered-By
+	.redirect("http://shop.internal/", "/shop/")        // proxy_redirect http://shop.internal/ /shop/
+	.cookieDomain("shop.internal", "example.com")       // proxy_cookie_domain shop.internal example.com
+	.cookiePath("/", "/shop/")));                       // proxy_cookie_path / /shop/
+```
+
+| | The same defaults as nginx |
+| --- | --- |
+| `Host` | **The upstream's** is sent (`proxy_set_header Host $proxy_host`). The original `Host` goes in `X-Forwarded-Host` / `X-Forwarded-Port`. If the upstream **routes by host**, add `preserveHost()` |
+| `Location` / `Refresh` | **Values starting with the upstream URL are rewritten to the path the browser sees** (`proxy_redirect default`: `http://backend:8080/moved` → `/api/moved`). Relative values (`/moved`) are left alone. Turn it off with `noRedirectRewrite()` |
+| Upstream connection | Closed after each request (no keepalive). For `https://` upstreams the certificate's host name is checked |
+| Compression | A gzip body from the upstream is passed through as is (not compressed a second time) |
 
 
 

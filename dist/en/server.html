@@ -433,6 +433,44 @@ test -f /opt/app/RUNNING_PID_8080       # is it running?
 <p><code>X-Forwarded-For</code> is <strong>appended to the existing value</strong> (not overwritten).
 The timeouts are <code>proxy.connect_timeout</code> (5 seconds) and <code>proxy.request_timeout</code> (30 seconds),
 and a forward that fails returns <strong>502</strong>.</p>
+<h3 id="the-equivalents-of-nginxs-proxy_set_header-and-friends">The equivalents of nginx's proxy_set_header and friends<a class="anchor" href="#the-equivalents-of-nginxs-proxy_set_header-and-friends">#</a></h3>
+<p>Pass a configured proxy to <code>mount</code>. <strong>Finish the configuration before <code>mount</code></strong> (changing it after it has handled a request throws).</p>
+<pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/shop"</span>, <span class="h-k">new</span> ReverseProxy(<span class="h-s">"http://shop:9000"</span>)
+	.preserveHost()                                     <span class="h-c">// proxy_set_header Host $http_host</span>
+	.setHeader(<span class="h-s">"X-App"</span>, <span class="h-s">"front"</span>)                        <span class="h-c">// proxy_set_header X-App front</span>
+	.setHeader(<span class="h-s">"X-User"</span>, context -&gt; userId(context))    <span class="h-c">// value built from the request (null: not sent)</span>
+	.removeHeader(<span class="h-s">"Cookie"</span>)                             <span class="h-c">// proxy_set_header Cookie ""</span>
+	.hideResponseHeader(<span class="h-s">"X-Powered-By"</span>)                 <span class="h-c">// proxy_hide_header X-Powered-By</span>
+	.redirect(<span class="h-s">"http://shop.internal/"</span>, <span class="h-s">"/shop/"</span>)        <span class="h-c">// proxy_redirect http://shop.internal/ /shop/</span>
+	.cookieDomain(<span class="h-s">"shop.internal"</span>, <span class="h-s">"example.com"</span>)       <span class="h-c">// proxy_cookie_domain shop.internal example.com</span>
+	.cookiePath(<span class="h-s">"/"</span>, <span class="h-s">"/shop/"</span>)));                       <span class="h-c">// proxy_cookie_path / /shop/</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>The same defaults as nginx</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Host</code></td>
+<td><strong>The upstream's</strong> is sent (<code>proxy_set_header Host $proxy_host</code>). The original <code>Host</code> goes in <code>X-Forwarded-Host</code> / <code>X-Forwarded-Port</code>. If the upstream <strong>routes by host</strong>, add <code>preserveHost()</code></td>
+</tr>
+<tr>
+<td><code>Location</code> / <code>Refresh</code></td>
+<td><strong>Values starting with the upstream URL are rewritten to the path the browser sees</strong> (<code>proxy_redirect default</code>: <code>http://backend:8080/moved</code> → <code>/api/moved</code>). Relative values (<code>/moved</code>) are left alone. Turn it off with <code>noRedirectRewrite()</code></td>
+</tr>
+<tr>
+<td>Upstream connection</td>
+<td>Closed after each request (no keepalive). For <code>https://</code> upstreams the certificate's host name is checked</td>
+</tr>
+<tr>
+<td>Compression</td>
+<td>A gzip body from the upstream is passed through as is (not compressed a second time)</td>
+</tr>
+</tbody>
+</table>
 
 		</article>
 
@@ -461,6 +499,7 @@ and a forward that fails returns <strong>502</strong>.</p>
 			<li class="level-3"><a href="#take-the-health-check-down-first">Take the health check down first</a></li>
 			<li class="level-3"><a href="#the-running-marker-running_pid_port">The running marker (RUNNING_PID_{port})</a></li>
 			<li class="level-2"><a href="#making-jimble-the-proxy">Making jimble the proxy</a></li>
+			<li class="level-3"><a href="#the-equivalents-of-nginxs-proxy_set_header-and-friends">The equivalents of nginx's proxy_set_header and friends</a></li>
 		</ul>
 	</nav>
 </div>

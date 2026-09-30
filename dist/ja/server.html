@@ -431,6 +431,44 @@ test -f /opt/app/RUNNING_PID_8080       # 動いているか
 <p><code>X-Forwarded-For</code> は<strong>既存の値に足します</strong>（上書きしません）。
 タイムアウトは <code>proxy.connect_timeout</code>（5秒）と <code>proxy.request_timeout</code>（30秒）で、
 転送に失敗したら <strong>502</strong> を返します。</p>
+<h3 id="nginx-の-proxy_set_header-などに当たるもの">nginx の proxy_set_header などに当たるもの<a class="anchor" href="#nginx-の-proxy_set_header-などに当たるもの">#</a></h3>
+<p>設定したプロキシを <code>mount</code> に渡します。<strong>設定は <code>mount</code> の前に済ませてください</strong>（リクエストを受けたあとに変えると例外です）。</p>
+<pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/shop"</span>, <span class="h-k">new</span> ReverseProxy(<span class="h-s">"http://shop:9000"</span>)
+	.preserveHost()                                     <span class="h-c">// proxy_set_header Host $http_host</span>
+	.setHeader(<span class="h-s">"X-App"</span>, <span class="h-s">"front"</span>)                        <span class="h-c">// proxy_set_header X-App front</span>
+	.setHeader(<span class="h-s">"X-User"</span>, context -&gt; userId(context))    <span class="h-c">// 値をリクエストから作る（null なら送らない）</span>
+	.removeHeader(<span class="h-s">"Cookie"</span>)                             <span class="h-c">// proxy_set_header Cookie ""</span>
+	.hideResponseHeader(<span class="h-s">"X-Powered-By"</span>)                 <span class="h-c">// proxy_hide_header X-Powered-By</span>
+	.redirect(<span class="h-s">"http://shop.internal/"</span>, <span class="h-s">"/shop/"</span>)        <span class="h-c">// proxy_redirect http://shop.internal/ /shop/</span>
+	.cookieDomain(<span class="h-s">"shop.internal"</span>, <span class="h-s">"example.com"</span>)       <span class="h-c">// proxy_cookie_domain shop.internal example.com</span>
+	.cookiePath(<span class="h-s">"/"</span>, <span class="h-s">"/shop/"</span>)));                       <span class="h-c">// proxy_cookie_path / /shop/</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>nginx と同じ既定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Host</code></td>
+<td><strong>転送先のもの</strong>を送ります（<code>proxy_set_header Host $proxy_host</code>）。元の <code>Host</code> は <code>X-Forwarded-Host</code> / <code>X-Forwarded-Port</code> で渡します。転送先が <strong>Host で振り分ける</strong>なら <code>preserveHost()</code> を付けてください</td>
+</tr>
+<tr>
+<td><code>Location</code> / <code>Refresh</code></td>
+<td><strong>転送先の URL で始まるものを、ブラウザから見えるパスに書き換えます</strong>（<code>proxy_redirect default</code>。<code>http://backend:8080/moved</code> → <code>/api/moved</code>）。相対の値（<code>/moved</code>）はそのままです。切るなら <code>noRedirectRewrite()</code></td>
+</tr>
+<tr>
+<td>転送先との接続</td>
+<td>1回ごとに切ります（keepalive は持ちません）。<code>https://</code> の転送先は証明書のホスト名を確かめます</td>
+</tr>
+<tr>
+<td>圧縮</td>
+<td>転送先が gzip で返した本文は、そのまま返します（もう一度圧縮しません）</td>
+</tr>
+</tbody>
+</table>
 
 		</article>
 
@@ -459,6 +497,7 @@ test -f /opt/app/RUNNING_PID_8080       # 動いているか
 			<li class="level-3"><a href="#ヘルスチェックを先に落とす">ヘルスチェックを先に落とす</a></li>
 			<li class="level-3"><a href="#動いている印running_pid_ポート">動いている印（RUNNING_PID_{ポート}）</a></li>
 			<li class="level-2"><a href="#jimble-をプロキシにする">jimble をプロキシにする</a></li>
+			<li class="level-3"><a href="#nginx-の-proxy_set_header-などに当たるもの">nginx の proxy_set_header などに当たるもの</a></li>
 		</ul>
 	</nav>
 </div>

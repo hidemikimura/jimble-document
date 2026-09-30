@@ -610,7 +610,7 @@ mcp {
 }
 
 jimble {
-	io.buffer_size       = <span class="h-n">256KiB</span>   <span class="h-c"># ファイルを送るときの読み書き単位</span>
+	io.buffer_size       = <span class="h-n">64KiB</span>    <span class="h-c"># ファイル・ストリームを送るときに1回に写す大きさ／JSON を溜める上限</span>
 	read_only_container  = <span class="h-k">false</span>    <span class="h-c"># 書き込めないコンテナで動かすか</span>
 
 	<span class="h-c"># server.port は -Djimble.server.port=8080 でも指定できる（システムプロパティが優先）</span>
