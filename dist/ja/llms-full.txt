@@ -6272,7 +6272,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.1.2-SNAPSHOT
+jimble 2.1.3-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6295,7 +6295,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.1.2-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.1.3-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6424,9 +6424,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.1"
-	id("io.jimble.run") version "2.1.1"
-	id("io.jimble.db")  version "2.1.1"
+	id("io.jimble.jte") version "2.1.2"
+	id("io.jimble.run") version "2.1.2"
+	id("io.jimble.db")  version "2.1.2"
 }
 ```
 
@@ -6468,9 +6468,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.1"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.1.1"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.1.1"   // DB を使うなら
+	id("io.jimble.jte") version "2.1.2"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.1.2"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.1.2"   // DB を使うなら
 }
 
 repositories {
@@ -6485,7 +6485,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.1.1")
+	implementation("io.jimble:jimble-web:2.1.2")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6519,7 +6519,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.1.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.1.2' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
