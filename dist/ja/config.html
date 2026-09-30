@@ -501,7 +501,9 @@ db {
 		idle_timeout          = <span class="h-n">10m</span>        <span class="h-c"># 使っていない接続を閉じるまで</span>
 		max_lifetime          = <span class="h-n">30m</span>        <span class="h-c"># 1本の接続の寿命</span>
 		connection_timeout    = <span class="h-n">30s</span>        <span class="h-c"># 接続を待つ上限</span>
-		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># 生存確認の間隔</span>
+		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># 生存確認の間隔（Agroal は裏の定期確認と、これより長く寝ていた接続を渡す前の確認）</span>
+		leak_timeout          = <span class="h-n">0s</span>         <span class="h-c"># これより長く握られた接続をリークの疑いとして警告する。0s なら見ない</span>
+		validate_on_borrow    = <span class="h-k">false</span>      <span class="h-c"># 取り出すたびに生存確認する（Agroal だけ。HikariCP はいつも確かめる）</span>
 		connection_init_sql   = <span class="h-s">""</span>         <span class="h-c"># 接続直後に流す SQL</span>
 		connection_test_query = <span class="h-s">""</span>         <span class="h-c"># 生存確認の SQL</span>
 		connection_pool_type  = <span class="h-s">"hikari"</span>   <span class="h-c"># hikari | agroal</span>
@@ -548,13 +550,14 @@ codegen {
 }
 
 mq {
-	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># キューが空でないときの待ち</span>
-	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># キューが空のときの待ち（だんだん伸びる）</span>
+	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># 取り出し役の待ち（全員が処理中のとき）</span>
+	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># 取り出し役の待ち（キューが空のとき。だんだん伸びる）</span>
 	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># リトライの間隔（回を追うごとに倍）</span>
 	retry_backoff_max = <span class="h-n">10m</span>
 	stale             = <span class="h-n">10m</span>    <span class="h-c"># これだけ running のままなら落ちたとみなす</span>
 
-	<span class="h-c"># 実行種別ごとのスレッド数。書かなければ種別ごとの既定</span>
+	<span class="h-c"># 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。</span>
+	<span class="h-c"># DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない</span>
 	thread_count {
 		short_time = <span class="h-n">2</span>
 		long_time  = <span class="h-n">8</span>

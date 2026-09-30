@@ -509,7 +509,9 @@ db {
 		idle_timeout          = <span class="h-n">10m</span>        <span class="h-c"># how long an unused connection is kept</span>
 		max_lifetime          = <span class="h-n">30m</span>        <span class="h-c"># how long one connection lives</span>
 		connection_timeout    = <span class="h-n">30s</span>        <span class="h-c"># cap on waiting for a connection</span>
-		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># liveness check interval</span>
+		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># liveness check interval (Agroal: background checks, and a check before handing out a connection idle longer than this)</span>
+		leak_timeout          = <span class="h-n">0s</span>         <span class="h-c"># warn about a connection held longer than this as a possible leak; 0s turns it off</span>
+		validate_on_borrow    = <span class="h-k">false</span>      <span class="h-c"># check every connection as it is handed out (Agroal only; HikariCP always checks)</span>
 		connection_init_sql   = <span class="h-s">""</span>         <span class="h-c"># SQL run right after connecting</span>
 		connection_test_query = <span class="h-s">""</span>         <span class="h-c"># SQL used for the liveness check</span>
 		connection_pool_type  = <span class="h-s">"hikari"</span>   <span class="h-c"># hikari | agroal</span>
@@ -556,13 +558,14 @@ codegen {
 }
 
 mq {
-	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># wait when the queue is not empty</span>
-	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># wait when the queue is empty (grows)</span>
+	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># the poller's wait while every worker is busy</span>
+	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># the poller's wait while the queue is empty (grows)</span>
 	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># interval between retries (doubles each time)</span>
 	retry_backoff_max = <span class="h-n">10m</span>
 	stale             = <span class="h-n">10m</span>    <span class="h-c"># this long as running counts as dead</span>
 
-	<span class="h-c"># Threads per execution type. Left out, each type's own default is used</span>
+	<span class="h-c"># Workers per execution type (how many run in parallel). Left out, each type's own default is used.</span>
+	<span class="h-c"># One poller per queue reads the DB, so more workers do not add connections while idle</span>
 	thread_count {
 		short_time = <span class="h-n">2</span>
 		long_time  = <span class="h-n">8</span>

@@ -303,6 +303,11 @@ MqRegistry.add(NoticeExecutor::<span class="h-k">new</span>);
 </code></pre>
 <p>Pulling messages off and running them is a batch's job. Write one batch — something like
 <code>MqWorkerBatch</code> — register it the same way as any other <a href="./batch">batch</a>, and run it on cron.</p>
+<p><strong>Only one poller per queue reads the DB.</strong> It takes a message with <code>SELECT ... FOR UPDATE SKIP LOCKED</code>
+only when a worker is free, and hands it straight to that worker (nothing is read ahead).
+<code>mq.thread_count.&lt;type&gt;</code> is <strong>how many messages are processed in parallel</strong>; raising it does not add connections
+borrowed while the queue is idle (up to 2.1.2 every worker polled the DB itself, so a slow DB filled one
+connection per worker at once).</p>
 
 		</article>
 

@@ -327,7 +327,9 @@ db {
 		idle_timeout          = 10m        # 使っていない接続を閉じるまで
 		max_lifetime          = 30m        # 1本の接続の寿命
 		connection_timeout    = 30s        # 接続を待つ上限
-		keepalive_time        = 30s        # 生存確認の間隔
+		keepalive_time        = 30s        # 生存確認の間隔（Agroal は裏の定期確認と、これより長く寝ていた接続を渡す前の確認）
+		leak_timeout          = 0s         # これより長く握られた接続をリークの疑いとして警告する。0s なら見ない
+		validate_on_borrow    = false      # 取り出すたびに生存確認する（Agroal だけ。HikariCP はいつも確かめる）
 		connection_init_sql   = ""         # 接続直後に流す SQL
 		connection_test_query = ""         # 生存確認の SQL
 		connection_pool_type  = "hikari"   # hikari | agroal
@@ -374,13 +376,14 @@ codegen {
 }
 
 mq {
-	poll_min          = 10ms   # キューが空でないときの待ち
-	poll_max          = 1s     # キューが空のときの待ち（だんだん伸びる）
+	poll_min          = 10ms   # 取り出し役の待ち（全員が処理中のとき）
+	poll_max          = 1s     # 取り出し役の待ち（キューが空のとき。だんだん伸びる）
 	retry_backoff     = 10s    # リトライの間隔（回を追うごとに倍）
 	retry_backoff_max = 10m
 	stale             = 10m    # これだけ running のままなら落ちたとみなす
 
-	# 実行種別ごとのスレッド数。書かなければ種別ごとの既定
+	# 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。
+	# DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない
 	thread_count {
 		short_time = 2
 		long_time  = 8

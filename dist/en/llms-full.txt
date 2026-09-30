@@ -5697,6 +5697,12 @@ MqRegistry.add(NoticeExecutor::new);
 Pulling messages off and running them is a batch's job. Write one batch — something like
 `MqWorkerBatch` — register it the same way as any other [batch](./batch), and run it on cron.
 
+**Only one poller per queue reads the DB.** It takes a message with `SELECT ... FOR UPDATE SKIP LOCKED`
+only when a worker is free, and hands it straight to that worker (nothing is read ahead).
+`mq.thread_count.<type>` is **how many messages are processed in parallel**; raising it does not add connections
+borrowed while the queue is idle (up to 2.1.2 every worker polled the DB itself, so a slow DB filled one
+connection per worker at once).
+
 
 
 ---
@@ -6402,7 +6408,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.1.3-SNAPSHOT
+jimble 2.1.4-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6426,7 +6432,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.1.3-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.1.4-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6559,9 +6565,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.2"
-	id("io.jimble.run") version "2.1.2"
-	id("io.jimble.db")  version "2.1.2"
+	id("io.jimble.jte") version "2.1.3"
+	id("io.jimble.run") version "2.1.3"
+	id("io.jimble.db")  version "2.1.3"
 }
 ```
 
@@ -6604,9 +6610,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.2"   // if you use src/main/jte
-	id("io.jimble.run") version "2.1.2"   // if you want hot reload
-	id("io.jimble.db")  version "2.1.2"   // if you use a database
+	id("io.jimble.jte") version "2.1.3"   // if you use src/main/jte
+	id("io.jimble.run") version "2.1.3"   // if you want hot reload
+	id("io.jimble.db")  version "2.1.3"   // if you use a database
 }
 
 repositories {
@@ -6621,7 +6627,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.1.2")
+	implementation("io.jimble:jimble-web:2.1.3")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6655,7 +6661,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.1.2' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.1.3' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -7664,7 +7670,9 @@ db {
 		idle_timeout          = 10m        # how long an unused connection is kept
 		max_lifetime          = 30m        # how long one connection lives
 		connection_timeout    = 30s        # cap on waiting for a connection
-		keepalive_time        = 30s        # liveness check interval
+		keepalive_time        = 30s        # liveness check interval (Agroal: background checks, and a check before handing out a connection idle longer than this)
+		leak_timeout          = 0s         # warn about a connection held longer than this as a possible leak; 0s turns it off
+		validate_on_borrow    = false      # check every connection as it is handed out (Agroal only; HikariCP always checks)
 		connection_init_sql   = ""         # SQL run right after connecting
 		connection_test_query = ""         # SQL used for the liveness check
 		connection_pool_type  = "hikari"   # hikari | agroal
@@ -7711,13 +7719,14 @@ codegen {
 }
 
 mq {
-	poll_min          = 10ms   # wait when the queue is not empty
-	poll_max          = 1s     # wait when the queue is empty (grows)
+	poll_min          = 10ms   # the poller's wait while every worker is busy
+	poll_max          = 1s     # the poller's wait while the queue is empty (grows)
 	retry_backoff     = 10s    # interval between retries (doubles each time)
 	retry_backoff_max = 10m
 	stale             = 10m    # this long as running counts as dead
 
-	# Threads per execution type. Left out, each type's own default is used
+	# Workers per execution type (how many run in parallel). Left out, each type's own default is used.
+	# One poller per queue reads the DB, so more workers do not add connections while idle
 	thread_count {
 		short_time = 2
 		long_time  = 8

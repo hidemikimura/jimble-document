@@ -303,6 +303,10 @@ MqRegistry.add(NoticeExecutor::<span class="h-k">new</span>);
 </code></pre>
 <p>取り出して回すのはバッチです。<code>MqWorkerBatch</code> のようなバッチを1つ作り、
 <a href="./batch">バッチ</a> と同じように登録して cron で回します。</p>
+<p><strong>DB から取るのは、キューごとに1本の取り出し役だけです。<strong>取り出し役は、手の空いたワーカーがいるときだけ
+<code>SELECT ... FOR UPDATE SKIP LOCKED</code> で1件取り、その場でワーカーに渡します（先読みはしません）。
+<code>mq.thread_count.&lt;種別&gt;</code> は</strong>並んで処理する数</strong>で、増やしても、何もしていないときに DB の接続を借りる数は増えません
+（2.1.2 まではワーカーが1本ずつ自分で DB を見ていたので、DB の応答が遅れると、ワーカーの数だけ接続が同時に埋まりました）。</p>
 
 		</article>
 
