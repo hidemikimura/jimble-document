@@ -427,7 +427,7 @@ Migration.install();
 <h2 id="コード生成">コード生成<a class="anchor" href="#コード生成">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
 </code></pre>
-<p>DB のスキーマから、データソースごとに3種類を作ります。</p>
+<p>DB のスキーマから、データソースごとに4種類を作ります。</p>
 <table>
 <thead>
 <tr>
@@ -441,6 +441,11 @@ Migration.install();
 <td>スキーマクラス</td>
 <td><code>db/&lt;データソース&gt;/BlogExample.java</code></td>
 <td><code>BlogExample.db()</code>、テーブル一覧</td>
+</tr>
+<tr>
+<td>スキーマの実体</td>
+<td><code>db/&lt;データソース&gt;/BlogExampleSchema.java</code></td>
+<td>テーブルクラスが使う（アプリからは使わない）</td>
 </tr>
 <tr>
 <td>テーブルクラス</td>

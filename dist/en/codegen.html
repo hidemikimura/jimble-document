@@ -459,7 +459,7 @@ application starts.</strong></p>
 <h2 id="code-generation">Code generation<a class="anchor" href="#code-generation">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
 </code></pre>
-<p>From the DB schema, three kinds of file are generated per data source.</p>
+<p>From the DB schema, four kinds of file are generated per data source.</p>
 <table>
 <thead>
 <tr>
@@ -473,6 +473,11 @@ application starts.</strong></p>
 <td>Schema class</td>
 <td><code>db/&lt;data source&gt;/BlogExample.java</code></td>
 <td><code>BlogExample.db()</code>, the table list</td>
+</tr>
+<tr>
+<td>Schema base</td>
+<td><code>db/&lt;data source&gt;/BlogExampleSchema.java</code></td>
+<td>Used by the table classes (not by your code)</td>
 </tr>
 <tr>
 <td>Table class</td>

@@ -5089,11 +5089,12 @@ Migration.install();
 ./gradlew codegen
 ```
 
-DB のスキーマから、データソースごとに3種類を作ります。
+DB のスキーマから、データソースごとに4種類を作ります。
 
 | 生成物 | 置き場所 | 何に使うか |
 | --- | --- | --- |
 | スキーマクラス | `db/<データソース>/BlogExample.java` | `BlogExample.db()`、テーブル一覧 |
+| スキーマの実体 | `db/<データソース>/BlogExampleSchema.java` | テーブルクラスが使う（アプリからは使わない） |
 | テーブルクラス | `db/<データソース>/table/post/Post.java` | `Post.id` などの `Column` |
 | 型付きアクセサ | `db/<データソース>/table_data/post/AbstractPostData.java` | `data.title("...").published(true)` |
 
@@ -6277,7 +6278,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.1.4-SNAPSHOT
+jimble 2.1.5-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6300,7 +6301,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.1.4-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.1.5-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6429,9 +6430,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.3"
-	id("io.jimble.run") version "2.1.3"
-	id("io.jimble.db")  version "2.1.3"
+	id("io.jimble.jte") version "2.1.4"
+	id("io.jimble.run") version "2.1.4"
+	id("io.jimble.db")  version "2.1.4"
 }
 ```
 
@@ -6473,9 +6474,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.3"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.1.3"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.1.3"   // DB を使うなら
+	id("io.jimble.jte") version "2.1.4"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.1.4"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.1.4"   // DB を使うなら
 }
 
 repositories {
@@ -6490,7 +6491,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.1.3")
+	implementation("io.jimble:jimble-web:2.1.4")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6524,7 +6525,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.1.3' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.1.4' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -9029,6 +9030,19 @@ try (CsvReader reader = new CsvReader(new File("in.csv"))) {
 > [!WARN]
 > **文字コードを省略すると、判定に失敗したときは Shift_JIS になります。**
 > UTF-8 と分かっているなら `new CsvReader(file, "UTF-8")` と書いてください。
+
+**BOM**（Excel が書き出す UTF-8 の CSV に付くもの）は、文字コードが UTF 系なら読むときに落とします。
+BOM があれば、その BOM が示す文字コードで読みます（UTF-8 と指定しても、UTF-16LE の BOM なら UTF-16LE）。
+`Reader` を渡したときは、先頭の BOM を1文字だけ落とします。
+
+書くときに BOM を付けるなら `setWithBom(true)` です（Excel に UTF-8 の CSV を開かせるとき）。
+**文字コードが UTF 系のときだけ効き**、Shift_JIS などでは何もしません。
+
+```java
+try (CsvWriter writer = new CsvWriter(new File("out.csv"), "UTF-8").setWithBom(true)) {
+	writer.writeLine("名前", "数");
+}
+```
 
 ## XML
 

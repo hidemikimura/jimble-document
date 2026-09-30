@@ -385,6 +385,15 @@ Data json = res.getContentJson();
 <p><strong>文字コードを省略すると、判定に失敗したときは Shift_JIS になります。</strong>
 UTF-8 と分かっているなら <code>new CsvReader(file, &quot;UTF-8&quot;)</code> と書いてください。</p>
 </div>
+<p><strong>BOM</strong>（Excel が書き出す UTF-8 の CSV に付くもの）は、文字コードが UTF 系なら読むときに落とします。
+BOM があれば、その BOM が示す文字コードで読みます（UTF-8 と指定しても、UTF-16LE の BOM なら UTF-16LE）。
+<code>Reader</code> を渡したときは、先頭の BOM を1文字だけ落とします。</p>
+<p>書くときに BOM を付けるなら <code>setWithBom(true)</code> です（Excel に UTF-8 の CSV を開かせるとき）。
+<strong>文字コードが UTF 系のときだけ効き</strong>、Shift_JIS などでは何もしません。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">try</span> (CsvWriter writer = <span class="h-k">new</span> CsvWriter(<span class="h-k">new</span> File(<span class="h-s">"out.csv"</span>), <span class="h-s">"UTF-8"</span>).setWithBom(<span class="h-k">true</span>)) {
+	writer.writeLine(<span class="h-s">"名前"</span>, <span class="h-s">"数"</span>);
+}
+</code></pre>
 <h2 id="xml">XML<a class="anchor" href="#xml">#</a></h2>
 <p><code>XmlParser.parse(file)</code> で <code>XmlData</code> の木にします（<strong>全部メモリに載ります</strong>）。
 組み立ては <code>XmlBuilder.build(xmlData)</code>（検査例外は投げません）。</p>

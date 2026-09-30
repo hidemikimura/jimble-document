@@ -5198,11 +5198,12 @@ They run once each, in `versionYyyyMmDd()` order, and the result is kept in
 ./gradlew codegen
 ```
 
-From the DB schema, three kinds of file are generated per data source.
+From the DB schema, four kinds of file are generated per data source.
 
 | Generated | Where it goes | What it is for |
 | --- | --- | --- |
 | Schema class | `db/<data source>/BlogExample.java` | `BlogExample.db()`, the table list |
+| Schema base | `db/<data source>/BlogExampleSchema.java` | Used by the table classes (not by your code) |
 | Table class | `db/<data source>/table/post/Post.java` | The `Column`s, such as `Post.id` |
 | Typed accessors | `db/<data source>/table_data/post/AbstractPostData.java` | `data.title("...").published(true)` |
 
@@ -6408,7 +6409,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.1.4-SNAPSHOT
+jimble 2.1.5-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6432,7 +6433,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.1.4-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.1.5-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6565,9 +6566,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.3"
-	id("io.jimble.run") version "2.1.3"
-	id("io.jimble.db")  version "2.1.3"
+	id("io.jimble.jte") version "2.1.4"
+	id("io.jimble.run") version "2.1.4"
+	id("io.jimble.db")  version "2.1.4"
 }
 ```
 
@@ -6610,9 +6611,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.1.3"   // if you use src/main/jte
-	id("io.jimble.run") version "2.1.3"   // if you want hot reload
-	id("io.jimble.db")  version "2.1.3"   // if you use a database
+	id("io.jimble.jte") version "2.1.4"   // if you use src/main/jte
+	id("io.jimble.run") version "2.1.4"   // if you want hot reload
+	id("io.jimble.db")  version "2.1.4"   // if you use a database
 }
 
 repositories {
@@ -6627,7 +6628,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.1.3")
+	implementation("io.jimble:jimble-web:2.1.4")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6661,7 +6662,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.1.3' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.1.4' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -9214,6 +9215,19 @@ try (CsvReader reader = new CsvReader(new File("in.csv"))) {
 > [!WARN]
 > **Leave the character encoding out and, when detection fails, you get Shift_JIS.**
 > If you know it is UTF-8, write `new CsvReader(file, "UTF-8")`.
+
+A **BOM** (the one Excel puts on UTF-8 CSV files) is dropped when reading, as long as the encoding is a UTF one.
+If there is a BOM, the file is read in the encoding the BOM says (ask for UTF-8 and get a UTF-16LE BOM, and it is read as UTF-16LE).
+Pass a `Reader` and a single leading BOM character is dropped.
+
+To write a BOM, use `setWithBom(true)` (for Excel to open a UTF-8 CSV correctly).
+**It only has an effect for UTF encodings**; with Shift_JIS and the like it does nothing.
+
+```java
+try (CsvWriter writer = new CsvWriter(new File("out.csv"), "UTF-8").setWithBom(true)) {
+	writer.writeLine("name", "count");
+}
+```
 
 ## XML
 
