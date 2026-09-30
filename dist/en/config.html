@@ -429,8 +429,8 @@ auth {
 			<span class="h-c"># jwks_uri               = "..."</span>
 
 			scopes        = <span class="h-s">"openid email profile"</span>
-			clock_skew    = <span class="h-n">60</span>      <span class="h-c"># seconds of clock drift accepted</span>
-			discovery_ttl = <span class="h-n">3600</span>    <span class="h-c"># seconds discovery and JWKS are held</span>
+			clock_skew    = <span class="h-n">60s</span>     <span class="h-c"># how much clock drift is accepted</span>
+			discovery_ttl = <span class="h-n">1h</span>      <span class="h-c"># how long discovery and JWKS are held</span>
 		}
 	}
 }
