@@ -430,7 +430,9 @@ test -f /opt/app/RUNNING_PID_8080       # 動いているか
 </code></pre>
 <p><code>X-Forwarded-For</code> は<strong>既存の値に足します</strong>（上書きしません）。
 タイムアウトは <code>proxy.connect_timeout</code>（5秒）と <code>proxy.request_timeout</code>（30秒）で、
-転送に失敗したら <strong>502</strong> を返します。</p>
+転送に失敗したら <strong>502</strong> を返します。
+パスはセグメントごとにエンコードし直して送り、<strong><code>.</code> / <code>..</code> を含むパスは 400</strong> で断ります
+（ベース URL のパスの外へ出させないため）。</p>
 <h3 id="nginx-の-proxy_set_header-などに当たるもの">nginx の proxy_set_header などに当たるもの<a class="anchor" href="#nginx-の-proxy_set_header-などに当たるもの">#</a></h3>
 <p>設定したプロキシを <code>mount</code> に渡します。<strong>設定は <code>mount</code> の前に済ませてください</strong>（リクエストを受けたあとに変えると例外です）。</p>
 <pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/shop"</span>, <span class="h-k">new</span> ReverseProxy(<span class="h-s">"http://shop:9000"</span>)

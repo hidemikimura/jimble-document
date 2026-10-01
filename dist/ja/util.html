@@ -396,6 +396,7 @@ BOM があれば、その BOM が示す文字コードで読みます（UTF-8 �
 </code></pre>
 <h2 id="xml">XML<a class="anchor" href="#xml">#</a></h2>
 <p><code>XmlParser.parse(file)</code> で <code>XmlData</code> の木にします（<strong>全部メモリに載ります</strong>）。
+<strong>DOCTYPE を含む XML は解析しません</strong>（null を返します。外部の実体でファイルを読ませないため）。
 組み立ては <code>XmlBuilder.build(xmlData)</code>（検査例外は投げません）。</p>
 <h2 id="ハッシュと暗号">ハッシュと暗号<a class="anchor" href="#ハッシュと暗号">#</a></h2>
 <table>

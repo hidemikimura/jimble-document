@@ -401,6 +401,7 @@ Pass a <code>Reader</code> and a single leading BOM character is dropped.</p>
 </code></pre>
 <h2 id="xml">XML<a class="anchor" href="#xml">#</a></h2>
 <p><code>XmlParser.parse(file)</code> turns it into a tree of <code>XmlData</code> (<strong>all of it goes in memory</strong>).
+<strong>XML with a DOCTYPE is not parsed</strong> (it returns null, so external entities cannot read files).
 To build one, <code>XmlBuilder.build(xmlData)</code> (it throws no checked exception).</p>
 <h2 id="hashing-and-encryption">Hashing and encryption<a class="anchor" href="#hashing-and-encryption">#</a></h2>
 <table>

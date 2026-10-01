@@ -6409,7 +6409,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.2.2-SNAPSHOT
+jimble 2.2.3-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6433,7 +6433,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.2.2-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.2.3-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6566,9 +6566,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.1"
-	id("io.jimble.run") version "2.2.1"
-	id("io.jimble.db")  version "2.2.1"
+	id("io.jimble.jte") version "2.2.2"
+	id("io.jimble.run") version "2.2.2"
+	id("io.jimble.db")  version "2.2.2"
 }
 ```
 
@@ -6611,9 +6611,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.1"   // if you use src/main/jte
-	id("io.jimble.run") version "2.2.1"   // if you want hot reload
-	id("io.jimble.db")  version "2.2.1"   // if you use a database
+	id("io.jimble.jte") version "2.2.2"   // if you use src/main/jte
+	id("io.jimble.run") version "2.2.2"   // if you want hot reload
+	id("io.jimble.db")  version "2.2.2"   // if you use a database
 }
 
 repositories {
@@ -6628,7 +6628,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.1")
+	implementation("io.jimble:jimble-web:2.2.2")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6662,7 +6662,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.2' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -8078,6 +8078,8 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 `X-Forwarded-For` is **appended to the existing value** (not overwritten).
 The timeouts are `proxy.connect_timeout` (5 seconds) and `proxy.request_timeout` (30 seconds),
 and a forward that fails returns **502**.
+The path is re-encoded segment by segment, and **a path containing `.` or `..` gets 400**
+(so a request cannot climb out of the base URL's path).
 
 ### The equivalents of nginx's proxy_set_header and friends
 
@@ -9255,6 +9257,7 @@ try (CsvWriter writer = new CsvWriter(new File("out.csv"), "UTF-8").setWithBom(t
 ## XML
 
 `XmlParser.parse(file)` turns it into a tree of `XmlData` (**all of it goes in memory**).
+**XML with a DOCTYPE is not parsed** (it returns null, so external entities cannot read files).
 To build one, `XmlBuilder.build(xmlData)` (it throws no checked exception).
 
 ## Hashing and encryption

@@ -432,7 +432,9 @@ test -f /opt/app/RUNNING_PID_8080       # is it running?
 </code></pre>
 <p><code>X-Forwarded-For</code> is <strong>appended to the existing value</strong> (not overwritten).
 The timeouts are <code>proxy.connect_timeout</code> (5 seconds) and <code>proxy.request_timeout</code> (30 seconds),
-and a forward that fails returns <strong>502</strong>.</p>
+and a forward that fails returns <strong>502</strong>.
+The path is re-encoded segment by segment, and <strong>a path containing <code>.</code> or <code>..</code> gets 400</strong>
+(so a request cannot climb out of the base URL's path).</p>
 <h3 id="the-equivalents-of-nginxs-proxy_set_header-and-friends">The equivalents of nginx's proxy_set_header and friends<a class="anchor" href="#the-equivalents-of-nginxs-proxy_set_header-and-friends">#</a></h3>
 <p>Pass a configured proxy to <code>mount</code>. <strong>Finish the configuration before <code>mount</code></strong> (changing it after it has handled a request throws).</p>
 <pre class="code"><code class="lang-java">install(() -&gt; ReverseProxy.mount(<span class="h-s">"/shop"</span>, <span class="h-k">new</span> ReverseProxy(<span class="h-s">"http://shop:9000"</span>)
