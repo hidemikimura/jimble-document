@@ -266,7 +266,7 @@ jimble を起動しました: http://localhost:9000
 <p>詳しくは <a href="./hot-reload">ホットリロード</a> を見てください。</p>
 <h2 id="5-エラーの出し方を決める">5. エラーの出し方を決める<a class="anchor" href="#5-エラーの出し方を決める">#</a></h2>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt;
-	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, cause.getMessage())));</code></pre>
+	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"サーバーで問題が起きました"</span>))));</code></pre>
 <p><code>error()</code> に渡したものが、投げられた例外にも、どのルートにも当たらなかった 404 にも使われます。
 何も登録しないと jimble の既定の形で返ります。</p>
 <h2 id="クラスの置き場所">クラスの置き場所<a class="anchor" href="#クラスの置き場所">#</a></h2>

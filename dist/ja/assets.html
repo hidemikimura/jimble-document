@@ -339,7 +339,8 @@ install(() -&gt; assets);
 <p>クローラや OGP のために <code>&lt;title&gt;</code> や <code>&lt;meta&gt;</code> を差し替えたいときに使います。</p>
 <pre class="code"><code class="lang-java">install(() -&gt; SpaHandler.mount(<span class="h-s">"/app"</span>, <span class="h-s">"test-spa"</span>, spa -&gt; spa
 	.route(<span class="h-s">"/app/items/{id}"</span>, (context, html) -&gt;
-		html.replace(<span class="h-s">"&lt;!--title--&gt;"</span>, <span class="h-s">"&lt;title&gt;item "</span> + context.request().bodyPath().getString(<span class="h-s">"id"</span>) + <span class="h-s">"&lt;/title&gt;"</span>))
+		html.replace(<span class="h-s">"&lt;!--title--&gt;"</span>,
+			<span class="h-s">"&lt;title&gt;item "</span> + SpaRewriter.escapeHtml(context.request().bodyPath().getString(<span class="h-s">"id"</span>)) + <span class="h-s">"&lt;/title&gt;"</span>))
 ));</code></pre>
 <p>パスの書き方は本体のルートと同じです（<code>{id}</code>、末尾の <code>/*</code>）。
 <strong>マッチも本体と同じルートツリーがやります</strong>（要件 D-75）。</p>

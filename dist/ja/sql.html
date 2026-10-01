@@ -236,6 +236,17 @@
 <pre class="code"><code class="lang-java">.where(Post.shop_id.eq(shopId), Dsl.anyOf(Post.status.eq(<span class="h-s">"draft"</span>), Post.status.eq(<span class="h-s">"review"</span>)))
 <span class="h-c">// WHERE (shop_id = ?) AND ( status = ? OR status = ?)</span>
 </code></pre>
+<p><code>a.or(b).and(c)</code> のようにつなぐと、<strong>左から読んだとおり</strong> <code>(a OR b) AND c</code> になります（2.2.3 から）。
+2.2.2 までは括弧を付けずに <code>a OR b AND c</code>（＝ <code>a OR (b AND c)</code>）と書いていたので、
+「公開、または自分のもの」に「自分のテナント」を足したつもりが、ほかのテナントの公開データまで返りました。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**リクエストを <code>apply(Data)</code> / <code>setRow(Data)</code> / <code>valueRow(Data)</code> にそのまま渡さないでください。**どの列名でも受け付けるので、
+<code>?where[users][password_hash|starts_with]=...</code> で画面に出していない列を当てられたり、
+<code>role</code> などの書き換えてはいけない列を足されたりします。<strong>許す列を渡す形</strong>を使ってください（2.2.3 から）。</p>
+<pre class="code"><code class="lang-java">SQL.select(User.id, User.name).from(User.instance()).apply(context.request().bodyAll(), User.name, User.created_at)
+SQL.update(User.instance()).setRow(form, User.nickname, User.bio).where(User.id.eq(me))
+</code></pre>
+</div>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong>1つの条件に比較は1つだけです。</strong><code>Post.id.ge(1).le(9)</code> は組み立て時に落ちます——
 1.4 までは<strong>後ろの <code>le(9)</code> だけが残り、例外も出ませんでした</strong>。範囲は <code>between(a, b)</code>、

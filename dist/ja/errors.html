@@ -351,15 +351,16 @@ DB の失敗（<code>SqlExecuteException</code>）なども、何もしなけれ
 </ol>
 <p>4 が <code>send(statusCode)</code> ではなく <code>send()</code> なのが要点です。
 ハンドラが <code>json(...)</code> などで組み立てた中身を、<strong>捨てずに送る</strong>ためです。</p>
+<p>**500 番台では <code>cause.getMessage()</code> を返さないでください。**DB の誤り（重複したキーの値など）や内部のパスが、相手にそのまま届きます。中身はログで見ます。</p>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
 
 	<span class="h-c">// API なら JSON、画面なら HTML</span>
 	<span class="h-k">if</span> (context.request().acceptJson()) {
-		context.response().json(<span class="h-s">"error"</span>, cause.getMessage());
+		context.response().json(<span class="h-s">"error"</span>, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"サーバーで問題が起きました"</span>));
 		<span class="h-k">return</span>;
 	}
 
-	context.response().send(<span class="h-s">"エラー: %d %s"</span>.formatted(statusCode, cause.getMessage()));
+	context.response().send(<span class="h-s">"エラー: %d %s"</span>.formatted(statusCode, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"サーバーで問題が起きました"</span>)));
 
 });
 </code></pre>

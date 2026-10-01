@@ -267,7 +267,7 @@ If the build fails, you see that error in the browser.</p>
 <p>See <a href="./hot-reload">Hot reload</a> for the details.</p>
 <h2 id="5-decide-how-errors-come-out">5. Decide how errors come out<a class="anchor" href="#5-decide-how-errors-come-out">#</a></h2>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt;
-	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, cause.getMessage())));</code></pre>
+	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"サーバーで問題が起きました"</span>))));</code></pre>
 <p>Whatever you pass to <code>error()</code> handles both thrown exceptions and the 404 for a
 request that matched no route.
 Register nothing and you get jimble's default shape.</p>

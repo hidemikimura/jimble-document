@@ -373,10 +373,15 @@ Data json = res.getContentJson();
 <p><strong>The default timeout is 30 seconds</strong>, and <strong>the same value goes to both</strong> connect and response. You cannot set them separately.</p>
 </div>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong><code>setIgnoreSslError(true)</code> takes effect across the whole JVM.</strong>
-It raises a system property that turns certificate validation off, so
-<strong>every other connection in the same process stops validating too, and it never goes back.</strong></p>
+<p><strong><code>setIgnoreSslError(true)</code> checks neither the certificate nor the host name of that connection.</strong> Do not use it in production.
+Up to 2.2.2 it raised a system property that <strong>turned host-name checking off for the whole JVM</strong>, so every other connection
+in the process (including fetching OIDC tokens and JWKS) stopped checking host names too. From 2.2.3 it affects that one client only.</p>
 </div>
+<ul>
+<li><strong>Redirects are not followed from https to http</strong> (since 2.2.3). The target host is not checked, so if you check URLs
+against an allow-list before fetching, use <code>setEnableRedirect(false)</code></li>
+<li><strong>A body read into memory is capped at 50MiB after decompression</strong> (<code>setMaxResponseSize(bytes)</code>); above that the body is not read</li>
+</ul>
 <h2 id="csv">CSV<a class="anchor" href="#csv">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (CsvReader reader = <span class="h-k">new</span> CsvReader(<span class="h-k">new</span> File(<span class="h-s">"in.csv"</span>))) {
 	<span class="h-k">while</span> (reader.next()) {
@@ -395,6 +400,9 @@ If there is a BOM, the file is read in the encoding the BOM says (ask for UTF-8 
 Pass a <code>Reader</code> and a single leading BOM character is dropped.</p>
 <p>To write a BOM, use <code>setWithBom(true)</code> (for Excel to open a UTF-8 CSV correctly).
 <strong>It only has an effect for UTF encodings</strong>; with Shift_JIS and the like it does nothing.</p>
+<p><strong>Values starting with <code>= + - @</code>, a tab or CR (and the full-width <code>＝＋－＠</code>) are written with a leading <code>'</code></strong> (since 2.2.3).
+Excel runs such cells as formulas, so a user-supplied <code>=HYPERLINK(...)</code> would run on the machine of whoever opened the CSV.
+Values that read as numbers (<code>-5</code> and so on) are left alone. Turn it off with <code>setEscapeFormula(false)</code>.</p>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (CsvWriter writer = <span class="h-k">new</span> CsvWriter(<span class="h-k">new</span> File(<span class="h-s">"out.csv"</span>), <span class="h-s">"UTF-8"</span>).setWithBom(<span class="h-k">true</span>)) {
 	writer.writeLine(<span class="h-s">"name"</span>, <span class="h-s">"count"</span>);
 }

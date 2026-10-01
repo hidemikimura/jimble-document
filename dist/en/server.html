@@ -317,15 +317,26 @@ Raise both if you are going to accept large things (both default to 10MiB).</p>
 <p>There are no read or write timeouts.</p>
 <h2 id="behind-a-proxy">Behind a proxy<a class="anchor" href="#behind-a-proxy">#</a></h2>
 <p><strong>By default <code>X-Forwarded-*</code> is not believed.</strong> You start believing it once you know for certain that every request comes through the proxy in front.</p>
-<pre class="code"><code class="lang-conf">server { trust_proxy = <span class="h-k">true</span> }
+<pre class="code"><code class="lang-conf">server {
+	trust_proxy      = <span class="h-k">true</span>
+	trusted_proxies  = [<span class="h-s">"10.0.0.0/8"</span>]   <span class="h-c"># IPs / CIDRs of the proxies; when set, headers are read only from them</span>
+	client_ip_header = <span class="h-s">""</span>                <span class="h-c"># "CF-Connecting-IP", "X-Real-IP", ...; trusted only when set</span>
+}
 </code></pre>
 <p>With <code>true</code>, <code>proxyAddress()</code> returns the source in this order.</p>
 <ol>
-<li><code>CF-Connecting-IP</code></li>
-<li><code>X-Real-IP</code></li>
-<li>the <strong>first</strong> entry in <code>X-Forwarded-For</code></li>
+<li>if <code>trusted_proxies</code> is set and the connection source is not in it, <strong>the connection source</strong> (the headers are just claims)</li>
+<li>if <code>client_ip_header</code> is set, that header's value</li>
+<li><code>X-Forwarded-For</code> read <strong>from the right</strong>, the first entry not in <code>trusted_proxies</code> (the <strong>last</strong> entry when it is not set)</li>
 <li>the connection source, if none of those are there</li>
 </ol>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The leftmost <code>X-Forwarded-For</code> entry is whatever the client claims.</strong>
+nginx, ALB and jimble's ReverseProxy <strong>append</strong> to the value the client sent.
+Up to 2.2.2 the leftmost entry, <code>CF-Connecting-IP</code> and <code>X-Real-IP</code> were trusted unconditionally,
+so changing the claimed value slipped past per-IP rate limits.
+With two or more hops (CDN → load balancer and so on), list the proxies in <code>trusted_proxies</code>.</p>
+</div>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>Setting <code>trust_proxy</code> to true does not change <code>address()</code>.</strong>
 <code>address()</code> is always the <strong>TCP connection source</strong> (= the load balancer).

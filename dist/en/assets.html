@@ -339,7 +339,8 @@ The tree's precedence (fixed segment &gt; path parameter &gt; wildcard) applies 
 <p>Use this when you want to swap out <code>&lt;title&gt;</code> or <code>&lt;meta&gt;</code> for crawlers or OGP.</p>
 <pre class="code"><code class="lang-java">install(() -&gt; SpaHandler.mount(<span class="h-s">"/app"</span>, <span class="h-s">"test-spa"</span>, spa -&gt; spa
 	.route(<span class="h-s">"/app/items/{id}"</span>, (context, html) -&gt;
-		html.replace(<span class="h-s">"&lt;!--title--&gt;"</span>, <span class="h-s">"&lt;title&gt;item "</span> + context.request().bodyPath().getString(<span class="h-s">"id"</span>) + <span class="h-s">"&lt;/title&gt;"</span>))
+		html.replace(<span class="h-s">"&lt;!--title--&gt;"</span>,
+			<span class="h-s">"&lt;title&gt;item "</span> + SpaRewriter.escapeHtml(context.request().bodyPath().getString(<span class="h-s">"id"</span>)) + <span class="h-s">"&lt;/title&gt;"</span>))
 ));</code></pre>
 <p>Paths are written the same way as real routes (<code>{id}</code>, a trailing <code>/*</code>).
 <strong>Matching is done by the same route tree the real routes use</strong> (requirement D-75).</p>

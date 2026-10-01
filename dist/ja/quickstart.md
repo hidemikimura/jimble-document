@@ -90,7 +90,7 @@ get("/posts", context -> context.response().json("posts", BlogApp.listPosts()));
 
 ```java
 error((context, cause, statusCode) ->
-	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, cause.getMessage())));
+	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました"))));
 ```
 
 `error()` に渡したものが、投げられた例外にも、どのルートにも当たらなかった 404 にも使われます。

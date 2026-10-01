@@ -13,9 +13,9 @@
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.2"
-	id("io.jimble.run") version "2.2.2"
-	id("io.jimble.db")  version "2.2.2"
+	id("io.jimble.jte") version "2.2.3"
+	id("io.jimble.run") version "2.2.3"
+	id("io.jimble.db")  version "2.2.3"
 }
 ```
 
@@ -57,9 +57,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.2"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.2.2"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.2.2"   // DB を使うなら
+	id("io.jimble.jte") version "2.2.3"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.2.3"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.2.3"   // DB を使うなら
 }
 
 repositories {
@@ -74,7 +74,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.2")
+	implementation("io.jimble:jimble-web:2.2.3")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -108,7 +108,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.2' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.3' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -228,7 +228,8 @@ jimbleRun {
 | --- | --- | --- |
 | `mainClass` | **なし（必須）** | `main` を持つクラス |
 | `port` | `9000` | ブラウザが見るプロキシのポート |
-| `appPort` | `port + 100` | アプリが待ち受けるポート |
+| `host` | `"127.0.0.1"` | プロキシが待ち受けるアドレス。**既定ではこのマシンからしか開けません**（2.2.3 から。それまではすべての NIC で待ち受けていました）。スマートフォンなどから確かめるときだけ `"0.0.0.0"` |
+| `appPort` | `port + 100` | アプリが待ち受けるポート（アプリはいつも `127.0.0.1` で待ち受けます） |
 | `env` | `"local"` | `jimble.env` として渡る |
 | `buildTasks` | `[":classes"]` | 変更時に流すタスク |
 | `watchDirs` | なし | 追加で見張る（ルートからの相対パス） |

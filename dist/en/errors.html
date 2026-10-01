@@ -351,15 +351,16 @@ DB failures (<code>SqlExecuteException</code>) and the like are also a 500 unles
 </ol>
 <p>The point of step 4 is that it is <code>send()</code>, not <code>send(statusCode)</code>.
 Whatever a handler built up with <code>json(...)</code> or the like is <strong>sent, not thrown away.</strong></p>
+<p><strong>Do not return <code>cause.getMessage()</code> for 5xx.</strong> Database errors (the duplicated key value and so on) and internal paths would reach the caller as they are. Read them in the log.</p>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt; {
 
 	<span class="h-c">// JSON for an API, HTML for a screen</span>
 	<span class="h-k">if</span> (context.request().acceptJson()) {
-		context.response().json(<span class="h-s">"error"</span>, cause.getMessage());
+		context.response().json(<span class="h-s">"error"</span>, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"Something went wrong on the server"</span>));
 		<span class="h-k">return</span>;
 	}
 
-	context.response().send(<span class="h-s">"error: %d %s"</span>.formatted(statusCode, cause.getMessage()));
+	context.response().send(<span class="h-s">"error: %d %s"</span>.formatted(statusCode, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"Something went wrong on the server"</span>)));
 
 });
 </code></pre>

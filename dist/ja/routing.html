@@ -448,7 +448,7 @@ path(<span class="h-s">"/docs"</span>, () -&gt; {
 起動ログのルート一覧で確認してください。</p>
 <h2 id="エラーの扱い">エラーの扱い<a class="anchor" href="#エラーの扱い">#</a></h2>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt;
-	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, cause.getMessage())));</code></pre>
+	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"サーバーで問題が起きました"</span>))));</code></pre>
 <p><code>HttpException(404, &quot;...&quot;)</code> を投げると、そのステータスで <code>error</code> に入ります。
 <code>error</code> を複数登録すると、登録した順に呼ばれます。
 どれかがレスポンスを送ったら、そこで止まります。</p>

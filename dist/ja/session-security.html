@@ -310,7 +310,7 @@ context.session().save();                  <span class="h-c">// ← ここで新
 </tr>
 <tr>
 <td><code>cookie</code></td>
-<td><strong>ID で引いていない</strong>ので、中身の Cookie を書き直すだけ（古い値は署名と暗号化で無効）</td>
+<td><strong>ID で引いていない</strong>ので、中身の Cookie を書き直すだけ。<strong>古い値はすぐには無効になりません</strong>。最後に使ってから <code>session.timeout</code>、発行から <code>session.absolute_timeout</code>（既定 1 日）を過ぎると、サーバーが捨てます</td>
 </tr>
 <tr>
 <td><code>none</code></td>
@@ -370,6 +370,11 @@ String lastPost = context.cookies().get(<span class="h-s">"last_post"</span>);
 context.cookies().putUnsigned(<span class="h-k">new</span> Cookie(<span class="h-s">"theme"</span>, <span class="h-s">"dark"</span>).httpOnly(<span class="h-k">false</span>));      <span class="h-c">// 署名しない（JavaScript に読ませる）</span>
 </code></pre>
 <p>1.x の <code>put(Cookie)</code> は署名しなかったので、2.0 で消しました（<a href="./migrate-2">2.0 への移行</a>）。</p>
+<p><strong>署名は Cookie の名前に結びついています</strong>（2.2.3 から）。ある名前の Cookie に付いた署名を、別の名前の Cookie に移しても通りません。
+2.2.2 までは値だけに署名していたので、アプリが入力をフラッシュに入れるなど、攻撃者の決めた値に署名させる場所が1つでもあると、
+その署名を <code>user</code> などの Cookie に移し替えて使えました。
+2.2.2 までの署名は、移す間だけ読みます（<code>cookie.accept_legacy_signature</code>、既定 true）。<code>sid</code> と <code>csrf_token</code> は読んだときに書き直します。
+<strong>署名は有効期限を含みません。</strong><code>Max-Age</code> を守るのはブラウザなので、利用者を表す値を署名つき Cookie だけで信じないでください（セッションに入れてください）。</p>
 <p><strong>応答を送ったあとに Cookie を書くと <code>IllegalStateException</code> です</strong>（もう届きません）。<code>send()</code> より前に書いてください。</p>
 <p><strong>読むときは <code>context.cookies().get(&quot;名前&quot;)</code> か <code>context.request().cookie(&quot;名前&quot;)</code> です。</strong>
 署名が合わなかった値はここに入りません（改ざんされた値がアプリに渡らないようにするためです）。</p>

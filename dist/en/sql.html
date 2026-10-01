@@ -233,7 +233,15 @@ Pass columns to pick them.</p>
 .where(Post.id.<span class="h-k">in</span>(List.of(<span class="h-n">1L</span>, <span class="h-n">2L</span>, <span class="h-n">3L</span>)))
 </code></pre>
 <p>Call <code>where</code> more than once and the conditions are joined with AND.</p>
-<p>For OR and parentheses, group with <code>Dsl.anyOf(...)</code> / <code>Dsl.allOf(...)</code> (since 1.5.0).</p>
+<p>For OR and parentheses, group with <code>Dsl.anyOf(...)</code> / <code>Dsl.allOf(...)</code> (since 1.5.0).
+Chaining <code>a.or(b).and(c)</code> reads <strong>left to right</strong> as <code>(a OR b) AND c</code> (since 2.2.3; up to 2.2.2 it was written
+without parentheses as <code>a OR b AND c</code>, that is <code>a OR (b AND c)</code>).</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not pass the request straight to <code>apply(Data)</code> / <code>setRow(Data)</code> / <code>valueRow(Data)</code>.</strong> They accept any column name,
+so <code>?where[users][password_hash|starts_with]=...</code> can probe columns the page never shows, and a form can add <code>role</code>.
+Use <strong>the forms that take the allowed columns</strong> (since 2.2.3):
+<code>apply(data, User.name, User.created_at)</code>, <code>setRow(form, User.nickname, User.bio)</code>.</p>
+</div>
 <pre class="code"><code class="lang-java">.where(Post.shop_id.eq(shopId), Dsl.anyOf(Post.status.eq(<span class="h-s">"draft"</span>), Post.status.eq(<span class="h-s">"review"</span>)))
 <span class="h-c">// WHERE (shop_id = ?) AND ( status = ? OR status = ?)</span>
 </code></pre>

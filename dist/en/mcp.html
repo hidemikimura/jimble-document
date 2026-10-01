@@ -533,9 +533,36 @@ hand the result to someone else</li>
 }
 </code></pre>
 <h2 id="always-configure-origin">Always configure Origin<a class="anchor" href="#always-configure-origin">#</a></h2>
-<p>Without <code>allowed_origins</code> there is nothing to check the <code>Origin</code> header against.
+<p><strong>With <code>allowed_origins</code> empty, every request carrying an <code>Origin</code> header is refused</strong> (browsers cannot call it).
+List the origins you allow if browsers should call it.
 An MCP server a browser can reach is <strong>a target for DNS rebinding</strong>.
 The more local the server, the more dangerous it is (<code>localhost</code> exists on everybody's machine).</p>
+<h2 id="put-authentication-on-mcp">Put authentication on <code>/mcp</code><a class="anchor" href="#put-authentication-on-mcp">#</a></h2>
+<p><strong><code>/mcp</code> itself has no authentication.</strong> The <code>Origin</code> check only stops browsers;
+<code>curl</code> and MCP clients call it directly without <code>Origin</code>.
+If you wrote tools that touch the database, anyone on the network can call them.
+Put authentication in a <code>before</code> (separate from the authentication of the APIs behind <code>RouteTool</code>).</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
+	{
+		<span class="h-c">// Applies to the MCP endpoint itself (this class's only route is POST /mcp)</span>
+		before(context -&gt; {
+			<span class="h-k">if</span> (!isValidToken(context.request().header().getStringOptional(<span class="h-s">"authorization"</span>))) {   <span class="h-c">// your own check</span>
+				<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">401</span>, <span class="h-s">"Authentication required"</span>);
+			}
+		});
+
+		tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
+	}
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A <code>path(&quot;/mcp&quot;, () -&gt; before(...))</code> written in another block does not apply to <code>install(BlogMcp::new)</code>.</strong>
+Filters attach only to the routes in the block they are written in (the same path in another block is not covered).
+Put it inside the MCP class, or put <code>before</code> and <code>install</code> in the same block.</p>
+</div>
+<p>Cancelling a subscription (<code>subscriptions/listen</code>) is accepted <strong>only from the same source address, <code>Authorization</code> and cookies that opened it</strong> (2.2.3+).
+An unauthenticated <code>/mcp</code> called from the same source address cannot tell callers apart.</p>
+<p><strong>A tool's <code>inputSchema</code> only enforces <code>required</code>.</strong> Check types, ranges, <code>enum</code> and extra arguments inside the tool (<code>Validation</code> helps).</p>
 <h2 id="connecting-to-it">Connecting to it<a class="anchor" href="#connecting-to-it">#</a></h2>
 <pre class="code"><code class="lang-json">{
 	<span class="h-s">"mcpServers"</span>: {
@@ -581,6 +608,7 @@ you make to learn the version.</p>
 			<li class="level-2"><a href="#cache-hints">Cache hints</a></li>
 			<li class="level-2"><a href="#one-way-in">One way in</a></li>
 			<li class="level-2"><a href="#always-configure-origin">Always configure Origin</a></li>
+			<li class="level-2"><a href="#put-authentication-on-mcp">Put authentication on /mcp</a></li>
 			<li class="level-2"><a href="#connecting-to-it">Connecting to it</a></li>
 		</ul>
 	</nav>

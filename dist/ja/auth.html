@@ -545,7 +545,7 @@ path(<span class="h-s">""</span>, () -&gt; {                                    
 		<span class="h-k">return</span>;
 	}
 
-	context.response().code(statusCode).json(<span class="h-s">"error"</span>, cause.getMessage());
+	context.response().code(statusCode).json(<span class="h-s">"error"</span>, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"サーバーで問題が起きました"</span>));
 
 });
 </code></pre>

@@ -300,7 +300,7 @@ install(PostController::new);
 
 ```java
 error((context, cause, statusCode) ->
-	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, cause.getMessage())));
+	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました"))));
 ```
 
 `HttpException(404, "...")` を投げると、そのステータスで `error` に入ります。

@@ -352,9 +352,42 @@ mcp {
 
 ## Always configure Origin
 
-Without `allowed_origins` there is nothing to check the `Origin` header against.
+**With `allowed_origins` empty, every request carrying an `Origin` header is refused** (browsers cannot call it).
+List the origins you allow if browsers should call it.
 An MCP server a browser can reach is **a target for DNS rebinding**.
 The more local the server, the more dangerous it is (`localhost` exists on everybody's machine).
+
+## Put authentication on `/mcp`
+
+**`/mcp` itself has no authentication.** The `Origin` check only stops browsers;
+`curl` and MCP clients call it directly without `Origin`.
+If you wrote tools that touch the database, anyone on the network can call them.
+Put authentication in a `before` (separate from the authentication of the APIs behind `RouteTool`).
+
+```java
+public class BlogMcp extends McpController {
+	{
+		// Applies to the MCP endpoint itself (this class's only route is POST /mcp)
+		before(context -> {
+			if (!isValidToken(context.request().header().getStringOptional("authorization"))) {   // your own check
+				throw new HttpException(401, "Authentication required");
+			}
+		});
+
+		tool("search_posts", SearchPostsTool::new);
+	}
+}
+```
+
+> [!TRAP]
+> **A `path("/mcp", () -> before(...))` written in another block does not apply to `install(BlogMcp::new)`.**
+> Filters attach only to the routes in the block they are written in (the same path in another block is not covered).
+> Put it inside the MCP class, or put `before` and `install` in the same block.
+
+Cancelling a subscription (`subscriptions/listen`) is accepted **only from the same source address, `Authorization` and cookies that opened it** (2.2.3+).
+An unauthenticated `/mcp` called from the same source address cannot tell callers apart.
+
+**A tool's `inputSchema` only enforces `required`.** Check types, ranges, `enum` and extra arguments inside the tool (`Validation` helps).
 
 ## Connecting to it
 

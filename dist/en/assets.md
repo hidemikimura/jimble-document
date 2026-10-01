@@ -104,7 +104,8 @@ Use this when you want to swap out `<title>` or `<meta>` for crawlers or OGP.
 ```java
 install(() -> SpaHandler.mount("/app", "test-spa", spa -> spa
 	.route("/app/items/{id}", (context, html) ->
-		html.replace("<!--title-->", "<title>item " + context.request().bodyPath().getString("id") + "</title>"))
+		html.replace("<!--title-->",
+			"<title>item " + SpaRewriter.escapeHtml(context.request().bodyPath().getString("id")) + "</title>"))
 ));
 ```
 

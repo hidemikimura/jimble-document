@@ -309,7 +309,7 @@ not dangerous, but &quot;I logged in and got a 401&quot; starts here.</p>
 </tr>
 <tr>
 <td><code>cookie</code></td>
-<td><strong>Nothing is keyed by the id</strong>, so the contents cookie is simply rewritten (the old value is void — it is signed and encrypted)</td>
+<td><strong>Nothing is keyed by the id</strong>, so the contents cookie is simply rewritten. <strong>The old value does not die at once</strong>: the server drops it <code>session.timeout</code> after it was last used, or <code>session.absolute_timeout</code> (1 day by default) after it was issued</td>
 </tr>
 <tr>
 <td><code>none</code></td>
@@ -371,6 +371,9 @@ were visible, every re-read of a CSRF token you had issued a moment ago would ha
 a different one.</p>
 <p>When you write a <code>Cookie</code> whose attributes (<code>Path</code>, <code>Max-Age</code>) you set yourself, <strong>pick signing by name</strong> (since 1.5.0).</p>
 <pre class="code"><code class="lang-java">context.cookies().putSigned(<span class="h-k">new</span> Cookie(<span class="h-s">"user"</span>, id).path(<span class="h-s">"/app"</span>).maxAge(<span class="h-n">3600</span>));    <span class="h-c">// signed (readable with get)</span>
+<span class="h-c">// The signature is bound to the cookie name (2.2.3+): a signature moved to another cookie name does not verify.</span>
+<span class="h-c">// Signatures from 2.2.2 and earlier are read during the move (cookie.accept_legacy_signature, default true).</span>
+<span class="h-c">// A signature carries no expiry: do not trust a signed cookie alone to identify a user — keep that in the session.</span>
 context.cookies().putUnsigned(<span class="h-k">new</span> Cookie(<span class="h-s">"theme"</span>, <span class="h-s">"dark"</span>).httpOnly(<span class="h-k">false</span>));      <span class="h-c">// not signed (for JavaScript)</span>
 </code></pre>
 <p>The 1.x <code>put(Cookie)</code> did not sign, so 2.0 removed it (<a href="./migrate-2">Moving to 2.0</a>).</p>

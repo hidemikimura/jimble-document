@@ -174,7 +174,7 @@ get("/posts", context -> context.response().json("posts", BlogApp.listPosts()));
 
 ```java
 error((context, cause, statusCode) ->
-	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, cause.getMessage())));
+	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました"))));
 ```
 
 `error()` に渡したものが、投げられた例外にも、どのルートにも当たらなかった 404 にも使われます。
@@ -608,7 +608,7 @@ install(PostController::new);
 
 ```java
 error((context, cause, statusCode) ->
-	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, cause.getMessage())));
+	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました"))));
 ```
 
 `HttpException(404, "...")` を投げると、そのステータスで `error` に入ります。
@@ -1490,16 +1490,18 @@ JimbleApp app = new JimbleApp() {
 4 が `send(statusCode)` ではなく `send()` なのが要点です。
 ハンドラが `json(...)` などで組み立てた中身を、**捨てずに送る**ためです。
 
+**500 番台では `cause.getMessage()` を返さないでください。**DB の誤り（重複したキーの値など）や内部のパスが、相手にそのまま届きます。中身はログで見ます。
+
 ```java
 error((context, cause, statusCode) -> {
 
 	// API なら JSON、画面なら HTML
 	if (context.request().acceptJson()) {
-		context.response().json("error", cause.getMessage());
+		context.response().json("error", (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました"));
 		return;
 	}
 
-	context.response().send("エラー: %d %s".formatted(statusCode, cause.getMessage()));
+	context.response().send("エラー: %d %s".formatted(statusCode, (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました")));
 
 });
 ```
@@ -1943,7 +1945,8 @@ install(() -> SpaHandler.mount("/app", "test-spa"));
 ```java
 install(() -> SpaHandler.mount("/app", "test-spa", spa -> spa
 	.route("/app/items/{id}", (context, html) ->
-		html.replace("<!--title-->", "<title>item " + context.request().bodyPath().getString("id") + "</title>"))
+		html.replace("<!--title-->",
+			"<title>item " + SpaRewriter.escapeHtml(context.request().bodyPath().getString("id")) + "</title>"))
 ));
 ```
 
@@ -2094,7 +2097,7 @@ context.session().save();                  // ← ここで新しい ID が発�
 | store | 何が起きるか |
 | --- | --- |
 | `db` / `redis` | 古い行を消して、新しい ID で書き直す |
-| `cookie` | **ID で引いていない**ので、中身の Cookie を書き直すだけ（古い値は署名と暗号化で無効） |
+| `cookie` | **ID で引いていない**ので、中身の Cookie を書き直すだけ。**古い値はすぐには無効になりません**。最後に使ってから `session.timeout`、発行から `session.absolute_timeout`（既定 1 日）を過ぎると、サーバーが捨てます |
 | `none` | 何も起きない |
 
 ## CSRF
@@ -2175,6 +2178,12 @@ context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));     
 ```
 
 1.x の `put(Cookie)` は署名しなかったので、2.0 で消しました（[2.0 への移行](./migrate-2)）。
+
+**署名は Cookie の名前に結びついています**（2.2.3 から）。ある名前の Cookie に付いた署名を、別の名前の Cookie に移しても通りません。
+2.2.2 までは値だけに署名していたので、アプリが入力をフラッシュに入れるなど、攻撃者の決めた値に署名させる場所が1つでもあると、
+その署名を `user` などの Cookie に移し替えて使えました。
+2.2.2 までの署名は、移す間だけ読みます（`cookie.accept_legacy_signature`、既定 true）。`sid` と `csrf_token` は読んだときに書き直します。
+**署名は有効期限を含みません。**`Max-Age` を守るのはブラウザなので、利用者を表す値を署名つき Cookie だけで信じないでください（セッションに入れてください）。
 
 **応答を送ったあとに Cookie を書くと `IllegalStateException` です**（もう届きません）。`send()` より前に書いてください。
 
@@ -2720,7 +2729,7 @@ error((context, cause, statusCode) -> {
 		return;
 	}
 
-	context.response().code(statusCode).json("error", cause.getMessage());
+	context.response().code(statusCode).json("error", (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました"));
 
 });
 ```
@@ -3721,6 +3730,20 @@ OR や括弧は `Dsl.anyOf(...)` / `Dsl.allOf(...)` でまとめます（1.5.0 �
 .where(Post.shop_id.eq(shopId), Dsl.anyOf(Post.status.eq("draft"), Post.status.eq("review")))
 // WHERE (shop_id = ?) AND ( status = ? OR status = ?)
 ```
+
+`a.or(b).and(c)` のようにつなぐと、**左から読んだとおり** `(a OR b) AND c` になります（2.2.3 から）。
+2.2.2 までは括弧を付けずに `a OR b AND c`（＝ `a OR (b AND c)`）と書いていたので、
+「公開、または自分のもの」に「自分のテナント」を足したつもりが、ほかのテナントの公開データまで返りました。
+
+> [!TRAP]
+> **リクエストを `apply(Data)` / `setRow(Data)` / `valueRow(Data)` にそのまま渡さないでください。**どの列名でも受け付けるので、
+> `?where[users][password_hash|starts_with]=...` で画面に出していない列を当てられたり、
+> `role` などの書き換えてはいけない列を足されたりします。**許す列を渡す形**を使ってください（2.2.3 から）。
+>
+> ```java
+> SQL.select(User.id, User.name).from(User.instance()).apply(context.request().bodyAll(), User.name, User.created_at)
+> SQL.update(User.instance()).setRow(form, User.nickname, User.bio).where(User.id.eq(me))
+> ```
 
 > [!TRAP]
 > **1つの条件に比較は1つだけです。**`Post.id.ge(1).le(9)` は組み立て時に落ちます——
@@ -6217,9 +6240,42 @@ mcp {
 
 ## Origin を必ず設定してください
 
-`allowed_origins` を設定しないと、`Origin` ヘッダの検査ができません。
+**`allowed_origins` が空なら、`Origin` ヘッダの付いた要求は全部断ります**（ブラウザからは呼べません）。
+ブラウザから呼ばせるなら、許すオリジンを書いてください。
 ブラウザから叩ける MCP サーバーは、**DNS リバインディングの的になります**。
 ローカルで動かすサーバーほど危険です（`localhost` は誰の手元にもあります）。
+
+## `/mcp` に認証を掛けてください
+
+**`/mcp` そのものには認証がありません。**`Origin` の検査が止めるのはブラウザだけで、
+`curl` や MCP のクライアントは `Origin` を付けずに直に呼べます。
+DB を直に触るツールを書いたなら、ネットワークの誰からでも呼べることになります。
+`before` で認証を掛けてください（`RouteTool` の先の API の認証とは別です）。
+
+```java
+public class BlogMcp extends McpController {
+	{
+		// MCP の口そのものに効く（このクラスのルートは POST /mcp だけ）
+		before(context -> {
+			if (!isValidToken(context.request().header().getStringOptional("authorization"))) {   // アプリの照合
+				throw new HttpException(401, "認証が必要です");
+			}
+		});
+
+		tool("search_posts", SearchPostsTool::new);
+	}
+}
+```
+
+> [!TRAP]
+> **`path("/mcp", () -> before(...))` を別のブロックに書いても、`install(BlogMcp::new)` には効きません。**
+> フィルタは書いたブロックの中のルートにしか付かないためです（パスが同じでも別のブロックなら効かない）。
+> MCP のクラスの中に書くか、`before` と `install` を同じブロックに入れてください。
+
+購読（`subscriptions/listen`）の取り消しは、**開いた相手と同じ接続元・`Authorization`・Cookie から来たものだけ**受けます（2.2.3 から）。
+認証の無い `/mcp` を同じ接続元から叩かれると、見分けられません。
+
+**ツールの `inputSchema` は、`required` しか確かめません。**型・範囲・`enum`・余分な引数は、ツールの中で確かめてください（`Validation` を使えます）。
 
 ## つなぐ
 
@@ -6278,7 +6334,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.2.3-SNAPSHOT
+jimble 2.2.4-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6301,7 +6357,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.2.3-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.2.4-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6430,9 +6486,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.2"
-	id("io.jimble.run") version "2.2.2"
-	id("io.jimble.db")  version "2.2.2"
+	id("io.jimble.jte") version "2.2.3"
+	id("io.jimble.run") version "2.2.3"
+	id("io.jimble.db")  version "2.2.3"
 }
 ```
 
@@ -6474,9 +6530,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.2"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.2.2"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.2.2"   // DB を使うなら
+	id("io.jimble.jte") version "2.2.3"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.2.3"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.2.3"   // DB を使うなら
 }
 
 repositories {
@@ -6491,7 +6547,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.2")
+	implementation("io.jimble:jimble-web:2.2.3")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6525,7 +6581,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.2' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.3' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -6645,7 +6701,8 @@ jimbleRun {
 | --- | --- | --- |
 | `mainClass` | **なし（必須）** | `main` を持つクラス |
 | `port` | `9000` | ブラウザが見るプロキシのポート |
-| `appPort` | `port + 100` | アプリが待ち受けるポート |
+| `host` | `"127.0.0.1"` | プロキシが待ち受けるアドレス。**既定ではこのマシンからしか開けません**（2.2.3 から。それまではすべての NIC で待ち受けていました）。スマートフォンなどから確かめるときだけ `"0.0.0.0"` |
+| `appPort` | `port + 100` | アプリが待ち受けるポート（アプリはいつも `127.0.0.1` で待ち受けます） |
 | `env` | `"local"` | `jimble.env` として渡る |
 | `buildTasks` | `[":classes"]` | 変更時に流すタスク |
 | `watchDirs` | なし | 追加で見張る（ルートからの相対パス） |
@@ -7338,6 +7395,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         # 署名鍵。空なら署名しない
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # 鍵の入れ替え中だけ
 	accept_unsigned  = false                     # 署名を入れる移行期間だけ true にする
+	accept_legacy_signature = true               # 名前に結びついていない 2.2.2 までの署名も読む（移す間だけ）
 }
 
 csrf {
@@ -7347,6 +7405,7 @@ csrf {
 session {
 	store            = "none"                     # none | db | redis | cookie
 	timeout          = 30m
+	absolute_timeout = 1d                         # store = cookie のとき。発行からの上限（使い続けても延びない）
 	cookie_name      = "sid"
 	table            = "session"                  # store = db のとき
 	secret           = ${?SESSION_SECRET}         # store = cookie のとき必須
@@ -7370,6 +7429,16 @@ assets {
 template {
 	package      = "gg.jte.generated.precompiled"   # 事前コンパイルの出力先
 	content_type = "text/html; charset=utf-8"
+	json_fallback = false   # view() のページに Accept: application/json で来たら、テンプレートに渡したデータを JSON で返すか
+}
+
+security_headers {
+	enabled                 = true
+	content_type_options    = "nosniff"                           # 空なら付けない
+	frame_options           = "SAMEORIGIN"                        # 別のサイトの iframe に入れさせない
+	referrer_policy         = "strict-origin-when-cross-origin"
+	hsts                    = 0s      # Strict-Transport-Security の max-age。0s なら付けない（https で受けたときだけ付ける）
+	hsts_include_subdomains = false
 }
 
 paging {
@@ -7465,12 +7534,15 @@ sql_cache {
 	store   = "memory"   # memory | redis | db
 	ttl     = 5m
 	max     = 10000      # 件数の上限（memory のみ）
+	namespace = ""       # 1つの Redis を複数のアプリや環境で分け合うなら、それぞれ別の値に
 }
 
 redis {
 	host = ""        # 空なら Redis 無し
 	port = 6379
 	ssl  = false
+	username = ""    # Redis 6 の ACL の利用者。空なら送らない
+	password = ${?REDIS_PASSWORD}   # 空なら送らない
 
 	settings {
 		connection_timeout      = 10s
@@ -7790,15 +7862,26 @@ server { host = "127.0.0.1" }
 **既定では `X-Forwarded-*` を信じません。**信じるのは、前段のプロキシを必ず通ると分かってからです。
 
 ```conf
-server { trust_proxy = true }
+server {
+	trust_proxy      = true
+	trusted_proxies  = ["10.0.0.0/8"]   # 中継の IP / CIDR。書けば、ここから来たときだけヘッダを見る
+	client_ip_header = ""                # "CF-Connecting-IP" / "X-Real-IP" など。書いたときだけ信じる
+}
 ```
 
 `true` にすると `proxyAddress()` が次の順で送信元を返します。
 
-1. `CF-Connecting-IP`
-2. `X-Real-IP`
-3. `X-Forwarded-For` の**先頭**
+1. `trusted_proxies` を書いていて、接続元がそこに入っていなければ、**接続元**（ヘッダは名乗りにすぎない）
+2. `client_ip_header` を書いていれば、そのヘッダの値
+3. `X-Forwarded-For` を**右から**見て、`trusted_proxies` に入っていない最初のもの（書いていなければ**右端**）
 4. どれも無ければ接続元
+
+> [!TRAP]
+> **`X-Forwarded-For` の左端は、クライアントが好きに名乗れます。**
+> nginx・ALB・jimble の ReverseProxy は、クライアントが送ってきた値の**後ろに足す**からです。
+> 2.2.2 までは左端と、`CF-Connecting-IP` / `X-Real-IP` を無条件に信じていたので、
+> 名乗る値を変えるだけで IP ごとのレート制限をすり抜けられました。
+> 中継が2段以上（CDN → ロードバランサ など）なら、`trusted_proxies` に中継の範囲を書いてください。
 
 > [!TRAP]
 > **`trust_proxy` を true にしても `address()` は変わりません。**
@@ -9035,9 +9118,13 @@ Data json = res.getContentJson();
 > **タイムアウトの既定は 30 秒**で、接続と応答の**両方に同じ値**が入ります。個別には指定できません。
 
 > [!TRAP]
-> **`setIgnoreSslError(true)` は JVM 全体に効きます。**
-> 証明書の検証を止めるシステムプロパティを立てるので、
-> **同じプロセスの他の通信も検証しなくなり、元に戻りません。**
+> **`setIgnoreSslError(true)` は、その通信の証明書もホスト名も確かめません。**本番の通信には使わないでください。
+> 2.2.2 までは**JVM 全体のホスト名の確認を止める**システムプロパティを立てていたので、同じプロセスのほかの通信
+> （OIDC のトークンや JWKS の取得を含む）もホスト名を確かめなくなりました。2.2.3 からは、その1本だけに効きます。
+
+- **リダイレクトは、https から http へは追いません**（2.2.3 から。それまでは追っていました）。追う先のホストは確かめないので、
+  URL を許可リストで確かめてから取りにいくなら `setEnableRedirect(false)` にしてください
+- **メモリに読む本文は、解いたあとの大きさで 50MiB まで**です（`setMaxResponseSize(バイト)`）。超えたら本文を読みません
 
 ## CSV
 
@@ -9062,6 +9149,10 @@ BOM があれば、その BOM が示す文字コードで読みます（UTF-8 �
 
 書くときに BOM を付けるなら `setWithBom(true)` です（Excel に UTF-8 の CSV を開かせるとき）。
 **文字コードが UTF 系のときだけ効き**、Shift_JIS などでは何もしません。
+
+**`= + - @`・タブ・CR（全角の `＝＋－＠` も）で始まる値は、先頭に `'` を付けて書きます**（2.2.3 から）。
+Excel はこれらで始まるセルを数式として動かすので、利用者が入れた `=HYPERLINK(...)` などが、CSV を開いた人の手元で動きました。
+数値として読める値（`-5` など）には付けません。付けたくなければ `setEscapeFormula(false)` です。
 
 ```java
 try (CsvWriter writer = new CsvWriter(new File("out.csv"), "UTF-8").setWithBom(true)) {

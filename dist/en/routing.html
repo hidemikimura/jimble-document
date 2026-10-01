@@ -450,7 +450,7 @@ Nothing is scanned, so if you do not write <code>install()</code>, nothing is re
 Check the route list in the startup log.</p>
 <h2 id="handling-errors">Handling errors<a class="anchor" href="#handling-errors">#</a></h2>
 <pre class="code"><code class="lang-java">error((context, cause, statusCode) -&gt;
-	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, cause.getMessage())));</code></pre>
+	context.response().code(statusCode).send(<span class="h-s">"エラー: %d %s%n"</span>.formatted(statusCode, (statusCode &lt; <span class="h-n">500</span> ? cause.getMessage() : <span class="h-s">"サーバーで問題が起きました"</span>))));</code></pre>
 <p>Throw <code>HttpException(404, &quot;...&quot;)</code> and you land in <code>error</code> with that status.
 Register several <code>error</code> handlers and they are called in registration order.
 As soon as one of them sends a response, it stops there.</p>

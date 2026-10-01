@@ -91,7 +91,7 @@ See [Hot reload](./hot-reload) for the details.
 
 ```java
 error((context, cause, statusCode) ->
-	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, cause.getMessage())));
+	context.response().code(statusCode).send("エラー: %d %s%n".formatted(statusCode, (statusCode < 500 ? cause.getMessage() : "サーバーで問題が起きました"))));
 ```
 
 Whatever you pass to `error()` handles both thrown exceptions and the 404 for a

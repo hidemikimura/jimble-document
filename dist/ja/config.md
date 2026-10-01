@@ -157,6 +157,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         # 署名鍵。空なら署名しない
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # 鍵の入れ替え中だけ
 	accept_unsigned  = false                     # 署名を入れる移行期間だけ true にする
+	accept_legacy_signature = true               # 名前に結びついていない 2.2.2 までの署名も読む（移す間だけ）
 }
 
 csrf {
@@ -166,6 +167,7 @@ csrf {
 session {
 	store            = "none"                     # none | db | redis | cookie
 	timeout          = 30m
+	absolute_timeout = 1d                         # store = cookie のとき。発行からの上限（使い続けても延びない）
 	cookie_name      = "sid"
 	table            = "session"                  # store = db のとき
 	secret           = ${?SESSION_SECRET}         # store = cookie のとき必須
@@ -189,6 +191,16 @@ assets {
 template {
 	package      = "gg.jte.generated.precompiled"   # 事前コンパイルの出力先
 	content_type = "text/html; charset=utf-8"
+	json_fallback = false   # view() のページに Accept: application/json で来たら、テンプレートに渡したデータを JSON で返すか
+}
+
+security_headers {
+	enabled                 = true
+	content_type_options    = "nosniff"                           # 空なら付けない
+	frame_options           = "SAMEORIGIN"                        # 別のサイトの iframe に入れさせない
+	referrer_policy         = "strict-origin-when-cross-origin"
+	hsts                    = 0s      # Strict-Transport-Security の max-age。0s なら付けない（https で受けたときだけ付ける）
+	hsts_include_subdomains = false
 }
 
 paging {
@@ -284,12 +296,15 @@ sql_cache {
 	store   = "memory"   # memory | redis | db
 	ttl     = 5m
 	max     = 10000      # 件数の上限（memory のみ）
+	namespace = ""       # 1つの Redis を複数のアプリや環境で分け合うなら、それぞれ別の値に
 }
 
 redis {
 	host = ""        # 空なら Redis 無し
 	port = 6379
 	ssl  = false
+	username = ""    # Redis 6 の ACL の利用者。空なら送らない
+	password = ${?REDIS_PASSWORD}   # 空なら送らない
 
 	settings {
 		connection_timeout      = 10s

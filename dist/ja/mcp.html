@@ -532,9 +532,36 @@ jimble はいつも次の値を付けます。</p>
 }
 </code></pre>
 <h2 id="origin-を必ず設定してください">Origin を必ず設定してください<a class="anchor" href="#origin-を必ず設定してください">#</a></h2>
-<p><code>allowed_origins</code> を設定しないと、<code>Origin</code> ヘッダの検査ができません。
+<p><strong><code>allowed_origins</code> が空なら、<code>Origin</code> ヘッダの付いた要求は全部断ります</strong>（ブラウザからは呼べません）。
+ブラウザから呼ばせるなら、許すオリジンを書いてください。
 ブラウザから叩ける MCP サーバーは、<strong>DNS リバインディングの的になります</strong>。
 ローカルで動かすサーバーほど危険です（<code>localhost</code> は誰の手元にもあります）。</p>
+<h2 id="mcp-に認証を掛けてください"><code>/mcp</code> に認証を掛けてください<a class="anchor" href="#mcp-に認証を掛けてください">#</a></h2>
+<p><strong><code>/mcp</code> そのものには認証がありません。</strong><code>Origin</code> の検査が止めるのはブラウザだけで、
+<code>curl</code> や MCP のクライアントは <code>Origin</code> を付けずに直に呼べます。
+DB を直に触るツールを書いたなら、ネットワークの誰からでも呼べることになります。
+<code>before</code> で認証を掛けてください（<code>RouteTool</code> の先の API の認証とは別です）。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogMcp <span class="h-k">extends</span> McpController {
+	{
+		<span class="h-c">// MCP の口そのものに効く（このクラスのルートは POST /mcp だけ）</span>
+		before(context -&gt; {
+			<span class="h-k">if</span> (!isValidToken(context.request().header().getStringOptional(<span class="h-s">"authorization"</span>))) {   <span class="h-c">// アプリの照合</span>
+				<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">401</span>, <span class="h-s">"認証が必要です"</span>);
+			}
+		});
+
+		tool(<span class="h-s">"search_posts"</span>, SearchPostsTool::<span class="h-k">new</span>);
+	}
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>path(&quot;/mcp&quot;, () -&gt; before(...))</code> を別のブロックに書いても、<code>install(BlogMcp::new)</code> には効きません。</strong>
+フィルタは書いたブロックの中のルートにしか付かないためです（パスが同じでも別のブロックなら効かない）。
+MCP のクラスの中に書くか、<code>before</code> と <code>install</code> を同じブロックに入れてください。</p>
+</div>
+<p>購読（<code>subscriptions/listen</code>）の取り消しは、<strong>開いた相手と同じ接続元・<code>Authorization</code>・Cookie から来たものだけ</strong>受けます（2.2.3 から）。
+認証の無い <code>/mcp</code> を同じ接続元から叩かれると、見分けられません。</p>
+<p>**ツールの <code>inputSchema</code> は、<code>required</code> しか確かめません。**型・範囲・<code>enum</code>・余分な引数は、ツールの中で確かめてください（<code>Validation</code> を使えます）。</p>
 <h2 id="つなぐ">つなぐ<a class="anchor" href="#つなぐ">#</a></h2>
 <pre class="code"><code class="lang-json">{
 	<span class="h-s">"mcpServers"</span>: {
@@ -580,6 +607,7 @@ jimble はいつも次の値を付けます。</p>
 			<li class="level-2"><a href="#キャッシュの目安">キャッシュの目安</a></li>
 			<li class="level-2"><a href="#口は1本">口は1本</a></li>
 			<li class="level-2"><a href="#origin-を必ず設定してください">Origin を必ず設定してください</a></li>
+			<li class="level-2"><a href="#mcp-に認証を掛けてください">/mcp に認証を掛けてください</a></li>
 			<li class="level-2"><a href="#つなぐ">つなぐ</a></li>
 		</ul>
 	</nav>

@@ -331,6 +331,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         <span class="h-c"># 署名鍵。空なら署名しない</span>
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># 鍵の入れ替え中だけ</span>
 	accept_unsigned  = <span class="h-k">false</span>                     <span class="h-c"># 署名を入れる移行期間だけ true にする</span>
+	accept_legacy_signature = <span class="h-k">true</span>               <span class="h-c"># 名前に結びついていない 2.2.2 までの署名も読む（移す間だけ）</span>
 }
 
 csrf {
@@ -340,6 +341,7 @@ csrf {
 session {
 	store            = <span class="h-s">"none"</span>                     <span class="h-c"># none | db | redis | cookie</span>
 	timeout          = <span class="h-n">30m</span>
+	absolute_timeout = <span class="h-n">1d</span>                         <span class="h-c"># store = cookie のとき。発行からの上限（使い続けても延びない）</span>
 	cookie_name      = <span class="h-s">"sid"</span>
 	table            = <span class="h-s">"session"</span>                  <span class="h-c"># store = db のとき</span>
 	secret           = ${?SESSION_SECRET}         <span class="h-c"># store = cookie のとき必須</span>
@@ -363,6 +365,16 @@ assets {
 template {
 	<span class="h-k">package</span>      = <span class="h-s">"gg.jte.generated.precompiled"</span>   <span class="h-c"># 事前コンパイルの出力先</span>
 	content_type = <span class="h-s">"text/html; charset=utf-8"</span>
+	json_fallback = <span class="h-k">false</span>   <span class="h-c"># view() のページに Accept: application/json で来たら、テンプレートに渡したデータを JSON で返すか</span>
+}
+
+security_headers {
+	enabled                 = <span class="h-k">true</span>
+	content_type_options    = <span class="h-s">"nosniff"</span>                           <span class="h-c"># 空なら付けない</span>
+	frame_options           = <span class="h-s">"SAMEORIGIN"</span>                        <span class="h-c"># 別のサイトの iframe に入れさせない</span>
+	referrer_policy         = <span class="h-s">"strict-origin-when-cross-origin"</span>
+	hsts                    = <span class="h-n">0s</span>      <span class="h-c"># Strict-Transport-Security の max-age。0s なら付けない（https で受けたときだけ付ける）</span>
+	hsts_include_subdomains = <span class="h-k">false</span>
 }
 
 paging {
@@ -458,12 +470,15 @@ sql_cache {
 	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
 	ttl     = <span class="h-n">5m</span>
 	max     = <span class="h-n">10000</span>      <span class="h-c"># 件数の上限（memory のみ）</span>
+	namespace = <span class="h-s">""</span>       <span class="h-c"># 1つの Redis を複数のアプリや環境で分け合うなら、それぞれ別の値に</span>
 }
 
 redis {
 	host = <span class="h-s">""</span>        <span class="h-c"># 空なら Redis 無し</span>
 	port = <span class="h-n">6379</span>
 	ssl  = <span class="h-k">false</span>
+	username = <span class="h-s">""</span>    <span class="h-c"># Redis 6 の ACL の利用者。空なら送らない</span>
+	password = ${?REDIS_PASSWORD}   <span class="h-c"># 空なら送らない</span>
 
 	settings {
 		connection_timeout      = <span class="h-n">10s</span>

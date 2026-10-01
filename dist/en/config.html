@@ -339,6 +339,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         <span class="h-c"># signing key. empty means no signing</span>
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># only while a key is being rotated</span>
 	accept_unsigned  = <span class="h-k">false</span>                     <span class="h-c"># true only while signing is being turned on</span>
+	accept_legacy_signature = <span class="h-k">true</span>               <span class="h-c"># also read pre-2.2.3 signatures not bound to the name (during the move)</span>
 }
 
 csrf {
@@ -348,6 +349,7 @@ csrf {
 session {
 	store            = <span class="h-s">"none"</span>                     <span class="h-c"># none | db | redis | cookie</span>
 	timeout          = <span class="h-n">30m</span>
+	absolute_timeout = <span class="h-n">1d</span>                         <span class="h-c"># when store = cookie: the limit from issue (does not slide)</span>
 	cookie_name      = <span class="h-s">"sid"</span>
 	table            = <span class="h-s">"session"</span>                  <span class="h-c"># when store = db</span>
 	secret           = ${?SESSION_SECRET}         <span class="h-c"># required when store = cookie</span>
@@ -371,6 +373,16 @@ assets {
 template {
 	<span class="h-k">package</span>      = <span class="h-s">"gg.jte.generated.precompiled"</span>   <span class="h-c"># output of precompilation</span>
 	content_type = <span class="h-s">"text/html; charset=utf-8"</span>
+	json_fallback = <span class="h-k">false</span>   <span class="h-c"># when a view() page is asked for Accept: application/json, return the template's data as JSON</span>
+}
+
+security_headers {
+	enabled                 = <span class="h-k">true</span>
+	content_type_options    = <span class="h-s">"nosniff"</span>                           <span class="h-c"># empty sends none</span>
+	frame_options           = <span class="h-s">"SAMEORIGIN"</span>                        <span class="h-c"># no framing by other sites</span>
+	referrer_policy         = <span class="h-s">"strict-origin-when-cross-origin"</span>
+	hsts                    = <span class="h-n">0s</span>      <span class="h-c"># Strict-Transport-Security max-age; 0s sends none (only sent on https)</span>
+	hsts_include_subdomains = <span class="h-k">false</span>
 }
 
 paging {
@@ -466,12 +478,15 @@ sql_cache {
 	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
 	ttl     = <span class="h-n">5m</span>
 	max     = <span class="h-n">10000</span>      <span class="h-c"># cap on entries (memory only)</span>
+	namespace = <span class="h-s">""</span>       <span class="h-c"># give each app / environment its own value when they share one Redis</span>
 }
 
 redis {
 	host = <span class="h-s">""</span>        <span class="h-c"># empty means no Redis</span>
 	port = <span class="h-n">6379</span>
 	ssl  = <span class="h-k">false</span>
+	username = <span class="h-s">""</span>    <span class="h-c"># Redis 6 ACL user; empty sends none</span>
+	password = ${?REDIS_PASSWORD}   <span class="h-c"># empty sends none</span>
 
 	settings {
 		connection_timeout      = <span class="h-n">10s</span>

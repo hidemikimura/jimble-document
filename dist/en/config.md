@@ -164,6 +164,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         # signing key. empty means no signing
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # only while a key is being rotated
 	accept_unsigned  = false                     # true only while signing is being turned on
+	accept_legacy_signature = true               # also read pre-2.2.3 signatures not bound to the name (during the move)
 }
 
 csrf {
@@ -173,6 +174,7 @@ csrf {
 session {
 	store            = "none"                     # none | db | redis | cookie
 	timeout          = 30m
+	absolute_timeout = 1d                         # when store = cookie: the limit from issue (does not slide)
 	cookie_name      = "sid"
 	table            = "session"                  # when store = db
 	secret           = ${?SESSION_SECRET}         # required when store = cookie
@@ -196,6 +198,16 @@ assets {
 template {
 	package      = "gg.jte.generated.precompiled"   # output of precompilation
 	content_type = "text/html; charset=utf-8"
+	json_fallback = false   # when a view() page is asked for Accept: application/json, return the template's data as JSON
+}
+
+security_headers {
+	enabled                 = true
+	content_type_options    = "nosniff"                           # empty sends none
+	frame_options           = "SAMEORIGIN"                        # no framing by other sites
+	referrer_policy         = "strict-origin-when-cross-origin"
+	hsts                    = 0s      # Strict-Transport-Security max-age; 0s sends none (only sent on https)
+	hsts_include_subdomains = false
 }
 
 paging {
@@ -291,12 +303,15 @@ sql_cache {
 	store   = "memory"   # memory | redis | db
 	ttl     = 5m
 	max     = 10000      # cap on entries (memory only)
+	namespace = ""       # give each app / environment its own value when they share one Redis
 }
 
 redis {
 	host = ""        # empty means no Redis
 	port = 6379
 	ssl  = false
+	username = ""    # Redis 6 ACL user; empty sends none
+	password = ${?REDIS_PASSWORD}   # empty sends none
 
 	settings {
 		connection_timeout      = 10s

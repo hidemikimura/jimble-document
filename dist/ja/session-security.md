@@ -97,7 +97,7 @@ context.session().save();                  // ← ここで新しい ID が発�
 | store | 何が起きるか |
 | --- | --- |
 | `db` / `redis` | 古い行を消して、新しい ID で書き直す |
-| `cookie` | **ID で引いていない**ので、中身の Cookie を書き直すだけ（古い値は署名と暗号化で無効） |
+| `cookie` | **ID で引いていない**ので、中身の Cookie を書き直すだけ。**古い値はすぐには無効になりません**。最後に使ってから `session.timeout`、発行から `session.absolute_timeout`（既定 1 日）を過ぎると、サーバーが捨てます |
 | `none` | 何も起きない |
 
 ## CSRF
@@ -178,6 +178,12 @@ context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));     
 ```
 
 1.x の `put(Cookie)` は署名しなかったので、2.0 で消しました（[2.0 への移行](./migrate-2)）。
+
+**署名は Cookie の名前に結びついています**（2.2.3 から）。ある名前の Cookie に付いた署名を、別の名前の Cookie に移しても通りません。
+2.2.2 までは値だけに署名していたので、アプリが入力をフラッシュに入れるなど、攻撃者の決めた値に署名させる場所が1つでもあると、
+その署名を `user` などの Cookie に移し替えて使えました。
+2.2.2 までの署名は、移す間だけ読みます（`cookie.accept_legacy_signature`、既定 true）。`sid` と `csrf_token` は読んだときに書き直します。
+**署名は有効期限を含みません。**`Max-Age` を守るのはブラウザなので、利用者を表す値を署名つき Cookie だけで信じないでください（セッションに入れてください）。
 
 **応答を送ったあとに Cookie を書くと `IllegalStateException` です**（もう届きません）。`send()` より前に書いてください。
 

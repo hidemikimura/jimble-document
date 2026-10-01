@@ -368,10 +368,15 @@ Data json = res.getContentJson();
 <p><strong>タイムアウトの既定は 30 秒</strong>で、接続と応答の<strong>両方に同じ値</strong>が入ります。個別には指定できません。</p>
 </div>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong><code>setIgnoreSslError(true)</code> は JVM 全体に効きます。</strong>
-証明書の検証を止めるシステムプロパティを立てるので、
-<strong>同じプロセスの他の通信も検証しなくなり、元に戻りません。</strong></p>
+<p><strong><code>setIgnoreSslError(true)</code> は、その通信の証明書もホスト名も確かめません。<strong>本番の通信には使わないでください。
+2.2.2 までは</strong>JVM 全体のホスト名の確認を止める</strong>システムプロパティを立てていたので、同じプロセスのほかの通信
+（OIDC のトークンや JWKS の取得を含む）もホスト名を確かめなくなりました。2.2.3 からは、その1本だけに効きます。</p>
 </div>
+<ul>
+<li><strong>リダイレクトは、https から http へは追いません</strong>（2.2.3 から。それまでは追っていました）。追う先のホストは確かめないので、
+URL を許可リストで確かめてから取りにいくなら <code>setEnableRedirect(false)</code> にしてください</li>
+<li><strong>メモリに読む本文は、解いたあとの大きさで 50MiB まで</strong>です（<code>setMaxResponseSize(バイト)</code>）。超えたら本文を読みません</li>
+</ul>
 <h2 id="csv">CSV<a class="anchor" href="#csv">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (CsvReader reader = <span class="h-k">new</span> CsvReader(<span class="h-k">new</span> File(<span class="h-s">"in.csv"</span>))) {
 	<span class="h-k">while</span> (reader.next()) {
@@ -390,6 +395,9 @@ BOM があれば、その BOM が示す文字コードで読みます（UTF-8 �
 <code>Reader</code> を渡したときは、先頭の BOM を1文字だけ落とします。</p>
 <p>書くときに BOM を付けるなら <code>setWithBom(true)</code> です（Excel に UTF-8 の CSV を開かせるとき）。
 <strong>文字コードが UTF 系のときだけ効き</strong>、Shift_JIS などでは何もしません。</p>
+<p><strong><code>= + - @</code>・タブ・CR（全角の <code>＝＋－＠</code> も）で始まる値は、先頭に <code>'</code> を付けて書きます</strong>（2.2.3 から）。
+Excel はこれらで始まるセルを数式として動かすので、利用者が入れた <code>=HYPERLINK(...)</code> などが、CSV を開いた人の手元で動きました。
+数値として読める値（<code>-5</code> など）には付けません。付けたくなければ <code>setEscapeFormula(false)</code> です。</p>
 <pre class="code"><code class="lang-java"><span class="h-k">try</span> (CsvWriter writer = <span class="h-k">new</span> CsvWriter(<span class="h-k">new</span> File(<span class="h-s">"out.csv"</span>), <span class="h-s">"UTF-8"</span>).setWithBom(<span class="h-k">true</span>)) {
 	writer.writeLine(<span class="h-s">"名前"</span>, <span class="h-s">"数"</span>);
 }
