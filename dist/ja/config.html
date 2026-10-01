@@ -503,7 +503,7 @@ db {
 		connection_timeout    = <span class="h-n">30s</span>        <span class="h-c"># 接続を待つ上限</span>
 		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># 生存確認の間隔（Agroal は裏の定期確認と、これより長く寝ていた接続を渡す前の確認）</span>
 		leak_timeout          = <span class="h-n">0s</span>         <span class="h-c"># これより長く握られた接続をリークの疑いとして警告する。0s なら見ない</span>
-		validate_on_borrow    = <span class="h-k">false</span>      <span class="h-c"># 取り出すたびに生存確認する（Agroal だけ。HikariCP はいつも確かめる）</span>
+		validate_on_borrow    = <span class="h-k">false</span>      <span class="h-c"># 取り出すたびに生存確認する（Agroal だけ。HikariCP はいつも確かめる）。速さが半分ほどになる。DB の再起動に備えるだけなら要らない（切れた接続は例外を見て捨てる）</span>
 		connection_init_sql   = <span class="h-s">""</span>         <span class="h-c"># 接続直後に流す SQL</span>
 		connection_test_query = <span class="h-s">""</span>         <span class="h-c"># 生存確認の SQL</span>
 		connection_pool_type  = <span class="h-s">"hikari"</span>   <span class="h-c"># hikari | agroal</span>

@@ -6278,7 +6278,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.2.1-SNAPSHOT
+jimble 2.2.2-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6301,7 +6301,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.2.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.2.2-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6430,9 +6430,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.0"
-	id("io.jimble.run") version "2.2.0"
-	id("io.jimble.db")  version "2.2.0"
+	id("io.jimble.jte") version "2.2.1"
+	id("io.jimble.run") version "2.2.1"
+	id("io.jimble.db")  version "2.2.1"
 }
 ```
 
@@ -6474,9 +6474,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.2.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.2.0"   // DB を使うなら
+	id("io.jimble.jte") version "2.2.1"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.2.1"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.2.1"   // DB を使うなら
 }
 
 repositories {
@@ -6491,7 +6491,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.0")
+	implementation("io.jimble:jimble-web:2.2.1")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6525,7 +6525,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.1' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7510,7 +7510,7 @@ db {
 		connection_timeout    = 30s        # 接続を待つ上限
 		keepalive_time        = 30s        # 生存確認の間隔（Agroal は裏の定期確認と、これより長く寝ていた接続を渡す前の確認）
 		leak_timeout          = 0s         # これより長く握られた接続をリークの疑いとして警告する。0s なら見ない
-		validate_on_borrow    = false      # 取り出すたびに生存確認する（Agroal だけ。HikariCP はいつも確かめる）
+		validate_on_borrow    = false      # 取り出すたびに生存確認する（Agroal だけ。HikariCP はいつも確かめる）。速さが半分ほどになる。DB の再起動に備えるだけなら要らない（切れた接続は例外を見て捨てる）
 		connection_init_sql   = ""         # 接続直後に流す SQL
 		connection_test_query = ""         # 生存確認の SQL
 		connection_pool_type  = "hikari"   # hikari | agroal

@@ -511,7 +511,7 @@ db {
 		connection_timeout    = <span class="h-n">30s</span>        <span class="h-c"># cap on waiting for a connection</span>
 		keepalive_time        = <span class="h-n">30s</span>        <span class="h-c"># liveness check interval (Agroal: background checks, and a check before handing out a connection idle longer than this)</span>
 		leak_timeout          = <span class="h-n">0s</span>         <span class="h-c"># warn about a connection held longer than this as a possible leak; 0s turns it off</span>
-		validate_on_borrow    = <span class="h-k">false</span>      <span class="h-c"># check every connection as it is handed out (Agroal only; HikariCP always checks)</span>
+		validate_on_borrow    = <span class="h-k">false</span>      <span class="h-c"># check every connection as it is handed out (Agroal only; HikariCP always checks). Roughly halves throughput; not needed just to survive a DB restart (broken connections are dropped by their exceptions)</span>
 		connection_init_sql   = <span class="h-s">""</span>         <span class="h-c"># SQL run right after connecting</span>
 		connection_test_query = <span class="h-s">""</span>         <span class="h-c"># SQL used for the liveness check</span>
 		connection_pool_type  = <span class="h-s">"hikari"</span>   <span class="h-c"># hikari | agroal</span>
