@@ -443,7 +443,34 @@ test -f /opt/app/RUNNING_PID_8080       # is it running?
 </code></pre>
 <p><code>X-Forwarded-For</code> is <strong>appended to the existing value</strong> (not overwritten).
 The timeouts are <code>proxy.connect_timeout</code> (5 seconds) and <code>proxy.request_timeout</code> (30 seconds),
-and a forward that fails returns <strong>502</strong>.
+and a forward that fails returns <strong>502</strong>.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Connecting</td>
+<td><code>connect_timeout</code></td>
+</tr>
+<tr>
+<td>Sending the request</td>
+<td>cut if not a single byte goes out for <code>request_timeout</code></td>
+</tr>
+<tr>
+<td>From the end of sending to the response headers</td>
+<td><code>request_timeout</code> in total (since 2.2.4; before that it was per read, so a target trickling bytes never ended)</td>
+</tr>
+<tr>
+<td>The response body</td>
+<td><code>request_timeout</code> per read. In total, <code>proxy.body_timeout</code> (default 0, no limit) or <code>ReverseProxy#bodyTimeout</code></td>
+</tr>
+</tbody>
+</table>
+<p>The body has no total limit by default so large downloads and SSE are not cut off midway.
 The path is re-encoded segment by segment, and <strong>a path containing <code>.</code> or <code>..</code> gets 400</strong>
 (so a request cannot climb out of the base URL's path).</p>
 <h3 id="the-equivalents-of-nginxs-proxy_set_header-and-friends">The equivalents of nginx's proxy_set_header and friends<a class="anchor" href="#the-equivalents-of-nginxs-proxy_set_header-and-friends">#</a></h3>

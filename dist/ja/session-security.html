@@ -318,6 +318,35 @@ context.session().save();                  <span class="h-c">// ← ここで新
 </tr>
 </tbody>
 </table>
+<h3 id="発行からの上限sessionabsolute_timeout">発行からの上限（<code>session.absolute_timeout</code>）<a class="anchor" href="#発行からの上限sessionabsolute_timeout">#</a></h3>
+<p><code>session.timeout</code>（既定 30 分）は「最後に使ってから」の期限なので、<strong>使い続ければいつまでも延びます</strong>。
+発行から（＝ログインから。ログインで ID を振り直すため）の上限は <code>session.absolute_timeout</code> です。</p>
+<table>
+<thead>
+<tr>
+<th>store</th>
+<th>既定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cookie</code></td>
+<td>1 日で効く</td>
+</tr>
+<tr>
+<td><code>db</code> / <code>redis</code></td>
+<td><strong>書いたときだけ効く</strong>（2.2.4 から。書かなければ上限なし）</td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-conf">session {
+	store            = <span class="h-s">"db"</span>
+	absolute_timeout = <span class="h-n">12h</span>   <span class="h-c"># 使い続けていても、ログインから 12 時間で入り直し</span>
+}
+</code></pre>
+<p>書いておくと、<strong>盗まれたセッション ID を使い続けられる時間に上限ができます</strong>。
+<code>db</code> / <code>redis</code> で既定にしていないのは、上げた日に、1 日以上続けて使っている人がまとめてログアウトされるのを避けるためです。
+過ぎたセッションは読めず、ID も作り直します（remember-me を使っていれば、そこから入り直します）。</p>
 <h2 id="csrf">CSRF<a class="anchor" href="#csrf">#</a></h2>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
 
@@ -333,11 +362,57 @@ context.session().save();                  <span class="h-c">// ← ここで新
 });</code></pre>
 <p><code>Csrf::verify</code> を <code>before</code> に置くと、その下のルートが守られます。
 <code>GET</code> <code>HEAD</code> <code>OPTIONS</code> <code>TRACE</code> は素通しです（<code>Csrf.SAFE_METHODS</code>）。</p>
-<p>トークンは <code>context.request().csrfToken()</code> で取り、フォームの hidden に入れます。</p>
+<p>トークンは <code>Csrf.token(context)</code> で取り、フォームの hidden（名前は <code>csrf_token</code>）に入れます。
+無ければ発行して Cookie に載せるので、<strong>フォームを出すページで呼んでください</strong>。
+（<code>context.request().csrfToken()</code> は、送られてきた <code>csrf-token</code> ヘッダを読むだけで、発行はしません。）</p>
+<p>送られたトークンは、<strong><code>X-CSRF-Token</code> ヘッダ → フォームの本文 → JSON の本文</strong>の順に読みます。
+<strong>クエリ文字列（<code>?csrf_token=...</code>）では受け付けません</strong>（2.2.4 から）。URL に載ったトークンは、アクセスログや <code>Referer</code> に残るためです。</p>
 <p><strong>トークンの寿命は <code>csrf.max_age</code>（既定 1 日）です。</strong>
 0.6.x までは <code>cookie.max_age</code>（既定 1 年）に相乗りしていたので、
 アプリが自分の都合で <code>cookie.max_age</code> を短くすると
 <strong>CSRF トークンも一緒に短くなり</strong>、出るのは「CSRF トークンがありません」の 403 だけでした。</p>
+<h3 id="トークンをセッションに結びつけるcsrfbind_session">トークンをセッションに結びつける（<code>csrf.bind_session</code>）<a class="anchor" href="#トークンをセッションに結びつけるcsrfbind_session">#</a></h3>
+<p>既定は <strong>double submit cookie</strong> です。Cookie のトークンと、送られてきたトークンが同じなら通します。
+Cookie には署名があるので、攻撃者が値を作ることはできません。
+ただし、トークンは<strong>利用者に結びついていません</strong>。同じ親ドメインの下に Cookie を書ける場所（別のサブドメインなど）を攻撃者が持っていると、
+<strong>攻撃者が自分で受け取った正しいトークン</strong>を被害者のブラウザに植え付けて、それを使って送らせられます。</p>
+<pre class="code"><code class="lang-conf">csrf {
+	bind_session = <span class="h-k">true</span>   <span class="h-c"># 2.2.4 から。既定 false</span>
+}
+</code></pre>
+<p><code>true</code> にすると、次のように変わります。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>置き場</td>
+<td>Cookie ではなく<strong>セッション</strong>。<code>session.store</code> が <code>db</code> / <code>redis</code> / <code>cookie</code> のどれかでないと、使ったところで例外です</td>
+</tr>
+<tr>
+<td>ログイン</td>
+<td>セッション ID を振り直すとき（<code>Auth.login</code>・二要素認証の完了など）に、<strong>トークンも作り直します</strong></td>
+</tr>
+<tr>
+<td>新しいトークン</td>
+<td>作り直した応答の <strong><code>X-CSRF-Token</code> ヘッダ</strong>で返します</td>
+</tr>
+</tbody>
+</table>
+<p><strong>SPA は、応答に <code>X-CSRF-Token</code> ヘッダがあったら、手元のトークンを差し替えてください。</strong>
+ページを読み直さずにログインする SPA は、ログインの前に受け取ったトークンを持ち続けるので、差し替えないとログインのあとの POST が 403 になります。</p>
+<pre class="code"><code class="lang-javascript">const response = await fetch("/login", { method: "POST", headers: { "X-CSRF-Token": csrfToken }, body });
+csrfToken = response.headers.get("X-CSRF-Token") ?? csrfToken;
+</code></pre>
+<blockquote>
+<p>別のオリジンから呼ぶなら、CORS で <code>Access-Control-Expose-Headers: X-CSRF-Token</code> を出さないと、ヘッダを読めません。</p>
+<p><strong>ログアウトのあとは、トークンがありません</strong>（セッションごと捨てるため）。次にフォームを出すか、トークンを返すルートを呼んで受け取り直してください。</p>
+<p><code>true</code> にした時点で開いているフォームは、<strong>1度だけ 403</strong> になります（置き場が変わるため）。</p>
+</blockquote>
 <h2 id="flash">Flash<a class="anchor" href="#flash">#</a></h2>
 <p>リダイレクトの先へ1回だけ渡すものです。</p>
 <pre class="code"><code class="lang-java">context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"保存しました"</span>);
@@ -525,7 +600,9 @@ cipher {
 			<li class="level-3"><a href="#期限切れを掃除する">期限切れを掃除する</a></li>
 			<li class="level-3"><a href="#自分で保存先を書く">自分で保存先を書く</a></li>
 			<li class="level-3"><a href="#ログインしたらセッション-id-を振り直す">ログインしたらセッション ID を振り直す</a></li>
+			<li class="level-3"><a href="#発行からの上限sessionabsolute_timeout">発行からの上限（session.absolute_timeout）</a></li>
 			<li class="level-2"><a href="#csrf">CSRF</a></li>
+			<li class="level-3"><a href="#トークンをセッションに結びつけるcsrfbind_session">トークンをセッションに結びつける（csrf.bind_session）</a></li>
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookie-の既定は-secure--true">Cookie の既定は secure = true</a></li>
 			<li class="level-2"><a href="#cookie">Cookie</a></li>

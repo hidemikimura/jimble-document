@@ -441,7 +441,34 @@ test -f /opt/app/RUNNING_PID_8080       # 動いているか
 </code></pre>
 <p><code>X-Forwarded-For</code> は<strong>既存の値に足します</strong>（上書きしません）。
 タイムアウトは <code>proxy.connect_timeout</code>（5秒）と <code>proxy.request_timeout</code>（30秒）で、
-転送に失敗したら <strong>502</strong> を返します。
+転送に失敗したら <strong>502</strong> を返します。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>待ちの上限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>繋ぐまで</td>
+<td><code>connect_timeout</code></td>
+</tr>
+<tr>
+<td>リクエストを送るあいだ</td>
+<td><code>request_timeout</code> のあいだ1バイトも進まなければ切る</td>
+</tr>
+<tr>
+<td>送り終えてから、応答のヘッダが届くまで</td>
+<td>全体で <code>request_timeout</code>（2.2.4 から。それまでは1回の読み込みごとだったので、少しずつ返されると終わらなかった）</td>
+</tr>
+<tr>
+<td>応答の本文</td>
+<td>1回の読み込みごとに <code>request_timeout</code>。全体は <code>proxy.body_timeout</code>（既定 0 ＝ 上限なし）か、<code>ReverseProxy#bodyTimeout</code></td>
+</tr>
+</tbody>
+</table>
+<p>本文の全体を既定で切らないのは、大きなダウンロードや SSE を途中で切らないためです。
 パスはセグメントごとにエンコードし直して送り、<strong><code>.</code> / <code>..</code> を含むパスは 400</strong> で断ります
 （ベース URL のパスの外へ出させないため）。</p>
 <h3 id="nginx-の-proxy_set_header-などに当たるもの">nginx の proxy_set_header などに当たるもの<a class="anchor" href="#nginx-の-proxy_set_header-などに当たるもの">#</a></h3>

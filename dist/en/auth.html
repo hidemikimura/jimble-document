@@ -587,6 +587,9 @@ the cookie is not &quot;someone who just typed their password&quot;, so a route 
 <p>Put it on password changes, account deletion, payments, and contact details. In code it
 is <code>Auth.fullyAuthenticated(context)</code>, but <strong>the route attribute is the one you cannot
 forget to write.</strong></p>
+<p><strong>To limit it by time since the password was typed, set <code>auth.full_auth_max_age</code></strong> (default 0s, no limit).
+With <code>15m</code>, a session more than 15 minutes past its login gets 401 on <code>Auth.FULL_AUTH</code> routes (ask for the password again).
+A stolen session then has only a short window for the sensitive operations.</p>
 <h3 id="theft-shows-up">Theft shows up<a class="anchor" href="#theft-shows-up">#</a></h3>
 <p>The cookie holds <strong><code>selector:validator</code></strong>, and <strong>the validator is replaced on every use.</strong>
 A stolen cookie and the real one cannot both stay current, so <strong>a value from before the
@@ -848,6 +851,36 @@ digits it shows and call <code>Mfa.activate(staffId, code)</code>.</p>
 <p><strong>The two steps exist so that nobody gets locked out.</strong> Turning it on at <code>enroll</code> time
 means <strong>anyone whose QR scan silently failed can never get back in.</strong></p>
 </div>
+<h3 id="enrolling-again-a-new-phone-say">Enrolling again (a new phone, say)<a class="anchor" href="#enrolling-again-a-new-phone-say">#</a></h3>
+<p><strong>When someone who already has it on calls <code>enroll</code> again, their current secret and recovery codes keep working</strong> (since 2.2.4).
+The new secret and recovery codes are staged, and <strong>swapped in only when <code>activate</code> passes with a code from the new one</strong>.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Current setup</th>
+<th>New setup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After <code>enroll</code></td>
+<td>works</td>
+<td>not yet (neither <code>verify</code> nor its recovery codes pass)</td>
+</tr>
+<tr>
+<td>After <code>activate</code> passes</td>
+<td>stops working (its recovery codes are deleted)</td>
+<td>works</td>
+</tr>
+</tbody>
+</table>
+<p>Giving up halfway leaves two-factor auth on. Calling <code>enroll</code> again throws the previous staging away and starts over.</p>
+<blockquote>
+<p>Up to 2.2.3, <code>enroll</code> deleted the current setup on the spot. Abandoning it left two-factor auth off,
+and <strong>someone holding a stolen session could turn it off just by opening the enrolment page.</strong>
+The staging columns (<code>auth_mfa.staged_secret</code> and friends) are added automatically the first time it is used after upgrading.</p>
+</blockquote>
 <h3 id="the-secret-is-stored-encrypted">The secret is stored encrypted<a class="anchor" href="#the-secret-is-stored-encrypted">#</a></h3>
 <p><strong><code>enroll</code> throws if <code>auth.mfa.secret_key</code> is not configured.</strong></p>
 <p>A TOTP secret is not like a password hash. A hash costs work to break; <strong>a leaked secret
@@ -873,7 +906,7 @@ back from. <strong>That is why the key is separate</strong> — use <code>auth.m
 <tbody>
 <tr>
 <td>Where they appear</td>
-<td>Only in the return value of <code>enroll</code>. <strong>The DB keeps SHA-256 only</strong></td>
+<td>Only in the return value of <code>enroll</code>. <strong>The DB keeps only an HMAC keyed with <code>auth.mfa.secret_key</code></strong> (codes issued up to 2.2.3 are stored as SHA-256 and still work)</td>
 </tr>
 <tr>
 <td>How many</td>
@@ -1076,6 +1109,7 @@ in &quot;no realm&quot; and keeps using the same code (the framework adds the co
 			<li class="level-3"><a href="#what-this-does-not-do">What this does not do</a></li>
 			<li class="level-2"><a href="#two-factor-authentication-totp">Two-factor authentication (TOTP)</a></li>
 			<li class="level-3"><a href="#enrolling">Enrolling</a></li>
+			<li class="level-3"><a href="#enrolling-again-a-new-phone-say">Enrolling again (a new phone, say)</a></li>
 			<li class="level-3"><a href="#the-secret-is-stored-encrypted">The secret is stored encrypted</a></li>
 			<li class="level-3"><a href="#recovery-codes">Recovery codes</a></li>
 			<li class="level-3"><a href="#against-brute-force">Against brute force</a></li>

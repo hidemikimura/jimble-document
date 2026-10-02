@@ -586,6 +586,9 @@ path(<span class="h-s">""</span>, () -&gt; {                                    
 <p>パスワードの変更・退会・決済・連絡先の変更に付けてください。
 コードの中で見るなら <code>Auth.fullyAuthenticated(context)</code> ですが、
 <strong>ルート属性のほうが書き忘れが起きません。</strong></p>
+<p><strong>パスワードを入れてからの時間で切るなら <code>auth.full_auth_max_age</code></strong>（既定 0s で切らない）。
+<code>15m</code> にすると、ログインから 15 分を過ぎたセッションは、<code>Auth.FULL_AUTH</code> のルートで 401 になります（もう一度パスワードを入れさせてください）。
+セッションを盗まれても、大事な操作ができる時間が限られます。</p>
 <h3 id="盗まれたら気づく">盗まれたら気づく<a class="anchor" href="#盗まれたら気づく">#</a></h3>
 <p>Cookie には <strong><code>selector:validator</code></strong> の2つが入っていて、
 <strong>validator は使うたびに作り直します。</strong>
@@ -846,6 +849,36 @@ context.response().redirect(Mfa.isPending(context) ? <span class="h-s">"/login/c
 <p><strong>2段階にしてあるのは、締め出さないためです。</strong>
 <code>enroll</code> の時点で有効にすると、<strong>QR の読み取りに失敗した人が二度と入れなくなります。</strong></p>
 </div>
+<h3 id="登録し直すとき端末を替えたなど">登録し直すとき（端末を替えたなど）<a class="anchor" href="#登録し直すとき端末を替えたなど">#</a></h3>
+<p><strong>もう有効な人が <code>enroll</code> を呼んでも、いまの秘密鍵と回復コードはそのまま効きます</strong>（2.2.4 から）。
+新しい秘密鍵と回復コードは控えに置かれ、<strong>新しいほうのコードで <code>activate</code> が通った時点で入れ替わります</strong>。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>いまの設定</th>
+<th>新しい設定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enroll</code> のあと</td>
+<td>使える</td>
+<td>まだ使えない（<code>verify</code> も回復コードも通らない）</td>
+</tr>
+<tr>
+<td><code>activate</code> が通ったあと</td>
+<td>使えなくなる（回復コードも消える）</td>
+<td>使える</td>
+</tr>
+</tbody>
+</table>
+<p>途中でやめても、二要素認証は外れません。もう一度 <code>enroll</code> を呼ぶと、前の控えは捨てて新しく作り直します。</p>
+<blockquote>
+<p>2.2.3 までは、<code>enroll</code> を呼んだ時点でいまの設定を消していました。途中でやめると外れたままになり、
+<strong>セッションを盗んだ人が登録の画面を開くだけで、二要素認証を外せました。</strong>
+控えの列（<code>auth_mfa.staged_secret</code> など）は、上げたあと最初に使ったときに自動で足します。</p>
+</blockquote>
 <h3 id="秘密鍵は暗号化して持ちます">秘密鍵は暗号化して持ちます<a class="anchor" href="#秘密鍵は暗号化して持ちます">#</a></h3>
 <p><strong><code>auth.mfa.secret_key</code> が設定されていなければ、<code>enroll</code> は例外を投げて断ります。</strong></p>
 <p>TOTP の秘密鍵は、パスワードのハッシュとは違います。
@@ -871,7 +904,7 @@ context.response().redirect(Mfa.isPending(context) ? <span class="h-s">"/login/c
 <tbody>
 <tr>
 <td>出る場所</td>
-<td><code>enroll</code> の戻り値だけ。<strong>DB には SHA-256 しか残りません</strong></td>
+<td><code>enroll</code> の戻り値だけ。<strong>DB には <code>auth.mfa.secret_key</code> を鍵にした HMAC しか残りません</strong>（2.2.3 までに出したものは SHA-256 のまま使えます）</td>
 </tr>
 <tr>
 <td>数</td>
@@ -1072,6 +1105,7 @@ Mfa.remainingRecoveryCodes(<span class="h-s">"operator"</span>, staff.id());
 			<li class="level-3"><a href="#やらないこと">やらないこと</a></li>
 			<li class="level-2"><a href="#二要素認証totp">二要素認証（TOTP）</a></li>
 			<li class="level-3"><a href="#登録">登録</a></li>
+			<li class="level-3"><a href="#登録し直すとき端末を替えたなど">登録し直すとき（端末を替えたなど）</a></li>
 			<li class="level-3"><a href="#秘密鍵は暗号化して持ちます">秘密鍵は暗号化して持ちます</a></li>
 			<li class="level-3"><a href="#回復コード">回復コード</a></li>
 			<li class="level-3"><a href="#総当たりへの備え">総当たりへの備え</a></li>

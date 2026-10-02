@@ -42,7 +42,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.2.4-SNAPSHOT
+jimble 2.2.5-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -66,7 +66,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.2.4-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.2.5-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -74,7 +74,7 @@ was built from**. If that version is not published (`2.2.4-SNAPSHOT`, say),
 ./gradlew -p gradle-plugin publishToMavenLocal
 ```
 
-The skeleton's `settings.gradle.kts` already looks at `mavenLocal()` first.
+The skeleton's `settings.gradle.kts` already looks at `mavenLocal()` first (since 2.2.4 it takes only jimble's own artifacts, `io.jimble…`, from there).
 If you only ever use published versions, you do not need any of this.
 
 ## jimble new

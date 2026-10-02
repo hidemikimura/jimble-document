@@ -2100,6 +2100,27 @@ context.session().save();                  // ← ここで新しい ID が発�
 | `cookie` | **ID で引いていない**ので、中身の Cookie を書き直すだけ。**古い値はすぐには無効になりません**。最後に使ってから `session.timeout`、発行から `session.absolute_timeout`（既定 1 日）を過ぎると、サーバーが捨てます |
 | `none` | 何も起きない |
 
+### 発行からの上限（`session.absolute_timeout`）
+
+`session.timeout`（既定 30 分）は「最後に使ってから」の期限なので、**使い続ければいつまでも延びます**。
+発行から（＝ログインから。ログインで ID を振り直すため）の上限は `session.absolute_timeout` です。
+
+| store | 既定 |
+| --- | --- |
+| `cookie` | 1 日で効く |
+| `db` / `redis` | **書いたときだけ効く**（2.2.4 から。書かなければ上限なし） |
+
+```conf
+session {
+	store            = "db"
+	absolute_timeout = 12h   # 使い続けていても、ログインから 12 時間で入り直し
+}
+```
+
+書いておくと、**盗まれたセッション ID を使い続けられる時間に上限ができます**。
+`db` / `redis` で既定にしていないのは、上げた日に、1 日以上続けて使っている人がまとめてログアウトされるのを避けるためです。
+過ぎたセッションは読めず、ID も作り直します（remember-me を使っていれば、そこから入り直します）。
+
 ## CSRF
 
 ```java
@@ -2120,12 +2141,52 @@ path("/form", () -> {
 `Csrf::verify` を `before` に置くと、その下のルートが守られます。
 `GET` `HEAD` `OPTIONS` `TRACE` は素通しです（`Csrf.SAFE_METHODS`）。
 
-トークンは `context.request().csrfToken()` で取り、フォームの hidden に入れます。
+トークンは `Csrf.token(context)` で取り、フォームの hidden（名前は `csrf_token`）に入れます。
+無ければ発行して Cookie に載せるので、**フォームを出すページで呼んでください**。
+（`context.request().csrfToken()` は、送られてきた `csrf-token` ヘッダを読むだけで、発行はしません。）
+
+送られたトークンは、**`X-CSRF-Token` ヘッダ → フォームの本文 → JSON の本文**の順に読みます。
+**クエリ文字列（`?csrf_token=...`）では受け付けません**（2.2.4 から）。URL に載ったトークンは、アクセスログや `Referer` に残るためです。
 
 **トークンの寿命は `csrf.max_age`（既定 1 日）です。**
 0.6.x までは `cookie.max_age`（既定 1 年）に相乗りしていたので、
 アプリが自分の都合で `cookie.max_age` を短くすると
 **CSRF トークンも一緒に短くなり**、出るのは「CSRF トークンがありません」の 403 だけでした。
+
+### トークンをセッションに結びつける（`csrf.bind_session`）
+
+既定は **double submit cookie** です。Cookie のトークンと、送られてきたトークンが同じなら通します。
+Cookie には署名があるので、攻撃者が値を作ることはできません。
+ただし、トークンは**利用者に結びついていません**。同じ親ドメインの下に Cookie を書ける場所（別のサブドメインなど）を攻撃者が持っていると、
+**攻撃者が自分で受け取った正しいトークン**を被害者のブラウザに植え付けて、それを使って送らせられます。
+
+```conf
+csrf {
+	bind_session = true   # 2.2.4 から。既定 false
+}
+```
+
+`true` にすると、次のように変わります。
+
+| | |
+| --- | --- |
+| 置き場 | Cookie ではなく**セッション**。`session.store` が `db` / `redis` / `cookie` のどれかでないと、使ったところで例外です |
+| ログイン | セッション ID を振り直すとき（`Auth.login`・二要素認証の完了など）に、**トークンも作り直します** |
+| 新しいトークン | 作り直した応答の **`X-CSRF-Token` ヘッダ**で返します |
+
+**SPA は、応答に `X-CSRF-Token` ヘッダがあったら、手元のトークンを差し替えてください。**
+ページを読み直さずにログインする SPA は、ログインの前に受け取ったトークンを持ち続けるので、差し替えないとログインのあとの POST が 403 になります。
+
+```javascript
+const response = await fetch("/login", { method: "POST", headers: { "X-CSRF-Token": csrfToken }, body });
+csrfToken = response.headers.get("X-CSRF-Token") ?? csrfToken;
+```
+
+> 別のオリジンから呼ぶなら、CORS で `Access-Control-Expose-Headers: X-CSRF-Token` を出さないと、ヘッダを読めません。
+>
+> **ログアウトのあとは、トークンがありません**（セッションごと捨てるため）。次にフォームを出すか、トークンを返すルートを呼んで受け取り直してください。
+>
+> `true` にした時点で開いているフォームは、**1度だけ 403** になります（置き場が変わるため）。
 
 ## Flash
 
@@ -2782,6 +2843,10 @@ if ("1".equals(request.getString("remember"))) {
 コードの中で見るなら `Auth.fullyAuthenticated(context)` ですが、
 **ルート属性のほうが書き忘れが起きません。**
 
+**パスワードを入れてからの時間で切るなら `auth.full_auth_max_age`**（既定 0s で切らない）。
+`15m` にすると、ログインから 15 分を過ぎたセッションは、`Auth.FULL_AUTH` のルートで 401 になります（もう一度パスワードを入れさせてください）。
+セッションを盗まれても、大事な操作ができる時間が限られます。
+
 ### 盗まれたら気づく
 
 Cookie には **`selector:validator`** の2つが入っていて、
@@ -2998,6 +3063,22 @@ if (!Mfa.activate(staffId, request.getString("code"))) {
 > **2段階にしてあるのは、締め出さないためです。**
 > `enroll` の時点で有効にすると、**QR の読み取りに失敗した人が二度と入れなくなります。**
 
+### 登録し直すとき（端末を替えたなど）
+
+**もう有効な人が `enroll` を呼んでも、いまの秘密鍵と回復コードはそのまま効きます**（2.2.4 から）。
+新しい秘密鍵と回復コードは控えに置かれ、**新しいほうのコードで `activate` が通った時点で入れ替わります**。
+
+| | いまの設定 | 新しい設定 |
+| --- | --- | --- |
+| `enroll` のあと | 使える | まだ使えない（`verify` も回復コードも通らない） |
+| `activate` が通ったあと | 使えなくなる（回復コードも消える） | 使える |
+
+途中でやめても、二要素認証は外れません。もう一度 `enroll` を呼ぶと、前の控えは捨てて新しく作り直します。
+
+> 2.2.3 までは、`enroll` を呼んだ時点でいまの設定を消していました。途中でやめると外れたままになり、
+> **セッションを盗んだ人が登録の画面を開くだけで、二要素認証を外せました。**
+> 控えの列（`auth_mfa.staged_secret` など）は、上げたあと最初に使ったときに自動で足します。
+
 ### 秘密鍵は暗号化して持ちます
 
 **`auth.mfa.secret_key` が設定されていなければ、`enroll` は例外を投げて断ります。**
@@ -3021,7 +3102,7 @@ TOTP の秘密鍵は、パスワードのハッシュとは違います。
 
 | | |
 | --- | --- |
-| 出る場所 | `enroll` の戻り値だけ。**DB には SHA-256 しか残りません** |
+| 出る場所 | `enroll` の戻り値だけ。**DB には `auth.mfa.secret_key` を鍵にした HMAC しか残りません**（2.2.3 までに出したものは SHA-256 のまま使えます） |
 | 数 | 10 個（`auth.mfa.recovery_codes`） |
 | 使い方 | コードの欄にそのまま入れます。`verify` が認証アプリ → 回復コードの順に見ます |
 | 使ったら | **消えます。**1つは1回だけです |
@@ -6334,7 +6415,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.2.4-SNAPSHOT
+jimble 2.2.5-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6357,14 +6438,14 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.2.4-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.2.5-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
 ./gradlew -p gradle-plugin publishToMavenLocal
 ```
 
-雛形の `settings.gradle.kts` は `mavenLocal()` を先に見るようにしてあります。
+雛形の `settings.gradle.kts` は `mavenLocal()` を先に見るようにしてあります（2.2.4 から、`mavenLocal()` から取るのは jimble のもの（`io.jimble…`）だけです）。
 公開済みの版だけを使うなら、これは要りません。
 
 ## jimble new
@@ -6486,9 +6567,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.3"
-	id("io.jimble.run") version "2.2.3"
-	id("io.jimble.db")  version "2.2.3"
+	id("io.jimble.jte") version "2.2.4"
+	id("io.jimble.run") version "2.2.4"
+	id("io.jimble.db")  version "2.2.4"
 }
 ```
 
@@ -6530,9 +6611,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.3"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.2.3"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.2.3"   // DB を使うなら
+	id("io.jimble.jte") version "2.2.4"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.2.4"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.2.4"   // DB を使うなら
 }
 
 repositories {
@@ -6547,7 +6628,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.3")
+	implementation("io.jimble:jimble-web:2.2.4")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6581,7 +6662,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.3' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.4' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7399,13 +7480,14 @@ cookie {
 }
 
 csrf {
-	max_age = 1d    # トークンの寿命。cookie.max_age とは別
+	max_age      = 1d      # トークンの寿命。cookie.max_age とは別
+	bind_session = false   # true でトークンをセッションに置き、ログインで作り直す（session.store が要る）
 }
 
 session {
 	store            = "none"                     # none | db | redis | cookie
 	timeout          = 30m
-	absolute_timeout = 1d                         # store = cookie のとき。発行からの上限（使い続けても延びない）
+	absolute_timeout = 1d                         # 発行からの上限（使い続けても延びない）。cookie は既定 1d。db / redis は書いたときだけ効く
 	cookie_name      = "sid"
 	table            = "session"                  # store = db のとき
 	secret           = ${?SESSION_SECRET}         # store = cookie のとき必須
@@ -7448,6 +7530,8 @@ paging {
 }
 
 auth {
+	full_auth_max_age = 0s   # Auth.FULL_AUTH のルートを、パスワードを入れてからこれだけの間だけ通す。0s なら切らない
+
 	lockout {
 		enabled       = true    # DB が無ければ何もしない
 		free_attempts = 3       # ここまでは待たされない（打ち間違い）
@@ -7515,6 +7599,7 @@ hash {
 		# cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）
 		encrypt = false
 		pepper  = ${?PASSWORD_PEPPER}   # ハッシュに混ぜる秘密。入れ替えられない
+		cost    = 10   # bcrypt のコスト（4〜31）。1 上げると倍の時間。72 バイトより後ろは bcrypt が読まない
 	}
 }
 
@@ -7633,7 +7718,7 @@ mq {
 	poll_max          = 1s     # 取り出し役の待ち（キューが空のとき。だんだん伸びる）
 	retry_backoff     = 10s    # リトライの間隔（回を追うごとに倍）
 	retry_backoff_max = 10m
-	stale             = 10m    # これだけ running のままなら落ちたとみなす
+	stale             = 10m    # これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）
 
 	# 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。
 	# DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない
@@ -7670,7 +7755,8 @@ batch_manager {
 
 proxy {
 	connect_timeout = 5s     # 転送先に繋ぐまでの上限
-	request_timeout = 30s    # 応答を待つ上限
+	request_timeout = 30s    # 送るときに進まない待ち・応答のヘッダが届くまで（全体）・本文の1回の読み込み
+	body_timeout    = 0s     # 応答の本文の全体の上限。0 なら上限なし（ダウンロードや SSE を切らない）
 }
 
 sse {
@@ -7994,6 +8080,15 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 `X-Forwarded-For` は**既存の値に足します**（上書きしません）。
 タイムアウトは `proxy.connect_timeout`（5秒）と `proxy.request_timeout`（30秒）で、
 転送に失敗したら **502** を返します。
+
+| | 待ちの上限 |
+| --- | --- |
+| 繋ぐまで | `connect_timeout` |
+| リクエストを送るあいだ | `request_timeout` のあいだ1バイトも進まなければ切る |
+| 送り終えてから、応答のヘッダが届くまで | 全体で `request_timeout`（2.2.4 から。それまでは1回の読み込みごとだったので、少しずつ返されると終わらなかった） |
+| 応答の本文 | 1回の読み込みごとに `request_timeout`。全体は `proxy.body_timeout`（既定 0 ＝ 上限なし）か、`ReverseProxy#bodyTimeout` |
+
+本文の全体を既定で切らないのは、大きなダウンロードや SSE を途中で切らないためです。
 パスはセグメントごとにエンコードし直して送り、**`.` / `..` を含むパスは 400** で断ります
 （ベース URL のパスの外へ出させないため）。
 

@@ -335,13 +335,14 @@ cookie {
 }
 
 csrf {
-	max_age = <span class="h-n">1d</span>    <span class="h-c"># トークンの寿命。cookie.max_age とは別</span>
+	max_age      = <span class="h-n">1d</span>      <span class="h-c"># トークンの寿命。cookie.max_age とは別</span>
+	bind_session = <span class="h-k">false</span>   <span class="h-c"># true でトークンをセッションに置き、ログインで作り直す（session.store が要る）</span>
 }
 
 session {
 	store            = <span class="h-s">"none"</span>                     <span class="h-c"># none | db | redis | cookie</span>
 	timeout          = <span class="h-n">30m</span>
-	absolute_timeout = <span class="h-n">1d</span>                         <span class="h-c"># store = cookie のとき。発行からの上限（使い続けても延びない）</span>
+	absolute_timeout = <span class="h-n">1d</span>                         <span class="h-c"># 発行からの上限（使い続けても延びない）。cookie は既定 1d。db / redis は書いたときだけ効く</span>
 	cookie_name      = <span class="h-s">"sid"</span>
 	table            = <span class="h-s">"session"</span>                  <span class="h-c"># store = db のとき</span>
 	secret           = ${?SESSION_SECRET}         <span class="h-c"># store = cookie のとき必須</span>
@@ -384,6 +385,8 @@ paging {
 }
 
 auth {
+	full_auth_max_age = <span class="h-n">0s</span>   <span class="h-c"># Auth.FULL_AUTH のルートを、パスワードを入れてからこれだけの間だけ通す。0s なら切らない</span>
+
 	lockout {
 		enabled       = <span class="h-k">true</span>    <span class="h-c"># DB が無ければ何もしない</span>
 		free_attempts = <span class="h-n">3</span>       <span class="h-c"># ここまでは待たされない（打ち間違い）</span>
@@ -451,6 +454,7 @@ hash {
 		<span class="h-c"># cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）</span>
 		encrypt = <span class="h-k">false</span>
 		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># ハッシュに混ぜる秘密。入れ替えられない</span>
+		cost    = <span class="h-n">10</span>   <span class="h-c"># bcrypt のコスト（4〜31）。1 上げると倍の時間。72 バイトより後ろは bcrypt が読まない</span>
 	}
 }
 
@@ -569,7 +573,7 @@ mq {
 	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># 取り出し役の待ち（キューが空のとき。だんだん伸びる）</span>
 	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># リトライの間隔（回を追うごとに倍）</span>
 	retry_backoff_max = <span class="h-n">10m</span>
-	stale             = <span class="h-n">10m</span>    <span class="h-c"># これだけ running のままなら落ちたとみなす</span>
+	stale             = <span class="h-n">10m</span>    <span class="h-c"># これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）</span>
 
 	<span class="h-c"># 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。</span>
 	<span class="h-c"># DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない</span>
@@ -606,7 +610,8 @@ batch_manager {
 
 proxy {
 	connect_timeout = <span class="h-n">5s</span>     <span class="h-c"># 転送先に繋ぐまでの上限</span>
-	request_timeout = <span class="h-n">30s</span>    <span class="h-c"># 応答を待つ上限</span>
+	request_timeout = <span class="h-n">30s</span>    <span class="h-c"># 送るときに進まない待ち・応答のヘッダが届くまで（全体）・本文の1回の読み込み</span>
+	body_timeout    = <span class="h-n">0s</span>     <span class="h-c"># 応答の本文の全体の上限。0 なら上限なし（ダウンロードや SSE を切らない）</span>
 }
 
 sse {

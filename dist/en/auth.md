@@ -340,6 +340,10 @@ Put it on password changes, account deletion, payments, and contact details. In 
 is `Auth.fullyAuthenticated(context)`, but **the route attribute is the one you cannot
 forget to write.**
 
+**To limit it by time since the password was typed, set `auth.full_auth_max_age`** (default 0s, no limit).
+With `15m`, a session more than 15 minutes past its login gets 401 on `Auth.FULL_AUTH` routes (ask for the password again).
+A stolen session then has only a short window for the sensitive operations.
+
 ### Theft shows up
 
 The cookie holds **`selector:validator`**, and **the validator is replaced on every use.**
@@ -557,6 +561,22 @@ if (!Mfa.activate(staffId, request.getString("code"))) {
 > **The two steps exist so that nobody gets locked out.** Turning it on at `enroll` time
 > means **anyone whose QR scan silently failed can never get back in.**
 
+### Enrolling again (a new phone, say)
+
+**When someone who already has it on calls `enroll` again, their current secret and recovery codes keep working** (since 2.2.4).
+The new secret and recovery codes are staged, and **swapped in only when `activate` passes with a code from the new one**.
+
+| | Current setup | New setup |
+| --- | --- | --- |
+| After `enroll` | works | not yet (neither `verify` nor its recovery codes pass) |
+| After `activate` passes | stops working (its recovery codes are deleted) | works |
+
+Giving up halfway leaves two-factor auth on. Calling `enroll` again throws the previous staging away and starts over.
+
+> Up to 2.2.3, `enroll` deleted the current setup on the spot. Abandoning it left two-factor auth off,
+> and **someone holding a stolen session could turn it off just by opening the enrolment page.**
+> The staging columns (`auth_mfa.staged_secret` and friends) are added automatically the first time it is used after upgrading.
+
 ### The secret is stored encrypted
 
 **`enroll` throws if `auth.mfa.secret_key` is not configured.**
@@ -580,7 +600,7 @@ Phones get lost. This is the way back.
 
 | | |
 | --- | --- |
-| Where they appear | Only in the return value of `enroll`. **The DB keeps SHA-256 only** |
+| Where they appear | Only in the return value of `enroll`. **The DB keeps only an HMAC keyed with `auth.mfa.secret_key`** (codes issued up to 2.2.3 are stored as SHA-256 and still work) |
 | How many | 10 (`auth.mfa.recovery_codes`) |
 | Using one | Type it into the same code box. `verify` tries the authenticator first, then these |
 | After use | **It is gone.** Each one works once |

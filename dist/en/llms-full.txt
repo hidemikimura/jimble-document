@@ -2109,6 +2109,27 @@ What it does depends on the store:
 | `cookie` | **Nothing is keyed by the id**, so the contents cookie is simply rewritten. **The old value does not die at once**: the server drops it `session.timeout` after it was last used, or `session.absolute_timeout` (1 day by default) after it was issued |
 | `none` | Nothing |
 
+### The limit from issue (`session.absolute_timeout`)
+
+`session.timeout` (30 minutes by default) counts from the last use, so **a session in constant use never expires**.
+The limit from issue (that is, from login, since login regenerates the id) is `session.absolute_timeout`.
+
+| store | Default |
+| --- | --- |
+| `cookie` | 1 day |
+| `db` / `redis` | **only when you write it** (since 2.2.4; without it there is no limit) |
+
+```conf
+session {
+	store            = "db"
+	absolute_timeout = 12h   # log in again 12 hours after login, even if in constant use
+}
+```
+
+Writing it **caps how long a stolen session id stays usable**.
+It is not the default for `db` / `redis` so that upgrading does not log out, on the same day, everyone who has been using the app for more than a day.
+An expired session cannot be read and its id is regenerated (with remember-me, the user is logged back in from there).
+
 ## CSRF
 
 ```java
@@ -2129,12 +2150,52 @@ path("/form", () -> {
 Put `Csrf::verify` in a `before` and the routes below it are protected.
 `GET` `HEAD` `OPTIONS` `TRACE` pass through untouched (`Csrf.SAFE_METHODS`).
 
-Take the token with `context.request().csrfToken()` and put it in a hidden form field.
+Take the token with `Csrf.token(context)` and put it in a hidden form field (named `csrf_token`).
+It issues one (in a cookie) if there is none yet, so **call it on the page that renders the form**.
+(`context.request().csrfToken()` only reads a `csrf-token` header that was sent; it does not issue anything.)
+
+The token sent back is read from **the `X-CSRF-Token` header, then the form body, then the JSON body**.
+**The query string (`?csrf_token=...`) is not accepted** (since 2.2.4): a token in the URL ends up in access logs and `Referer`.
 
 **The token lives for `csrf.max_age` (one day by default).** Up to 0.6.x it rode on
 `cookie.max_age` (one year by default), so shortening `cookie.max_age` for your own reasons
 **shortened the CSRF token with it** — and all you got back was a 403 saying the token was
 missing.
+
+### Binding the token to the session (`csrf.bind_session`)
+
+The default is a **double submit cookie**: the request passes if the token sent matches the one in the cookie.
+The cookie is signed, so an attacker cannot make up a value — but the token is **not tied to the user**.
+An attacker who can write cookies under the same parent domain (another subdomain, say) can plant
+**a valid token they obtained themselves** in the victim's browser and have it sent.
+
+```conf
+csrf {
+	bind_session = true   # since 2.2.4. default false
+}
+```
+
+With `true`:
+
+| | |
+| --- | --- |
+| Where it lives | In the **session**, not a cookie. `session.store` must be `db` / `redis` / `cookie`; otherwise using it throws |
+| Login | When the session id is regenerated (`Auth.login`, completing two-factor auth, ...), **the token is regenerated too** |
+| The new token | Returned in the **`X-CSRF-Token` header** of that response |
+
+**A SPA should replace its token whenever a response carries an `X-CSRF-Token` header.**
+A SPA that logs in without reloading keeps the token it got before login, so without replacing it the first POST after login gets 403.
+
+```javascript
+const response = await fetch("/login", { method: "POST", headers: { "X-CSRF-Token": csrfToken }, body });
+csrfToken = response.headers.get("X-CSRF-Token") ?? csrfToken;
+```
+
+> Called from another origin, the header is only readable if CORS sends `Access-Control-Expose-Headers: X-CSRF-Token`.
+>
+> **After logout there is no token** (the session is thrown away). Get a new one by rendering a form or calling a route that returns it.
+>
+> Forms already open when you switch to `true` get **one 403** (the token moved).
 
 ## Flash
 
@@ -2702,6 +2763,10 @@ Put it on password changes, account deletion, payments, and contact details. In 
 is `Auth.fullyAuthenticated(context)`, but **the route attribute is the one you cannot
 forget to write.**
 
+**To limit it by time since the password was typed, set `auth.full_auth_max_age`** (default 0s, no limit).
+With `15m`, a session more than 15 minutes past its login gets 401 on `Auth.FULL_AUTH` routes (ask for the password again).
+A stolen session then has only a short window for the sensitive operations.
+
 ### Theft shows up
 
 The cookie holds **`selector:validator`**, and **the validator is replaced on every use.**
@@ -2919,6 +2984,22 @@ if (!Mfa.activate(staffId, request.getString("code"))) {
 > **The two steps exist so that nobody gets locked out.** Turning it on at `enroll` time
 > means **anyone whose QR scan silently failed can never get back in.**
 
+### Enrolling again (a new phone, say)
+
+**When someone who already has it on calls `enroll` again, their current secret and recovery codes keep working** (since 2.2.4).
+The new secret and recovery codes are staged, and **swapped in only when `activate` passes with a code from the new one**.
+
+| | Current setup | New setup |
+| --- | --- | --- |
+| After `enroll` | works | not yet (neither `verify` nor its recovery codes pass) |
+| After `activate` passes | stops working (its recovery codes are deleted) | works |
+
+Giving up halfway leaves two-factor auth on. Calling `enroll` again throws the previous staging away and starts over.
+
+> Up to 2.2.3, `enroll` deleted the current setup on the spot. Abandoning it left two-factor auth off,
+> and **someone holding a stolen session could turn it off just by opening the enrolment page.**
+> The staging columns (`auth_mfa.staged_secret` and friends) are added automatically the first time it is used after upgrading.
+
 ### The secret is stored encrypted
 
 **`enroll` throws if `auth.mfa.secret_key` is not configured.**
@@ -2942,7 +3023,7 @@ Phones get lost. This is the way back.
 
 | | |
 | --- | --- |
-| Where they appear | Only in the return value of `enroll`. **The DB keeps SHA-256 only** |
+| Where they appear | Only in the return value of `enroll`. **The DB keeps only an HMAC keyed with `auth.mfa.secret_key`** (codes issued up to 2.2.3 are stored as SHA-256 and still work) |
 | How many | 10 (`auth.mfa.recovery_codes`) |
 | Using one | Type it into the same code box. `verify` tries the authenticator first, then these |
 | After use | **It is gone.** Each one works once |
@@ -6456,7 +6537,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.2.4-SNAPSHOT
+jimble 2.2.5-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6480,7 +6561,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.2.4-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.2.5-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -6488,7 +6569,7 @@ was built from**. If that version is not published (`2.2.4-SNAPSHOT`, say),
 ./gradlew -p gradle-plugin publishToMavenLocal
 ```
 
-The skeleton's `settings.gradle.kts` already looks at `mavenLocal()` first.
+The skeleton's `settings.gradle.kts` already looks at `mavenLocal()` first (since 2.2.4 it takes only jimble's own artifacts, `io.jimble…`, from there).
 If you only ever use published versions, you do not need any of this.
 
 ## jimble new
@@ -6613,9 +6694,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.3"
-	id("io.jimble.run") version "2.2.3"
-	id("io.jimble.db")  version "2.2.3"
+	id("io.jimble.jte") version "2.2.4"
+	id("io.jimble.run") version "2.2.4"
+	id("io.jimble.db")  version "2.2.4"
 }
 ```
 
@@ -6658,9 +6739,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.3"   // if you use src/main/jte
-	id("io.jimble.run") version "2.2.3"   // if you want hot reload
-	id("io.jimble.db")  version "2.2.3"   // if you use a database
+	id("io.jimble.jte") version "2.2.4"   // if you use src/main/jte
+	id("io.jimble.run") version "2.2.4"   // if you want hot reload
+	id("io.jimble.db")  version "2.2.4"   // if you use a database
 }
 
 repositories {
@@ -6675,7 +6756,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.3")
+	implementation("io.jimble:jimble-web:2.2.4")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6709,7 +6790,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.3' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.2.4' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -7553,13 +7634,14 @@ cookie {
 }
 
 csrf {
-	max_age = 1d    # how long a token lives. separate from cookie.max_age
+	max_age      = 1d      # how long a token lives. separate from cookie.max_age
+	bind_session = false   # true keeps the token in the session and regenerates it on login (needs session.store)
 }
 
 session {
 	store            = "none"                     # none | db | redis | cookie
 	timeout          = 30m
-	absolute_timeout = 1d                         # when store = cookie: the limit from issue (does not slide)
+	absolute_timeout = 1d                         # limit from issue (does not slide). cookie: 1d by default. db / redis: only when written
 	cookie_name      = "sid"
 	table            = "session"                  # when store = db
 	secret           = ${?SESSION_SECRET}         # required when store = cookie
@@ -7602,6 +7684,8 @@ paging {
 }
 
 auth {
+	full_auth_max_age = 0s   # Auth.FULL_AUTH routes pass only this long after the password was typed. 0s means no limit
+
 	lockout {
 		enabled       = true    # does nothing without a database
 		free_attempts = 3       # nobody waits up to here (mistyping)
@@ -7669,6 +7753,7 @@ hash {
 		# If you set cipher.*, you must set this too (startup fails otherwise)
 		encrypt = false
 		pepper  = ${?PASSWORD_PEPPER}   # mixed into the hash. cannot be rotated
+		cost    = 10   # bcrypt cost (4-31). each step doubles the time. bcrypt ignores everything past 72 bytes
 	}
 }
 
@@ -7787,7 +7872,7 @@ mq {
 	poll_max          = 1s     # the poller's wait while the queue is empty (grows)
 	retry_backoff     = 10s    # interval between retries (doubles each time)
 	retry_backoff_max = 10m
-	stale             = 10m    # this long as running counts as dead
+	stale             = 10m    # this long as running counts as dead (sent back to waiting, counted as one retry)
 
 	# Workers per execution type (how many run in parallel). Left out, each type's own default is used.
 	# One poller per queue reads the DB, so more workers do not add connections while idle
@@ -7824,7 +7909,8 @@ batch_manager {
 
 proxy {
 	connect_timeout = 5s     # cap on connecting to the target
-	request_timeout = 30s    # cap on waiting for the answer
+	request_timeout = 30s    # no progress while sending / until the response headers (total) / per body read
+	body_timeout    = 0s     # total cap on the response body. 0 means none (downloads and SSE are not cut)
 }
 
 sse {
@@ -8152,6 +8238,15 @@ install(() -> ReverseProxy.mount("/api", "http://backend:8080"));
 `X-Forwarded-For` is **appended to the existing value** (not overwritten).
 The timeouts are `proxy.connect_timeout` (5 seconds) and `proxy.request_timeout` (30 seconds),
 and a forward that fails returns **502**.
+
+| | Limit |
+| --- | --- |
+| Connecting | `connect_timeout` |
+| Sending the request | cut if not a single byte goes out for `request_timeout` |
+| From the end of sending to the response headers | `request_timeout` in total (since 2.2.4; before that it was per read, so a target trickling bytes never ended) |
+| The response body | `request_timeout` per read. In total, `proxy.body_timeout` (default 0, no limit) or `ReverseProxy#bodyTimeout` |
+
+The body has no total limit by default so large downloads and SSE are not cut off midway.
 The path is re-encoded segment by segment, and **a path containing `.` or `..` gets 400**
 (so a request cannot climb out of the base URL's path).
 

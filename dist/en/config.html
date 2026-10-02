@@ -343,13 +343,14 @@ cookie {
 }
 
 csrf {
-	max_age = <span class="h-n">1d</span>    <span class="h-c"># how long a token lives. separate from cookie.max_age</span>
+	max_age      = <span class="h-n">1d</span>      <span class="h-c"># how long a token lives. separate from cookie.max_age</span>
+	bind_session = <span class="h-k">false</span>   <span class="h-c"># true keeps the token in the session and regenerates it on login (needs session.store)</span>
 }
 
 session {
 	store            = <span class="h-s">"none"</span>                     <span class="h-c"># none | db | redis | cookie</span>
 	timeout          = <span class="h-n">30m</span>
-	absolute_timeout = <span class="h-n">1d</span>                         <span class="h-c"># when store = cookie: the limit from issue (does not slide)</span>
+	absolute_timeout = <span class="h-n">1d</span>                         <span class="h-c"># limit from issue (does not slide). cookie: 1d by default. db / redis: only when written</span>
 	cookie_name      = <span class="h-s">"sid"</span>
 	table            = <span class="h-s">"session"</span>                  <span class="h-c"># when store = db</span>
 	secret           = ${?SESSION_SECRET}         <span class="h-c"># required when store = cookie</span>
@@ -392,6 +393,8 @@ paging {
 }
 
 auth {
+	full_auth_max_age = <span class="h-n">0s</span>   <span class="h-c"># Auth.FULL_AUTH routes pass only this long after the password was typed. 0s means no limit</span>
+
 	lockout {
 		enabled       = <span class="h-k">true</span>    <span class="h-c"># does nothing without a database</span>
 		free_attempts = <span class="h-n">3</span>       <span class="h-c"># nobody waits up to here (mistyping)</span>
@@ -459,6 +462,7 @@ hash {
 		<span class="h-c"># If you set cipher.*, you must set this too (startup fails otherwise)</span>
 		encrypt = <span class="h-k">false</span>
 		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># mixed into the hash. cannot be rotated</span>
+		cost    = <span class="h-n">10</span>   <span class="h-c"># bcrypt cost (4-31). each step doubles the time. bcrypt ignores everything past 72 bytes</span>
 	}
 }
 
@@ -577,7 +581,7 @@ mq {
 	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># the poller's wait while the queue is empty (grows)</span>
 	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># interval between retries (doubles each time)</span>
 	retry_backoff_max = <span class="h-n">10m</span>
-	stale             = <span class="h-n">10m</span>    <span class="h-c"># this long as running counts as dead</span>
+	stale             = <span class="h-n">10m</span>    <span class="h-c"># this long as running counts as dead (sent back to waiting, counted as one retry)</span>
 
 	<span class="h-c"># Workers per execution type (how many run in parallel). Left out, each type's own default is used.</span>
 	<span class="h-c"># One poller per queue reads the DB, so more workers do not add connections while idle</span>
@@ -614,7 +618,8 @@ batch_manager {
 
 proxy {
 	connect_timeout = <span class="h-n">5s</span>     <span class="h-c"># cap on connecting to the target</span>
-	request_timeout = <span class="h-n">30s</span>    <span class="h-c"># cap on waiting for the answer</span>
+	request_timeout = <span class="h-n">30s</span>    <span class="h-c"># no progress while sending / until the response headers (total) / per body read</span>
+	body_timeout    = <span class="h-n">0s</span>     <span class="h-c"># total cap on the response body. 0 means none (downloads and SSE are not cut)</span>
 }
 
 sse {

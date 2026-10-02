@@ -161,13 +161,14 @@ cookie {
 }
 
 csrf {
-	max_age = 1d    # トークンの寿命。cookie.max_age とは別
+	max_age      = 1d      # トークンの寿命。cookie.max_age とは別
+	bind_session = false   # true でトークンをセッションに置き、ログインで作り直す（session.store が要る）
 }
 
 session {
 	store            = "none"                     # none | db | redis | cookie
 	timeout          = 30m
-	absolute_timeout = 1d                         # store = cookie のとき。発行からの上限（使い続けても延びない）
+	absolute_timeout = 1d                         # 発行からの上限（使い続けても延びない）。cookie は既定 1d。db / redis は書いたときだけ効く
 	cookie_name      = "sid"
 	table            = "session"                  # store = db のとき
 	secret           = ${?SESSION_SECRET}         # store = cookie のとき必須
@@ -210,6 +211,8 @@ paging {
 }
 
 auth {
+	full_auth_max_age = 0s   # Auth.FULL_AUTH のルートを、パスワードを入れてからこれだけの間だけ通す。0s なら切らない
+
 	lockout {
 		enabled       = true    # DB が無ければ何もしない
 		free_attempts = 3       # ここまでは待たされない（打ち間違い）
@@ -277,6 +280,7 @@ hash {
 		# cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）
 		encrypt = false
 		pepper  = ${?PASSWORD_PEPPER}   # ハッシュに混ぜる秘密。入れ替えられない
+		cost    = 10   # bcrypt のコスト（4〜31）。1 上げると倍の時間。72 バイトより後ろは bcrypt が読まない
 	}
 }
 
@@ -395,7 +399,7 @@ mq {
 	poll_max          = 1s     # 取り出し役の待ち（キューが空のとき。だんだん伸びる）
 	retry_backoff     = 10s    # リトライの間隔（回を追うごとに倍）
 	retry_backoff_max = 10m
-	stale             = 10m    # これだけ running のままなら落ちたとみなす
+	stale             = 10m    # これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）
 
 	# 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。
 	# DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない
@@ -432,7 +436,8 @@ batch_manager {
 
 proxy {
 	connect_timeout = 5s     # 転送先に繋ぐまでの上限
-	request_timeout = 30s    # 応答を待つ上限
+	request_timeout = 30s    # 送るときに進まない待ち・応答のヘッダが届くまで（全体）・本文の1回の読み込み
+	body_timeout    = 0s     # 応答の本文の全体の上限。0 なら上限なし（ダウンロードや SSE を切らない）
 }
 
 sse {

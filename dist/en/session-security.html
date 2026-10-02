@@ -317,6 +317,35 @@ not dangerous, but &quot;I logged in and got a 401&quot; starts here.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="the-limit-from-issue-sessionabsolute_timeout">The limit from issue (<code>session.absolute_timeout</code>)<a class="anchor" href="#the-limit-from-issue-sessionabsolute_timeout">#</a></h3>
+<p><code>session.timeout</code> (30 minutes by default) counts from the last use, so <strong>a session in constant use never expires</strong>.
+The limit from issue (that is, from login, since login regenerates the id) is <code>session.absolute_timeout</code>.</p>
+<table>
+<thead>
+<tr>
+<th>store</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cookie</code></td>
+<td>1 day</td>
+</tr>
+<tr>
+<td><code>db</code> / <code>redis</code></td>
+<td><strong>only when you write it</strong> (since 2.2.4; without it there is no limit)</td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-conf">session {
+	store            = <span class="h-s">"db"</span>
+	absolute_timeout = <span class="h-n">12h</span>   <span class="h-c"># log in again 12 hours after login, even if in constant use</span>
+}
+</code></pre>
+<p>Writing it <strong>caps how long a stolen session id stays usable</strong>.
+It is not the default for <code>db</code> / <code>redis</code> so that upgrading does not log out, on the same day, everyone who has been using the app for more than a day.
+An expired session cannot be read and its id is regenerated (with remember-me, the user is logged back in from there).</p>
 <h2 id="csrf">CSRF<a class="anchor" href="#csrf">#</a></h2>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/form"</span>, () -&gt; {
 
@@ -332,11 +361,57 @@ not dangerous, but &quot;I logged in and got a 401&quot; starts here.</p>
 });</code></pre>
 <p>Put <code>Csrf::verify</code> in a <code>before</code> and the routes below it are protected.
 <code>GET</code> <code>HEAD</code> <code>OPTIONS</code> <code>TRACE</code> pass through untouched (<code>Csrf.SAFE_METHODS</code>).</p>
-<p>Take the token with <code>context.request().csrfToken()</code> and put it in a hidden form field.</p>
+<p>Take the token with <code>Csrf.token(context)</code> and put it in a hidden form field (named <code>csrf_token</code>).
+It issues one (in a cookie) if there is none yet, so <strong>call it on the page that renders the form</strong>.
+(<code>context.request().csrfToken()</code> only reads a <code>csrf-token</code> header that was sent; it does not issue anything.)</p>
+<p>The token sent back is read from <strong>the <code>X-CSRF-Token</code> header, then the form body, then the JSON body</strong>.
+<strong>The query string (<code>?csrf_token=...</code>) is not accepted</strong> (since 2.2.4): a token in the URL ends up in access logs and <code>Referer</code>.</p>
 <p><strong>The token lives for <code>csrf.max_age</code> (one day by default).</strong> Up to 0.6.x it rode on
 <code>cookie.max_age</code> (one year by default), so shortening <code>cookie.max_age</code> for your own reasons
 <strong>shortened the CSRF token with it</strong> — and all you got back was a 403 saying the token was
 missing.</p>
+<h3 id="binding-the-token-to-the-session-csrfbind_session">Binding the token to the session (<code>csrf.bind_session</code>)<a class="anchor" href="#binding-the-token-to-the-session-csrfbind_session">#</a></h3>
+<p>The default is a <strong>double submit cookie</strong>: the request passes if the token sent matches the one in the cookie.
+The cookie is signed, so an attacker cannot make up a value — but the token is <strong>not tied to the user</strong>.
+An attacker who can write cookies under the same parent domain (another subdomain, say) can plant
+<strong>a valid token they obtained themselves</strong> in the victim's browser and have it sent.</p>
+<pre class="code"><code class="lang-conf">csrf {
+	bind_session = <span class="h-k">true</span>   <span class="h-c"># since 2.2.4. default false</span>
+}
+</code></pre>
+<p>With <code>true</code>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where it lives</td>
+<td>In the <strong>session</strong>, not a cookie. <code>session.store</code> must be <code>db</code> / <code>redis</code> / <code>cookie</code>; otherwise using it throws</td>
+</tr>
+<tr>
+<td>Login</td>
+<td>When the session id is regenerated (<code>Auth.login</code>, completing two-factor auth, ...), <strong>the token is regenerated too</strong></td>
+</tr>
+<tr>
+<td>The new token</td>
+<td>Returned in the <strong><code>X-CSRF-Token</code> header</strong> of that response</td>
+</tr>
+</tbody>
+</table>
+<p><strong>A SPA should replace its token whenever a response carries an <code>X-CSRF-Token</code> header.</strong>
+A SPA that logs in without reloading keeps the token it got before login, so without replacing it the first POST after login gets 403.</p>
+<pre class="code"><code class="lang-javascript">const response = await fetch("/login", { method: "POST", headers: { "X-CSRF-Token": csrfToken }, body });
+csrfToken = response.headers.get("X-CSRF-Token") ?? csrfToken;
+</code></pre>
+<blockquote>
+<p>Called from another origin, the header is only readable if CORS sends <code>Access-Control-Expose-Headers: X-CSRF-Token</code>.</p>
+<p><strong>After logout there is no token</strong> (the session is thrown away). Get a new one by rendering a form or calling a route that returns it.</p>
+<p>Forms already open when you switch to <code>true</code> get <strong>one 403</strong> (the token moved).</p>
+</blockquote>
 <h2 id="flash">Flash<a class="anchor" href="#flash">#</a></h2>
 <p>Something you hand to the redirect target exactly once.</p>
 <pre class="code"><code class="lang-java">context.flash().put(<span class="h-s">"message"</span>, <span class="h-s">"Saved"</span>);
@@ -532,7 +607,9 @@ For anything new, use <code>Aead</code> (AES-256-GCM).</p>
 			<li class="level-3"><a href="#cleaning-up-expired-sessions">Cleaning up expired sessions</a></li>
 			<li class="level-3"><a href="#writing-your-own-store">Writing your own store</a></li>
 			<li class="level-3"><a href="#regenerate-the-session-id-on-login">Regenerate the session id on login</a></li>
+			<li class="level-3"><a href="#the-limit-from-issue-sessionabsolute_timeout">The limit from issue (session.absolute_timeout)</a></li>
 			<li class="level-2"><a href="#csrf">CSRF</a></li>
+			<li class="level-3"><a href="#binding-the-token-to-the-session-csrfbind_session">Binding the token to the session (csrf.bind_session)</a></li>
 			<li class="level-2"><a href="#flash">Flash</a></li>
 			<li class="level-2"><a href="#cookies-default-to-secure--true">Cookies default to secure = true</a></li>
 			<li class="level-2"><a href="#cookies">Cookies</a></li>
