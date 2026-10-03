@@ -280,6 +280,42 @@ collapsing it to <code>IN (NULL)</code> <strong>matches no row and quietly retur
 Calling it twice joins the conditions with AND. <strong>Calling <code>on()</code> where there is no join fails</strong>
 (up to 1.4, when <code>from</code> was still a plain table, <strong>the ON was silently dropped</strong>).</p>
 <p>The result nests under the table name, so you get it with <code>row.getData(&quot;comment&quot;)</code>.</p>
+<h3 id="index-hints-mysql">Index hints (MySQL)<a class="anchor" href="#index-hints-mysql">#</a></h3>
+<p>Put <code>forceIndex(...)</code> / <code>useIndex(...)</code> / <code>ignoreIndex(...)</code> on a table and pass it to <code>from</code> or a join (since 2.5.0).</p>
+<pre class="code"><code class="lang-java">SQL.select()
+	.from(Orders.instance().forceIndex(<span class="h-s">"orders__created_at"</span>))       <span class="h-c">// FROM `orders` FORCE INDEX (`orders__created_at`)</span>
+	.left(Customer.instance().useIndex(<span class="h-s">"customer__code"</span>))           <span class="h-c">// LEFT JOIN `customer` USE INDEX (`customer__code`)</span>
+	.on(Customer.id.eq(Orders.customer_id))
+	.where(Orders.created_at.ge(from))
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forceIndex</code></td>
+<td>Make it use that index (always in preference to reading the whole table)</td>
+</tr>
+<tr>
+<td><code>useIndex</code></td>
+<td>Make it choose from those indexes</td>
+</tr>
+<tr>
+<td><code>ignoreIndex</code></td>
+<td>Keep it off that index. The primary key is <code>&quot;PRIMARY&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<p>You can list as many names as you like. Anything that does not look like a name (spaces, quotes, parentheses) is a <code>SqlBuildException</code> before anything is built.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Treat it as a last resort.</strong> When the optimizer picks the wrong index it is usually stale statistics (<code>ANALYZE TABLE</code>), a missing index, or a condition that does not fit the index.
+A hint keeps using that index even after the data grows and another index would be faster. If you use one, confirm with <code>EXPLAIN</code> that it works.</p>
+<p><strong>PostgreSQL has no hints, so building it raises <code>DialectException</code></strong> (it is not silently dropped; dropping it would leave &quot;fast on MySQL, slow on PostgreSQL&quot; unnoticed).</p>
+</div>
 <h2 id="inserting-updating-deleting">Inserting, updating, deleting<a class="anchor" href="#inserting-updating-deleting">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insertKey(
 	SQL.insert(Post.instance())
@@ -622,6 +658,7 @@ An unclosed one is picked up at the end of the execution (F-D-16), but that
 			<li class="level-2"><a href="#selecting">Selecting</a></li>
 			<li class="level-2"><a href="#conditions">Conditions</a></li>
 			<li class="level-2"><a href="#joins">Joins</a></li>
+			<li class="level-3"><a href="#index-hints-mysql">Index hints (MySQL)</a></li>
 			<li class="level-2"><a href="#inserting-updating-deleting">Inserting, updating, deleting</a></li>
 			<li class="level-2"><a href="#using-functions">Using functions</a></li>
 			<li class="level-3"><a href="#the-list">The list</a></li>

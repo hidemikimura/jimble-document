@@ -322,6 +322,10 @@ PostgreSQL のつもりで書いたアプリに<strong>バッククォートの 
 </thead>
 <tbody>
 <tr>
+<td><code>forceIndex</code> / <code>useIndex</code> / <code>ignoreIndex</code>（インデックスのヒント）</td>
+<td>書けない。PostgreSQL にヒントは無く、黙って外すと遅いことに気づけないので断ります</td>
+</tr>
+<tr>
 <td><code>Dsl.match(...)</code>（全文検索）</td>
 <td>書けない。<code>to_tsvector</code> は語彙の分割もスコアも別物なので、黙って置き換えません</td>
 </tr>

@@ -282,6 +282,42 @@ SQL.update(User.instance()).setRow(form, User.nickname, User.bio).where(User.id.
 2度呼ぶと AND で繋がります。<strong>結合の無いところで <code>on()</code> を呼ぶと落ちます</strong>
 （1.4 までは、<code>from</code> がまだ素のテーブルのとき<strong>ON が黙って消えていました</strong>）。</p>
 <p>結果はテーブル名でネストするので、<code>row.getData(&quot;comment&quot;)</code> で取れます。</p>
+<h3 id="インデックスのヒントmysql">インデックスのヒント（MySQL）<a class="anchor" href="#インデックスのヒントmysql">#</a></h3>
+<p>テーブルに <code>forceIndex(...)</code> / <code>useIndex(...)</code> / <code>ignoreIndex(...)</code> を付けて、<code>from</code> や結合に渡します（2.5.0 から）。</p>
+<pre class="code"><code class="lang-java">SQL.select()
+	.from(Orders.instance().forceIndex(<span class="h-s">"orders__created_at"</span>))       <span class="h-c">// FROM `orders` FORCE INDEX (`orders__created_at`)</span>
+	.left(Customer.instance().useIndex(<span class="h-s">"customer__code"</span>))           <span class="h-c">// LEFT JOIN `customer` USE INDEX (`customer__code`)</span>
+	.on(Customer.id.eq(Orders.customer_id))
+	.where(Orders.created_at.ge(from))
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forceIndex</code></td>
+<td>その索引を使わせる（テーブル全体を読むより必ずこちら）</td>
+</tr>
+<tr>
+<td><code>useIndex</code></td>
+<td>その索引の中から選ばせる</td>
+</tr>
+<tr>
+<td><code>ignoreIndex</code></td>
+<td>その索引を使わせない。主キーは <code>&quot;PRIMARY&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<p>名前はいくつでも並べられます。名前に見えないもの（空白・引用符・括弧）は、組み立てる前に <code>SqlBuildException</code> です。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**最後の手段にしてください。**オプティマイザが索引を選び違えるのは、統計が古い（<code>ANALYZE TABLE</code>）・索引が足りない・条件が索引に合っていない、のどれかが多いです。
+ヒントを書くと、データが増えて別の索引のほうが速くなっても、ずっとこちらを使い続けます。使うなら、<code>EXPLAIN</code> で効いていることを確かめてください。</p>
+<p><strong>PostgreSQL にはヒントが無いので、組み立てたところで <code>DialectException</code> になります</strong>（黙って外しません。外すと「MySQL では速いのに PostgreSQL では遅い」が気づかれないまま残ります）。</p>
+</div>
 <h2 id="入れる直す消す">入れる・直す・消す<a class="anchor" href="#入れる直す消す">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-k">long</span> id = db.insertKey(
 	SQL.insert(Post.instance())
@@ -616,6 +652,7 @@ SQL は成功し、例外も警告も出ないので、<strong>プールが枯�
 			<li class="level-2"><a href="#引く">引く</a></li>
 			<li class="level-2"><a href="#条件">条件</a></li>
 			<li class="level-2"><a href="#結合">結合</a></li>
+			<li class="level-3"><a href="#インデックスのヒントmysql">インデックスのヒント（MySQL）</a></li>
 			<li class="level-2"><a href="#入れる直す消す">入れる・直す・消す</a></li>
 			<li class="level-2"><a href="#関数を使う">関数を使う</a></li>
 			<li class="level-3"><a href="#一覧">一覧</a></li>

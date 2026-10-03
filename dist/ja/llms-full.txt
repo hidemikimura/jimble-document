@@ -3649,6 +3649,7 @@ SQL.select().from(Post.instance()).where(Post.id.eq(1L));
 
 | ビルダー | PostgreSQL |
 |---|---|
+| `forceIndex` / `useIndex` / `ignoreIndex`（インデックスのヒント） | 書けない。PostgreSQL にヒントは無く、黙って外すと遅いことに気づけないので断ります |
 | `Dsl.match(...)`（全文検索） | 書けない。`to_tsvector` は語彙の分割もスコアも別物なので、黙って置き換えません |
 | `Dsl.dateFormat(col, "%Y-%m-%d")` | 書けない。`to_char` は書式の言語が違うので、置き換えると**例外にならずに違う文字列**が返ります。Java 側で整えてください |
 | `Dsl.jsonExtract(col, "$.a[0]")` | 配列・ワイルドカード・引用符つきキーは書けません。`$.a.b` の形だけ |
@@ -4061,6 +4062,32 @@ SQL.select()
 （1.4 までは、`from` がまだ素のテーブルのとき**ON が黙って消えていました**）。
 
 結果はテーブル名でネストするので、`row.getData("comment")` で取れます。
+
+### インデックスのヒント（MySQL）
+
+テーブルに `forceIndex(...)` / `useIndex(...)` / `ignoreIndex(...)` を付けて、`from` や結合に渡します（2.5.0 から）。
+
+```java
+SQL.select()
+	.from(Orders.instance().forceIndex("orders__created_at"))       // FROM `orders` FORCE INDEX (`orders__created_at`)
+	.left(Customer.instance().useIndex("customer__code"))           // LEFT JOIN `customer` USE INDEX (`customer__code`)
+	.on(Customer.id.eq(Orders.customer_id))
+	.where(Orders.created_at.ge(from))
+```
+
+| | |
+| --- | --- |
+| `forceIndex` | その索引を使わせる（テーブル全体を読むより必ずこちら） |
+| `useIndex` | その索引の中から選ばせる |
+| `ignoreIndex` | その索引を使わせない。主キーは `"PRIMARY"` |
+
+名前はいくつでも並べられます。名前に見えないもの（空白・引用符・括弧）は、組み立てる前に `SqlBuildException` です。
+
+> [!TRAP]
+> **最後の手段にしてください。**オプティマイザが索引を選び違えるのは、統計が古い（`ANALYZE TABLE`）・索引が足りない・条件が索引に合っていない、のどれかが多いです。
+> ヒントを書くと、データが増えて別の索引のほうが速くなっても、ずっとこちらを使い続けます。使うなら、`EXPLAIN` で効いていることを確かめてください。
+>
+> **PostgreSQL にはヒントが無いので、組み立てたところで `DialectException` になります**（黙って外しません。外すと「MySQL では速いのに PostgreSQL では遅い」が気づかれないまま残ります）。
 
 ## 入れる・直す・消す
 
@@ -6766,7 +6793,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.4.2-SNAPSHOT
+jimble 2.5.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6789,7 +6816,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.4.2-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.5.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6918,9 +6945,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.4.1"
-	id("io.jimble.run") version "2.4.1"
-	id("io.jimble.db")  version "2.4.1"
+	id("io.jimble.jte") version "2.5.0"
+	id("io.jimble.run") version "2.5.0"
+	id("io.jimble.db")  version "2.5.0"
 }
 ```
 
@@ -6962,9 +6989,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.4.1"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.4.1"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.4.1"   // DB を使うなら
+	id("io.jimble.jte") version "2.5.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.5.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.5.0"   // DB を使うなら
 }
 
 repositories {
@@ -6979,7 +7006,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.4.1")
+	implementation("io.jimble:jimble-web:2.5.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7013,7 +7040,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.4.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか

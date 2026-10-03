@@ -3684,6 +3684,7 @@ error.
 
 | Builder | PostgreSQL |
 |---|---|
+| `forceIndex` / `useIndex` / `ignoreIndex` (index hints) | Not available. PostgreSQL has no hints, and silently dropping them would hide the slowdown, so it refuses |
 | `Dsl.match(...)` (full-text search) | Not available. `to_tsvector` tokenizes differently and scores differently, so we do not silently substitute it |
 | `Dsl.dateFormat(col, "%Y-%m-%d")` | Not available. `to_char` uses a different format language, so substituting it would return **a different string instead of raising**. Format it on the Java side |
 | `Dsl.jsonExtract(col, "$.a[0]")` | Arrays, wildcards and quoted keys are not available. Only the `$.a.b` form |
@@ -4095,6 +4096,32 @@ Calling it twice joins the conditions with AND. **Calling `on()` where there is 
 (up to 1.4, when `from` was still a plain table, **the ON was silently dropped**).
 
 The result nests under the table name, so you get it with `row.getData("comment")`.
+
+### Index hints (MySQL)
+
+Put `forceIndex(...)` / `useIndex(...)` / `ignoreIndex(...)` on a table and pass it to `from` or a join (since 2.5.0).
+
+```java
+SQL.select()
+	.from(Orders.instance().forceIndex("orders__created_at"))       // FROM `orders` FORCE INDEX (`orders__created_at`)
+	.left(Customer.instance().useIndex("customer__code"))           // LEFT JOIN `customer` USE INDEX (`customer__code`)
+	.on(Customer.id.eq(Orders.customer_id))
+	.where(Orders.created_at.ge(from))
+```
+
+| | |
+| --- | --- |
+| `forceIndex` | Make it use that index (always in preference to reading the whole table) |
+| `useIndex` | Make it choose from those indexes |
+| `ignoreIndex` | Keep it off that index. The primary key is `"PRIMARY"` |
+
+You can list as many names as you like. Anything that does not look like a name (spaces, quotes, parentheses) is a `SqlBuildException` before anything is built.
+
+> [!TRAP]
+> **Treat it as a last resort.** When the optimizer picks the wrong index it is usually stale statistics (`ANALYZE TABLE`), a missing index, or a condition that does not fit the index.
+> A hint keeps using that index even after the data grows and another index would be faster. If you use one, confirm with `EXPLAIN` that it works.
+>
+> **PostgreSQL has no hints, so building it raises `DialectException`** (it is not silently dropped; dropping it would leave "fast on MySQL, slow on PostgreSQL" unnoticed).
 
 ## Inserting, updating, deleting
 
@@ -6887,7 +6914,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.4.2-SNAPSHOT
+jimble 2.5.1-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6911,7 +6938,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.4.2-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.5.1-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7044,9 +7071,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.4.1"
-	id("io.jimble.run") version "2.4.1"
-	id("io.jimble.db")  version "2.4.1"
+	id("io.jimble.jte") version "2.5.0"
+	id("io.jimble.run") version "2.5.0"
+	id("io.jimble.db")  version "2.5.0"
 }
 ```
 
@@ -7089,9 +7116,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.4.1"   // if you use src/main/jte
-	id("io.jimble.run") version "2.4.1"   // if you want hot reload
-	id("io.jimble.db")  version "2.4.1"   // if you use a database
+	id("io.jimble.jte") version "2.5.0"   // if you use src/main/jte
+	id("io.jimble.run") version "2.5.0"   // if you want hot reload
+	id("io.jimble.db")  version "2.5.0"   // if you use a database
 }
 
 repositories {
@@ -7106,7 +7133,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.4.1")
+	implementation("io.jimble:jimble-web:2.5.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7140,7 +7167,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.4.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on

@@ -327,6 +327,10 @@ error.</p>
 </thead>
 <tbody>
 <tr>
+<td><code>forceIndex</code> / <code>useIndex</code> / <code>ignoreIndex</code> (index hints)</td>
+<td>Not available. PostgreSQL has no hints, and silently dropping them would hide the slowdown, so it refuses</td>
+</tr>
+<tr>
 <td><code>Dsl.match(...)</code> (full-text search)</td>
 <td>Not available. <code>to_tsvector</code> tokenizes differently and scores differently, so we do not silently substitute it</td>
 </tr>
