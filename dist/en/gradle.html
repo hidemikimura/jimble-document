@@ -241,9 +241,9 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.2.4"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.2.4"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.2.4"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.2.5"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.2.5"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.2.5"</span>
 }
 </code></pre>
 <p><strong>They are not on the Plugin Portal.</strong> They come from Maven Central, so write the
@@ -277,9 +277,9 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.2.4"</span>   <span class="h-c">// if you use src/main/jte</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.2.4"</span>   <span class="h-c">// if you want hot reload</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.2.4"</span>   <span class="h-c">// if you use a database</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.2.5"</span>   <span class="h-c">// if you use src/main/jte</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.2.5"</span>   <span class="h-c">// if you want hot reload</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.2.5"</span>   <span class="h-c">// if you use a database</span>
 }
 
 repositories {
@@ -294,7 +294,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:2.2.4"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:2.2.5"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -325,7 +325,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>The toolchain block is required.</strong> Without it you stop at dependency resolution.</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:2.2.4' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:2.2.5' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="which-artifact-to-depend-on">Which artifact to depend on<a class="anchor" href="#which-artifact-to-depend-on">#</a></h2>
@@ -666,6 +666,11 @@ how to fix it is left out). Any <code>ERROR</code> fails the task; <code>WARN</c
 <td><code>context.request().getString(...)</code> and friends (<code>Request</code> is not a <code>Data</code>; go through <code>bodyAll()</code>)</td>
 </tr>
 <tr>
+<td>J102</td>
+<td>WARN</td>
+<td>A <code>path(...)</code> block with <code>before</code> / <code>after</code> but no route at all (a filter only attaches to routes in its own block, so it guards nothing; the <code>path(&quot;/mcp&quot;, () -&gt; before(...))</code> shape)</td>
+</tr>
+<tr>
 <td>J201</td>
 <td>WARN</td>
 <td><code>${ENV}</code> without <code>?</code> in configuration (fails at startup wherever the variable is not set)</td>
@@ -674,6 +679,16 @@ how to fix it is left out). Any <code>ERROR</code> fails the task; <code>WARN</c
 <td>J202</td>
 <td>ERROR</td>
 <td>The same key written again after its <code>${?ENV}</code> line (the environment variable never wins)</td>
+</tr>
+<tr>
+<td>J203</td>
+<td>WARN</td>
+<td><code>cookie.secure = false</code> in <code>application.conf</code> or a production file (production inherits it and cookies go over http; write it only in <code>application.local.conf</code>)</td>
+</tr>
+<tr>
+<td>J204</td>
+<td>WARN</td>
+<td><code>server.trust_proxy = true</code> with neither <code>server.trusted_proxies</code> nor <code>server.client_ip_header</code> (with two or more hops, everyone looks like the nearer proxy's IP)</td>
 </tr>
 <tr>
 <td>J301</td>
@@ -706,9 +721,24 @@ how to fix it is left out). Any <code>ERROR</code> fails the task; <code>WARN</c
 <td><code>Remember.forgetAll(...)</code> with no <code>Auth.revoke</code> / <code>revokeOthers</code> in the same file (sessions on other devices stay logged in)</td>
 </tr>
 <tr>
+<td>J403</td>
+<td>WARN</td>
+<td><code>Lockout.waitSeconds</code> read first and <code>Lockout.fail</code> counted after, without <code>Lockout.attempt</code> (concurrent requests slip through)</td>
+</tr>
+<tr>
 <td>J501</td>
 <td>WARN</td>
 <td>The skills are not from the jimble version you use (run <code>jimbleSkills</code>)</td>
+</tr>
+<tr>
+<td>J601</td>
+<td>WARN</td>
+<td>An <code>error(...)</code> lambda returns <code>getMessage()</code> without comparing against 500 (DB errors and internal paths reach the client)</td>
+</tr>
+<tr>
+<td>J602</td>
+<td>WARN</td>
+<td>A request value (<code>request().body…()</code> or a variable holding one) passed to <code>apply</code> / <code>setRow</code> / <code>valueRow</code> without listing the allowed columns</td>
 </tr>
 <tr>
 <td>J701</td>
