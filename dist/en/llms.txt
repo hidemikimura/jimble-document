@@ -35,6 +35,7 @@
 
 - [Batch](https://jimble.io/en/batch.md): Jobs that run on cron. Cancel requests, double starts, the admin screen
 - [MQ](https://jimble.io/en/mq.md): The DB is the queue. Write for a message that will run twice
+- [Mail](https://jimble.io/en/mail.md): Send over SMTP. Send from MQ and a failure is retried
 
 ## Protocols
 

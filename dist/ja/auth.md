@@ -673,6 +673,206 @@ Mfa.remainingRecoveryCodes("operator", staff.id());
 
 動いているものは `examples/approval-auth` にあります（ログイン → コード → 登録 → 解除まで）。
 
+## API のトークン（Authorization: Bearer）
+
+**連携やスクリプトのために、利用者が API のトークンを発行できます**（2.4.0 から）。
+DB に持つ不透明なトークンです（JWT ではありません。すぐ失効でき、鍵の管理が要りません）。
+
+```java
+before(ApiToken.authenticate(App::findPrincipal));   // Remember.restore・Csrf::verify・Auth::guard より先に
+before(Auth::guard);
+
+path("/api", () -> {
+	attribute(ApiToken.ACCEPT, true);                 // トークンを受けるのは、宣言したルートだけ
+	get("/requests", Api::list).attribute(ApiToken.SCOPE, "requests:read");
+	post("/requests", Api::create).attribute(ApiToken.SCOPE, "requests:write");
+});
+```
+
+```bash
+curl -H "Authorization: Bearer jbt_..." https://example.com/api/requests
+```
+
+### 発行・一覧・削除
+
+```java
+// パスワードを入れて入った人の画面から（FULL_AUTH のルート）
+ApiToken.Issued issued = ApiToken.issue(me.id(), "経費の連携", Set.of("requests:read"), Duration.ofDays(90));
+// issued.token() を「この一度だけ」見せる。DB にはハッシュしか残らない
+
+List<Data> tokens = ApiToken.list("", me.id());     // id・name・scopes・created_at・expires_at・last_used_at（トークンそのものは無い）
+ApiToken.revoke("", me.id(), id);                   // すぐ使えなくなる。ほかの人のものは消さない
+```
+
+| | |
+| --- | --- |
+| 形 | `jbt_` ＋ 256 ビットの乱数。頭が決まっているので、漏れたトークンを見つける道具（GitHub の secret scanning など）が拾えます |
+| 期限 | 発行のときに決めます（`Duration.ZERO` で無期限。勧めません） |
+| スコープ | 英小文字・数字・`: . _ -`。ルートの `ApiToken.SCOPE` がトークンに無ければ **403** |
+| 置き場 | `auth_api_token` テーブル（SHA-256 だけ）。**DB が要ります** |
+
+### トークンで入った人
+
+| | |
+| --- | --- |
+| ログイン | **そのリクエストのあいだだけ**ログインしています。セッションの Cookie は出しません |
+| 役割 | `Auth.ROLE` はふつうに効きます（`lookup` が返した、いまの役割） |
+| `Auth.FULL_AUTH` | **入れません**（401）。パスワードの変更や退会は、トークンではさせません |
+| スコープ | `ApiToken.scopes(context)` で読めます。**セッションで入った人には、スコープは関係ありません** |
+| CSRF | `Csrf.verify` は見ません（ブラウザは Authorization を勝手に付けないので、別のサイトからは送れません） |
+
+### 断るとき
+
+| | 状態コード |
+| --- | --- |
+| `ApiToken.ACCEPT` の無いルートに Bearer が来た | 401 |
+| トークンが違う・期限切れ・消した | 401（`WWW-Authenticate: Bearer error="invalid_token"`） |
+| **`Auth.revoke` / `Auth.revokeOthers` のあと**（それより前に発行したもの） | 401。セッションと同じ世代で見るので、締め出した・パスワードを変えた瞬間に止まります |
+| `lookup` が null を返した（利用者を止めた・消した） | 401 |
+| スコープが足りない | 403（`error="insufficient_scope"`） |
+
+> [!TRAP]
+> **`ApiToken.authenticate` は before のいちばん先に置きます。**先にセッションを読まれると、
+> トークンのリクエストにセッションの Cookie を出すことになるので、例外にして知らせます。
+> 置き忘れて Bearer が来たときは、Auth.guard が1度だけ WARN を出します。
+>
+> **発行は `Auth.FULL_AUTH` のルートから。**セッションを盗んだ人にトークンを作らせないためです。
+
+## パスキー（パスワードなしのログイン）
+
+**パスキーだけでログインできます**（2.4.0 から）。ログイン ID も入れません——ブラウザが、このサイトのパスキーの候補を出します。
+パスキーは端末の本人確認（指紋・顔・PIN）込みなので、通った人は `Auth.login` でログインさせます。
+**二要素認証のコードは聞きません**（パスキーそのものが「持っている端末」と「本人確認」の2つを満たします）。`Auth.FULL_AUTH` のルートにも入れます。
+
+```java
+// 登録（ログインしている人。パスワードを入れ直した人だけ）
+post("/passkey/register/options", c -> c.response().json(Passkey.registrationOptions(c, loginIdOf(c))))
+	.attribute(Auth.FULL_AUTH, true);
+post("/passkey/register", c -> {
+	Passkey.register(c, c.request().bodyJson(), "ノート PC");   // 第3引数は利用者が見分ける名前
+	c.response().json("ok", true);
+}).attribute(Auth.FULL_AUTH, true);
+
+// ログイン（誰でも。NO_SESSION は付けない）
+post("/passkey/login/options", c -> c.response().json(Passkey.loginOptions(c))).attribute(Auth.PUBLIC, true);
+post("/passkey/login", c -> {
+	if (!Passkey.login(c, c.request().bodyJson(), App::findPrincipal)) {   // 利用者 ID → Principal（入れないなら null）
+		throw new HttpException(401, "パスキーでログインできませんでした");
+	}
+	c.response().json("ok", true);
+}).attribute(Auth.PUBLIC, true);
+
+// ブラウザ側の JS
+get("/passkey.js", Passkey.script()).attribute(Auth.PUBLIC, true);
+```
+
+ブラウザ側は、同梱の JS を読んで呼ぶだけです。
+
+```html
+<script src="/passkey.js"></script>
+<script>
+	// 登録
+	await JimblePasskey.register("/passkey/register/options", "/passkey/register", { csrfToken });
+
+	// ログイン（ボタンを押したとき）
+	await JimblePasskey.login("/passkey/login/options", "/passkey/login", { csrfToken });
+	location.href = "/";
+
+	// 入力欄の候補にパスキーを出す（<input autocomplete="username webauthn"> を置いておく）
+	JimblePasskey.login("/passkey/login/options", "/passkey/login", { csrfToken, conditional: true })
+		.then(result => { if (result) location.href = "/"; });
+</script>
+```
+
+失敗すると `Error` を投げます（`error.status` にサーバーの状態コード。利用者が取り消すと `error.name === "NotAllowedError"`）。
+確かめるときに一緒に送りたいもの（ラベルなど）は `extra: { label: "ノート PC" }`、入力欄の候補を待っているのをボタンで止めるなら `signal`（`AbortController`）を渡します。
+動く例は examples/approval-auth の `login.jte` と `passkeys.jte` です。
+`csrf.bind_session = true` でログインのあとにトークンが変わっても、JS が `X-CSRF-Token` を読んで差し替えます（`onCsrfToken` で受け取れます）。
+
+### 設定
+
+```conf
+auth {
+	passkey {
+		rp_id   = "example.com"             # パスキーを結びつけるドメイン（必須）
+		rp_name = "承認ワークフロー"         # 登録のときにブラウザが出す名前（空なら rp_id）
+		origins = ["https://example.com"]   # 受け付けるオリジン（空なら https:// + rp_id）
+		timeout = 5m                         # 始めてから終えるまで
+	}
+}
+```
+
+> [!TRAP]
+> **`rp_id` をあとから変えると、登録したパスキーが全部使えなくなります。**パスキーはドメインに結びついているためです。
+> サブドメインで動かすなら、親のドメイン（`example.com`）を書いておくと、`app.example.com` からも `admin.example.com` からも使えます。
+>
+> 手元で試すなら `rp_id = "localhost"`、`origins = ["http://localhost:9000"]`（ブラウザは localhost だけ http を許します）。
+
+### クライアントごとにドメインが違うとき（SaaS）
+
+**`rp_id` を設定ではなく、ルートの中で渡せます。**`PasskeyRp` を作って、4つのメソッドに同じものを渡します。
+
+```java
+PasskeyRp rp(WebContext c) {
+	// クライアントの表から引く。Host ヘッダをそのまま rp_id にしない（知らないドメインは 404）
+	Tenant tenant = Tenants.byHost(c.request().host()).orElseThrow(() -> new HttpException(404, "見つかりません"));
+	return PasskeyRp.of(tenant.domain(), tenant.name());          // オリジンは https://<domain>
+}
+
+post("/passkey/login/options", c -> c.response().json(Passkey.loginOptions(c, rp(c)))).attribute(Auth.PUBLIC, true);
+post("/passkey/login", c -> {
+	if (!Passkey.login(c, rp(c), c.request().bodyJson(), App::findPrincipal)) {
+		throw new HttpException(401, "パスキーでログインできませんでした");
+	}
+	c.response().json("ok", true);
+}).attribute(Auth.PUBLIC, true);
+// 登録も Passkey.registrationOptions(c, rp(c), 名前) / Passkey.register(c, rp(c), credential, ラベル)
+```
+
+| | |
+| --- | --- |
+| 分け方 | パスキーは rp_id ごとに持ちます。**クライアント A で登録したパスキーは、クライアント B では使えません**（jimble が表の rp_id で断ります。認証器も rp_id ごとに鍵を分けます） |
+| つなぎ間違い | options を出したときの rp_id をセッションに置き、確かめるときに違えば断ります（手続きのやり直し） |
+| 形の確かめ | `PasskeyRp` は、rp_id がドメインの形か、オリジンのホストが rp_id かそのサブドメインか（http は localhost だけ）を作ったときに確かめます。別のクライアントのドメインを並べると例外です |
+| 一覧 | `Passkey.list(realm, rp, id)` でそのクライアントのものだけ。`Passkey.list(id)` はどのクライアントのものも返します（`rp_id` が付きます） |
+
+> クライアントが独自ドメイン（`login.client-a.co.jp`）と共通のサブドメイン（`client-a.saas.example`）の両方を持つなら、
+> パスキーはどちらか1つの rp_id に結びつきます。ログインの画面をどちらのドメインで出すかを先に決めてください。
+
+### 何を確かめるか
+
+| | |
+| --- | --- |
+| チャレンジ | セッションに置き、**1度しか使えません**。`timeout` を過ぎたものは断ります。登録のチャレンジは、出したときにログインしていた人にしか使えません |
+| オリジン | `origins` に無いものは断ります。別のサイトの iframe の中からの呼び出し（`crossOrigin`）も断ります |
+| 本人確認 | **端末の本人確認（UV）を必ず求めます。**押しただけ（UP）のセキュリティキーは通りません |
+| 署名 | 登録した公開鍵で確かめます（ES256 / EdDSA / RS256。どれも JDK だけで確かめます） |
+| 利用者 | ブラウザが返す利用者のハンドルが、登録したものと一致すること |
+| 複製 | 署名の回数が戻っていたら断ります（同期するパスキーはいつも 0 なので、そのときは見ません） |
+
+**認証器の証明書（attestation）は確かめません**（`attestation: "none"`）。パスキーのほとんどは証明書を出さず、
+「どのメーカーの認証器か」で断る必要は、ふつうのアプリにはありません。
+
+### 一覧と削除
+
+```java
+List<Data> passkeys = Passkey.list(me.id());          // id・rp_id・label・created_at・last_used_at・backed_up
+Passkey.delete(me.id(), id);                           // FULL_AUTH のルートから。ほかの人のものは消さない
+Passkey.deleteAll("", me.id());                        // 退会など
+```
+
+| | |
+| --- | --- |
+| 置き場 | `auth_passkey` テーブル。**DB とセッションが要ります** |
+| 種別 | ルートの `Auth.REALM` で分けます（登録もログインも、そのルートの種別。一覧と削除は種別を渡す形もあります） |
+| 端末を失くした | 本人に別の手段（パスワードなど）でログインしてもらい、`Passkey.delete` で消します。`Auth.revoke` はいまのセッションを止めるだけで、パスキーは残ります |
+
+> [!TRAP]
+> **登録は `Auth.FULL_AUTH` を付けたルートから。**セッションを盗んだ人が自分のパスキーを足すと、
+> パスワードを変えられても、そのパスキーで入り続けられます。
+>
+> **パスキーのログインの口には、流量制限を掛けてください**（`RateLimit`）。総当たりは効きませんが、チャレンジを出すたびにセッションを作ります。
+
 ## Basic 認証
 
 運用向けの口には Basic 認証が使えます（[リクエストとレスポンス](./request-response)）。
@@ -691,7 +891,7 @@ path("/ops", () -> {
 | --- | --- |
 | 注釈（`@PreAuthorize` のようなもの） | [原則](./principles)のとおり使いません。ルート属性で宣言します |
 | 「あと何日で切れるか」を利用者に見せる口 | ありません。行を自分で引いてください |
-| JWT | **出しません。**失効できず鍵の管理が増えます。API の認証が要るなら、DB に持つ不透明なトークンにしてください |
+| JWT | **出しません。**失効できず鍵の管理が増えます。API の認証には、DB に持つ不透明なトークン（上の「API のトークン」）を使ってください |
 | SAML | まだありません |
 | 権限（permission）の対応表 | 役割の文字列だけです |
 

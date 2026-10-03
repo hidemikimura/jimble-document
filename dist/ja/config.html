@@ -129,6 +129,10 @@
 				<a href="mq"
 				   class="">MQ</a>
 			</li>
+			<li>
+				<a href="mail"
+				   class="">メール</a>
+			</li>
 		</ul>
 		<p class="section">プロトコル</p>
 		<ul>
@@ -422,6 +426,14 @@ auth {
 		secret_key     = ${?MFA_SECRET_KEY}
 	}
 
+	passkey {
+		enabled = <span class="h-k">true</span>
+		rp_id   = <span class="h-s">""</span>        <span class="h-c"># パスキーを結びつけるドメイン（あとから変えると登録したものが全部使えなくなる）。クライアントごとに違うなら PasskeyRp を渡す</span>
+		rp_name = <span class="h-s">""</span>        <span class="h-c"># 登録のときにブラウザが出す名前（空なら rp_id）</span>
+		origins = []        <span class="h-c"># 受け付けるオリジン（空なら https:// + rp_id）</span>
+		timeout = <span class="h-n">5m</span>        <span class="h-c"># 始めてから終えるまで</span>
+	}
+
 	<span class="h-c"># プロバイダごとに1ブロック。名前（google）は Oidc.callback に渡す名前</span>
 	oidc {
 		google {
@@ -467,6 +479,24 @@ cache {
 	type          = <span class="h-s">"db"</span>    <span class="h-c"># db | memory | redis</span>
 	temp_dir      = <span class="h-s">""</span>      <span class="h-c"># ファイルを置くところ</span>
 	memory.expire = <span class="h-n">0s</span>      <span class="h-c"># memory のときだけ。0 で無期限</span>
+}
+
+mail {
+	transport = <span class="h-s">"smtp"</span>      <span class="h-c"># smtp | log（送らずにログ。手元用）| memory（テスト用）</span>
+	from      = <span class="h-s">""</span>          <span class="h-c"># From を書かないメールの差出人</span>
+	from_name = <span class="h-s">""</span>
+
+	smtp {
+		host            = <span class="h-s">""</span>            <span class="h-c"># smtp なら必須（書かずに送ると例外）</span>
+		port            = <span class="h-n">587</span>           <span class="h-c"># 書かなければ security から（starttls 587 / tls 465 / none 25）</span>
+		security        = <span class="h-s">"starttls"</span>    <span class="h-c"># starttls | tls | none（none では認証できない）</span>
+		username        = <span class="h-s">""</span>
+		password        = ${?SMTP_PASSWORD}
+		connect_timeout = <span class="h-n">10s</span>
+		timeout         = <span class="h-n">30s</span>
+		helo            = <span class="h-s">""</span>            <span class="h-c"># EHLO で名乗る名前（空ならこの機械の名前）</span>
+		envelope_from   = <span class="h-s">""</span>            <span class="h-c"># バウンスの宛先（空なら From）</span>
+	}
 }
 
 sql_cache {

@@ -13,9 +13,9 @@
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.5"
-	id("io.jimble.run") version "2.2.5"
-	id("io.jimble.db")  version "2.2.5"
+	id("io.jimble.jte") version "2.4.0"
+	id("io.jimble.run") version "2.4.0"
+	id("io.jimble.db")  version "2.4.0"
 }
 ```
 
@@ -57,9 +57,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.5"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.2.5"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.2.5"   // DB を使うなら
+	id("io.jimble.jte") version "2.4.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.4.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.4.0"   // DB を使うなら
 }
 
 repositories {
@@ -74,7 +74,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.5")
+	implementation("io.jimble:jimble-web:2.4.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -108,7 +108,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.5' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.4.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか

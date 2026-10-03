@@ -3177,6 +3177,206 @@ Mfa.remainingRecoveryCodes("operator", staff.id());
 
 動いているものは `examples/approval-auth` にあります（ログイン → コード → 登録 → 解除まで）。
 
+## API のトークン（Authorization: Bearer）
+
+**連携やスクリプトのために、利用者が API のトークンを発行できます**（2.4.0 から）。
+DB に持つ不透明なトークンです（JWT ではありません。すぐ失効でき、鍵の管理が要りません）。
+
+```java
+before(ApiToken.authenticate(App::findPrincipal));   // Remember.restore・Csrf::verify・Auth::guard より先に
+before(Auth::guard);
+
+path("/api", () -> {
+	attribute(ApiToken.ACCEPT, true);                 // トークンを受けるのは、宣言したルートだけ
+	get("/requests", Api::list).attribute(ApiToken.SCOPE, "requests:read");
+	post("/requests", Api::create).attribute(ApiToken.SCOPE, "requests:write");
+});
+```
+
+```bash
+curl -H "Authorization: Bearer jbt_..." https://example.com/api/requests
+```
+
+### 発行・一覧・削除
+
+```java
+// パスワードを入れて入った人の画面から（FULL_AUTH のルート）
+ApiToken.Issued issued = ApiToken.issue(me.id(), "経費の連携", Set.of("requests:read"), Duration.ofDays(90));
+// issued.token() を「この一度だけ」見せる。DB にはハッシュしか残らない
+
+List<Data> tokens = ApiToken.list("", me.id());     // id・name・scopes・created_at・expires_at・last_used_at（トークンそのものは無い）
+ApiToken.revoke("", me.id(), id);                   // すぐ使えなくなる。ほかの人のものは消さない
+```
+
+| | |
+| --- | --- |
+| 形 | `jbt_` ＋ 256 ビットの乱数。頭が決まっているので、漏れたトークンを見つける道具（GitHub の secret scanning など）が拾えます |
+| 期限 | 発行のときに決めます（`Duration.ZERO` で無期限。勧めません） |
+| スコープ | 英小文字・数字・`: . _ -`。ルートの `ApiToken.SCOPE` がトークンに無ければ **403** |
+| 置き場 | `auth_api_token` テーブル（SHA-256 だけ）。**DB が要ります** |
+
+### トークンで入った人
+
+| | |
+| --- | --- |
+| ログイン | **そのリクエストのあいだだけ**ログインしています。セッションの Cookie は出しません |
+| 役割 | `Auth.ROLE` はふつうに効きます（`lookup` が返した、いまの役割） |
+| `Auth.FULL_AUTH` | **入れません**（401）。パスワードの変更や退会は、トークンではさせません |
+| スコープ | `ApiToken.scopes(context)` で読めます。**セッションで入った人には、スコープは関係ありません** |
+| CSRF | `Csrf.verify` は見ません（ブラウザは Authorization を勝手に付けないので、別のサイトからは送れません） |
+
+### 断るとき
+
+| | 状態コード |
+| --- | --- |
+| `ApiToken.ACCEPT` の無いルートに Bearer が来た | 401 |
+| トークンが違う・期限切れ・消した | 401（`WWW-Authenticate: Bearer error="invalid_token"`） |
+| **`Auth.revoke` / `Auth.revokeOthers` のあと**（それより前に発行したもの） | 401。セッションと同じ世代で見るので、締め出した・パスワードを変えた瞬間に止まります |
+| `lookup` が null を返した（利用者を止めた・消した） | 401 |
+| スコープが足りない | 403（`error="insufficient_scope"`） |
+
+> [!TRAP]
+> **`ApiToken.authenticate` は before のいちばん先に置きます。**先にセッションを読まれると、
+> トークンのリクエストにセッションの Cookie を出すことになるので、例外にして知らせます。
+> 置き忘れて Bearer が来たときは、Auth.guard が1度だけ WARN を出します。
+>
+> **発行は `Auth.FULL_AUTH` のルートから。**セッションを盗んだ人にトークンを作らせないためです。
+
+## パスキー（パスワードなしのログイン）
+
+**パスキーだけでログインできます**（2.4.0 から）。ログイン ID も入れません——ブラウザが、このサイトのパスキーの候補を出します。
+パスキーは端末の本人確認（指紋・顔・PIN）込みなので、通った人は `Auth.login` でログインさせます。
+**二要素認証のコードは聞きません**（パスキーそのものが「持っている端末」と「本人確認」の2つを満たします）。`Auth.FULL_AUTH` のルートにも入れます。
+
+```java
+// 登録（ログインしている人。パスワードを入れ直した人だけ）
+post("/passkey/register/options", c -> c.response().json(Passkey.registrationOptions(c, loginIdOf(c))))
+	.attribute(Auth.FULL_AUTH, true);
+post("/passkey/register", c -> {
+	Passkey.register(c, c.request().bodyJson(), "ノート PC");   // 第3引数は利用者が見分ける名前
+	c.response().json("ok", true);
+}).attribute(Auth.FULL_AUTH, true);
+
+// ログイン（誰でも。NO_SESSION は付けない）
+post("/passkey/login/options", c -> c.response().json(Passkey.loginOptions(c))).attribute(Auth.PUBLIC, true);
+post("/passkey/login", c -> {
+	if (!Passkey.login(c, c.request().bodyJson(), App::findPrincipal)) {   // 利用者 ID → Principal（入れないなら null）
+		throw new HttpException(401, "パスキーでログインできませんでした");
+	}
+	c.response().json("ok", true);
+}).attribute(Auth.PUBLIC, true);
+
+// ブラウザ側の JS
+get("/passkey.js", Passkey.script()).attribute(Auth.PUBLIC, true);
+```
+
+ブラウザ側は、同梱の JS を読んで呼ぶだけです。
+
+```html
+<script src="/passkey.js"></script>
+<script>
+	// 登録
+	await JimblePasskey.register("/passkey/register/options", "/passkey/register", { csrfToken });
+
+	// ログイン（ボタンを押したとき）
+	await JimblePasskey.login("/passkey/login/options", "/passkey/login", { csrfToken });
+	location.href = "/";
+
+	// 入力欄の候補にパスキーを出す（<input autocomplete="username webauthn"> を置いておく）
+	JimblePasskey.login("/passkey/login/options", "/passkey/login", { csrfToken, conditional: true })
+		.then(result => { if (result) location.href = "/"; });
+</script>
+```
+
+失敗すると `Error` を投げます（`error.status` にサーバーの状態コード。利用者が取り消すと `error.name === "NotAllowedError"`）。
+確かめるときに一緒に送りたいもの（ラベルなど）は `extra: { label: "ノート PC" }`、入力欄の候補を待っているのをボタンで止めるなら `signal`（`AbortController`）を渡します。
+動く例は examples/approval-auth の `login.jte` と `passkeys.jte` です。
+`csrf.bind_session = true` でログインのあとにトークンが変わっても、JS が `X-CSRF-Token` を読んで差し替えます（`onCsrfToken` で受け取れます）。
+
+### 設定
+
+```conf
+auth {
+	passkey {
+		rp_id   = "example.com"             # パスキーを結びつけるドメイン（必須）
+		rp_name = "承認ワークフロー"         # 登録のときにブラウザが出す名前（空なら rp_id）
+		origins = ["https://example.com"]   # 受け付けるオリジン（空なら https:// + rp_id）
+		timeout = 5m                         # 始めてから終えるまで
+	}
+}
+```
+
+> [!TRAP]
+> **`rp_id` をあとから変えると、登録したパスキーが全部使えなくなります。**パスキーはドメインに結びついているためです。
+> サブドメインで動かすなら、親のドメイン（`example.com`）を書いておくと、`app.example.com` からも `admin.example.com` からも使えます。
+>
+> 手元で試すなら `rp_id = "localhost"`、`origins = ["http://localhost:9000"]`（ブラウザは localhost だけ http を許します）。
+
+### クライアントごとにドメインが違うとき（SaaS）
+
+**`rp_id` を設定ではなく、ルートの中で渡せます。**`PasskeyRp` を作って、4つのメソッドに同じものを渡します。
+
+```java
+PasskeyRp rp(WebContext c) {
+	// クライアントの表から引く。Host ヘッダをそのまま rp_id にしない（知らないドメインは 404）
+	Tenant tenant = Tenants.byHost(c.request().host()).orElseThrow(() -> new HttpException(404, "見つかりません"));
+	return PasskeyRp.of(tenant.domain(), tenant.name());          // オリジンは https://<domain>
+}
+
+post("/passkey/login/options", c -> c.response().json(Passkey.loginOptions(c, rp(c)))).attribute(Auth.PUBLIC, true);
+post("/passkey/login", c -> {
+	if (!Passkey.login(c, rp(c), c.request().bodyJson(), App::findPrincipal)) {
+		throw new HttpException(401, "パスキーでログインできませんでした");
+	}
+	c.response().json("ok", true);
+}).attribute(Auth.PUBLIC, true);
+// 登録も Passkey.registrationOptions(c, rp(c), 名前) / Passkey.register(c, rp(c), credential, ラベル)
+```
+
+| | |
+| --- | --- |
+| 分け方 | パスキーは rp_id ごとに持ちます。**クライアント A で登録したパスキーは、クライアント B では使えません**（jimble が表の rp_id で断ります。認証器も rp_id ごとに鍵を分けます） |
+| つなぎ間違い | options を出したときの rp_id をセッションに置き、確かめるときに違えば断ります（手続きのやり直し） |
+| 形の確かめ | `PasskeyRp` は、rp_id がドメインの形か、オリジンのホストが rp_id かそのサブドメインか（http は localhost だけ）を作ったときに確かめます。別のクライアントのドメインを並べると例外です |
+| 一覧 | `Passkey.list(realm, rp, id)` でそのクライアントのものだけ。`Passkey.list(id)` はどのクライアントのものも返します（`rp_id` が付きます） |
+
+> クライアントが独自ドメイン（`login.client-a.co.jp`）と共通のサブドメイン（`client-a.saas.example`）の両方を持つなら、
+> パスキーはどちらか1つの rp_id に結びつきます。ログインの画面をどちらのドメインで出すかを先に決めてください。
+
+### 何を確かめるか
+
+| | |
+| --- | --- |
+| チャレンジ | セッションに置き、**1度しか使えません**。`timeout` を過ぎたものは断ります。登録のチャレンジは、出したときにログインしていた人にしか使えません |
+| オリジン | `origins` に無いものは断ります。別のサイトの iframe の中からの呼び出し（`crossOrigin`）も断ります |
+| 本人確認 | **端末の本人確認（UV）を必ず求めます。**押しただけ（UP）のセキュリティキーは通りません |
+| 署名 | 登録した公開鍵で確かめます（ES256 / EdDSA / RS256。どれも JDK だけで確かめます） |
+| 利用者 | ブラウザが返す利用者のハンドルが、登録したものと一致すること |
+| 複製 | 署名の回数が戻っていたら断ります（同期するパスキーはいつも 0 なので、そのときは見ません） |
+
+**認証器の証明書（attestation）は確かめません**（`attestation: "none"`）。パスキーのほとんどは証明書を出さず、
+「どのメーカーの認証器か」で断る必要は、ふつうのアプリにはありません。
+
+### 一覧と削除
+
+```java
+List<Data> passkeys = Passkey.list(me.id());          // id・rp_id・label・created_at・last_used_at・backed_up
+Passkey.delete(me.id(), id);                           // FULL_AUTH のルートから。ほかの人のものは消さない
+Passkey.deleteAll("", me.id());                        // 退会など
+```
+
+| | |
+| --- | --- |
+| 置き場 | `auth_passkey` テーブル。**DB とセッションが要ります** |
+| 種別 | ルートの `Auth.REALM` で分けます（登録もログインも、そのルートの種別。一覧と削除は種別を渡す形もあります） |
+| 端末を失くした | 本人に別の手段（パスワードなど）でログインしてもらい、`Passkey.delete` で消します。`Auth.revoke` はいまのセッションを止めるだけで、パスキーは残ります |
+
+> [!TRAP]
+> **登録は `Auth.FULL_AUTH` を付けたルートから。**セッションを盗んだ人が自分のパスキーを足すと、
+> パスワードを変えられても、そのパスキーで入り続けられます。
+>
+> **パスキーのログインの口には、流量制限を掛けてください**（`RateLimit`）。総当たりは効きませんが、チャレンジを出すたびにセッションを作ります。
+
 ## Basic 認証
 
 運用向けの口には Basic 認証が使えます（[リクエストとレスポンス](./request-response)）。
@@ -3195,7 +3395,7 @@ path("/ops", () -> {
 | --- | --- |
 | 注釈（`@PreAuthorize` のようなもの） | [原則](./principles)のとおり使いません。ルート属性で宣言します |
 | 「あと何日で切れるか」を利用者に見せる口 | ありません。行を自分で引いてください |
-| JWT | **出しません。**失効できず鍵の管理が増えます。API の認証が要るなら、DB に持つ不透明なトークンにしてください |
+| JWT | **出しません。**失効できず鍵の管理が増えます。API の認証には、DB に持つ不透明なトークン（上の「API のトークン」）を使ってください |
 | SAML | まだありません |
 | 権限（permission）の対応表 | 役割の文字列だけです |
 
@@ -5690,6 +5890,157 @@ MqRegistry.add(NoticeExecutor::new);
 
 ---
 
+<!-- https://jimble.io/ja/mail -->
+
+
+# メール
+
+**SMTP でメールを送ります**（2.4.0 から）。依存は足していません（SMTP も MIME も JDK だけで書いています）。
+
+```java
+import io.jimble.util.mail.MailMessage;
+import io.jimble.util.mail.Mailer;
+
+Mailer.send(new MailMessage()
+	.to("hanako@example.co.jp", "山田 花子")
+	.subject("申請が承認されました")
+	.text("山田 様\n\n経費の申請（No.123）が承認されました。"));
+```
+
+| | |
+| --- | --- |
+| 宛先 | `to` / `cc` / `bcc`（ヘッダには書かない）/ `replyTo`。From を書かなければ設定の `mail.from` |
+| 本文 | `text(...)`、`html(...)`。両方入れると、メールソフトが選べる形（multipart/alternative）で送ります |
+| 添付 | `attach("請求書.pdf", bytes, "application/pdf")`。日本語のファイル名もそのまま使えます |
+| ヘッダ | `header("List-Unsubscribe", "<mailto:...>")`。From や Subject など、jimble が書くものは決められません |
+| 文字 | UTF-8。件名と名前の日本語は RFC 2047、本文は base64 |
+
+**改行を含む件名・名前・ヘッダ、山括弧や空白を含むアドレスは、作った時点で例外にします**（ヘッダの差し込みを止めるため）。
+利用者が入れた値をそのまま渡しても、Bcc を足されることはありません。
+
+> [!TRAP]
+> **HTML だけのメールは迷惑メールに入りやすくなります。**HTML を送るときも `text(...)` を入れてください。
+> 利用者が入れた値を HTML に入れるなら、テンプレート（jte）でエスケープしてから渡します。
+
+## MQ から送る
+
+**リクエストの処理の中で直に送らず、MQ に積んで、`execute()` から送ってください。**
+
+- SMTP は遅く（数百ミリ秒〜数秒）、落ちることもあります。リクエストを待たせません
+- **トランザクションと一緒に積めます。**申請が保存されなかったのに、メールだけ飛ぶ、が起きません
+- 落ちたら、MQ がやり直します
+
+```java
+public MqStatus execute (DB db, Data row) {
+
+	Data data = row.getDataOptional("data");
+
+	try {
+		Mailer.send(new MailMessage()
+			.to(data.getString("to"))
+			.subject("申請が承認されました")
+			.text(data.getString("body")));
+		return MqStatus.completed;
+	} catch (MailException ex) {
+		if (ex.isTransient()) {
+			throw ex;                  // 一時的（相手が混んでいる・繋がらない）→ maxRetry() までやり直す
+		}
+		Log.error(ex, "メールを送れませんでした（やり直しても同じ）");
+		return MqStatus.dead;          // 宛先が無い・認証が通らない → やり直さない
+	}
+
+}
+```
+
+`MailException.isTransient()` は、SMTP の 4xx と、繋がらない・途中で切れたときに `true` です。
+5xx（宛先が無い・認証が通らない）と、メールの形の誤りは `false` です。
+
+> **同じメールが2通届くことがあります。**MQ は「ちょうど1回」を約束しません（[MQ](./mq)）。
+> 送ったあと、`completed` を書く前にプロセスが落ちると、もう一度送ります。大事な通知は、送った記録を見てから送ってください。
+
+## 設定
+
+```conf
+mail {
+	transport = "smtp"                   # smtp | log | memory
+	from      = "noreply@example.com"    # From を書かないメールの差出人
+	from_name = "承認ワークフロー"
+
+	smtp {
+		host     = "smtp.example.com"
+		port     = 587                    # 書かなければ security から（starttls 587 / tls 465 / none 25）
+		security = "starttls"             # starttls | tls | none
+		username = "apikey"
+		password = ""
+		password = ${?SMTP_PASSWORD}
+	}
+}
+```
+
+Amazon SES・SendGrid・Google Workspace などは、どれも SMTP（STARTTLS の 587 と、利用者名・パスワード）で送れます。
+
+| キー | 既定 | |
+| --- | --- | --- |
+| `mail.smtp.connect_timeout` | `10s` | 繋ぐまでの待ち |
+| `mail.smtp.timeout` | `30s` | 1回の読み書きの待ち |
+| `mail.smtp.helo` | この機械の名前 | EHLO で名乗る名前 |
+| `mail.smtp.envelope_from` | From | 届かなかったときの知らせ（バウンス）の宛先 |
+
+**安全のために断るもの**
+
+| | |
+| --- | --- |
+| STARTTLS を選んだのに、相手が対応していない | 暗号化せずには続けず、例外にします |
+| TLS の証明書のホスト名が違う | 送りません |
+| 暗号化しない接続（`security = "none"`）で認証する | 設定の時点で例外にします（パスワードが平文で流れるため） |
+| 宛先のうち1人でも断られた | 誰にも送りません（一部にだけ届くと、やり直したときに届いた人へもう一度送ることになるため） |
+
+### 手元とテスト
+
+**`transport` の既定は `smtp` です。**`mail.smtp.host` を書かずに送ると例外にします（送ったつもりで黙って届かない、を起こさないため）。
+
+```conf
+# conf/application.local.conf
+mail.transport = "log"      # 送らずに、宛先・件名・本文をログに出す（WARN）
+```
+
+テストでは、送ったものをメモリに貯めて確かめます。
+
+```java
+MemoryTransport memory = new MemoryTransport();
+Mailer.use(memory);
+
+// ... 申請を承認する ...
+
+assertEquals("申請が承認されました", memory.sent().get(0).subject());
+
+Mailer.reset();
+```
+
+## HTTP の API で送る
+
+SMTP ではなく、サービスの HTTP の API で送るなら、`MailTransport` を実装して差し替えます。
+
+```java
+Mailer.use(message -> {
+	byte[] raw = message.toMime();     // 生のメール（生のメールを受け付ける API ならそのまま渡せる）
+	// ... API を呼ぶ。失敗は MailException（一時的なら isTransient = true）で投げる ...
+});
+```
+
+## 無いもの
+
+| | |
+| --- | --- |
+| 受信（IMAP / POP3） | 送るだけです |
+| ISO-2022-JP | UTF-8 だけです（いまのメールソフトと携帯のメールは、どれも UTF-8 を読めます） |
+| HTML の中の画像を添付で埋め込む（cid） | まだありません。画像は URL で参照してください |
+| テンプレート | 本文は文字列で渡します。jte で組み立てたものを渡せます |
+
+
+
+---
+
 <!-- https://jimble.io/ja/sse -->
 
 
@@ -6415,7 +6766,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.2.6-SNAPSHOT
+jimble 2.4.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6438,7 +6789,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.2.6-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.4.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6567,9 +6918,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.5"
-	id("io.jimble.run") version "2.2.5"
-	id("io.jimble.db")  version "2.2.5"
+	id("io.jimble.jte") version "2.4.0"
+	id("io.jimble.run") version "2.4.0"
+	id("io.jimble.db")  version "2.4.0"
 }
 ```
 
@@ -6611,9 +6962,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.2.5"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.2.5"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.2.5"   // DB を使うなら
+	id("io.jimble.jte") version "2.4.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.4.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.4.0"   // DB を使うなら
 }
 
 repositories {
@@ -6628,7 +6979,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.2.5")
+	implementation("io.jimble:jimble-web:2.4.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -6662,7 +7013,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.2.5' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.4.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7573,6 +7924,14 @@ auth {
 		secret_key     = ${?MFA_SECRET_KEY}
 	}
 
+	passkey {
+		enabled = true
+		rp_id   = ""        # パスキーを結びつけるドメイン（あとから変えると登録したものが全部使えなくなる）。クライアントごとに違うなら PasskeyRp を渡す
+		rp_name = ""        # 登録のときにブラウザが出す名前（空なら rp_id）
+		origins = []        # 受け付けるオリジン（空なら https:// + rp_id）
+		timeout = 5m        # 始めてから終えるまで
+	}
+
 	# プロバイダごとに1ブロック。名前（google）は Oidc.callback に渡す名前
 	oidc {
 		google {
@@ -7618,6 +7977,24 @@ cache {
 	type          = "db"    # db | memory | redis
 	temp_dir      = ""      # ファイルを置くところ
 	memory.expire = 0s      # memory のときだけ。0 で無期限
+}
+
+mail {
+	transport = "smtp"      # smtp | log（送らずにログ。手元用）| memory（テスト用）
+	from      = ""          # From を書かないメールの差出人
+	from_name = ""
+
+	smtp {
+		host            = ""            # smtp なら必須（書かずに送ると例外）
+		port            = 587           # 書かなければ security から（starttls 587 / tls 465 / none 25）
+		security        = "starttls"    # starttls | tls | none（none では認証できない）
+		username        = ""
+		password        = ${?SMTP_PASSWORD}
+		connect_timeout = 10s
+		timeout         = 30s
+		helo            = ""            # EHLO で名乗る名前（空ならこの機械の名前）
+		envelope_from   = ""            # バウンスの宛先（空なら From）
+	}
 }
 
 sql_cache {

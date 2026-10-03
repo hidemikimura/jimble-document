@@ -1,0 +1,455 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mail - jimble</title>
+<meta name="description" content="Send over SMTP. Send from MQ and a failure is retried">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+			<li>
+				<a href="mail"
+				   class="current">Mail</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">Versions and compatibility</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="mail">Mail<a class="anchor" href="#mail">#</a></h1>
+<p><strong>jimble sends mail over SMTP</strong> (since 2.4.0). No dependency was added: SMTP and MIME are written with the JDK alone.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">import</span> io.jimble.util.mail.MailMessage;
+<span class="h-k">import</span> io.jimble.util.mail.Mailer;
+
+Mailer.send(<span class="h-k">new</span> MailMessage()
+	.to(<span class="h-s">"hanako@example.co.jp"</span>, <span class="h-s">"Hanako Yamada"</span>)
+	.subject(<span class="h-s">"Your request was approved"</span>)
+	.text(<span class="h-s">"Dear Ms Yamada,\n\nYour expense request (No.123) was approved."</span>));
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recipients</td>
+<td><code>to</code> / <code>cc</code> / <code>bcc</code> (never written into the headers) / <code>replyTo</code>. Without a From, <code>mail.from</code> from the settings is used</td>
+</tr>
+<tr>
+<td>Body</td>
+<td><code>text(...)</code>, <code>html(...)</code>. With both, it is sent as multipart/alternative so the mail client can choose</td>
+</tr>
+<tr>
+<td>Attachments</td>
+<td><code>attach(&quot;invoice.pdf&quot;, bytes, &quot;application/pdf&quot;)</code>. Non-ASCII file names work as they are</td>
+</tr>
+<tr>
+<td>Headers</td>
+<td><code>header(&quot;List-Unsubscribe&quot;, &quot;&lt;mailto:...&gt;&quot;)</code>. Headers jimble writes (From, Subject, ...) cannot be set</td>
+</tr>
+<tr>
+<td>Charset</td>
+<td>UTF-8. Non-ASCII subjects and names use RFC 2047; bodies use base64</td>
+</tr>
+</tbody>
+</table>
+<p><strong>A subject, name or header containing a newline, or an address containing angle brackets or spaces, throws as soon as it is built</strong> (to stop header injection).
+Passing user input straight through cannot add a Bcc.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>HTML-only mail tends to land in spam.</strong> Include <code>text(...)</code> when you send HTML.
+If user input goes into the HTML, escape it in the template (jte) first.</p>
+</div>
+<h2 id="send-from-mq">Send from MQ<a class="anchor" href="#send-from-mq">#</a></h2>
+<p><strong>Do not send directly while handling a request. Queue it in MQ and send from <code>execute()</code>.</strong></p>
+<ul>
+<li>SMTP is slow (hundreds of milliseconds to seconds) and sometimes fails; the request does not wait</li>
+<li><strong>It is queued in the same transaction.</strong> Mail never goes out for a request that was not saved</li>
+<li>If it fails, MQ retries</li>
+</ul>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> MqStatus execute (DB db, Data row) {
+
+	Data data = row.getDataOptional(<span class="h-s">"data"</span>);
+
+	<span class="h-k">try</span> {
+		Mailer.send(<span class="h-k">new</span> MailMessage()
+			.to(data.getString(<span class="h-s">"to"</span>))
+			.subject(<span class="h-s">"Your request was approved"</span>)
+			.text(data.getString(<span class="h-s">"body"</span>)));
+		<span class="h-k">return</span> MqStatus.completed;
+	} <span class="h-k">catch</span> (MailException ex) {
+		<span class="h-k">if</span> (ex.isTransient()) {
+			<span class="h-k">throw</span> ex;                  <span class="h-c">// transient (server busy, unreachable) -&gt; retried up to maxRetry()</span>
+		}
+		Log.error(ex, <span class="h-s">"Could not send the mail (retrying will not help)"</span>);
+		<span class="h-k">return</span> MqStatus.dead;          <span class="h-c">// no such recipient, authentication failed -&gt; do not retry</span>
+	}
+
+}
+</code></pre>
+<p><code>MailException.isTransient()</code> is <code>true</code> for SMTP 4xx replies and for connection failures or drops.
+It is <code>false</code> for 5xx replies (no such recipient, authentication failed) and for malformed messages.</p>
+<blockquote>
+<p><strong>The same mail can arrive twice.</strong> MQ does not promise &quot;exactly once&quot; (<a href="./mq">MQ</a>).
+If the process dies after sending but before writing <code>completed</code>, it sends again. For important notices, check a sent record before sending.</p>
+</blockquote>
+<h2 id="settings">Settings<a class="anchor" href="#settings">#</a></h2>
+<pre class="code"><code class="lang-conf">mail {
+	transport = <span class="h-s">"smtp"</span>                   <span class="h-c"># smtp | log | memory</span>
+	from      = <span class="h-s">"noreply@example.com"</span>    <span class="h-c"># the sender for mail without a From</span>
+	from_name = <span class="h-s">"Approval workflow"</span>
+
+	smtp {
+		host     = <span class="h-s">"smtp.example.com"</span>
+		port     = <span class="h-n">587</span>                    <span class="h-c"># without it, from security (starttls 587 / tls 465 / none 25)</span>
+		security = <span class="h-s">"starttls"</span>             <span class="h-c"># starttls | tls | none</span>
+		username = <span class="h-s">"apikey"</span>
+		password = <span class="h-s">""</span>
+		password = ${?SMTP_PASSWORD}
+	}
+}
+</code></pre>
+<p>Amazon SES, SendGrid, Google Workspace and the like all accept SMTP (STARTTLS on 587 with a user name and password).</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mail.smtp.connect_timeout</code></td>
+<td><code>10s</code></td>
+<td>how long to wait to connect</td>
+</tr>
+<tr>
+<td><code>mail.smtp.timeout</code></td>
+<td><code>30s</code></td>
+<td>how long to wait for each read or write</td>
+</tr>
+<tr>
+<td><code>mail.smtp.helo</code></td>
+<td>this machine's name</td>
+<td>the name given in EHLO</td>
+</tr>
+<tr>
+<td><code>mail.smtp.envelope_from</code></td>
+<td>From</td>
+<td>where bounces go</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Refused for safety</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>STARTTLS chosen but not offered by the server</td>
+<td>It does not carry on unencrypted; it throws</td>
+</tr>
+<tr>
+<td>The TLS certificate's host name does not match</td>
+<td>Nothing is sent</td>
+</tr>
+<tr>
+<td>Authenticating over an unencrypted connection (<code>security = &quot;none&quot;</code>)</td>
+<td>Refused when the settings are read (the password would travel in clear)</td>
+</tr>
+<tr>
+<td>Any one recipient refused</td>
+<td>Nothing is sent to anyone (a partial delivery means a retry sends again to those who got it)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="locally-and-in-tests">Locally and in tests<a class="anchor" href="#locally-and-in-tests">#</a></h3>
+<p><strong><code>transport</code> defaults to <code>smtp</code>.</strong> Sending without <code>mail.smtp.host</code> throws (so mail never silently fails to go out).</p>
+<pre class="code"><code class="lang-conf"><span class="h-c"># conf/application.local.conf</span>
+mail.transport = <span class="h-s">"log"</span>      <span class="h-c"># do not send; log the recipients, subject and body (WARN)</span>
+</code></pre>
+<p>In tests, collect what was sent in memory and check it.</p>
+<pre class="code"><code class="lang-java">MemoryTransport memory = <span class="h-k">new</span> MemoryTransport();
+Mailer.use(memory);
+
+<span class="h-c">// ... approve the request ...</span>
+
+assertEquals(<span class="h-s">"Your request was approved"</span>, memory.sent().get(<span class="h-n">0</span>).subject());
+
+Mailer.reset();
+</code></pre>
+<h2 id="sending-through-an-http-api">Sending through an HTTP API<a class="anchor" href="#sending-through-an-http-api">#</a></h2>
+<p>To send through a service's HTTP API instead of SMTP, implement <code>MailTransport</code> and swap it in.</p>
+<pre class="code"><code class="lang-java">Mailer.use(message -&gt; {
+	<span class="h-k">byte</span>[] raw = message.toMime();     <span class="h-c">// the raw mail (an API that takes raw mail can use it as is)</span>
+	<span class="h-c">// ... call the API; throw MailException on failure (isTransient = true if worth retrying) ...</span>
+});
+</code></pre>
+<h2 id="not-included">Not included<a class="anchor" href="#not-included">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Receiving (IMAP / POP3)</td>
+<td>Sending only</td>
+</tr>
+<tr>
+<td>ISO-2022-JP</td>
+<td>UTF-8 only (every current mail client and phone reads UTF-8)</td>
+</tr>
+<tr>
+<td>Images embedded as attachments in HTML (cid)</td>
+<td>Not yet. Reference images by URL</td>
+</tr>
+<tr>
+<td>Templates</td>
+<td>The body is a string. Pass something built with jte</td>
+</tr>
+</tbody>
+</table>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="mq">
+				<span>Previous</span>MQ
+			</a>
+			<a class="next" href="sse">
+				<span>Next</span>SSE
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#send-from-mq">Send from MQ</a></li>
+			<li class="level-2"><a href="#settings">Settings</a></li>
+			<li class="level-3"><a href="#locally-and-in-tests">Locally and in tests</a></li>
+			<li class="level-2"><a href="#sending-through-an-http-api">Sending through an HTTP API</a></li>
+			<li class="level-2"><a href="#not-included">Not included</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

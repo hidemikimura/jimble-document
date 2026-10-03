@@ -129,6 +129,10 @@
 				<a href="mq"
 				   class="">MQ</a>
 			</li>
+			<li>
+				<a href="mail"
+				   class="">Mail</a>
+			</li>
 		</ul>
 		<p class="section">Protocols</p>
 		<ul>
@@ -430,6 +434,14 @@ auth {
 		secret_key     = ${?MFA_SECRET_KEY}
 	}
 
+	passkey {
+		enabled = <span class="h-k">true</span>
+		rp_id   = <span class="h-s">""</span>        <span class="h-c"># the domain passkeys are bound to (changing it later breaks every registered one). Per-client domains: pass a PasskeyRp</span>
+		rp_name = <span class="h-s">""</span>        <span class="h-c"># the name the browser shows at registration (empty means rp_id)</span>
+		origins = []        <span class="h-c"># accepted origins (empty means https:// + rp_id)</span>
+		timeout = <span class="h-n">5m</span>        <span class="h-c"># from start to finish</span>
+	}
+
 	<span class="h-c"># One block per provider. The name (google) is what you pass to Oidc.callback</span>
 	oidc {
 		google {
@@ -475,6 +487,24 @@ cache {
 	type          = <span class="h-s">"db"</span>    <span class="h-c"># db | memory | redis</span>
 	temp_dir      = <span class="h-s">""</span>      <span class="h-c"># where the files go</span>
 	memory.expire = <span class="h-n">0s</span>      <span class="h-c"># memory only. 0 never expires</span>
+}
+
+mail {
+	transport = <span class="h-s">"smtp"</span>      <span class="h-c"># smtp | log (do not send; log it. for local use) | memory (for tests)</span>
+	from      = <span class="h-s">""</span>          <span class="h-c"># the sender for mail without a From</span>
+	from_name = <span class="h-s">""</span>
+
+	smtp {
+		host            = <span class="h-s">""</span>            <span class="h-c"># required for smtp (sending without it throws)</span>
+		port            = <span class="h-n">587</span>           <span class="h-c"># without it, from security (starttls 587 / tls 465 / none 25)</span>
+		security        = <span class="h-s">"starttls"</span>    <span class="h-c"># starttls | tls | none (none cannot authenticate)</span>
+		username        = <span class="h-s">""</span>
+		password        = ${?SMTP_PASSWORD}
+		connect_timeout = <span class="h-n">10s</span>
+		timeout         = <span class="h-n">30s</span>
+		helo            = <span class="h-s">""</span>            <span class="h-c"># the name given in EHLO (empty means this machine's name)</span>
+		envelope_from   = <span class="h-s">""</span>            <span class="h-c"># where bounces go (empty means From)</span>
+	}
 }
 
 sql_cache {

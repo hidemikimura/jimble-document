@@ -255,6 +255,14 @@ auth {
 		secret_key     = ${?MFA_SECRET_KEY}
 	}
 
+	passkey {
+		enabled = true
+		rp_id   = ""        # the domain passkeys are bound to (changing it later breaks every registered one). Per-client domains: pass a PasskeyRp
+		rp_name = ""        # the name the browser shows at registration (empty means rp_id)
+		origins = []        # accepted origins (empty means https:// + rp_id)
+		timeout = 5m        # from start to finish
+	}
+
 	# One block per provider. The name (google) is what you pass to Oidc.callback
 	oidc {
 		google {
@@ -300,6 +308,24 @@ cache {
 	type          = "db"    # db | memory | redis
 	temp_dir      = ""      # where the files go
 	memory.expire = 0s      # memory only. 0 never expires
+}
+
+mail {
+	transport = "smtp"      # smtp | log (do not send; log it. for local use) | memory (for tests)
+	from      = ""          # the sender for mail without a From
+	from_name = ""
+
+	smtp {
+		host            = ""            # required for smtp (sending without it throws)
+		port            = 587           # without it, from security (starttls 587 / tls 465 / none 25)
+		security        = "starttls"    # starttls | tls | none (none cannot authenticate)
+		username        = ""
+		password        = ${?SMTP_PASSWORD}
+		connect_timeout = 10s
+		timeout         = 30s
+		helo            = ""            # the name given in EHLO (empty means this machine's name)
+		envelope_from   = ""            # where bounces go (empty means From)
+	}
 }
 
 sql_cache {

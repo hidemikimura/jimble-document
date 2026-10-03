@@ -16,6 +16,7 @@
 	<url><loc>https://jimble.io/ja/hot-reload</loc></url>
 	<url><loc>https://jimble.io/ja/index</loc></url>
 	<url><loc>https://jimble.io/ja/log</loc></url>
+	<url><loc>https://jimble.io/ja/mail</loc></url>
 	<url><loc>https://jimble.io/ja/mcp</loc></url>
 	<url><loc>https://jimble.io/ja/migrate-2</loc></url>
 	<url><loc>https://jimble.io/ja/migration-jooby</loc></url>
@@ -55,6 +56,7 @@
 	<url><loc>https://jimble.io/en/hot-reload</loc></url>
 	<url><loc>https://jimble.io/en/index</loc></url>
 	<url><loc>https://jimble.io/en/log</loc></url>
+	<url><loc>https://jimble.io/en/mail</loc></url>
 	<url><loc>https://jimble.io/en/mcp</loc></url>
 	<url><loc>https://jimble.io/en/migrate-2</loc></url>
 	<url><loc>https://jimble.io/en/migration-jooby</loc></url>

@@ -35,6 +35,7 @@
 
 - [バッチ](https://jimble.io/ja/batch.md): cron で回る処理。中断指示、二重起動、管理画面
 - [MQ](https://jimble.io/ja/mq.md): DB をキューにする。二重実行される前提で書く
+- [メール](https://jimble.io/ja/mail.md): SMTP で送る。MQ から送れば、落ちてもやり直せる
 
 ## プロトコル
 

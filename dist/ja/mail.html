@@ -1,0 +1,455 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>メール - jimble</title>
+<meta name="description" content="SMTP で送る。MQ から送れば、落ちてもやり直せる">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="page">日本語</a>
+		<a href="../en/"
+		 aria-current="false">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">ログインと認可</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+			<li>
+				<a href="mail"
+				   class="current">メール</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble コマンド</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">版と互換性</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="メール">メール<a class="anchor" href="#メール">#</a></h1>
+<p><strong>SMTP でメールを送ります</strong>（2.4.0 から）。依存は足していません（SMTP も MIME も JDK だけで書いています）。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">import</span> io.jimble.util.mail.MailMessage;
+<span class="h-k">import</span> io.jimble.util.mail.Mailer;
+
+Mailer.send(<span class="h-k">new</span> MailMessage()
+	.to(<span class="h-s">"hanako@example.co.jp"</span>, <span class="h-s">"山田 花子"</span>)
+	.subject(<span class="h-s">"申請が承認されました"</span>)
+	.text(<span class="h-s">"山田 様\n\n経費の申請（No.123）が承認されました。"</span>));
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>宛先</td>
+<td><code>to</code> / <code>cc</code> / <code>bcc</code>（ヘッダには書かない）/ <code>replyTo</code>。From を書かなければ設定の <code>mail.from</code></td>
+</tr>
+<tr>
+<td>本文</td>
+<td><code>text(...)</code>、<code>html(...)</code>。両方入れると、メールソフトが選べる形（multipart/alternative）で送ります</td>
+</tr>
+<tr>
+<td>添付</td>
+<td><code>attach(&quot;請求書.pdf&quot;, bytes, &quot;application/pdf&quot;)</code>。日本語のファイル名もそのまま使えます</td>
+</tr>
+<tr>
+<td>ヘッダ</td>
+<td><code>header(&quot;List-Unsubscribe&quot;, &quot;&lt;mailto:...&gt;&quot;)</code>。From や Subject など、jimble が書くものは決められません</td>
+</tr>
+<tr>
+<td>文字</td>
+<td>UTF-8。件名と名前の日本語は RFC 2047、本文は base64</td>
+</tr>
+</tbody>
+</table>
+<p><strong>改行を含む件名・名前・ヘッダ、山括弧や空白を含むアドレスは、作った時点で例外にします</strong>（ヘッダの差し込みを止めるため）。
+利用者が入れた値をそのまま渡しても、Bcc を足されることはありません。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**HTML だけのメールは迷惑メールに入りやすくなります。**HTML を送るときも <code>text(...)</code> を入れてください。
+利用者が入れた値を HTML に入れるなら、テンプレート（jte）でエスケープしてから渡します。</p>
+</div>
+<h2 id="mq-から送る">MQ から送る<a class="anchor" href="#mq-から送る">#</a></h2>
+<p><strong>リクエストの処理の中で直に送らず、MQ に積んで、<code>execute()</code> から送ってください。</strong></p>
+<ul>
+<li>SMTP は遅く（数百ミリ秒〜数秒）、落ちることもあります。リクエストを待たせません</li>
+<li>**トランザクションと一緒に積めます。**申請が保存されなかったのに、メールだけ飛ぶ、が起きません</li>
+<li>落ちたら、MQ がやり直します</li>
+</ul>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> MqStatus execute (DB db, Data row) {
+
+	Data data = row.getDataOptional(<span class="h-s">"data"</span>);
+
+	<span class="h-k">try</span> {
+		Mailer.send(<span class="h-k">new</span> MailMessage()
+			.to(data.getString(<span class="h-s">"to"</span>))
+			.subject(<span class="h-s">"申請が承認されました"</span>)
+			.text(data.getString(<span class="h-s">"body"</span>)));
+		<span class="h-k">return</span> MqStatus.completed;
+	} <span class="h-k">catch</span> (MailException ex) {
+		<span class="h-k">if</span> (ex.isTransient()) {
+			<span class="h-k">throw</span> ex;                  <span class="h-c">// 一時的（相手が混んでいる・繋がらない）→ maxRetry() までやり直す</span>
+		}
+		Log.error(ex, <span class="h-s">"メールを送れませんでした（やり直しても同じ）"</span>);
+		<span class="h-k">return</span> MqStatus.dead;          <span class="h-c">// 宛先が無い・認証が通らない → やり直さない</span>
+	}
+
+}
+</code></pre>
+<p><code>MailException.isTransient()</code> は、SMTP の 4xx と、繋がらない・途中で切れたときに <code>true</code> です。
+5xx（宛先が無い・認証が通らない）と、メールの形の誤りは <code>false</code> です。</p>
+<blockquote>
+<p>**同じメールが2通届くことがあります。**MQ は「ちょうど1回」を約束しません（<a href="./mq">MQ</a>）。
+送ったあと、<code>completed</code> を書く前にプロセスが落ちると、もう一度送ります。大事な通知は、送った記録を見てから送ってください。</p>
+</blockquote>
+<h2 id="設定">設定<a class="anchor" href="#設定">#</a></h2>
+<pre class="code"><code class="lang-conf">mail {
+	transport = <span class="h-s">"smtp"</span>                   <span class="h-c"># smtp | log | memory</span>
+	from      = <span class="h-s">"noreply@example.com"</span>    <span class="h-c"># From を書かないメールの差出人</span>
+	from_name = <span class="h-s">"承認ワークフロー"</span>
+
+	smtp {
+		host     = <span class="h-s">"smtp.example.com"</span>
+		port     = <span class="h-n">587</span>                    <span class="h-c"># 書かなければ security から（starttls 587 / tls 465 / none 25）</span>
+		security = <span class="h-s">"starttls"</span>             <span class="h-c"># starttls | tls | none</span>
+		username = <span class="h-s">"apikey"</span>
+		password = <span class="h-s">""</span>
+		password = ${?SMTP_PASSWORD}
+	}
+}
+</code></pre>
+<p>Amazon SES・SendGrid・Google Workspace などは、どれも SMTP（STARTTLS の 587 と、利用者名・パスワード）で送れます。</p>
+<table>
+<thead>
+<tr>
+<th>キー</th>
+<th>既定</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mail.smtp.connect_timeout</code></td>
+<td><code>10s</code></td>
+<td>繋ぐまでの待ち</td>
+</tr>
+<tr>
+<td><code>mail.smtp.timeout</code></td>
+<td><code>30s</code></td>
+<td>1回の読み書きの待ち</td>
+</tr>
+<tr>
+<td><code>mail.smtp.helo</code></td>
+<td>この機械の名前</td>
+<td>EHLO で名乗る名前</td>
+</tr>
+<tr>
+<td><code>mail.smtp.envelope_from</code></td>
+<td>From</td>
+<td>届かなかったときの知らせ（バウンス）の宛先</td>
+</tr>
+</tbody>
+</table>
+<p><strong>安全のために断るもの</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>STARTTLS を選んだのに、相手が対応していない</td>
+<td>暗号化せずには続けず、例外にします</td>
+</tr>
+<tr>
+<td>TLS の証明書のホスト名が違う</td>
+<td>送りません</td>
+</tr>
+<tr>
+<td>暗号化しない接続（<code>security = &quot;none&quot;</code>）で認証する</td>
+<td>設定の時点で例外にします（パスワードが平文で流れるため）</td>
+</tr>
+<tr>
+<td>宛先のうち1人でも断られた</td>
+<td>誰にも送りません（一部にだけ届くと、やり直したときに届いた人へもう一度送ることになるため）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="手元とテスト">手元とテスト<a class="anchor" href="#手元とテスト">#</a></h3>
+<p><strong><code>transport</code> の既定は <code>smtp</code> です。</strong><code>mail.smtp.host</code> を書かずに送ると例外にします（送ったつもりで黙って届かない、を起こさないため）。</p>
+<pre class="code"><code class="lang-conf"><span class="h-c"># conf/application.local.conf</span>
+mail.transport = <span class="h-s">"log"</span>      <span class="h-c"># 送らずに、宛先・件名・本文をログに出す（WARN）</span>
+</code></pre>
+<p>テストでは、送ったものをメモリに貯めて確かめます。</p>
+<pre class="code"><code class="lang-java">MemoryTransport memory = <span class="h-k">new</span> MemoryTransport();
+Mailer.use(memory);
+
+<span class="h-c">// ... 申請を承認する ...</span>
+
+assertEquals(<span class="h-s">"申請が承認されました"</span>, memory.sent().get(<span class="h-n">0</span>).subject());
+
+Mailer.reset();
+</code></pre>
+<h2 id="http-の-api-で送る">HTTP の API で送る<a class="anchor" href="#http-の-api-で送る">#</a></h2>
+<p>SMTP ではなく、サービスの HTTP の API で送るなら、<code>MailTransport</code> を実装して差し替えます。</p>
+<pre class="code"><code class="lang-java">Mailer.use(message -&gt; {
+	<span class="h-k">byte</span>[] raw = message.toMime();     <span class="h-c">// 生のメール（生のメールを受け付ける API ならそのまま渡せる）</span>
+	<span class="h-c">// ... API を呼ぶ。失敗は MailException（一時的なら isTransient = true）で投げる ...</span>
+});
+</code></pre>
+<h2 id="無いもの">無いもの<a class="anchor" href="#無いもの">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>受信（IMAP / POP3）</td>
+<td>送るだけです</td>
+</tr>
+<tr>
+<td>ISO-2022-JP</td>
+<td>UTF-8 だけです（いまのメールソフトと携帯のメールは、どれも UTF-8 を読めます）</td>
+</tr>
+<tr>
+<td>HTML の中の画像を添付で埋め込む（cid）</td>
+<td>まだありません。画像は URL で参照してください</td>
+</tr>
+<tr>
+<td>テンプレート</td>
+<td>本文は文字列で渡します。jte で組み立てたものを渡せます</td>
+</tr>
+</tbody>
+</table>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="mq">
+				<span>前</span>MQ
+			</a>
+			<a class="next" href="sse">
+				<span>次</span>SSE
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#mq-から送る">MQ から送る</a></li>
+			<li class="level-2"><a href="#設定">設定</a></li>
+			<li class="level-3"><a href="#手元とテスト">手元とテスト</a></li>
+			<li class="level-2"><a href="#http-の-api-で送る">HTTP の API で送る</a></li>
+			<li class="level-2"><a href="#無いもの">無いもの</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

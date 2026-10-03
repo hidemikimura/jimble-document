@@ -129,6 +129,10 @@
 				<a href="mq"
 				   class="">MQ</a>
 			</li>
+			<li>
+				<a href="mail"
+				   class="">メール</a>
+			</li>
 		</ul>
 		<p class="section">プロトコル</p>
 		<ul>
@@ -1029,6 +1033,296 @@ Mfa.remainingRecoveryCodes(<span class="h-s">"operator"</span>, staff.id());
 </tbody>
 </table>
 <p>動いているものは <code>examples/approval-auth</code> にあります（ログイン → コード → 登録 → 解除まで）。</p>
+<h2 id="api-のトークンauthorization-bearer">API のトークン（Authorization: Bearer）<a class="anchor" href="#api-のトークンauthorization-bearer">#</a></h2>
+<p><strong>連携やスクリプトのために、利用者が API のトークンを発行できます</strong>（2.4.0 から）。
+DB に持つ不透明なトークンです（JWT ではありません。すぐ失効でき、鍵の管理が要りません）。</p>
+<pre class="code"><code class="lang-java">before(ApiToken.authenticate(App::findPrincipal));   <span class="h-c">// Remember.restore・Csrf::verify・Auth::guard より先に</span>
+before(Auth::guard);
+
+path(<span class="h-s">"/api"</span>, () -&gt; {
+	attribute(ApiToken.ACCEPT, <span class="h-k">true</span>);                 <span class="h-c">// トークンを受けるのは、宣言したルートだけ</span>
+	get(<span class="h-s">"/requests"</span>, Api::list).attribute(ApiToken.SCOPE, <span class="h-s">"requests:read"</span>);
+	post(<span class="h-s">"/requests"</span>, Api::create).attribute(ApiToken.SCOPE, <span class="h-s">"requests:write"</span>);
+});
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-k">curl</span> -H "Authorization: Bearer jbt_..." https://example.com/api/requests
+</code></pre>
+<h3 id="発行一覧削除">発行・一覧・削除<a class="anchor" href="#発行一覧削除">#</a></h3>
+<pre class="code"><code class="lang-java"><span class="h-c">// パスワードを入れて入った人の画面から（FULL_AUTH のルート）</span>
+ApiToken.Issued issued = ApiToken.issue(me.id(), <span class="h-s">"経費の連携"</span>, Set.of(<span class="h-s">"requests:read"</span>), Duration.ofDays(<span class="h-n">90</span>));
+<span class="h-c">// issued.token() を「この一度だけ」見せる。DB にはハッシュしか残らない</span>
+
+List&lt;Data&gt; tokens = ApiToken.list(<span class="h-s">""</span>, me.id());     <span class="h-c">// id・name・scopes・created_at・expires_at・last_used_at（トークンそのものは無い）</span>
+ApiToken.revoke(<span class="h-s">""</span>, me.id(), id);                   <span class="h-c">// すぐ使えなくなる。ほかの人のものは消さない</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>形</td>
+<td><code>jbt_</code> ＋ 256 ビットの乱数。頭が決まっているので、漏れたトークンを見つける道具（GitHub の secret scanning など）が拾えます</td>
+</tr>
+<tr>
+<td>期限</td>
+<td>発行のときに決めます（<code>Duration.ZERO</code> で無期限。勧めません）</td>
+</tr>
+<tr>
+<td>スコープ</td>
+<td>英小文字・数字・<code>: . _ -</code>。ルートの <code>ApiToken.SCOPE</code> がトークンに無ければ <strong>403</strong></td>
+</tr>
+<tr>
+<td>置き場</td>
+<td><code>auth_api_token</code> テーブル（SHA-256 だけ）。<strong>DB が要ります</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="トークンで入った人">トークンで入った人<a class="anchor" href="#トークンで入った人">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ログイン</td>
+<td><strong>そのリクエストのあいだだけ</strong>ログインしています。セッションの Cookie は出しません</td>
+</tr>
+<tr>
+<td>役割</td>
+<td><code>Auth.ROLE</code> はふつうに効きます（<code>lookup</code> が返した、いまの役割）</td>
+</tr>
+<tr>
+<td><code>Auth.FULL_AUTH</code></td>
+<td><strong>入れません</strong>（401）。パスワードの変更や退会は、トークンではさせません</td>
+</tr>
+<tr>
+<td>スコープ</td>
+<td><code>ApiToken.scopes(context)</code> で読めます。<strong>セッションで入った人には、スコープは関係ありません</strong></td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td><code>Csrf.verify</code> は見ません（ブラウザは Authorization を勝手に付けないので、別のサイトからは送れません）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="断るとき">断るとき<a class="anchor" href="#断るとき">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>状態コード</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ApiToken.ACCEPT</code> の無いルートに Bearer が来た</td>
+<td>401</td>
+</tr>
+<tr>
+<td>トークンが違う・期限切れ・消した</td>
+<td>401（<code>WWW-Authenticate: Bearer error=&quot;invalid_token&quot;</code>）</td>
+</tr>
+<tr>
+<td><strong><code>Auth.revoke</code> / <code>Auth.revokeOthers</code> のあと</strong>（それより前に発行したもの）</td>
+<td>401。セッションと同じ世代で見るので、締め出した・パスワードを変えた瞬間に止まります</td>
+</tr>
+<tr>
+<td><code>lookup</code> が null を返した（利用者を止めた・消した）</td>
+<td>401</td>
+</tr>
+<tr>
+<td>スコープが足りない</td>
+<td>403（<code>error=&quot;insufficient_scope&quot;</code>）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>ApiToken.authenticate</code> は before のいちばん先に置きます。**先にセッションを読まれると、
+トークンのリクエストにセッションの Cookie を出すことになるので、例外にして知らせます。
+置き忘れて Bearer が来たときは、Auth.guard が1度だけ WARN を出します。</p>
+<p>**発行は <code>Auth.FULL_AUTH</code> のルートから。**セッションを盗んだ人にトークンを作らせないためです。</p>
+</div>
+<h2 id="パスキーパスワードなしのログイン">パスキー（パスワードなしのログイン）<a class="anchor" href="#パスキーパスワードなしのログイン">#</a></h2>
+<p><strong>パスキーだけでログインできます</strong>（2.4.0 から）。ログイン ID も入れません——ブラウザが、このサイトのパスキーの候補を出します。
+パスキーは端末の本人確認（指紋・顔・PIN）込みなので、通った人は <code>Auth.login</code> でログインさせます。
+<strong>二要素認証のコードは聞きません</strong>（パスキーそのものが「持っている端末」と「本人確認」の2つを満たします）。<code>Auth.FULL_AUTH</code> のルートにも入れます。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 登録（ログインしている人。パスワードを入れ直した人だけ）</span>
+post(<span class="h-s">"/passkey/register/options"</span>, c -&gt; c.response().json(Passkey.registrationOptions(c, loginIdOf(c))))
+	.attribute(Auth.FULL_AUTH, <span class="h-k">true</span>);
+post(<span class="h-s">"/passkey/register"</span>, c -&gt; {
+	Passkey.register(c, c.request().bodyJson(), <span class="h-s">"ノート PC"</span>);   <span class="h-c">// 第3引数は利用者が見分ける名前</span>
+	c.response().json(<span class="h-s">"ok"</span>, <span class="h-k">true</span>);
+}).attribute(Auth.FULL_AUTH, <span class="h-k">true</span>);
+
+<span class="h-c">// ログイン（誰でも。NO_SESSION は付けない）</span>
+post(<span class="h-s">"/passkey/login/options"</span>, c -&gt; c.response().json(Passkey.loginOptions(c))).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+post(<span class="h-s">"/passkey/login"</span>, c -&gt; {
+	<span class="h-k">if</span> (!Passkey.login(c, c.request().bodyJson(), App::findPrincipal)) {   <span class="h-c">// 利用者 ID → Principal（入れないなら null）</span>
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">401</span>, <span class="h-s">"パスキーでログインできませんでした"</span>);
+	}
+	c.response().json(<span class="h-s">"ok"</span>, <span class="h-k">true</span>);
+}).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+
+<span class="h-c">// ブラウザ側の JS</span>
+get(<span class="h-s">"/passkey.js"</span>, Passkey.script()).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+</code></pre>
+<p>ブラウザ側は、同梱の JS を読んで呼ぶだけです。</p>
+<pre class="code"><code class="lang-html">&lt;script src="/passkey.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+	// 登録
+	await JimblePasskey.register("/passkey/register/options", "/passkey/register", { csrfToken });
+
+	// ログイン（ボタンを押したとき）
+	await JimblePasskey.login("/passkey/login/options", "/passkey/login", { csrfToken });
+	location.href = "/";
+
+	// 入力欄の候補にパスキーを出す（&lt;input autocomplete="username webauthn"&gt; を置いておく）
+	JimblePasskey.login("/passkey/login/options", "/passkey/login", { csrfToken, conditional: true })
+		.then(result =&gt; { if (result) location.href = "/"; });
+&lt;/script&gt;
+</code></pre>
+<p>失敗すると <code>Error</code> を投げます（<code>error.status</code> にサーバーの状態コード。利用者が取り消すと <code>error.name === &quot;NotAllowedError&quot;</code>）。
+確かめるときに一緒に送りたいもの（ラベルなど）は <code>extra: { label: &quot;ノート PC&quot; }</code>、入力欄の候補を待っているのをボタンで止めるなら <code>signal</code>（<code>AbortController</code>）を渡します。
+動く例は examples/approval-auth の <code>login.jte</code> と <code>passkeys.jte</code> です。
+<code>csrf.bind_session = true</code> でログインのあとにトークンが変わっても、JS が <code>X-CSRF-Token</code> を読んで差し替えます（<code>onCsrfToken</code> で受け取れます）。</p>
+<h3 id="設定">設定<a class="anchor" href="#設定">#</a></h3>
+<pre class="code"><code class="lang-conf">auth {
+	passkey {
+		rp_id   = <span class="h-s">"example.com"</span>             <span class="h-c"># パスキーを結びつけるドメイン（必須）</span>
+		rp_name = <span class="h-s">"承認ワークフロー"</span>         <span class="h-c"># 登録のときにブラウザが出す名前（空なら rp_id）</span>
+		origins = [<span class="h-s">"https://example.com"</span>]   <span class="h-c"># 受け付けるオリジン（空なら https:// + rp_id）</span>
+		timeout = <span class="h-n">5m</span>                         <span class="h-c"># 始めてから終えるまで</span>
+	}
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>rp_id</code> をあとから変えると、登録したパスキーが全部使えなくなります。**パスキーはドメインに結びついているためです。
+サブドメインで動かすなら、親のドメイン（<code>example.com</code>）を書いておくと、<code>app.example.com</code> からも <code>admin.example.com</code> からも使えます。</p>
+<p>手元で試すなら <code>rp_id = &quot;localhost&quot;</code>、<code>origins = [&quot;http://localhost:9000&quot;]</code>（ブラウザは localhost だけ http を許します）。</p>
+</div>
+<h3 id="クライアントごとにドメインが違うときsaas">クライアントごとにドメインが違うとき（SaaS）<a class="anchor" href="#クライアントごとにドメインが違うときsaas">#</a></h3>
+<p><strong><code>rp_id</code> を設定ではなく、ルートの中で渡せます。</strong><code>PasskeyRp</code> を作って、4つのメソッドに同じものを渡します。</p>
+<pre class="code"><code class="lang-java">PasskeyRp rp(WebContext c) {
+	<span class="h-c">// クライアントの表から引く。Host ヘッダをそのまま rp_id にしない（知らないドメインは 404）</span>
+	Tenant tenant = Tenants.byHost(c.request().host()).orElseThrow(() -&gt; <span class="h-k">new</span> HttpException(<span class="h-n">404</span>, <span class="h-s">"見つかりません"</span>));
+	<span class="h-k">return</span> PasskeyRp.of(tenant.domain(), tenant.name());          <span class="h-c">// オリジンは https://&lt;domain&gt;</span>
+}
+
+post(<span class="h-s">"/passkey/login/options"</span>, c -&gt; c.response().json(Passkey.loginOptions(c, rp(c)))).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+post(<span class="h-s">"/passkey/login"</span>, c -&gt; {
+	<span class="h-k">if</span> (!Passkey.login(c, rp(c), c.request().bodyJson(), App::findPrincipal)) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">401</span>, <span class="h-s">"パスキーでログインできませんでした"</span>);
+	}
+	c.response().json(<span class="h-s">"ok"</span>, <span class="h-k">true</span>);
+}).attribute(Auth.PUBLIC, <span class="h-k">true</span>);
+<span class="h-c">// 登録も Passkey.registrationOptions(c, rp(c), 名前) / Passkey.register(c, rp(c), credential, ラベル)</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>分け方</td>
+<td>パスキーは rp_id ごとに持ちます。<strong>クライアント A で登録したパスキーは、クライアント B では使えません</strong>（jimble が表の rp_id で断ります。認証器も rp_id ごとに鍵を分けます）</td>
+</tr>
+<tr>
+<td>つなぎ間違い</td>
+<td>options を出したときの rp_id をセッションに置き、確かめるときに違えば断ります（手続きのやり直し）</td>
+</tr>
+<tr>
+<td>形の確かめ</td>
+<td><code>PasskeyRp</code> は、rp_id がドメインの形か、オリジンのホストが rp_id かそのサブドメインか（http は localhost だけ）を作ったときに確かめます。別のクライアントのドメインを並べると例外です</td>
+</tr>
+<tr>
+<td>一覧</td>
+<td><code>Passkey.list(realm, rp, id)</code> でそのクライアントのものだけ。<code>Passkey.list(id)</code> はどのクライアントのものも返します（<code>rp_id</code> が付きます）</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>クライアントが独自ドメイン（<code>login.client-a.co.jp</code>）と共通のサブドメイン（<code>client-a.saas.example</code>）の両方を持つなら、
+パスキーはどちらか1つの rp_id に結びつきます。ログインの画面をどちらのドメインで出すかを先に決めてください。</p>
+</blockquote>
+<h3 id="何を確かめるか">何を確かめるか<a class="anchor" href="#何を確かめるか">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>チャレンジ</td>
+<td>セッションに置き、<strong>1度しか使えません</strong>。<code>timeout</code> を過ぎたものは断ります。登録のチャレンジは、出したときにログインしていた人にしか使えません</td>
+</tr>
+<tr>
+<td>オリジン</td>
+<td><code>origins</code> に無いものは断ります。別のサイトの iframe の中からの呼び出し（<code>crossOrigin</code>）も断ります</td>
+</tr>
+<tr>
+<td>本人確認</td>
+<td>**端末の本人確認（UV）を必ず求めます。**押しただけ（UP）のセキュリティキーは通りません</td>
+</tr>
+<tr>
+<td>署名</td>
+<td>登録した公開鍵で確かめます（ES256 / EdDSA / RS256。どれも JDK だけで確かめます）</td>
+</tr>
+<tr>
+<td>利用者</td>
+<td>ブラウザが返す利用者のハンドルが、登録したものと一致すること</td>
+</tr>
+<tr>
+<td>複製</td>
+<td>署名の回数が戻っていたら断ります（同期するパスキーはいつも 0 なので、そのときは見ません）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>認証器の証明書（attestation）は確かめません</strong>（<code>attestation: &quot;none&quot;</code>）。パスキーのほとんどは証明書を出さず、
+「どのメーカーの認証器か」で断る必要は、ふつうのアプリにはありません。</p>
+<h3 id="一覧と削除">一覧と削除<a class="anchor" href="#一覧と削除">#</a></h3>
+<pre class="code"><code class="lang-java">List&lt;Data&gt; passkeys = Passkey.list(me.id());          <span class="h-c">// id・rp_id・label・created_at・last_used_at・backed_up</span>
+Passkey.delete(me.id(), id);                           <span class="h-c">// FULL_AUTH のルートから。ほかの人のものは消さない</span>
+Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        <span class="h-c">// 退会など</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>置き場</td>
+<td><code>auth_passkey</code> テーブル。<strong>DB とセッションが要ります</strong></td>
+</tr>
+<tr>
+<td>種別</td>
+<td>ルートの <code>Auth.REALM</code> で分けます（登録もログインも、そのルートの種別。一覧と削除は種別を渡す形もあります）</td>
+</tr>
+<tr>
+<td>端末を失くした</td>
+<td>本人に別の手段（パスワードなど）でログインしてもらい、<code>Passkey.delete</code> で消します。<code>Auth.revoke</code> はいまのセッションを止めるだけで、パスキーは残ります</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**登録は <code>Auth.FULL_AUTH</code> を付けたルートから。**セッションを盗んだ人が自分のパスキーを足すと、
+パスワードを変えられても、そのパスキーで入り続けられます。</p>
+<p><strong>パスキーのログインの口には、流量制限を掛けてください</strong>（<code>RateLimit</code>）。総当たりは効きませんが、チャレンジを出すたびにセッションを作ります。</p>
+</div>
 <h2 id="basic-認証">Basic 認証<a class="anchor" href="#basic-認証">#</a></h2>
 <p>運用向けの口には Basic 認証が使えます（<a href="./request-response">リクエストとレスポンス</a>）。</p>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
@@ -1056,7 +1350,7 @@ Mfa.remainingRecoveryCodes(<span class="h-s">"operator"</span>, staff.id());
 </tr>
 <tr>
 <td>JWT</td>
-<td>**出しません。**失効できず鍵の管理が増えます。API の認証が要るなら、DB に持つ不透明なトークンにしてください</td>
+<td>**出しません。**失効できず鍵の管理が増えます。API の認証には、DB に持つ不透明なトークン（上の「API のトークン」）を使ってください</td>
 </tr>
 <tr>
 <td>SAML</td>
@@ -1112,6 +1406,15 @@ Mfa.remainingRecoveryCodes(<span class="h-s">"operator"</span>, staff.id());
 			<li class="level-3"><a href="#やめるとき">やめるとき</a></li>
 			<li class="level-3"><a href="#ログインの種別が複数あるとき-2">ログインの種別が複数あるとき</a></li>
 			<li class="level-3"><a href="#仕様とやらないこと">仕様と、やらないこと</a></li>
+			<li class="level-2"><a href="#api-のトークンauthorization-bearer">API のトークン（Authorization: Bearer）</a></li>
+			<li class="level-3"><a href="#発行一覧削除">発行・一覧・削除</a></li>
+			<li class="level-3"><a href="#トークンで入った人">トークンで入った人</a></li>
+			<li class="level-3"><a href="#断るとき">断るとき</a></li>
+			<li class="level-2"><a href="#パスキーパスワードなしのログイン">パスキー（パスワードなしのログイン）</a></li>
+			<li class="level-3"><a href="#設定">設定</a></li>
+			<li class="level-3"><a href="#クライアントごとにドメインが違うときsaas">クライアントごとにドメインが違うとき（SaaS）</a></li>
+			<li class="level-3"><a href="#何を確かめるか">何を確かめるか</a></li>
+			<li class="level-3"><a href="#一覧と削除">一覧と削除</a></li>
 			<li class="level-2"><a href="#basic-認証">Basic 認証</a></li>
 			<li class="level-2"><a href="#やらないこと-2">やらないこと</a></li>
 		</ul>

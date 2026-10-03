@@ -5,8 +5,8 @@
 
 ## Docs
 
-- [ja](https://jimble.io/ja/llms.txt): 39 pages. Full text: https://jimble.io/ja/llms-full.txt
-- [en](https://jimble.io/en/llms.txt): 39 pages. Full text: https://jimble.io/en/llms-full.txt
+- [ja](https://jimble.io/ja/llms.txt): 40 pages. Full text: https://jimble.io/ja/llms-full.txt
+- [en](https://jimble.io/en/llms.txt): 40 pages. Full text: https://jimble.io/en/llms-full.txt
 
 ## Notes
 
