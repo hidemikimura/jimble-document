@@ -313,7 +313,7 @@ when you compare against a default.</p>
 	max_request_size     = <span class="h-n">10MiB</span>    <span class="h-c"># cap on the request body</span>
 	max_header_size      = <span class="h-n">16KiB</span>    <span class="h-c"># cap on all headers together</span>
 	idle_timeout         = <span class="h-n">60s</span>      <span class="h-c"># how long a connection doing nothing is kept</span>
-	compression          = <span class="h-k">true</span>     <span class="h-c"># gzip responses</span>
+	compression          = <span class="h-k">true</span>     <span class="h-c"># gzip text responses (1KB and up)</span>
 	trust_proxy          = <span class="h-k">false</span>    <span class="h-c"># false until it sits behind a load balancer (see below)</span>
 	access_log           = <span class="h-k">true</span>     <span class="h-c"># turning it off is faster, and leaves no trace</span>
 	bot_access_log       = <span class="h-k">true</span>     <span class="h-c"># keep bot access logs separate</span>
@@ -343,7 +343,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         <span class="h-c"># signing key. empty means no signing</span>
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># only while a key is being rotated</span>
 	accept_unsigned  = <span class="h-k">false</span>                     <span class="h-c"># true only while signing is being turned on</span>
-	accept_legacy_signature = <span class="h-k">true</span>               <span class="h-c"># also read pre-2.2.3 signatures not bound to the name (during the move)</span>
+	accept_legacy_signature = <span class="h-k">false</span>              <span class="h-c"># also read pre-2.2.3 signatures not bound to the name (true only while moving from 2.2.2 or earlier)</span>
 }
 
 csrf {
@@ -417,7 +417,7 @@ auth {
 
 	revocation {
 		enabled     = <span class="h-k">true</span>         <span class="h-c"># without a DB nothing is checked (Auth.revoke throws)</span>
-		cache_ttl   = <span class="h-n">5s</span>           <span class="h-c"># how long a looked-up generation is kept; the delay on other servers. 0s reads every time</span>
+		cache_ttl   = <span class="h-n">5s</span>           <span class="h-c"># how often to check whether anyone was locked out; the delay on other servers. 0s reads every time</span>
 	}
 
 	mfa {
@@ -473,7 +473,7 @@ hash {
 	password {
 		<span class="h-c"># If you set cipher.*, you must set this too (startup fails otherwise)</span>
 		encrypt = <span class="h-k">false</span>
-		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># mixed into the hash. cannot be rotated</span>
+		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># only for 1.x compatibility. gives no protection (below). cannot be rotated</span>
 		cost    = <span class="h-n">10</span>   <span class="h-c"># bcrypt cost (4-31). each step doubles the time. bcrypt ignores everything past 72 bytes</span>
 	}
 }

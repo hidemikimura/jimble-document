@@ -359,7 +359,8 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 そこから、<strong>1行を組み立てるぶんが -10%（p50 で +10µs）</strong>、
 <strong>その1行を JSON にして書き出すぶんが -29%（p50 で +110µs）</strong> です。
 つまり<strong>代金のほとんどは、jimble ではなく logback が同期で書き出すところ</strong>にあります。
-切る前に、まず<strong>出し方</strong>（<code>AsyncAppender</code> を挟む、出す先を変える、項目を減らす）を見てください。</p>
+切る前に、まず<strong>出し方</strong>（<code>AsyncAppender</code> を挟む、出す先を変える、項目を減らす）を見てください。
+<code>jimble new</code> の雛形は、2.5.2 からアクセスログを <code>AsyncAppender</code> で出します（下記）。前の版で作ったアプリは、<code>conf/logback.xml</code> を書き換えてください。</p>
 <p><strong>台によって違うので、自分の台で測ってください</strong>
 （<code>jimble-load/load.sh</code> が、出す版・組み立てるだけの版・出さない版・素の helidon を並べて測ります）。</p>
 <p><strong>メトリクスとトレースは残ります。<strong>切って消えるのはアクセスログだけです。
@@ -413,12 +414,21 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 		&lt;encoder class="io.jimble.util.log.encoder.LogbackJsonEncoder"/&gt;
 	&lt;/appender&gt;
 
-	&lt;logger name="access" level="INFO" additivity="false"&gt;
+	&lt;!-- アクセスログは別のスレッドで書き出す。捨てない（下記） --&gt;
+	&lt;appender name="json-async" class="ch.qos.logback.classic.AsyncAppender"&gt;
+		&lt;queueSize&gt;8192&lt;/queueSize&gt;
+		&lt;discardingThreshold&gt;0&lt;/discardingThreshold&gt;
+		&lt;neverBlock&gt;false&lt;/neverBlock&gt;
+		&lt;includeCallerData&gt;false&lt;/includeCallerData&gt;
 		&lt;appender-ref ref="json"/&gt;
+	&lt;/appender&gt;
+
+	&lt;logger name="access" level="INFO" additivity="false"&gt;
+		&lt;appender-ref ref="json-async"/&gt;
 	&lt;/logger&gt;
 
 	&lt;logger name="access.bot" level="INFO" additivity="false"&gt;
-		&lt;appender-ref ref="json"/&gt;
+		&lt;appender-ref ref="json-async"/&gt;
 	&lt;/logger&gt;
 
 	&lt;logger name="error" level="ERROR" additivity="false"&gt;
@@ -431,6 +441,12 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 
 &lt;/configuration&gt;
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>AsyncAppender</code> の既定のままにしないでください。**既定は「キューが 8 割埋まったら INFO 以下を捨てる」で、
+<strong>混んだときほどアクセスログが黙って消えます</strong>（キュー 64 件・書き出しの遅い出し先で試すと、1000 行のうち 64 行しか残りませんでした）。
+<code>discardingThreshold</code> を <code>0</code>、<code>neverBlock</code> を <code>false</code> にしてください。溜まりきったときは待つので、同期で書くのと同じになるだけです。
+止めるときは、jimble が最後に logback を閉じて溜まった行を書き出します（2.5.2 から）。</p>
+</div>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>access.bot</code> は <code>access</code> の子です。</strong><code>additivity=&quot;false&quot;</code> を外すと、
 ボットの行が<strong>両方に出ます</strong>（人のアクセスを数えているつもりで二重に数えます）。</p>

@@ -408,7 +408,7 @@ If you want to allow large uploads, raise both.</p>
 </table>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>Do not use <code>uploadFile.fileName</code> / <code>relativePath</code> as the destination.</strong>
-jimble rejects only <code>.</code> / <code>..</code> segments, empty segments and control characters (400). Everything else is exactly what the client claimed.
+jimble rejects only <code>.</code> / <code>..</code> segments, empty segments, drive prefixes (<code>C:evil.jsp</code>), control characters and characters that flip text direction (400). Everything else is exactly what the client claimed.
 Overlong names, characters the OS cannot use (<code>:</code> or <code>?</code> on Windows) and overwriting a file with the same name are not prevented.</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>

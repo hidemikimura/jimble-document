@@ -183,7 +183,7 @@ That is why it works **even with cookie sessions**, whose contents live in the u
 | | |
 | --- | --- |
 | Where it applies | Requests that go through `Auth.guard`. **Even on `Auth.PUBLIC` routes** a locked-out person no longer looks logged in (`Auth.NO_SESSION` routes do not read the session, so they do not check) |
-| Delay | Immediate on the server that called it. **With several servers, up to 5 seconds on the others** (`auth.revocation.cache_ttl`; `0s` reads the DB every time) |
+| Delay | Immediate on the server that called it. **With several servers, up to 5 seconds on the others** (`auth.revocation.cache_ttl`; `0s` reads the DB every time). At that interval only one row ("was anyone locked out?") is read; with no lockouts, nothing is re-read per user (since 2.5.2; at most once a minute) |
 | Where it lives | The `auth_revocation` table (created the first time it is needed). **Only people who have been locked out** get a row |
 | Realms | `revoke` with a realm ends **only that kind of login**. Other kinds of login in the same session stay |
 | Upgrading | Sessions from before the upgrade keep working unless you lock someone out (**nobody is logged out on upgrade day**) |
@@ -379,6 +379,7 @@ remembered for an operator is restored on the member screen as "the member with 
 
 ```java
 path("/ops", () -> {
+	attribute(Auth.REALM, "operator");                // the login realm matches
 	before(Remember.restore("operator", Ops::findStaff));
 	before(Auth::guard);
 });
@@ -391,6 +392,8 @@ Auth.revoke("operator", staffId);                 // to lock them out (memories 
   so being logged in to both on the same host does not overwrite either cookie
 - **Restoring also checks the realm stored with the memory.** A cookie sent under the wrong name
   still cannot get in as someone from another realm
+- **A restored user is logged in under the memory's realm** (since 2.5.2). Even when
+  `restore("operator", ...)` runs on a route with no realm, nobody gets in as a no-realm member
 - `forgetAll` and theft detection only remove **that realm's memories for that person**
 - **`Auth.logout` forgets "no realm" and every realm the application uses** (the whole session is
   dropped, so every kind of login ends)
@@ -865,7 +868,7 @@ Passkey.deleteAll("", me.id());                        // account deletion, etc.
 
 | | |
 | --- | --- |
-| Storage | The `auth_passkey` table. **Needs a DB and sessions** |
+| Storage | The `auth_passkey` table. **Needs a DB and sessions**. Used challenges are kept in `auth_passkey_challenge` and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions) |
 | Realms | Split by the route's `Auth.REALM` (registration and login use the route's realm; listing and deleting also take a realm) |
 | A lost device | Have the user log in another way (a password, say) and remove it with `Passkey.delete`. `Auth.revoke` only stops current sessions; the passkey stays |
 

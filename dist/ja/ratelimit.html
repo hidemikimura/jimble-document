@@ -247,6 +247,8 @@ RateLimit.of(context -&gt; context.session().id(), <span class="h-n">10</span>, 
 <code>false</code> のままだと、<strong>全員がロードバランサの IP として1つに数えられます</strong>
 （<a href="./server">サーバー設定</a>）。</p>
 </div>
+<p><strong>宣言が違えば、同じ人でも別に数えます</strong>（2.5.2 から）。上の例なら、<code>/api</code> を叩いてもログインの 5 回は戻りません。
+回数と時間がまったく同じ宣言どうしは、同じ枠を分け合います。</p>
 <p>社内からのアクセスなど、数えたくないものは外せます。</p>
 <pre class="code"><code class="lang-java">RateLimit.perIp(<span class="h-n">60</span>, Duration.ofMinutes(<span class="h-n">1</span>))
 	.exclude(context -&gt; context.request().proxyAddress().startsWith(<span class="h-s">"10."</span>));

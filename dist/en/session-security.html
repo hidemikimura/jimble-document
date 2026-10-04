@@ -451,7 +451,8 @@ a different one.</p>
 <p>When you write a <code>Cookie</code> whose attributes (<code>Path</code>, <code>Max-Age</code>) you set yourself, <strong>pick signing by name</strong> (since 1.5.0).</p>
 <pre class="code"><code class="lang-java">context.cookies().putSigned(<span class="h-k">new</span> Cookie(<span class="h-s">"user"</span>, id).path(<span class="h-s">"/app"</span>).maxAge(<span class="h-n">3600</span>));    <span class="h-c">// signed (readable with get)</span>
 <span class="h-c">// The signature is bound to the cookie name (2.2.3+): a signature moved to another cookie name does not verify.</span>
-<span class="h-c">// Signatures from 2.2.2 and earlier are read during the move (cookie.accept_legacy_signature, default true).</span>
+<span class="h-c">// Signatures from 2.2.2 and earlier are not read by default (cookie.accept_legacy_signature, default false since 2.5.2).</span>
+<span class="h-c">// Set it to true only while moving from 2.2.2 or earlier.</span>
 <span class="h-c">// A signature carries no expiry: do not trust a signed cookie alone to identify a user — keep that in the session.</span>
 context.cookies().putUnsigned(<span class="h-k">new</span> Cookie(<span class="h-s">"theme"</span>, <span class="h-s">"dark"</span>).httpOnly(<span class="h-k">false</span>));      <span class="h-c">// not signed (for JavaScript)</span>
 </code></pre>
@@ -545,6 +546,9 @@ does not send it back.</p>
 }
 </code></pre>
 <p>They still read fine if you skip this; you just cannot drop the old key until they expire.</p>
+<h3 id="hashpasswordpepper-gives-no-protection"><code>hash.password.pepper</code> gives no protection<a class="anchor" href="#hashpasswordpepper-gives-no-protection">#</a></h3>
+<p><strong>Despite the name, it is not mixed into the input before hashing.</strong> It is <strong>appended to</strong> the bcrypt hash when stored and stripped off again when checking (a shape inherited from 1.x; changing it would make every stored hash fail to verify).
+It does <strong>nothing</strong> to make brute force harder if the DB leaks. If you need protection against a DB leak, store the hash encrypted with <code>hash.password.encrypt = true</code> and <code>cipher.key</code>.</p>
 <h3 id="password-keys-cannot-be-rotated-this-way">Password keys cannot be rotated this way<a class="anchor" href="#password-keys-cannot-be-rotated-this-way">#</a></h3>
 <p><strong><code>cipher.key</code> and <code>hash.password.pepper</code> are outside this mechanism.</strong>
 What they produce lives in a <strong>password column in your database</strong>, not in a cookie, and the only
@@ -621,6 +625,7 @@ For anything new, use <code>Aead</code> (AES-256-GCM).</p>
 			<li class="level-2"><a href="#rotating-a-key">Rotating a key</a></li>
 			<li class="level-3"><a href="#knowing-when-step-3-is-safe">Knowing when step 3 is safe</a></li>
 			<li class="level-3"><a href="#cookies-you-wrote-are-yours-to-rewrite">Cookies you wrote are yours to rewrite</a></li>
+			<li class="level-3"><a href="#hashpasswordpepper-gives-no-protection">hash.password.pepper gives no protection</a></li>
 			<li class="level-3"><a href="#password-keys-cannot-be-rotated-this-way">Password keys cannot be rotated this way</a></li>
 			<li class="level-2"><a href="#passwords">Passwords</a></li>
 		</ul>

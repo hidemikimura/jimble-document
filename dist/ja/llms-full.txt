@@ -994,7 +994,7 @@ private static String saveImage (WebContext context) throws Exception {
 
 > [!TRAP]
 > **`uploadFile.fileName` / `relativePath` をそのまま保存先に使わないでください。**
-> jimble が断るのは、`.` / `..` の段・空の段・制御文字だけです（400）。それ以外はクライアントが名乗ったままです。
+> jimble が断るのは、`.` / `..` の段・空の段・ドライブ指定（`C:evil.jsp`）・制御文字・文字の向きを変える文字だけです（400）。それ以外はクライアントが名乗ったままです。
 > 長すぎる名前、OS で使えない文字（Windows の `:` や `?` など）、同じ名前の上書きは防げません。
 
 > [!WARN]
@@ -2249,7 +2249,7 @@ context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));     
 **署名は Cookie の名前に結びついています**（2.2.3 から）。ある名前の Cookie に付いた署名を、別の名前の Cookie に移しても通りません。
 2.2.2 までは値だけに署名していたので、アプリが入力をフラッシュに入れるなど、攻撃者の決めた値に署名させる場所が1つでもあると、
 その署名を `user` などの Cookie に移し替えて使えました。
-2.2.2 までの署名は、移す間だけ読みます（`cookie.accept_legacy_signature`、既定 true）。`sid` と `csrf_token` は読んだときに書き直します。
+2.2.2 までの署名は、**既定では読みません**（`cookie.accept_legacy_signature`、2.5.2 から既定 false）。2.2.2 以前から上げるときだけ、移す間 `true` にしてください。`sid` と `csrf_token` は読んだときに書き直します。
 **署名は有効期限を含みません。**`Max-Age` を守るのはブラウザなので、利用者を表す値を署名つき Cookie だけで信じないでください（セッションに入れてください）。
 
 **応答を送ったあとに Cookie を書くと `IllegalStateException` です**（もう届きません）。`send()` より前に書いてください。
@@ -2350,6 +2350,11 @@ if (context.cookies().isStale("last_post")) {
 ```
 
 書き直さなくても読めますが、その Cookie が消えるまで古い鍵を捨てられません。
+
+### `hash.password.pepper` は守りになりません
+
+**名前に反して、ハッシュの前の入力には混ぜていません。**bcrypt で作ったハッシュの**後ろに繋げて**保存し、照合のときに外して捨てているだけです（1.x から引き継いだ形で、変えると保存済みのハッシュが照合できなくなります）。
+DB が漏れたときに総当たりを難しくする効果は**ありません**。DB が漏れたときの守りが要るなら、`hash.password.encrypt = true` と `cipher.key` で、ハッシュを暗号化して保存してください。
 
 ### パスワードの鍵は入れ替えられません
 
@@ -2455,6 +2460,9 @@ RateLimit.of(context -> context.session().id(), 10, Duration.ofMinutes(1));   //
 > **`perIp` は `server.trust_proxy` を見ます。**プロキシの後ろに置いているのに
 > `false` のままだと、**全員がロードバランサの IP として1つに数えられます**
 > （[サーバー設定](./server)）。
+
+**宣言が違えば、同じ人でも別に数えます**（2.5.2 から）。上の例なら、`/api` を叩いてもログインの 5 回は戻りません。
+回数と時間がまったく同じ宣言どうしは、同じ枠を分け合います。
 
 社内からのアクセスなど、数えたくないものは外せます。
 
@@ -2693,7 +2701,7 @@ Auth.revoke("operator", staffId);   // 種別つき
 | | |
 | --- | --- |
 | 効くところ | `Auth.guard` を通るリクエスト。**`Auth.PUBLIC` のルートでも**、締め出された人をログイン中に見せません（`Auth.NO_SESSION` のルートはセッションを読まないので見ません） |
-| 遅れ | 呼んだ台では即座に。**複数台では、ほかの台で効くまで最大 5 秒**（`auth.revocation.cache_ttl`。`0s` にすれば毎回 DB を引きます） |
+| 遅れ | 呼んだ台では即座に。**複数台では、ほかの台で効くまで最大 5 秒**（`auth.revocation.cache_ttl`。`0s` にすれば毎回 DB を引きます）。その間隔で見に行くのは「誰かが締め出されたか」の1行だけで、締め出しが無ければ利用者ごとには引き直しません（2.5.2 から。最長 1 分で引き直します） |
 | 置き場 | `auth_revocation` テーブル（初めて要ったときに作ります）。**締め出したことのある人だけ**行ができます |
 | 種別 | 種別つきの `revoke` は、**その種別のログインだけ**を終えます。同じセッションのほかの種別のログインは残ります |
 | 上げたとき | 上げる前のセッションは、締め出さなければそのまま入れます（**上げた日に誰もログアウトされません**） |
@@ -2889,6 +2897,7 @@ Cookie には **`selector:validator`** の2つが入っていて、
 
 ```java
 path("/ops", () -> {
+	attribute(Auth.REALM, "operator");                // ログインの種別も同じにする
 	before(Remember.restore("operator", Ops::findStaff));
 	before(Auth::guard);
 });
@@ -2900,6 +2909,8 @@ Auth.revoke("operator", staffId);                 // 締め出すとき（記憶
 - **Cookie の名前が種別ごとに分かれます**（`remember_operator` のように、設定の名前 + `_` + 種別）。
   同じホストで両方にログインしていても、互いの Cookie を上書きしません
 - **思い出すときは、記憶の種別も見ます。**Cookie の名前を取り違えても、別の種別の人としては入れません
+- **思い出した人は、記憶の種別でログインします**（2.5.2 から）。種別の無いルートで `restore("operator", ...)` が走っても、
+  種別なしの利用者としては入りません
 - `forgetAll` と盗用の検知で消えるのは、**その種別のその人の記憶だけ**です
 - **`Auth.logout` は、種別なしと、このアプリが使っている種別の記憶をすべて消します**
   （セッションごと捨てるので、どの種別のログインも終わります）
@@ -3373,7 +3384,7 @@ Passkey.deleteAll("", me.id());                        // 退会など
 
 | | |
 | --- | --- |
-| 置き場 | `auth_passkey` テーブル。**DB とセッションが要ります** |
+| 置き場 | `auth_passkey` テーブル。**DB とセッションが要ります**。使ったチャレンジは `auth_passkey_challenge` に残し、同じものは2度通しません（2.5.2 から。cookie のセッションで、取られた要求を送り直させないため） |
 | 種別 | ルートの `Auth.REALM` で分けます（登録もログインも、そのルートの種別。一覧と削除は種別を渡す形もあります） |
 | 端末を失くした | 本人に別の手段（パスワードなど）でログインしてもらい、`Passkey.delete` で消します。`Auth.revoke` はいまのセッションを止めるだけで、パスキーは残ります |
 
@@ -3875,6 +3886,12 @@ try (DB db = BlogExample.db()) {
 | `executeBatch` / `insertBatch` | 文ごとの件数 / 採番値の一覧 | 空の入力は空リスト |
 
 `executeBatch` / `insertBatch` は**SQL が全部同じでなければなりません。**違うものが混ざっていれば `DB_998` の例外です。
+
+> [!NOTE]
+> **PostgreSQL では、ドライバの設定で速さが変わります。**jimble は接続の URL にドライバの設定を足しません。
+>
+> - **まとめて入れる**：URL に `reWriteBatchedInserts=true` を書くと、`insertBatch` の INSERT を複数行の1本にまとめて送ります
+> - **大きな結果を少しずつ読む**：`fetch_size` は**トランザクションの中でしか効きません**（自動コミットのままだと、結果を全部ドライバが持ちます）。`db.transaction(...)` の中で読んでください
 
 ### 「1件も無かった」と「読めなかった」
 
@@ -4940,7 +4957,7 @@ cache {
 | | 置き場所 | プロセスをまたぐ | 期限 |
 | --- | --- | --- | --- |
 | `db`（**既定**） | `db_cache` テーブル | **またぐ** | **無い** |
-| `memory` | JVM のメモリ | またがない | `cache.memory.expire`（秒） |
+| `memory` | JVM のメモリ | またがない | `cache.memory.expire`（単位つき。`10m` など） |
 | `redis` | Redis | **またぐ** | **無い** |
 
 知らない値を書いても落ちません。**警告を出して `db` になります。**
@@ -5078,9 +5095,9 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 
 | | どうなるか |
 | --- | --- |
-| 生 SQL の更新（`db.execute("UPDATE ...")`） | どこに当たるか読めないので**全部消します** |
+| 生 SQL の更新（`db.execute("UPDATE ...")`） | どこに当たるか読めないので**全部消します**。jimble 自身の表（セッション・MQ・レート制限など）だけを更新する文は消しません（2.5.2 から） |
 | `ON DUPLICATE KEY UPDATE` / `INSERT ... SELECT` | 既存の行が変わりうるので、そのテーブルに触るものを全部消します |
-| 別のプロセスから DB を直接書き換えた | 追えません。`sql_cache.ttl`（既定 300 秒）が保険です |
+| 別のプロセスから DB を直接書き換えた | 追えません。`sql_cache.ttl`（既定 5 分）が保険です |
 | `sql_cache.store = "memory"` | **その台の中だけ**です。複数台なら `redis` か `db` にしてください |
 
 ### 設定
@@ -5089,7 +5106,7 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 sql_cache {
 	enabled = true       # 既定は false
 	store   = "memory"   # memory | redis | db
-	ttl     = 300        # 秒。0 で無期限
+	ttl     = 5m         # 単位を書く（300s / 5m / 1h）。0s で無期限
 	max     = 10000      # memory のときだけ。持つ件数の上限
 }
 ```
@@ -5211,7 +5228,7 @@ db.transaction(tx -> {
 cache {
 	type          = "db"     # db | memory | redis
 	temp_dir      = ""       # 大きい値を落とす場所。空なら一時ディレクトリ
-	memory.expire = 0        # memory のときだけ。秒。0 で無期限
+	memory.expire = 0s       # memory のときだけ。単位を書く（60s / 10m）。0s で無期限
 }
 
 redis {
@@ -6280,6 +6297,13 @@ public boolean onUpgrade (WsSession session) {
 
 `false` を返すと 403 で断ります。
 
+> [!NOTE]
+> **別のサイトのページからの接続は、`onUpgrade` より前に断られます。**
+> WebSocket には CORS が効かず、ブラウザは別のサイトからの接続にも Cookie を付けて送ります。
+> サーバー（helidon）が `Origin` を `Host` と比べ、違えば 403 にするので、Cookie で認証しても別のサイトに乗っ取られません。
+> `Origin` の無い要求（ブラウザ以外のクライアント）は通ります。
+> プロキシの後ろに置くなら、**プロキシが `Host` をそのまま渡すように**してください（`proxy_set_header Host $host;`）。書き換えると、同じサイトからの接続も断られます。
+
 ## メッセージごとに Context
 
 **1メッセージにつき `Context` が1つ作られます。**
@@ -6799,7 +6823,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.2-SNAPSHOT
+jimble 2.5.3-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6822,7 +6846,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.5.2-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.5.3-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6951,9 +6975,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.1"
-	id("io.jimble.run") version "2.5.1"
-	id("io.jimble.db")  version "2.5.1"
+	id("io.jimble.jte") version "2.5.2"
+	id("io.jimble.run") version "2.5.2"
+	id("io.jimble.db")  version "2.5.2"
 }
 ```
 
@@ -6995,9 +7019,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.1"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.5.1"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.5.1"   // DB を使うなら
+	id("io.jimble.jte") version "2.5.2"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.5.2"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.5.2"   // DB を使うなら
 }
 
 repositories {
@@ -7012,7 +7036,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.1")
+	implementation("io.jimble:jimble-web:2.5.2")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7046,7 +7070,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.2' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7836,7 +7860,7 @@ server {
 	max_request_size     = 10MiB    # リクエスト本文の上限
 	max_header_size      = 16KiB    # ヘッダ全体の上限
 	idle_timeout         = 60s      # 何もしない接続を閉じるまで
-	compression          = true     # 応答を gzip で返すか
+	compression          = true     # 文字の応答（1KB 以上）を gzip で返すか
 	trust_proxy          = false    # ロードバランサの後ろに置くまで false（下を参照）
 	access_log           = true     # 切ると速くなるが、何が起きたか残らない
 	bot_access_log       = true     # ボットのアクセスログを分けるか
@@ -7866,7 +7890,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         # 署名鍵。空なら署名しない
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # 鍵の入れ替え中だけ
 	accept_unsigned  = false                     # 署名を入れる移行期間だけ true にする
-	accept_legacy_signature = true               # 名前に結びついていない 2.2.2 までの署名も読む（移す間だけ）
+	accept_legacy_signature = false              # 名前に結びついていない 2.2.2 までの署名も読むか（2.2.2 以前から上げる間だけ true）
 }
 
 csrf {
@@ -7940,7 +7964,7 @@ auth {
 
 	revocation {
 		enabled     = true         # DB が無ければ比べない（Auth.revoke は例外）
-		cache_ttl   = 5s           # 引いた世代を控える時間。複数台ではほかの台で効くまでの遅れ。0s で毎回引く
+		cache_ttl   = 5s           # 締め出しがあったかを見に行く間隔。複数台ではほかの台で効くまでの遅れ。0s で毎回引く
 	}
 
 	mfa {
@@ -7996,7 +8020,7 @@ hash {
 	password {
 		# cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）
 		encrypt = false
-		pepper  = ${?PASSWORD_PEPPER}   # ハッシュに混ぜる秘密。入れ替えられない
+		pepper  = ${?PASSWORD_PEPPER}   # 1.x との互換のためだけ。守りにならない（下記）。入れ替えられない
 		cost    = 10   # bcrypt のコスト（4〜31）。1 上げると倍の時間。72 バイトより後ろは bcrypt が読まない
 	}
 }
@@ -8258,11 +8282,11 @@ jimble 構成: env=local / session=none / cache=db / redis=なし / db=[blog_exa
 server {
 	host                 = ""         # 待ち受けるアドレス。空なら全部
 	port                 = 9000
-	max_request_size     = 10485760   # リクエスト本文の上限（10MiB）
-	max_header_size      = 16384      # ヘッダ全体の上限（16KiB）
+	max_request_size     = 10MiB      # リクエスト本文の上限
+	max_header_size      = 16KiB      # ヘッダ全体の上限
 	idle_timeout = 60s
 	trust_proxy          = false      # X-Forwarded-* を信じるか
-	compression          = true       # 応答を gzip で返すか
+	compression          = true       # 文字の応答（1KB 以上）を gzip で返すか
 	access_log           = true       # アクセスログを出すか（[ログ](./log)）
 	bot_access_log       = true       # ボットのアクセスログを分けるか
 	strict_routes        = false      # 一生呼ばれないルートを例外にするか（CI では true に）
@@ -8407,10 +8431,14 @@ server {
 ## 圧縮
 
 `server.compression`（既定 `true`）で **on / off** します。
-何を圧縮するかはサーバー（Helidon）が `Accept-Encoding` を見て決めます。
+クライアントが `Accept-Encoding` で受け取れると言ったときに、**文字の応答（`text/*`・JSON・JavaScript・XML・SVG）で 1KB 以上のものだけ**を圧縮します（2.5.2 から）。
+
+- 画像・動画・zip・ダウンロードのファイルは圧縮しません（縮まないのに CPU を使い、`Content-Length` も消えるため）
+- 小さい応答も圧縮しません（圧縮器を作る手間のほうが大きいため）
+- SSE（`text/event-stream`）は圧縮しません（溜めてから送ることになり、届くのが遅れるため）
 
 > [!NOTE]
-> **圧縮レベルや、種類ごとの除外はありません。**細かく制御したいときは前段でやってください。
+> **圧縮レベルや、種類を足す設定はありません。**細かく制御したいときは前段でやってください。
 
 ## ボットを弾く
 
@@ -8639,6 +8667,7 @@ server {
 **その1行を JSON にして書き出すぶんが -29%（p50 で +110µs）** です。
 つまり**代金のほとんどは、jimble ではなく logback が同期で書き出すところ**にあります。
 切る前に、まず**出し方**（`AsyncAppender` を挟む、出す先を変える、項目を減らす）を見てください。
+`jimble new` の雛形は、2.5.2 からアクセスログを `AsyncAppender` で出します（下記）。前の版で作ったアプリは、`conf/logback.xml` を書き換えてください。
 
 **台によって違うので、自分の台で測ってください**
 （`jimble-load/load.sh` が、出す版・組み立てるだけの版・出さない版・素の helidon を並べて測ります）。
@@ -8704,12 +8733,21 @@ jimble は logback とエンコーダを持っていますが、**設定ファ�
 		<encoder class="io.jimble.util.log.encoder.LogbackJsonEncoder"/>
 	</appender>
 
-	<logger name="access" level="INFO" additivity="false">
+	<!-- アクセスログは別のスレッドで書き出す。捨てない（下記） -->
+	<appender name="json-async" class="ch.qos.logback.classic.AsyncAppender">
+		<queueSize>8192</queueSize>
+		<discardingThreshold>0</discardingThreshold>
+		<neverBlock>false</neverBlock>
+		<includeCallerData>false</includeCallerData>
 		<appender-ref ref="json"/>
+	</appender>
+
+	<logger name="access" level="INFO" additivity="false">
+		<appender-ref ref="json-async"/>
 	</logger>
 
 	<logger name="access.bot" level="INFO" additivity="false">
-		<appender-ref ref="json"/>
+		<appender-ref ref="json-async"/>
 	</logger>
 
 	<logger name="error" level="ERROR" additivity="false">
@@ -8722,6 +8760,12 @@ jimble は logback とエンコーダを持っていますが、**設定ファ�
 
 </configuration>
 ```
+
+> [!TRAP]
+> **`AsyncAppender` の既定のままにしないでください。**既定は「キューが 8 割埋まったら INFO 以下を捨てる」で、
+> **混んだときほどアクセスログが黙って消えます**（キュー 64 件・書き出しの遅い出し先で試すと、1000 行のうち 64 行しか残りませんでした）。
+> `discardingThreshold` を `0`、`neverBlock` を `false` にしてください。溜まりきったときは待つので、同期で書くのと同じになるだけです。
+> 止めるときは、jimble が最後に logback を閉じて溜まった行を書き出します（2.5.2 から）。
 
 > [!TRAP]
 > **`access.bot` は `access` の子です。**`additivity="false"` を外すと、

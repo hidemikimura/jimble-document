@@ -362,7 +362,9 @@ From there, <strong>building the line costs -10% (+10µs at p50)</strong> and
 <strong>writing that line out as JSON costs -29% (+110µs at p50)</strong>.
 So most of the price is not jimble; it is logback writing synchronously.
 Before turning the log off, look at <strong>how it is written</strong>
-(wrap it in an <code>AsyncAppender</code>, send it somewhere else, drop some fields).</p>
+(wrap it in an <code>AsyncAppender</code>, send it somewhere else, drop some fields).
+Since 2.5.2 the <code>jimble new</code> skeleton writes the access log through an <code>AsyncAppender</code> (below). For applications
+created with an earlier version, update <code>conf/logback.xml</code>.</p>
 <p><strong>That figure varies by machine, so measure it on yours</strong>
 (<code>jimble-load/load.sh</code> puts raw Helidon, the log written, the log built but discarded,
 and the log off side by side).</p>
@@ -416,12 +418,21 @@ The <code>jimble new</code> skeleton creates <code>conf/logback.xml</code> (<cod
 		&lt;encoder class="io.jimble.util.log.encoder.LogbackJsonEncoder"/&gt;
 	&lt;/appender&gt;
 
-	&lt;logger name="access" level="INFO" additivity="false"&gt;
+	&lt;!-- The access log is written on another thread, and nothing is dropped (see below) --&gt;
+	&lt;appender name="json-async" class="ch.qos.logback.classic.AsyncAppender"&gt;
+		&lt;queueSize&gt;8192&lt;/queueSize&gt;
+		&lt;discardingThreshold&gt;0&lt;/discardingThreshold&gt;
+		&lt;neverBlock&gt;false&lt;/neverBlock&gt;
+		&lt;includeCallerData&gt;false&lt;/includeCallerData&gt;
 		&lt;appender-ref ref="json"/&gt;
+	&lt;/appender&gt;
+
+	&lt;logger name="access" level="INFO" additivity="false"&gt;
+		&lt;appender-ref ref="json-async"/&gt;
 	&lt;/logger&gt;
 
 	&lt;logger name="access.bot" level="INFO" additivity="false"&gt;
-		&lt;appender-ref ref="json"/&gt;
+		&lt;appender-ref ref="json-async"/&gt;
 	&lt;/logger&gt;
 
 	&lt;logger name="error" level="ERROR" additivity="false"&gt;
@@ -434,6 +445,13 @@ The <code>jimble new</code> skeleton creates <code>conf/logback.xml</code> (<cod
 
 &lt;/configuration&gt;
 </code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not leave <code>AsyncAppender</code> on its defaults.</strong> By default it drops INFO and below once the queue is 80% full,
+so <strong>the busier you are, the more access log lines silently vanish</strong> (with a 64-entry queue and a slow sink,
+only 64 of 1,000 lines survived). Set <code>discardingThreshold</code> to <code>0</code> and <code>neverBlock</code> to <code>false</code>; when the queue
+fills, it waits, which is no worse than writing synchronously.
+On shutdown, jimble closes logback last and the queued lines are written out (since 2.5.2).</p>
+</div>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong><code>access.bot</code> is a child of <code>access</code>.</strong> Drop the <code>additivity=&quot;false&quot;</code> and
 the bot lines go to <strong>both</strong> (you double-count while thinking you are counting humans).</p>

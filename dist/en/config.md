@@ -134,7 +134,7 @@ server {
 	max_request_size     = 10MiB    # cap on the request body
 	max_header_size      = 16KiB    # cap on all headers together
 	idle_timeout         = 60s      # how long a connection doing nothing is kept
-	compression          = true     # gzip responses
+	compression          = true     # gzip text responses (1KB and up)
 	trust_proxy          = false    # false until it sits behind a load balancer (see below)
 	access_log           = true     # turning it off is faster, and leaves no trace
 	bot_access_log       = true     # keep bot access logs separate
@@ -164,7 +164,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         # signing key. empty means no signing
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # only while a key is being rotated
 	accept_unsigned  = false                     # true only while signing is being turned on
-	accept_legacy_signature = true               # also read pre-2.2.3 signatures not bound to the name (during the move)
+	accept_legacy_signature = false              # also read pre-2.2.3 signatures not bound to the name (true only while moving from 2.2.2 or earlier)
 }
 
 csrf {
@@ -238,7 +238,7 @@ auth {
 
 	revocation {
 		enabled     = true         # without a DB nothing is checked (Auth.revoke throws)
-		cache_ttl   = 5s           # how long a looked-up generation is kept; the delay on other servers. 0s reads every time
+		cache_ttl   = 5s           # how often to check whether anyone was locked out; the delay on other servers. 0s reads every time
 	}
 
 	mfa {
@@ -294,7 +294,7 @@ hash {
 	password {
 		# If you set cipher.*, you must set this too (startup fails otherwise)
 		encrypt = false
-		pepper  = ${?PASSWORD_PEPPER}   # mixed into the hash. cannot be rotated
+		pepper  = ${?PASSWORD_PEPPER}   # only for 1.x compatibility. gives no protection (below). cannot be rotated
 		cost    = 10   # bcrypt cost (4-31). each step doubles the time. bcrypt ignores everything past 72 bytes
 	}
 }

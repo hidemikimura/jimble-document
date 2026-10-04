@@ -241,7 +241,7 @@
 <td><code>memory</code></td>
 <td>JVM memory</td>
 <td>no</td>
-<td><code>cache.memory.expire</code> (seconds)</td>
+<td><code>cache.memory.expire</code> (with a unit, e.g. <code>10m</code>)</td>
 </tr>
 <tr>
 <td><code>redis</code></td>
@@ -436,7 +436,7 @@ evicted.</p>
 <tbody>
 <tr>
 <td>Raw SQL updates (<code>db.execute(&quot;UPDATE ...&quot;)</code>)</td>
-<td>Where they land cannot be read, so <strong>everything is evicted</strong></td>
+<td>Where they land cannot be read, so <strong>everything is evicted</strong>. Statements that only update jimble's own tables (sessions, MQ, rate limits and so on) evict nothing (since 2.5.2)</td>
 </tr>
 <tr>
 <td><code>ON DUPLICATE KEY UPDATE</code> / <code>INSERT ... SELECT</code></td>
@@ -444,7 +444,7 @@ evicted.</p>
 </tr>
 <tr>
 <td>The DB written directly by another process</td>
-<td>Cannot be followed. <code>sql_cache.ttl</code> (300 seconds by default) is your safety net</td>
+<td>Cannot be followed. <code>sql_cache.ttl</code> (5 minutes by default) is your safety net</td>
 </tr>
 <tr>
 <td><code>sql_cache.store = &quot;memory&quot;</code></td>
@@ -456,7 +456,7 @@ evicted.</p>
 <pre class="code"><code class="lang-conf">sql_cache {
 	enabled = <span class="h-k">true</span>       <span class="h-c"># false by default</span>
 	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
-	ttl     = <span class="h-n">300</span>        <span class="h-c"># seconds. 0 means no expiry</span>
+	ttl     = <span class="h-n">5m</span>         <span class="h-c"># write the unit (300s / 5m / 1h). 0s means no expiry</span>
 	max     = <span class="h-n">10000</span>      <span class="h-c"># memory only. The cap on how many entries to hold</span>
 }
 </code></pre>
@@ -613,7 +613,7 @@ explicitly.</p>
 <pre class="code"><code class="lang-conf">cache {
 	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
 	temp_dir      = <span class="h-s">""</span>       <span class="h-c"># where large values are spilled. Empty means the temp directory</span>
-	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory only. Seconds. 0 means no expiry</span>
+	memory.expire = <span class="h-n">0s</span>       <span class="h-c"># memory only. write the unit (60s / 10m). 0s means no expiry</span>
 }
 
 redis {

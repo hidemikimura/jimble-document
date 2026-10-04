@@ -544,6 +544,13 @@ JSON の文字のまま欲しいなら、SQL で文字にして読んでくだ�
 </tbody>
 </table>
 <p><code>executeBatch</code> / <code>insertBatch</code> は**SQL が全部同じでなければなりません。**違うものが混ざっていれば <code>DB_998</code> の例外です。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**PostgreSQL では、ドライバの設定で速さが変わります。**jimble は接続の URL にドライバの設定を足しません。</p>
+<ul>
+<li><strong>まとめて入れる</strong>：URL に <code>reWriteBatchedInserts=true</code> を書くと、<code>insertBatch</code> の INSERT を複数行の1本にまとめて送ります</li>
+<li><strong>大きな結果を少しずつ読む</strong>：<code>fetch_size</code> は<strong>トランザクションの中でしか効きません</strong>（自動コミットのままだと、結果を全部ドライバが持ちます）。<code>db.transaction(...)</code> の中で読んでください</li>
+</ul>
+</div>
 <h3 id="1件も無かったと読めなかった">「1件も無かった」と「読めなかった」<a class="anchor" href="#1件も無かったと読めなかった">#</a></h3>
 <p>**別のものとして返ります。**空の <code>Optional</code> は「1件も無かった」だけで、読めなかったときは例外です。</p>
 <pre class="code"><code class="lang-java">Optional&lt;Data&gt; user = db.select(sql, id);      <span class="h-c">// 読めなければ、ここで SqlExecuteException</span>

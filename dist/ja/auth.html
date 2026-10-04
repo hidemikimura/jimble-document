@@ -420,7 +420,7 @@ Auth.revoke(<span class="h-s">"operator"</span>, staffId);   <span class="h-c">/
 </tr>
 <tr>
 <td>遅れ</td>
-<td>呼んだ台では即座に。<strong>複数台では、ほかの台で効くまで最大 5 秒</strong>（<code>auth.revocation.cache_ttl</code>。<code>0s</code> にすれば毎回 DB を引きます）</td>
+<td>呼んだ台では即座に。<strong>複数台では、ほかの台で効くまで最大 5 秒</strong>（<code>auth.revocation.cache_ttl</code>。<code>0s</code> にすれば毎回 DB を引きます）。その間隔で見に行くのは「誰かが締め出されたか」の1行だけで、締め出しが無ければ利用者ごとには引き直しません（2.5.2 から。最長 1 分で引き直します）</td>
 </tr>
 <tr>
 <td>置き場</td>
@@ -651,6 +651,7 @@ path(<span class="h-s">""</span>, () -&gt; {                                    
 <strong>運用者として覚えた Cookie が、利用者の画面で「同じ ID の利用者」として思い出されます</strong>——
 パスワードを入れずに、別の人として入れてしまいます。</p>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"operator"</span>);                <span class="h-c">// ログインの種別も同じにする</span>
 	before(Remember.restore(<span class="h-s">"operator"</span>, Ops::findStaff));
 	before(Auth::guard);
 });
@@ -662,6 +663,8 @@ Auth.revoke(<span class="h-s">"operator"</span>, staffId);                 <span
 <li><strong>Cookie の名前が種別ごとに分かれます</strong>（<code>remember_operator</code> のように、設定の名前 + <code>_</code> + 種別）。
 同じホストで両方にログインしていても、互いの Cookie を上書きしません</li>
 <li>**思い出すときは、記憶の種別も見ます。**Cookie の名前を取り違えても、別の種別の人としては入れません</li>
+<li><strong>思い出した人は、記憶の種別でログインします</strong>（2.5.2 から）。種別の無いルートで <code>restore(&quot;operator&quot;, ...)</code> が走っても、
+種別なしの利用者としては入りません</li>
 <li><code>forgetAll</code> と盗用の検知で消えるのは、<strong>その種別のその人の記憶だけ</strong>です</li>
 <li><strong><code>Auth.logout</code> は、種別なしと、このアプリが使っている種別の記憶をすべて消します</strong>
 （セッションごと捨てるので、どの種別のログインも終わります）</li>
@@ -1306,7 +1309,7 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 <tbody>
 <tr>
 <td>置き場</td>
-<td><code>auth_passkey</code> テーブル。<strong>DB とセッションが要ります</strong></td>
+<td><code>auth_passkey</code> テーブル。<strong>DB とセッションが要ります</strong>。使ったチャレンジは <code>auth_passkey_challenge</code> に残し、同じものは2度通しません（2.5.2 から。cookie のセッションで、取られた要求を送り直させないため）</td>
 </tr>
 <tr>
 <td>種別</td>

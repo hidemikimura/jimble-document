@@ -452,7 +452,7 @@ context.cookies().putUnsigned(<span class="h-k">new</span> Cookie(<span class="h
 <p><strong>署名は Cookie の名前に結びついています</strong>（2.2.3 から）。ある名前の Cookie に付いた署名を、別の名前の Cookie に移しても通りません。
 2.2.2 までは値だけに署名していたので、アプリが入力をフラッシュに入れるなど、攻撃者の決めた値に署名させる場所が1つでもあると、
 その署名を <code>user</code> などの Cookie に移し替えて使えました。
-2.2.2 までの署名は、移す間だけ読みます（<code>cookie.accept_legacy_signature</code>、既定 true）。<code>sid</code> と <code>csrf_token</code> は読んだときに書き直します。
+2.2.2 までの署名は、<strong>既定では読みません</strong>（<code>cookie.accept_legacy_signature</code>、2.5.2 から既定 false）。2.2.2 以前から上げるときだけ、移す間 <code>true</code> にしてください。<code>sid</code> と <code>csrf_token</code> は読んだときに書き直します。
 <strong>署名は有効期限を含みません。</strong><code>Max-Age</code> を守るのはブラウザなので、利用者を表す値を署名つき Cookie だけで信じないでください（セッションに入れてください）。</p>
 <p><strong>応答を送ったあとに Cookie を書くと <code>IllegalStateException</code> です</strong>（もう届きません）。<code>send()</code> より前に書いてください。</p>
 <p><strong>読むときは <code>context.cookies().get(&quot;名前&quot;)</code> か <code>context.request().cookie(&quot;名前&quot;)</code> です。</strong>
@@ -540,6 +540,9 @@ Cookie の寿命（<code>cookie.max_age</code>。既定は1年）が過ぎれば
 }
 </code></pre>
 <p>書き直さなくても読めますが、その Cookie が消えるまで古い鍵を捨てられません。</p>
+<h3 id="hashpasswordpepper-は守りになりません"><code>hash.password.pepper</code> は守りになりません<a class="anchor" href="#hashpasswordpepper-は守りになりません">#</a></h3>
+<p><strong>名前に反して、ハッシュの前の入力には混ぜていません。<strong>bcrypt で作ったハッシュの</strong>後ろに繋げて</strong>保存し、照合のときに外して捨てているだけです（1.x から引き継いだ形で、変えると保存済みのハッシュが照合できなくなります）。
+DB が漏れたときに総当たりを難しくする効果は<strong>ありません</strong>。DB が漏れたときの守りが要るなら、<code>hash.password.encrypt = true</code> と <code>cipher.key</code> で、ハッシュを暗号化して保存してください。</p>
 <h3 id="パスワードの鍵は入れ替えられません">パスワードの鍵は入れ替えられません<a class="anchor" href="#パスワードの鍵は入れ替えられません">#</a></h3>
 <p><strong><code>cipher.key</code> と <code>hash.password.pepper</code> はこの仕組みの対象外です。</strong>
 これらで作った値は Cookie ではなく <strong>DB のパスワードカラム</strong>に入っていて、
@@ -614,6 +617,7 @@ cipher {
 			<li class="level-2"><a href="#鍵を入れ替える">鍵を入れ替える</a></li>
 			<li class="level-3"><a href="#いつ-3-に進めるか">いつ 3 に進めるか</a></li>
 			<li class="level-3"><a href="#自分で書いた-cookie-は自分で書き直してください">自分で書いた Cookie は自分で書き直してください</a></li>
+			<li class="level-3"><a href="#hashpasswordpepper-は守りになりません">hash.password.pepper は守りになりません</a></li>
 			<li class="level-3"><a href="#パスワードの鍵は入れ替えられません">パスワードの鍵は入れ替えられません</a></li>
 			<li class="level-2"><a href="#パスワード">パスワード</a></li>
 		</ul>

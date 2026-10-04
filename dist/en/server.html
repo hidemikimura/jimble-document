@@ -219,11 +219,11 @@
 <pre class="code"><code class="lang-conf">server {
 	host                 = <span class="h-s">""</span>         <span class="h-c"># Address to listen on. Empty means all of them</span>
 	port                 = <span class="h-n">9000</span>
-	max_request_size     = <span class="h-n">10485760</span>   <span class="h-c"># Limit on the request body (10MiB)</span>
-	max_header_size      = <span class="h-n">16384</span>      <span class="h-c"># Limit on the headers as a whole (16KiB)</span>
+	max_request_size     = <span class="h-n">10MiB</span>      <span class="h-c"># Limit on the request body</span>
+	max_header_size      = <span class="h-n">16KiB</span>      <span class="h-c"># Limit on the headers as a whole</span>
 	idle_timeout = <span class="h-n">60s</span>
 	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># Whether to believe X-Forwarded-*</span>
-	compression          = <span class="h-k">true</span>       <span class="h-c"># Whether to gzip responses</span>
+	compression          = <span class="h-k">true</span>       <span class="h-c"># Whether to gzip text responses (1KB and up)</span>
 	access_log           = <span class="h-k">true</span>       <span class="h-c"># Whether to write the access log ([Logging](./log))</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># Whether to split out the bot access log</span>
 	strict_routes        = <span class="h-k">false</span>      <span class="h-c"># Throw on routes nothing can reach (turn this on in CI)</span>
@@ -362,9 +362,15 @@ There is no mechanism for restricting trusted upstreams by IP (it is a single bo
 </div>
 <h2 id="compression">Compression<a class="anchor" href="#compression">#</a></h2>
 <p><code>server.compression</code> (default <code>true</code>) turns it <strong>on / off</strong>.
-What gets compressed is the server's (Helidon's) decision, from <code>Accept-Encoding</code>.</p>
+When the client says it accepts it in <code>Accept-Encoding</code>, <strong>only text responses (<code>text/*</code>, JSON, JavaScript, XML, SVG) of 1KB or more</strong>
+are compressed (since 2.5.2).</p>
+<ul>
+<li>Images, video, zip files and downloads are not compressed (they do not shrink, it costs CPU, and <code>Content-Length</code> is lost)</li>
+<li>Small responses are not compressed (setting up the compressor costs more than it saves)</li>
+<li>SSE (<code>text/event-stream</code>) is not compressed (it would be held back and arrive late)</li>
+</ul>
 <div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>There is no compression level and no per-type exclusion.</strong> Do the fine-grained control in front of jimble.</p>
+<p><strong>There is no compression level and no setting to add types.</strong> Do the fine-grained control in front of jimble.</p>
 </div>
 <h2 id="blocking-bots">Blocking bots<a class="anchor" href="#blocking-bots">#</a></h2>
 <p>If you only need to tell them apart, splitting the access log is enough (<a href="./log">Logging</a>). To <strong>block</strong> them, declare it.</p>

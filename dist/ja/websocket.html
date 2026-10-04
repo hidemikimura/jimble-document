@@ -288,6 +288,13 @@
 }
 </code></pre>
 <p><code>false</code> を返すと 403 で断ります。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>別のサイトのページからの接続は、<code>onUpgrade</code> より前に断られます。</strong>
+WebSocket には CORS が効かず、ブラウザは別のサイトからの接続にも Cookie を付けて送ります。
+サーバー（helidon）が <code>Origin</code> を <code>Host</code> と比べ、違えば 403 にするので、Cookie で認証しても別のサイトに乗っ取られません。
+<code>Origin</code> の無い要求（ブラウザ以外のクライアント）は通ります。
+プロキシの後ろに置くなら、<strong>プロキシが <code>Host</code> をそのまま渡すように</strong>してください（<code>proxy_set_header Host $host;</code>）。書き換えると、同じサイトからの接続も断られます。</p>
+</div>
 <h2 id="メッセージごとに-context">メッセージごとに Context<a class="anchor" href="#メッセージごとに-context">#</a></h2>
 <p><strong>1メッセージにつき <code>Context</code> が1つ作られます。</strong>
 リクエストやバッチの1実行と同じ扱いです。</p>

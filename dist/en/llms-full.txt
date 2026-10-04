@@ -1004,7 +1004,7 @@ Three things matter.
 
 > [!TRAP]
 > **Do not use `uploadFile.fileName` / `relativePath` as the destination.**
-> jimble rejects only `.` / `..` segments, empty segments and control characters (400). Everything else is exactly what the client claimed.
+> jimble rejects only `.` / `..` segments, empty segments, drive prefixes (`C:evil.jsp`), control characters and characters that flip text direction (400). Everything else is exactly what the client claimed.
 > Overlong names, characters the OS cannot use (`:` or `?` on Windows) and overwriting a file with the same name are not prevented.
 
 > [!WARN]
@@ -2255,7 +2255,8 @@ When you write a `Cookie` whose attributes (`Path`, `Max-Age`) you set yourself,
 ```java
 context.cookies().putSigned(new Cookie("user", id).path("/app").maxAge(3600));    // signed (readable with get)
 // The signature is bound to the cookie name (2.2.3+): a signature moved to another cookie name does not verify.
-// Signatures from 2.2.2 and earlier are read during the move (cookie.accept_legacy_signature, default true).
+// Signatures from 2.2.2 and earlier are not read by default (cookie.accept_legacy_signature, default false since 2.5.2).
+// Set it to true only while moving from 2.2.2 or earlier.
 // A signature carries no expiry: do not trust a signed cookie alone to identify a user — keep that in the session.
 context.cookies().putUnsigned(new Cookie("theme", "dark").httpOnly(false));      // not signed (for JavaScript)
 ```
@@ -2363,6 +2364,11 @@ if (context.cookies().isStale("last_post")) {
 ```
 
 They still read fine if you skip this; you just cannot drop the old key until they expire.
+
+### `hash.password.pepper` gives no protection
+
+**Despite the name, it is not mixed into the input before hashing.** It is **appended to** the bcrypt hash when stored and stripped off again when checking (a shape inherited from 1.x; changing it would make every stored hash fail to verify).
+It does **nothing** to make brute force harder if the DB leaks. If you need protection against a DB leak, store the hash encrypted with `hash.password.encrypt = true` and `cipher.key`.
 
 ### Password keys cannot be rotated this way
 
@@ -2612,7 +2618,7 @@ That is why it works **even with cookie sessions**, whose contents live in the u
 | | |
 | --- | --- |
 | Where it applies | Requests that go through `Auth.guard`. **Even on `Auth.PUBLIC` routes** a locked-out person no longer looks logged in (`Auth.NO_SESSION` routes do not read the session, so they do not check) |
-| Delay | Immediate on the server that called it. **With several servers, up to 5 seconds on the others** (`auth.revocation.cache_ttl`; `0s` reads the DB every time) |
+| Delay | Immediate on the server that called it. **With several servers, up to 5 seconds on the others** (`auth.revocation.cache_ttl`; `0s` reads the DB every time). At that interval only one row ("was anyone locked out?") is read; with no lockouts, nothing is re-read per user (since 2.5.2; at most once a minute) |
 | Where it lives | The `auth_revocation` table (created the first time it is needed). **Only people who have been locked out** get a row |
 | Realms | `revoke` with a realm ends **only that kind of login**. Other kinds of login in the same session stay |
 | Upgrading | Sessions from before the upgrade keep working unless you lock someone out (**nobody is logged out on upgrade day**) |
@@ -2808,6 +2814,7 @@ remembered for an operator is restored on the member screen as "the member with 
 
 ```java
 path("/ops", () -> {
+	attribute(Auth.REALM, "operator");                // the login realm matches
 	before(Remember.restore("operator", Ops::findStaff));
 	before(Auth::guard);
 });
@@ -2820,6 +2827,8 @@ Auth.revoke("operator", staffId);                 // to lock them out (memories 
   so being logged in to both on the same host does not overwrite either cookie
 - **Restoring also checks the realm stored with the memory.** A cookie sent under the wrong name
   still cannot get in as someone from another realm
+- **A restored user is logged in under the memory's realm** (since 2.5.2). Even when
+  `restore("operator", ...)` runs on a route with no realm, nobody gets in as a no-realm member
 - `forgetAll` and theft detection only remove **that realm's memories for that person**
 - **`Auth.logout` forgets "no realm" and every realm the application uses** (the whole session is
   dropped, so every kind of login ends)
@@ -3294,7 +3303,7 @@ Passkey.deleteAll("", me.id());                        // account deletion, etc.
 
 | | |
 | --- | --- |
-| Storage | The `auth_passkey` table. **Needs a DB and sessions** |
+| Storage | The `auth_passkey` table. **Needs a DB and sessions**. Used challenges are kept in `auth_passkey_challenge` and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions) |
 | Realms | Split by the route's `Auth.REALM` (registration and login use the route's realm; listing and deleting also take a realm) |
 | A lost device | Have the user log in another way (a password, say) and remove it with `Passkey.delete`. `Auth.revoke` only stops current sessions; the passkey stays |
 
@@ -3378,6 +3387,9 @@ RateLimit.of(context -> context.session().id(), 10, Duration.ofMinutes(1));   //
 > **`perIp` looks at `server.trust_proxy`.** Sit behind a proxy with it left at
 > `false` and **everyone is counted as one client — the load balancer's IP**
 > ([Server configuration](./server)).
+
+**Different declarations are counted separately, even for the same client** (since 2.5.2). In the example above, hitting `/api` does not give the login its 5 attempts back.
+Declarations with exactly the same limit and duration share one bucket.
 
 Things you do not want counted, such as access from inside the office, can be excluded.
 
@@ -3913,6 +3925,12 @@ The code is in `getCode()` (`DB_999` etc.), and the original JDBC exception is a
 | `executeBatch` / `insertBatch` | A list of counts per statement / generated keys | An empty list for empty input |
 
 **`executeBatch` / `insertBatch` require every statement to be the same SQL.** A mix throws with `DB_998`.
+
+> [!NOTE]
+> **On PostgreSQL, driver settings change the speed.** jimble adds no driver settings to the connection URL.
+>
+> - **Bulk inserts**: put `reWriteBatchedInserts=true` in the URL and the INSERTs of `insertBatch` are sent as one multi-row statement
+> - **Reading large results in pieces**: `fetch_size` **only works inside a transaction** (with autocommit on, the driver holds the whole result). Read inside `db.transaction(...)`
 
 ### "No rows" and "could not read"
 
@@ -4986,7 +5004,7 @@ cache {
 | | Where it lives | Crosses processes | Expiry |
 | --- | --- | --- | --- |
 | `db` (**default**) | The `db_cache` table | **yes** | **none** |
-| `memory` | JVM memory | no | `cache.memory.expire` (seconds) |
+| `memory` | JVM memory | no | `cache.memory.expire` (with a unit, e.g. `10m`) |
 | `redis` | Redis | **yes** | **none** |
 
 Write a value it does not know and it does not fail.
@@ -5138,9 +5156,9 @@ evicted.
 
 | | What happens |
 | --- | --- |
-| Raw SQL updates (`db.execute("UPDATE ...")`) | Where they land cannot be read, so **everything is evicted** |
+| Raw SQL updates (`db.execute("UPDATE ...")`) | Where they land cannot be read, so **everything is evicted**. Statements that only update jimble's own tables (sessions, MQ, rate limits and so on) evict nothing (since 2.5.2) |
 | `ON DUPLICATE KEY UPDATE` / `INSERT ... SELECT` | Existing rows may change, so everything touching that table is evicted |
-| The DB written directly by another process | Cannot be followed. `sql_cache.ttl` (300 seconds by default) is your safety net |
+| The DB written directly by another process | Cannot be followed. `sql_cache.ttl` (5 minutes by default) is your safety net |
 | `sql_cache.store = "memory"` | **That machine only.** With more than one machine, use `redis` or `db` |
 
 ### Configuration
@@ -5149,7 +5167,7 @@ evicted.
 sql_cache {
 	enabled = true       # false by default
 	store   = "memory"   # memory | redis | db
-	ttl     = 300        # seconds. 0 means no expiry
+	ttl     = 5m         # write the unit (300s / 5m / 1h). 0s means no expiry
 	max     = 10000      # memory only. The cap on how many entries to hold
 }
 ```
@@ -5280,7 +5298,7 @@ explicitly.
 cache {
 	type          = "db"     # db | memory | redis
 	temp_dir      = ""       # where large values are spilled. Empty means the temp directory
-	memory.expire = 0        # memory only. Seconds. 0 means no expiry
+	memory.expire = 0s       # memory only. write the unit (60s / 10m). 0s means no expiry
 }
 
 redis {
@@ -6391,6 +6409,13 @@ public boolean onUpgrade (WsSession session) {
 
 Return `false` and it is turned away with a 403.
 
+> [!NOTE]
+> **Connections from pages on other sites are refused before `onUpgrade`.**
+> CORS does not apply to WebSocket, and browsers send cookies on cross-site connections too.
+> The server (helidon) compares `Origin` with `Host` and answers 403 when they differ, so cookie authentication cannot be hijacked by another site.
+> Requests without `Origin` (non-browser clients) go through.
+> Behind a proxy, **make the proxy pass `Host` through unchanged** (`proxy_set_header Host $host;`); if it rewrites it, connections from your own site are refused too.
+
 ## A Context per message
 
 **One `Context` is created for each message.**
@@ -6920,7 +6945,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.2-SNAPSHOT
+jimble 2.5.3-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6944,7 +6969,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.5.2-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.5.3-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7077,9 +7102,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.1"
-	id("io.jimble.run") version "2.5.1"
-	id("io.jimble.db")  version "2.5.1"
+	id("io.jimble.jte") version "2.5.2"
+	id("io.jimble.run") version "2.5.2"
+	id("io.jimble.db")  version "2.5.2"
 }
 ```
 
@@ -7122,9 +7147,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.1"   // if you use src/main/jte
-	id("io.jimble.run") version "2.5.1"   // if you want hot reload
-	id("io.jimble.db")  version "2.5.1"   // if you use a database
+	id("io.jimble.jte") version "2.5.2"   // if you use src/main/jte
+	id("io.jimble.run") version "2.5.2"   // if you want hot reload
+	id("io.jimble.db")  version "2.5.2"   // if you use a database
 }
 
 repositories {
@@ -7139,7 +7164,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.1")
+	implementation("io.jimble:jimble-web:2.5.2")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7173,7 +7198,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.2' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -7989,7 +8014,7 @@ server {
 	max_request_size     = 10MiB    # cap on the request body
 	max_header_size      = 16KiB    # cap on all headers together
 	idle_timeout         = 60s      # how long a connection doing nothing is kept
-	compression          = true     # gzip responses
+	compression          = true     # gzip text responses (1KB and up)
 	trust_proxy          = false    # false until it sits behind a load balancer (see below)
 	access_log           = true     # turning it off is faster, and leaves no trace
 	bot_access_log       = true     # keep bot access logs separate
@@ -8019,7 +8044,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         # signing key. empty means no signing
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # only while a key is being rotated
 	accept_unsigned  = false                     # true only while signing is being turned on
-	accept_legacy_signature = true               # also read pre-2.2.3 signatures not bound to the name (during the move)
+	accept_legacy_signature = false              # also read pre-2.2.3 signatures not bound to the name (true only while moving from 2.2.2 or earlier)
 }
 
 csrf {
@@ -8093,7 +8118,7 @@ auth {
 
 	revocation {
 		enabled     = true         # without a DB nothing is checked (Auth.revoke throws)
-		cache_ttl   = 5s           # how long a looked-up generation is kept; the delay on other servers. 0s reads every time
+		cache_ttl   = 5s           # how often to check whether anyone was locked out; the delay on other servers. 0s reads every time
 	}
 
 	mfa {
@@ -8149,7 +8174,7 @@ hash {
 	password {
 		# If you set cipher.*, you must set this too (startup fails otherwise)
 		encrypt = false
-		pepper  = ${?PASSWORD_PEPPER}   # mixed into the hash. cannot be rotated
+		pepper  = ${?PASSWORD_PEPPER}   # only for 1.x compatibility. gives no protection (below). cannot be rotated
 		cost    = 10   # bcrypt cost (4-31). each step doubles the time. bcrypt ignores everything past 72 bytes
 	}
 }
@@ -8413,11 +8438,11 @@ The configuration that was loaded appears on the first line at startup.
 server {
 	host                 = ""         # Address to listen on. Empty means all of them
 	port                 = 9000
-	max_request_size     = 10485760   # Limit on the request body (10MiB)
-	max_header_size      = 16384      # Limit on the headers as a whole (16KiB)
+	max_request_size     = 10MiB      # Limit on the request body
+	max_header_size      = 16KiB      # Limit on the headers as a whole
 	idle_timeout = 60s
 	trust_proxy          = false      # Whether to believe X-Forwarded-*
-	compression          = true       # Whether to gzip responses
+	compression          = true       # Whether to gzip text responses (1KB and up)
 	access_log           = true       # Whether to write the access log ([Logging](./log))
 	bot_access_log       = true       # Whether to split out the bot access log
 	strict_routes        = false      # Throw on routes nothing can reach (turn this on in CI)
@@ -8564,10 +8589,15 @@ With `true`, `proxyAddress()` returns the source in this order.
 ## Compression
 
 `server.compression` (default `true`) turns it **on / off**.
-What gets compressed is the server's (Helidon's) decision, from `Accept-Encoding`.
+When the client says it accepts it in `Accept-Encoding`, **only text responses (`text/*`, JSON, JavaScript, XML, SVG) of 1KB or more**
+are compressed (since 2.5.2).
+
+- Images, video, zip files and downloads are not compressed (they do not shrink, it costs CPU, and `Content-Length` is lost)
+- Small responses are not compressed (setting up the compressor costs more than it saves)
+- SSE (`text/event-stream`) is not compressed (it would be held back and arrive late)
 
 > [!NOTE]
-> **There is no compression level and no per-type exclusion.** Do the fine-grained control in front of jimble.
+> **There is no compression level and no setting to add types.** Do the fine-grained control in front of jimble.
 
 ## Blocking bots
 
@@ -8799,6 +8829,8 @@ From there, **building the line costs -10% (+10µs at p50)** and
 So most of the price is not jimble; it is logback writing synchronously.
 Before turning the log off, look at **how it is written**
 (wrap it in an `AsyncAppender`, send it somewhere else, drop some fields).
+Since 2.5.2 the `jimble new` skeleton writes the access log through an `AsyncAppender` (below). For applications
+created with an earlier version, update `conf/logback.xml`.
 
 **That figure varies by machine, so measure it on yours**
 (`jimble-load/load.sh` puts raw Helidon, the log written, the log built but discarded,
@@ -8864,12 +8896,21 @@ The `jimble new` skeleton creates `conf/logback.xml` (`conf/` goes into the jar)
 		<encoder class="io.jimble.util.log.encoder.LogbackJsonEncoder"/>
 	</appender>
 
-	<logger name="access" level="INFO" additivity="false">
+	<!-- The access log is written on another thread, and nothing is dropped (see below) -->
+	<appender name="json-async" class="ch.qos.logback.classic.AsyncAppender">
+		<queueSize>8192</queueSize>
+		<discardingThreshold>0</discardingThreshold>
+		<neverBlock>false</neverBlock>
+		<includeCallerData>false</includeCallerData>
 		<appender-ref ref="json"/>
+	</appender>
+
+	<logger name="access" level="INFO" additivity="false">
+		<appender-ref ref="json-async"/>
 	</logger>
 
 	<logger name="access.bot" level="INFO" additivity="false">
-		<appender-ref ref="json"/>
+		<appender-ref ref="json-async"/>
 	</logger>
 
 	<logger name="error" level="ERROR" additivity="false">
@@ -8882,6 +8923,13 @@ The `jimble new` skeleton creates `conf/logback.xml` (`conf/` goes into the jar)
 
 </configuration>
 ```
+
+> [!TRAP]
+> **Do not leave `AsyncAppender` on its defaults.** By default it drops INFO and below once the queue is 80% full,
+> so **the busier you are, the more access log lines silently vanish** (with a 64-entry queue and a slow sink,
+> only 64 of 1,000 lines survived). Set `discardingThreshold` to `0` and `neverBlock` to `false`; when the queue
+> fills, it waits, which is no worse than writing synchronously.
+> On shutdown, jimble closes logback last and the queued lines are written out (since 2.5.2).
 
 > [!TRAP]
 > **`access.bot` is a child of `access`.** Drop the `additivity="false"` and

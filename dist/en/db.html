@@ -552,6 +552,13 @@ The code is in <code>getCode()</code> (<code>DB_999</code> etc.), and the origin
 </tbody>
 </table>
 <p><strong><code>executeBatch</code> / <code>insertBatch</code> require every statement to be the same SQL.</strong> A mix throws with <code>DB_998</code>.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>On PostgreSQL, driver settings change the speed.</strong> jimble adds no driver settings to the connection URL.</p>
+<ul>
+<li><strong>Bulk inserts</strong>: put <code>reWriteBatchedInserts=true</code> in the URL and the INSERTs of <code>insertBatch</code> are sent as one multi-row statement</li>
+<li><strong>Reading large results in pieces</strong>: <code>fetch_size</code> <strong>only works inside a transaction</strong> (with autocommit on, the driver holds the whole result). Read inside <code>db.transaction(...)</code></li>
+</ul>
+</div>
 <h3 id="no-rows-and-could-not-read">&quot;No rows&quot; and &quot;could not read&quot;<a class="anchor" href="#no-rows-and-could-not-read">#</a></h3>
 <p><strong>They come back as different things.</strong> An empty <code>Optional</code> means &quot;no rows&quot; and nothing else; a failure to read throws.</p>
 <pre class="code"><code class="lang-java">Optional&lt;Data&gt; user = db.select(sql, id);      <span class="h-c">// throws SqlExecuteException here if it cannot be read</span>

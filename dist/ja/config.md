@@ -127,7 +127,7 @@ server {
 	max_request_size     = 10MiB    # リクエスト本文の上限
 	max_header_size      = 16KiB    # ヘッダ全体の上限
 	idle_timeout         = 60s      # 何もしない接続を閉じるまで
-	compression          = true     # 応答を gzip で返すか
+	compression          = true     # 文字の応答（1KB 以上）を gzip で返すか
 	trust_proxy          = false    # ロードバランサの後ろに置くまで false（下を参照）
 	access_log           = true     # 切ると速くなるが、何が起きたか残らない
 	bot_access_log       = true     # ボットのアクセスログを分けるか
@@ -157,7 +157,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         # 署名鍵。空なら署名しない
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   # 鍵の入れ替え中だけ
 	accept_unsigned  = false                     # 署名を入れる移行期間だけ true にする
-	accept_legacy_signature = true               # 名前に結びついていない 2.2.2 までの署名も読む（移す間だけ）
+	accept_legacy_signature = false              # 名前に結びついていない 2.2.2 までの署名も読むか（2.2.2 以前から上げる間だけ true）
 }
 
 csrf {
@@ -231,7 +231,7 @@ auth {
 
 	revocation {
 		enabled     = true         # DB が無ければ比べない（Auth.revoke は例外）
-		cache_ttl   = 5s           # 引いた世代を控える時間。複数台ではほかの台で効くまでの遅れ。0s で毎回引く
+		cache_ttl   = 5s           # 締め出しがあったかを見に行く間隔。複数台ではほかの台で効くまでの遅れ。0s で毎回引く
 	}
 
 	mfa {
@@ -287,7 +287,7 @@ hash {
 	password {
 		# cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）
 		encrypt = false
-		pepper  = ${?PASSWORD_PEPPER}   # ハッシュに混ぜる秘密。入れ替えられない
+		pepper  = ${?PASSWORD_PEPPER}   # 1.x との互換のためだけ。守りにならない（下記）。入れ替えられない
 		cost    = 10   # bcrypt のコスト（4〜31）。1 上げると倍の時間。72 バイトより後ろは bcrypt が読まない
 	}
 }

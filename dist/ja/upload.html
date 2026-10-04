@@ -408,7 +408,7 @@
 </table>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>uploadFile.fileName</code> / <code>relativePath</code> をそのまま保存先に使わないでください。</strong>
-jimble が断るのは、<code>.</code> / <code>..</code> の段・空の段・制御文字だけです（400）。それ以外はクライアントが名乗ったままです。
+jimble が断るのは、<code>.</code> / <code>..</code> の段・空の段・ドライブ指定（<code>C:evil.jsp</code>）・制御文字・文字の向きを変える文字だけです（400）。それ以外はクライアントが名乗ったままです。
 長すぎる名前、OS で使えない文字（Windows の <code>:</code> や <code>?</code> など）、同じ名前の上書きは防げません。</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">注意</p>

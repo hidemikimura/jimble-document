@@ -241,7 +241,7 @@
 <td><code>memory</code></td>
 <td>JVM のメモリ</td>
 <td>またがない</td>
-<td><code>cache.memory.expire</code>（秒）</td>
+<td><code>cache.memory.expire</code>（単位つき。<code>10m</code> など）</td>
 </tr>
 <tr>
 <td><code>redis</code></td>
@@ -422,7 +422,7 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 <tbody>
 <tr>
 <td>生 SQL の更新（<code>db.execute(&quot;UPDATE ...&quot;)</code>）</td>
-<td>どこに当たるか読めないので<strong>全部消します</strong></td>
+<td>どこに当たるか読めないので<strong>全部消します</strong>。jimble 自身の表（セッション・MQ・レート制限など）だけを更新する文は消しません（2.5.2 から）</td>
 </tr>
 <tr>
 <td><code>ON DUPLICATE KEY UPDATE</code> / <code>INSERT ... SELECT</code></td>
@@ -430,7 +430,7 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 </tr>
 <tr>
 <td>別のプロセスから DB を直接書き換えた</td>
-<td>追えません。<code>sql_cache.ttl</code>（既定 300 秒）が保険です</td>
+<td>追えません。<code>sql_cache.ttl</code>（既定 5 分）が保険です</td>
 </tr>
 <tr>
 <td><code>sql_cache.store = &quot;memory&quot;</code></td>
@@ -442,7 +442,7 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 <pre class="code"><code class="lang-conf">sql_cache {
 	enabled = <span class="h-k">true</span>       <span class="h-c"># 既定は false</span>
 	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
-	ttl     = <span class="h-n">300</span>        <span class="h-c"># 秒。0 で無期限</span>
+	ttl     = <span class="h-n">5m</span>         <span class="h-c"># 単位を書く（300s / 5m / 1h）。0s で無期限</span>
 	max     = <span class="h-n">10000</span>      <span class="h-c"># memory のときだけ。持つ件数の上限</span>
 }
 </code></pre>
@@ -590,7 +590,7 @@ db.transaction(tx -&gt; {
 <pre class="code"><code class="lang-conf">cache {
 	type          = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
 	temp_dir      = <span class="h-s">""</span>       <span class="h-c"># 大きい値を落とす場所。空なら一時ディレクトリ</span>
-	memory.expire = <span class="h-n">0</span>        <span class="h-c"># memory のときだけ。秒。0 で無期限</span>
+	memory.expire = <span class="h-n">0s</span>       <span class="h-c"># memory のときだけ。単位を書く（60s / 10m）。0s で無期限</span>
 }
 
 redis {

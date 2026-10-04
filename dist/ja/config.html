@@ -305,7 +305,7 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 	max_request_size     = <span class="h-n">10MiB</span>    <span class="h-c"># リクエスト本文の上限</span>
 	max_header_size      = <span class="h-n">16KiB</span>    <span class="h-c"># ヘッダ全体の上限</span>
 	idle_timeout         = <span class="h-n">60s</span>      <span class="h-c"># 何もしない接続を閉じるまで</span>
-	compression          = <span class="h-k">true</span>     <span class="h-c"># 応答を gzip で返すか</span>
+	compression          = <span class="h-k">true</span>     <span class="h-c"># 文字の応答（1KB 以上）を gzip で返すか</span>
 	trust_proxy          = <span class="h-k">false</span>    <span class="h-c"># ロードバランサの後ろに置くまで false（下を参照）</span>
 	access_log           = <span class="h-k">true</span>     <span class="h-c"># 切ると速くなるが、何が起きたか残らない</span>
 	bot_access_log       = <span class="h-k">true</span>     <span class="h-c"># ボットのアクセスログを分けるか</span>
@@ -335,7 +335,7 @@ cookie {
 	secret           = ${?COOKIE_SECRET}         <span class="h-c"># 署名鍵。空なら署名しない</span>
 	previous_secrets = [${?COOKIE_SECRET_OLD}]   <span class="h-c"># 鍵の入れ替え中だけ</span>
 	accept_unsigned  = <span class="h-k">false</span>                     <span class="h-c"># 署名を入れる移行期間だけ true にする</span>
-	accept_legacy_signature = <span class="h-k">true</span>               <span class="h-c"># 名前に結びついていない 2.2.2 までの署名も読む（移す間だけ）</span>
+	accept_legacy_signature = <span class="h-k">false</span>              <span class="h-c"># 名前に結びついていない 2.2.2 までの署名も読むか（2.2.2 以前から上げる間だけ true）</span>
 }
 
 csrf {
@@ -409,7 +409,7 @@ auth {
 
 	revocation {
 		enabled     = <span class="h-k">true</span>         <span class="h-c"># DB が無ければ比べない（Auth.revoke は例外）</span>
-		cache_ttl   = <span class="h-n">5s</span>           <span class="h-c"># 引いた世代を控える時間。複数台ではほかの台で効くまでの遅れ。0s で毎回引く</span>
+		cache_ttl   = <span class="h-n">5s</span>           <span class="h-c"># 締め出しがあったかを見に行く間隔。複数台ではほかの台で効くまでの遅れ。0s で毎回引く</span>
 	}
 
 	mfa {
@@ -465,7 +465,7 @@ hash {
 	password {
 		<span class="h-c"># cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）</span>
 		encrypt = <span class="h-k">false</span>
-		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># ハッシュに混ぜる秘密。入れ替えられない</span>
+		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># 1.x との互換のためだけ。守りにならない（下記）。入れ替えられない</span>
 		cost    = <span class="h-n">10</span>   <span class="h-c"># bcrypt のコスト（4〜31）。1 上げると倍の時間。72 バイトより後ろは bcrypt が読まない</span>
 	}
 }

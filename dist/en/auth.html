@@ -420,7 +420,7 @@ That is why it works <strong>even with cookie sessions</strong>, whose contents 
 </tr>
 <tr>
 <td>Delay</td>
-<td>Immediate on the server that called it. <strong>With several servers, up to 5 seconds on the others</strong> (<code>auth.revocation.cache_ttl</code>; <code>0s</code> reads the DB every time)</td>
+<td>Immediate on the server that called it. <strong>With several servers, up to 5 seconds on the others</strong> (<code>auth.revocation.cache_ttl</code>; <code>0s</code> reads the DB every time). At that interval only one row (&quot;was anyone locked out?&quot;) is read; with no lockouts, nothing is re-read per user (since 2.5.2; at most once a minute)</td>
 </tr>
 <tr>
 <td>Where it lives</td>
@@ -651,6 +651,7 @@ say — <strong>pass a realm.</strong> Without one, the memory is kept by user I
 remembered for an operator is restored on the member screen as &quot;the member with the same ID&quot;</strong>
 — someone gets in as a different person without typing a password.</p>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"operator"</span>);                <span class="h-c">// the login realm matches</span>
 	before(Remember.restore(<span class="h-s">"operator"</span>, Ops::findStaff));
 	before(Auth::guard);
 });
@@ -663,6 +664,8 @@ Auth.revoke(<span class="h-s">"operator"</span>, staffId);                 <span
 so being logged in to both on the same host does not overwrite either cookie</li>
 <li><strong>Restoring also checks the realm stored with the memory.</strong> A cookie sent under the wrong name
 still cannot get in as someone from another realm</li>
+<li><strong>A restored user is logged in under the memory's realm</strong> (since 2.5.2). Even when
+<code>restore(&quot;operator&quot;, ...)</code> runs on a route with no realm, nobody gets in as a no-realm member</li>
 <li><code>forgetAll</code> and theft detection only remove <strong>that realm's memories for that person</strong></li>
 <li><strong><code>Auth.logout</code> forgets &quot;no realm&quot; and every realm the application uses</strong> (the whole session is
 dropped, so every kind of login ends)</li>
@@ -1308,7 +1311,7 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 <tbody>
 <tr>
 <td>Storage</td>
-<td>The <code>auth_passkey</code> table. <strong>Needs a DB and sessions</strong></td>
+<td>The <code>auth_passkey</code> table. <strong>Needs a DB and sessions</strong>. Used challenges are kept in <code>auth_passkey_challenge</code> and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions)</td>
 </tr>
 <tr>
 <td>Realms</td>

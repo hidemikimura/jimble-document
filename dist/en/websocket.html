@@ -288,6 +288,13 @@ After the upgrade there are no HTTP headers any more.</p>
 }
 </code></pre>
 <p>Return <code>false</code> and it is turned away with a 403.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Connections from pages on other sites are refused before <code>onUpgrade</code>.</strong>
+CORS does not apply to WebSocket, and browsers send cookies on cross-site connections too.
+The server (helidon) compares <code>Origin</code> with <code>Host</code> and answers 403 when they differ, so cookie authentication cannot be hijacked by another site.
+Requests without <code>Origin</code> (non-browser clients) go through.
+Behind a proxy, <strong>make the proxy pass <code>Host</code> through unchanged</strong> (<code>proxy_set_header Host $host;</code>); if it rewrites it, connections from your own site are refused too.</p>
+</div>
 <h2 id="a-context-per-message">A Context per message<a class="anchor" href="#a-context-per-message">#</a></h2>
 <p><strong>One <code>Context</code> is created for each message.</strong>
 It is treated exactly like a request, or like a single batch execution.</p>
