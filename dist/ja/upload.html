@@ -231,6 +231,7 @@
 			received.add(<span class="h-s">"%s:%s:%d"</span>.formatted(
 				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
 			received.add(<span class="h-s">"content="</span> + read(uploadFile.file().toPath()));
+			received.add(<span class="h-s">"path="</span> + uploadFile.relativePath());
 			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
@@ -250,7 +251,11 @@
 </tr>
 <tr>
 <td><code>fileName</code></td>
-<td><strong>クライアントが名乗った</strong>ファイル名（無ければ <code>&quot;&quot;</code>）</td>
+<td><strong>クライアントが名乗った</strong>ファイル名。フォルダを含むときは最後の名前だけ（無ければ <code>&quot;&quot;</code>）</td>
+</tr>
+<tr>
+<td><code>relativePath</code></td>
+<td><strong>クライアントが名乗った</strong>ファイル名を、フォルダを含めたまま（<code>写真/2026/a.png</code>。区切りは <code>/</code>）。フォルダごとのアップロード（<code>&lt;input type=&quot;file&quot; webkitdirectory&gt;</code>）で使う（2.5.1 から）</td>
 </tr>
 <tr>
 <td><code>contentType</code></td>
@@ -266,6 +271,9 @@
 </tr>
 </tbody>
 </table>
+<p>ファイル名は<strong>ブラウザが送ったとおり</strong>に受け取ります。日本語も、<code>a+b.png</code> の <code>+</code> も、<code>100%.txt</code> の <code>%</code> もそのままです。
+ブラウザ以外のクライアントが送る <code>filename*=UTF-8''...</code>（RFC 5987）も読みます。
+ファイルを選ばずに送ったファイル入力（<code>filename=&quot;&quot;</code>）は捨てます（<code>bodyFile()</code> にも <code>bodyAll()</code> にも載りません）。</p>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p><strong>ファイルが1件でも <code>List</code> にくるまれます。</strong>
 <code>bodyFile()</code> の値を <code>UploadFile</code> に直接キャストすると落ちます。
@@ -399,9 +407,9 @@
 </tbody>
 </table>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong><code>uploadFile.fileName</code> をそのまま保存先に使わないでください。</strong>
-jimble はこの名前を<strong>一切検査しません</strong>（クライアントが名乗ったままです）。
-<code>../../etc/passwd</code> のような名前が来ると、置き場所の外に書けてしまいます。</p>
+<p><strong><code>uploadFile.fileName</code> / <code>relativePath</code> をそのまま保存先に使わないでください。</strong>
+jimble が断るのは、<code>.</code> / <code>..</code> の段・空の段・制御文字だけです（400）。それ以外はクライアントが名乗ったままです。
+長すぎる名前、OS で使えない文字（Windows の <code>:</code> や <code>?</code> など）、同じ名前の上書きは防げません。</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p>**<code>contentType</code> も検査していません。**クライアントの自己申告です。

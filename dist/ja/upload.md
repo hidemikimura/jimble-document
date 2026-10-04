@@ -22,6 +22,7 @@ for (Object value : context.request().bodyFile().values()) {
 			received.add("%s:%s:%d".formatted(
 				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
 			received.add("content=" + read(uploadFile.file().toPath()));
+			received.add("path=" + uploadFile.relativePath());
 			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
@@ -33,10 +34,15 @@ for (Object value : context.request().bodyFile().values()) {
 | フィールド | 中身 |
 | --- | --- |
 | `name` | フォームの `name` 属性 |
-| `fileName` | **クライアントが名乗った**ファイル名（無ければ `""`） |
+| `fileName` | **クライアントが名乗った**ファイル名。フォルダを含むときは最後の名前だけ（無ければ `""`） |
+| `relativePath` | **クライアントが名乗った**ファイル名を、フォルダを含めたまま（`写真/2026/a.png`。区切りは `/`）。フォルダごとのアップロード（`<input type="file" webkitdirectory>`）で使う（2.5.1 から） |
 | `contentType` | **クライアントが名乗った** Content-Type（無ければ `""`） |
 | `fileSize` | 実際に書き出したバイト数 |
 | `file` | 一時ファイル（`java.io.File`） |
+
+ファイル名は**ブラウザが送ったとおり**に受け取ります。日本語も、`a+b.png` の `+` も、`100%.txt` の `%` もそのままです。
+ブラウザ以外のクライアントが送る `filename*=UTF-8''...`（RFC 5987）も読みます。
+ファイルを選ばずに送ったファイル入力（`filename=""`）は捨てます（`bodyFile()` にも `bodyAll()` にも載りません）。
 
 > [!WARN]
 > **ファイルが1件でも `List` にくるまれます。**
@@ -138,9 +144,9 @@ private static String saveImage (WebContext context) throws Exception {
 | `Files.copy` | 元は消えるので、コピーでも移動でもよい |
 
 > [!TRAP]
-> **`uploadFile.fileName` をそのまま保存先に使わないでください。**
-> jimble はこの名前を**一切検査しません**（クライアントが名乗ったままです）。
-> `../../etc/passwd` のような名前が来ると、置き場所の外に書けてしまいます。
+> **`uploadFile.fileName` / `relativePath` をそのまま保存先に使わないでください。**
+> jimble が断るのは、`.` / `..` の段・空の段・制御文字だけです（400）。それ以外はクライアントが名乗ったままです。
+> 長すぎる名前、OS で使えない文字（Windows の `:` や `?` など）、同じ名前の上書きは防げません。
 
 > [!WARN]
 > **`contentType` も検査していません。**クライアントの自己申告です。

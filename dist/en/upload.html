@@ -231,6 +231,7 @@ The text fields sitting in the same body still come out of <code>bodyAll()</code
 			received.add(<span class="h-s">"%s:%s:%d"</span>.formatted(
 				uploadFile.name(), uploadFile.fileName(), uploadFile.fileSize()));
 			received.add(<span class="h-s">"content="</span> + read(uploadFile.file().toPath()));
+			received.add(<span class="h-s">"path="</span> + uploadFile.relativePath());
 			tempFiles.add(uploadFile.file().toPath());
 		}
 	}
@@ -250,7 +251,11 @@ The text fields sitting in the same body still come out of <code>bodyAll()</code
 </tr>
 <tr>
 <td><code>fileName</code></td>
-<td>The file name <strong>the client claimed</strong> (<code>&quot;&quot;</code> when absent)</td>
+<td>The file name <strong>the client claimed</strong>; only the last name when it includes folders (<code>&quot;&quot;</code> when absent)</td>
+</tr>
+<tr>
+<td><code>relativePath</code></td>
+<td>The file name <strong>the client claimed</strong>, folders kept (<code>photos/2026/a.png</code>, separated by <code>/</code>). For folder uploads (<code>&lt;input type=&quot;file&quot; webkitdirectory&gt;</code>) (since 2.5.1)</td>
 </tr>
 <tr>
 <td><code>contentType</code></td>
@@ -266,6 +271,9 @@ The text fields sitting in the same body still come out of <code>bodyAll()</code
 </tr>
 </tbody>
 </table>
+<p>File names arrive <strong>exactly as the browser sent them</strong>: Japanese, the <code>+</code> in <code>a+b.png</code> and the <code>%</code> in <code>100%.txt</code> are kept as is.
+<code>filename*=UTF-8''...</code> (RFC 5987), which non-browser clients send, is read too.
+A file input submitted with no file chosen (<code>filename=&quot;&quot;</code>) is dropped (it appears in neither <code>bodyFile()</code> nor <code>bodyAll()</code>).</p>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
 <p><strong>Even a single file is wrapped in a <code>List</code>.</strong>
 Cast the value from <code>bodyFile()</code> straight to <code>UploadFile</code> and it blows up.
@@ -399,9 +407,9 @@ If you want to allow large uploads, raise both.</p>
 </tbody>
 </table>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong>Do not use <code>uploadFile.fileName</code> as the destination.</strong>
-jimble <strong>does not inspect this name at all</strong> (it is exactly what the client claimed).
-A name like <code>../../etc/passwd</code> lets the write land outside your storage directory.</p>
+<p><strong>Do not use <code>uploadFile.fileName</code> / <code>relativePath</code> as the destination.</strong>
+jimble rejects only <code>.</code> / <code>..</code> segments, empty segments and control characters (400). Everything else is exactly what the client claimed.
+Overlong names, characters the OS cannot use (<code>:</code> or <code>?</code> on Windows) and overwriting a file with the same name are not prevented.</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
 <p><strong><code>contentType</code> is not inspected either.</strong> It is the client's own declaration.
