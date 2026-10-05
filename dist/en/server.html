@@ -222,7 +222,7 @@
 	max_request_size     = <span class="h-n">10MiB</span>      <span class="h-c"># Limit on the request body</span>
 	max_header_size      = <span class="h-n">16KiB</span>      <span class="h-c"># Limit on the headers as a whole</span>
 	idle_timeout = <span class="h-n">60s</span>
-	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># Whether to believe X-Forwarded-*</span>
+	trust_proxy          = <span class="h-k">false</span>      <span class="h-c"># Whether to believe X-Forwarded-For / X-Forwarded-Proto</span>
 	compression          = <span class="h-k">true</span>       <span class="h-c"># Whether to gzip text responses (1KB and up)</span>
 	access_log           = <span class="h-k">true</span>       <span class="h-c"># Whether to write the access log ([Logging](./log))</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># Whether to split out the bot access log</span>
@@ -350,10 +350,16 @@ Use <code>proxyAddress()</code> anywhere you decide something from the source ad
 <p><strong>Bot detection (<code>isBotAccess()</code>) looks at <code>address()</code>.</strong>
 Behind a proxy, the IP it judges on is the load balancer's.</p>
 </div>
-<div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong><code>scheme()</code> does not look at <code>X-Forwarded-Proto</code> either.</strong>
-Terminate TLS in front and the app sees <code>http</code>.
-Watch for that when you build a redirect target.</p>
+<p>With <code>true</code>, <code>scheme()</code> / <code>isSecure()</code> also read <strong><code>X-Forwarded-Proto</code></strong> (since 2.5.3).
+Even with TLS terminated in front, the app can tell the client came over https (this is also what makes the HSTS header go out).</p>
+<ul>
+<li>With <code>trusted_proxies</code> set, it is only read when the connection comes from one of them</li>
+<li>With several values, the <strong>rightmost</strong> one is used (added by the nearest hop); the left ones can be made up by the client</li>
+<li>Values other than <code>http</code> / <code>https</code> are ignored and the connection's scheme is used</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Make the proxy in front set <code>X-Forwarded-Proto</code>.</strong> For nginx: <code>proxy_set_header X-Forwarded-Proto $scheme;</code>.
+ALB, Cloud Run and the like set it for you.</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
 <p><strong>Do not set <code>true</code> while the server can still be reached directly.</strong>

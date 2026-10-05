@@ -455,8 +455,17 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 <p>設定ファイルを置かないと logback の既定になり、
 <strong>アクセスログもアプリのログも同じところに混ざります。</strong></p>
 </div>
-<p>環境で分けたいときは、<code>logback.xml</code> の代わりに
-<code>-Dlogback.configurationFile=conf/logback.prod.xml</code> を渡してください。</p>
+<p>環境や動かし方（バッチなど）で分けたいときは、<code>conf/logback.batch.xml</code> のように別のファイルを置き、
+起動するときに<strong>クラスパスの中の名前</strong>で指してください。</p>
+<pre class="code"><code class="lang-bash">java -Djimble.conf=application.batch -Dlogback.configurationFile=logback.batch.xml -jar app.jar
+</code></pre>
+<p><code>conf/</code> は jar に入るので、名前だけで jar の中から読めます。
+<code>conf/logback.batch.xml</code> のように<strong>パスで書くと、作業ディレクトリから探す</strong>ので、jar を別の場所から起動すると見つかりません。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>logback は、指したファイルが見つからなくても止まりません。</strong>
+警告を出して既定（全部まとめてコンソール）で動き続けるので、名前を間違えるとログが混ざります。
+起動直後のログの出方で確かめてください（<code>-Djimble.conf</code> は見つからなければ起動時に落ちます）。</p>
+</div>
 <h2 id="テストで拾う">テストで拾う<a class="anchor" href="#テストで拾う">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-a">@BeforeEach</span>
 <span class="h-k">void</span> captureLog () {

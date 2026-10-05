@@ -460,8 +460,18 @@ the bot lines go to <strong>both</strong> (you double-count while thinking you a
 <p>Leave the configuration file out and you get logback's defaults, where
 <strong>the access log and the app's own logs land in the same place, mixed together.</strong></p>
 </div>
-<p>To split by environment, pass <code>-Dlogback.configurationFile=conf/logback.prod.xml</code>
-instead of using <code>logback.xml</code>.</p>
+<p>To split by environment or by how you run it (as a batch, say), put another file such as <code>conf/logback.batch.xml</code>
+and point at it <strong>by its name on the classpath</strong> when starting.</p>
+<pre class="code"><code class="lang-bash">java -Djimble.conf=application.batch -Dlogback.configurationFile=logback.batch.xml -jar app.jar
+</code></pre>
+<p><code>conf/</code> goes into the jar, so the bare name is found inside the jar.
+<strong>Written as a path</strong> like <code>conf/logback.batch.xml</code>, it is looked up from the working directory,
+and starting the jar from somewhere else will not find it.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>logback does not stop when the file you point at is missing.</strong>
+It warns and carries on with its defaults (everything to the console), so a wrong name mixes your logs together.
+Check how the logs come out right after startup (<code>-Djimble.conf</code>, by contrast, fails at startup when its file is missing).</p>
+</div>
 <h2 id="catching-it-in-tests">Catching it in tests<a class="anchor" href="#catching-it-in-tests">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-a">@BeforeEach</span>
 <span class="h-k">void</span> captureLog () {

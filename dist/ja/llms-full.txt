@@ -6823,7 +6823,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.3-SNAPSHOT
+jimble 2.5.4-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6846,7 +6846,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.5.3-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.5.4-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6975,9 +6975,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.2"
-	id("io.jimble.run") version "2.5.2"
-	id("io.jimble.db")  version "2.5.2"
+	id("io.jimble.jte") version "2.5.3"
+	id("io.jimble.run") version "2.5.3"
+	id("io.jimble.db")  version "2.5.3"
 }
 ```
 
@@ -7019,9 +7019,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.2"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.5.2"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.5.2"   // DB を使うなら
+	id("io.jimble.jte") version "2.5.3"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.5.3"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.5.3"   // DB を使うなら
 }
 
 repositories {
@@ -7036,7 +7036,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.2")
+	implementation("io.jimble:jimble-web:2.5.3")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7070,7 +7070,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.2' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.3' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7811,6 +7811,21 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
  / application.prod.conf の先頭に include "application.conf" を書いてください
 ```
 
+### 環境は変えずに、読むファイルだけ替える
+
+`-Djimble.conf=application.batch` を渡すと、**環境（`env`）に関係なく** `application.batch.conf` だけを読みます（2.5.3 から）。
+環境はそのままなので、`env = local` なら `isLocal()` も true のままです。
+同じアプリをバッチとして動かすときなど、環境は変えずに設定だけ替えたいときに使います。
+
+```bash
+java -Djimble.conf=application.batch -jar app.jar
+```
+
+- 拡張子は書いても書かなくてもかまいません
+- 置き場所は環境別ファイルと同じ `conf/`（クラスパスの中）です。jar の外は指せません
+- **見つからなければ起動時に落ちます**（黙って `application.conf` を読みません）
+- 共通を読み込むのは、ここでもファイルの `include "application.conf"` です
+
 ## 秘密はファイルに書かない
 
 ```conf
@@ -8418,10 +8433,16 @@ server {
 > **ボット判定（`isBotAccess()`）は `address()` を見ます。**
 > プロキシの後ろでは、判定に使う IP がロードバランサのものになります。
 
-> [!TRAP]
-> **`scheme()` も `X-Forwarded-Proto` を見ません。**
-> TLS を前段で終端していると、アプリからは `http` に見えます。
-> リダイレクト先を組み立てるときに気をつけてください。
+`true` にすると、`scheme()` / `isSecure()` も **`X-Forwarded-Proto`** を見ます（2.5.3 から）。
+TLS を前段で終端していても、クライアントが https で来たことが分かります（HSTS のヘッダもこれで出ます）。
+
+- `trusted_proxies` を書いていれば、接続元がそこに入っているときだけ見ます
+- 値が複数なら**右端**（いちばん近い中継が付けたもの）を使います。左はクライアントが名乗れます
+- `http` / `https` 以外の値は無視して、接続の Scheme を使います
+
+> [!NOTE]
+> **前段が `X-Forwarded-Proto` を付けるようにしてください。**nginx なら `proxy_set_header X-Forwarded-Proto $scheme;`。
+> ALB や Cloud Run などは付けてくれます。
 
 > [!WARN]
 > **直接叩ける状態で `true` にしないでください。**
@@ -8775,8 +8796,20 @@ jimble は logback とエンコーダを持っていますが、**設定ファ�
 > 設定ファイルを置かないと logback の既定になり、
 > **アクセスログもアプリのログも同じところに混ざります。**
 
-環境で分けたいときは、`logback.xml` の代わりに
-`-Dlogback.configurationFile=conf/logback.prod.xml` を渡してください。
+環境や動かし方（バッチなど）で分けたいときは、`conf/logback.batch.xml` のように別のファイルを置き、
+起動するときに**クラスパスの中の名前**で指してください。
+
+```bash
+java -Djimble.conf=application.batch -Dlogback.configurationFile=logback.batch.xml -jar app.jar
+```
+
+`conf/` は jar に入るので、名前だけで jar の中から読めます。
+`conf/logback.batch.xml` のように**パスで書くと、作業ディレクトリから探す**ので、jar を別の場所から起動すると見つかりません。
+
+> [!TRAP]
+> **logback は、指したファイルが見つからなくても止まりません。**
+> 警告を出して既定（全部まとめてコンソール）で動き続けるので、名前を間違えるとログが混ざります。
+> 起動直後のログの出方で確かめてください（`-Djimble.conf` は見つからなければ起動時に落ちます）。
 
 ## テストで拾う
 

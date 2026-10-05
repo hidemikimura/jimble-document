@@ -267,6 +267,18 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 <pre class="code"><code class="lang-text">設定: application.conf にしかないキーが読まれていません: cipher, session, server
  / application.prod.conf の先頭に include "application.conf" を書いてください
 </code></pre>
+<h3 id="環境は変えずに読むファイルだけ替える">環境は変えずに、読むファイルだけ替える<a class="anchor" href="#環境は変えずに読むファイルだけ替える">#</a></h3>
+<p><code>-Djimble.conf=application.batch</code> を渡すと、<strong>環境（<code>env</code>）に関係なく</strong> <code>application.batch.conf</code> だけを読みます（2.5.3 から）。
+環境はそのままなので、<code>env = local</code> なら <code>isLocal()</code> も true のままです。
+同じアプリをバッチとして動かすときなど、環境は変えずに設定だけ替えたいときに使います。</p>
+<pre class="code"><code class="lang-bash">java -Djimble.conf=application.batch -jar app.jar
+</code></pre>
+<ul>
+<li>拡張子は書いても書かなくてもかまいません</li>
+<li>置き場所は環境別ファイルと同じ <code>conf/</code>（クラスパスの中）です。jar の外は指せません</li>
+<li><strong>見つからなければ起動時に落ちます</strong>（黙って <code>application.conf</code> を読みません）</li>
+<li>共通を読み込むのは、ここでもファイルの <code>include &quot;application.conf&quot;</code> です</li>
+</ul>
 <h2 id="秘密はファイルに書かない">秘密はファイルに書かない<a class="anchor" href="#秘密はファイルに書かない">#</a></h2>
 <pre class="code"><code class="lang-conf">db {
 	main_db {
@@ -730,6 +742,7 @@ jimble {
 			<li class="level-2"><a href="#置き場所">置き場所</a></li>
 			<li class="level-2"><a href="#環境で切り替える">環境で切り替える</a></li>
 			<li class="level-3"><a href="#include-を書き忘れたら">include を書き忘れたら</a></li>
+			<li class="level-3"><a href="#環境は変えずに読むファイルだけ替える">環境は変えずに、読むファイルだけ替える</a></li>
 			<li class="level-2"><a href="#秘密はファイルに書かない">秘密はファイルに書かない</a></li>
 			<li class="level-2"><a href="#コメントは--か-">コメントは # か //</a></li>
 			<li class="level-2"><a href="#設定キー">設定キー</a></li>

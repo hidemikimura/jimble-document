@@ -348,10 +348,16 @@ nginx・ALB・jimble の ReverseProxy は、クライアントが送ってきた
 <p><strong>ボット判定（<code>isBotAccess()</code>）は <code>address()</code> を見ます。</strong>
 プロキシの後ろでは、判定に使う IP がロードバランサのものになります。</p>
 </div>
-<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p><strong><code>scheme()</code> も <code>X-Forwarded-Proto</code> を見ません。</strong>
-TLS を前段で終端していると、アプリからは <code>http</code> に見えます。
-リダイレクト先を組み立てるときに気をつけてください。</p>
+<p><code>true</code> にすると、<code>scheme()</code> / <code>isSecure()</code> も <strong><code>X-Forwarded-Proto</code></strong> を見ます（2.5.3 から）。
+TLS を前段で終端していても、クライアントが https で来たことが分かります（HSTS のヘッダもこれで出ます）。</p>
+<ul>
+<li><code>trusted_proxies</code> を書いていれば、接続元がそこに入っているときだけ見ます</li>
+<li>値が複数なら<strong>右端</strong>（いちばん近い中継が付けたもの）を使います。左はクライアントが名乗れます</li>
+<li><code>http</code> / <code>https</code> 以外の値は無視して、接続の Scheme を使います</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**前段が <code>X-Forwarded-Proto</code> を付けるようにしてください。**nginx なら <code>proxy_set_header X-Forwarded-Proto $scheme;</code>。
+ALB や Cloud Run などは付けてくれます。</p>
 </div>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p><strong>直接叩ける状態で <code>true</code> にしないでください。</strong>

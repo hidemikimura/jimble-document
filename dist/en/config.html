@@ -274,6 +274,18 @@ missing.</p>
 <p>In English: keys that exist only in application.conf are not being read — cipher,
 session, server. Put <code>include &quot;application.conf&quot;</code> at the top of application.prod.conf.</p>
 </blockquote>
+<h3 id="switching-only-the-file-not-the-environment">Switching only the file, not the environment<a class="anchor" href="#switching-only-the-file-not-the-environment">#</a></h3>
+<p>Pass <code>-Djimble.conf=application.batch</code> and only <code>application.batch.conf</code> is read, <strong>whatever the environment (<code>env</code>) is</strong> (since 2.5.3).
+The environment stays as it is, so with <code>env = local</code>, <code>isLocal()</code> is still true.
+Use it when you want different settings without changing the environment, such as running the same app as a batch.</p>
+<pre class="code"><code class="lang-bash">java -Djimble.conf=application.batch -jar app.jar
+</code></pre>
+<ul>
+<li>The extension is optional</li>
+<li>It lives in the same <code>conf/</code> as the environment files (on the classpath); nothing outside the jar can be named</li>
+<li><strong>If it is not found, startup fails</strong> (it does not quietly read <code>application.conf</code> instead)</li>
+<li>Pulling in the common settings is still the file's own <code>include &quot;application.conf&quot;</code></li>
+</ul>
 <h2 id="do-not-write-secrets-in-the-file">Do not write secrets in the file<a class="anchor" href="#do-not-write-secrets-in-the-file">#</a></h2>
 <pre class="code"><code class="lang-conf">db {
 	main_db {
@@ -740,6 +752,7 @@ Put <code>cookie { secure = false }</code> in your local <code>application.conf<
 			<li class="level-2"><a href="#where-it-lives">Where it lives</a></li>
 			<li class="level-2"><a href="#switching-by-environment">Switching by environment</a></li>
 			<li class="level-3"><a href="#if-you-forget-the-include">If you forget the include</a></li>
+			<li class="level-3"><a href="#switching-only-the-file-not-the-environment">Switching only the file, not the environment</a></li>
 			<li class="level-2"><a href="#do-not-write-secrets-in-the-file">Do not write secrets in the file</a></li>
 			<li class="level-2"><a href="#comments-are--or-">Comments are # or //</a></li>
 			<li class="level-2"><a href="#every-key">Every key</a></li>
