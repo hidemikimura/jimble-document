@@ -5095,7 +5095,7 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 
 | | どうなるか |
 | --- | --- |
-| 生 SQL の更新（`db.execute("UPDATE ...")`） | どこに当たるか読めないので**全部消します**。jimble 自身の表（セッション・MQ・レート制限など）だけを更新する文は消しません（2.5.2 から） |
+| 生 SQL の更新（`db.execute("UPDATE ...")`） | どこに当たるか読めないので**全部消します**。jimble 自身の表（セッション・MQ・レート制限など）だけを更新する文は消しません（2.5.2 から）。置き場が Redis でも、消すのはキャッシュに入れたものだけで、Redis のほかのキーは見ません（2.5.5 から） |
 | `ON DUPLICATE KEY UPDATE` / `INSERT ... SELECT` | 既存の行が変わりうるので、そのテーブルに触るものを全部消します |
 | 別のプロセスから DB を直接書き換えた | 追えません。`sql_cache.ttl`（既定 5 分）が保険です |
 | `sql_cache.store = "memory"` | **その台の中だけ**です。複数台なら `redis` か `db` にしてください |
@@ -6823,7 +6823,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.5-SNAPSHOT
+jimble 2.5.6-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6846,7 +6846,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.5.5-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.5.6-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6975,9 +6975,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.4"
-	id("io.jimble.run") version "2.5.4"
-	id("io.jimble.db")  version "2.5.4"
+	id("io.jimble.jte") version "2.5.5"
+	id("io.jimble.run") version "2.5.5"
+	id("io.jimble.db")  version "2.5.5"
 }
 ```
 
@@ -7019,9 +7019,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.4"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.5.4"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.5.4"   // DB を使うなら
+	id("io.jimble.jte") version "2.5.5"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.5.5"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.5.5"   // DB を使うなら
 }
 
 repositories {
@@ -7036,7 +7036,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.4")
+	implementation("io.jimble:jimble-web:2.5.5")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7070,7 +7070,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.4' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.5' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -8169,14 +8169,16 @@ codegen {
 }
 
 mq {
-	poll_min          = 10ms   # 取り出し役の待ち（全員が処理中のとき）
-	poll_max          = 1s     # 取り出し役の待ち（キューが空のとき。だんだん伸びる）
+	poll_min          = 10ms   # キューが空のときの取り出し役の待ちの最初（ワーカーの手が空いたら、待たずに取りにいく）
+	poll_max          = 1s     # キューが空のときの取り出し役の待ちの上限（だんだん伸びる）
 	retry_backoff     = 10s    # リトライの間隔（回を追うごとに倍）
 	retry_backoff_max = 10m
 	stale             = 10m    # これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）
 
 	# 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。
-	# DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない
+	# DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない。
+	# 取り出し役は手の空いたワーカーの数だけまとめて取るので、増やせば秒あたりの件数も伸びる。
+	# プール（db.*.maximum_pool_size）は、ワーカーの数＋取り出し役の1本より多くしておく
 	thread_count {
 		short_time = 2
 		long_time  = 8

@@ -422,7 +422,7 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 <tbody>
 <tr>
 <td>生 SQL の更新（<code>db.execute(&quot;UPDATE ...&quot;)</code>）</td>
-<td>どこに当たるか読めないので<strong>全部消します</strong>。jimble 自身の表（セッション・MQ・レート制限など）だけを更新する文は消しません（2.5.2 から）</td>
+<td>どこに当たるか読めないので<strong>全部消します</strong>。jimble 自身の表（セッション・MQ・レート制限など）だけを更新する文は消しません（2.5.2 から）。置き場が Redis でも、消すのはキャッシュに入れたものだけで、Redis のほかのキーは見ません（2.5.5 から）</td>
 </tr>
 <tr>
 <td><code>ON DUPLICATE KEY UPDATE</code> / <code>INSERT ... SELECT</code></td>

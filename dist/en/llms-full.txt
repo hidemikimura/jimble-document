@@ -5156,7 +5156,7 @@ evicted.
 
 | | What happens |
 | --- | --- |
-| Raw SQL updates (`db.execute("UPDATE ...")`) | Where they land cannot be read, so **everything is evicted**. Statements that only update jimble's own tables (sessions, MQ, rate limits and so on) evict nothing (since 2.5.2) |
+| Raw SQL updates (`db.execute("UPDATE ...")`) | Where they land cannot be read, so **everything is evicted**. Statements that only update jimble's own tables (sessions, MQ, rate limits and so on) evict nothing (since 2.5.2). With the Redis store, eviction removes only what the cache put there and never scans Redis's other keys (since 2.5.5) |
 | `ON DUPLICATE KEY UPDATE` / `INSERT ... SELECT` | Existing rows may change, so everything touching that table is evicted |
 | The DB written directly by another process | Cannot be followed. `sql_cache.ttl` (5 minutes by default) is your safety net |
 | `sql_cache.store = "memory"` | **That machine only.** With more than one machine, use `redis` or `db` |
@@ -6945,7 +6945,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.5-SNAPSHOT
+jimble 2.5.6-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6969,7 +6969,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.5.5-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.5.6-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7102,9 +7102,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.4"
-	id("io.jimble.run") version "2.5.4"
-	id("io.jimble.db")  version "2.5.4"
+	id("io.jimble.jte") version "2.5.5"
+	id("io.jimble.run") version "2.5.5"
+	id("io.jimble.db")  version "2.5.5"
 }
 ```
 
@@ -7147,9 +7147,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.4"   // if you use src/main/jte
-	id("io.jimble.run") version "2.5.4"   // if you want hot reload
-	id("io.jimble.db")  version "2.5.4"   // if you use a database
+	id("io.jimble.jte") version "2.5.5"   // if you use src/main/jte
+	id("io.jimble.run") version "2.5.5"   // if you want hot reload
+	id("io.jimble.db")  version "2.5.5"   // if you use a database
 }
 
 repositories {
@@ -7164,7 +7164,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.4")
+	implementation("io.jimble:jimble-web:2.5.5")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7198,7 +7198,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.4' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.5' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -8323,14 +8323,16 @@ codegen {
 }
 
 mq {
-	poll_min          = 10ms   # the poller's wait while every worker is busy
-	poll_max          = 1s     # the poller's wait while the queue is empty (grows)
+	poll_min          = 10ms   # the poller's first wait while the queue is empty (a worker that frees up wakes it at once)
+	poll_max          = 1s     # the poller's longest wait while the queue is empty (grows)
 	retry_backoff     = 10s    # interval between retries (doubles each time)
 	retry_backoff_max = 10m
 	stale             = 10m    # this long as running counts as dead (sent back to waiting, counted as one retry)
 
 	# Workers per execution type (how many run in parallel). Left out, each type's own default is used.
-	# One poller per queue reads the DB, so more workers do not add connections while idle
+	# One poller per queue reads the DB, so more workers do not add connections while idle.
+	# The poller claims as many rows as there are idle workers, so more workers also means more messages per second.
+	# Keep the pool (db.*.maximum_pool_size) larger than the workers plus one for the poller
 	thread_count {
 		short_time = 2
 		long_time  = 8

@@ -619,14 +619,16 @@ codegen {
 }
 
 mq {
-	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># the poller's wait while every worker is busy</span>
-	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># the poller's wait while the queue is empty (grows)</span>
+	poll_min          = <span class="h-n">10ms</span>   <span class="h-c"># the poller's first wait while the queue is empty (a worker that frees up wakes it at once)</span>
+	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># the poller's longest wait while the queue is empty (grows)</span>
 	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># interval between retries (doubles each time)</span>
 	retry_backoff_max = <span class="h-n">10m</span>
 	stale             = <span class="h-n">10m</span>    <span class="h-c"># this long as running counts as dead (sent back to waiting, counted as one retry)</span>
 
 	<span class="h-c"># Workers per execution type (how many run in parallel). Left out, each type's own default is used.</span>
-	<span class="h-c"># One poller per queue reads the DB, so more workers do not add connections while idle</span>
+	<span class="h-c"># One poller per queue reads the DB, so more workers do not add connections while idle.</span>
+	<span class="h-c"># The poller claims as many rows as there are idle workers, so more workers also means more messages per second.</span>
+	<span class="h-c"># Keep the pool (db.*.maximum_pool_size) larger than the workers plus one for the poller</span>
 	thread_count {
 		short_time = <span class="h-n">2</span>
 		long_time  = <span class="h-n">8</span>
