@@ -406,7 +406,31 @@ You do not need to check the result of each statement.
 <h2 id="double-starts">Double starts<a class="anchor" href="#double-starts">#</a></h2>
 <p>How many copies of the same batch may run at once is set by <code>allowConcurrentExecutionCount()</code>.
 The default is one. If the previous execution has not finished, the next one is skipped.</p>
-<p>Even across several servers, a table in the DB does the locking, so only one runs.</p>
+<p>Even across several servers, <strong>one cron firing runs at most as many times as the concurrency limit</strong> (since 2.5.8).</p>
+<table>
+<thead>
+<tr>
+<th>Concurrency limit</th>
+<th>Runs per cron firing (three servers)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 (default)</td>
+<td>1 (on one of the servers)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr>
+<td>0 (no limit)</td>
+<td>3 (one per server)</td>
+</tr>
+</tbody>
+</table>
+<p>Every server sees the same firing time, but only the servers that manage to advance the &quot;last fired&quot; time and the &quot;runs in that firing&quot; count in <code>batch_master</code> run it.
+Up to 2.5.7 only the number of running copies was checked, so <strong>a batch that finished quickly could run again on a server whose clock reached the same firing a little later</strong> (the check runs every second, plus any clock drift between servers).</p>
 <h2 id="running-one-on-its-own">Running one on its own<a class="anchor" href="#running-one-on-its-own">#</a></h2>
 <p><strong>You write the batch entry point yourself.</strong> The whole startup order is right there in that one file.</p>
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogBatch {

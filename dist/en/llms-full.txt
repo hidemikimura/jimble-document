@@ -5875,7 +5875,16 @@ better that than spinning forever in silence.
 How many copies of the same batch may run at once is set by `allowConcurrentExecutionCount()`.
 The default is one. If the previous execution has not finished, the next one is skipped.
 
-Even across several servers, a table in the DB does the locking, so only one runs.
+Even across several servers, **one cron firing runs at most as many times as the concurrency limit** (since 2.5.8).
+
+| Concurrency limit | Runs per cron firing (three servers) |
+|---|---|
+| 1 (default) | 1 (on one of the servers) |
+| 2 | 2 |
+| 0 (no limit) | 3 (one per server) |
+
+Every server sees the same firing time, but only the servers that manage to advance the "last fired" time and the "runs in that firing" count in `batch_master` run it.
+Up to 2.5.7 only the number of running copies was checked, so **a batch that finished quickly could run again on a server whose clock reached the same firing a little later** (the check runs every second, plus any clock drift between servers).
 
 ## Running one on its own
 
@@ -6043,8 +6052,9 @@ MqRegistry.add(NoticeExecutor::new);
 Pulling messages off and running them is a batch's job. Write one batch — something like
 `MqWorkerBatch` — register it the same way as any other [batch](./batch), and run it on cron.
 
-**Only one poller per queue reads the DB.** It takes a message with `SELECT ... FOR UPDATE SKIP LOCKED`
-only when a worker is free, and hands it straight to that worker (nothing is read ahead).
+**Only one poller per queue reads the DB.** When workers are free, it takes **as many messages as there are free workers** with `SELECT ... FOR UPDATE SKIP LOCKED`
+and hands them straight to those workers (nothing is read ahead; up to 2.5.4 it took one message at a time).
+However many servers run the queue, each message is taken by exactly one worker (it can still be processed twice in the cases described above).
 `mq.thread_count.<type>` is **how many messages are processed in parallel**; raising it does not add connections
 borrowed while the queue is idle (up to 2.1.2 every worker polled the DB itself, so a slow DB filled one
 connection per worker at once).
@@ -6945,7 +6955,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.8-SNAPSHOT
+jimble 2.5.9-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -6969,7 +6979,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.5.8-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.5.9-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7102,9 +7112,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.7"
-	id("io.jimble.run") version "2.5.7"
-	id("io.jimble.db")  version "2.5.7"
+	id("io.jimble.jte") version "2.5.8"
+	id("io.jimble.run") version "2.5.8"
+	id("io.jimble.db")  version "2.5.8"
 }
 ```
 
@@ -7147,9 +7157,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.7"   // if you use src/main/jte
-	id("io.jimble.run") version "2.5.7"   // if you want hot reload
-	id("io.jimble.db")  version "2.5.7"   // if you use a database
+	id("io.jimble.jte") version "2.5.8"   // if you use src/main/jte
+	id("io.jimble.run") version "2.5.8"   // if you want hot reload
+	id("io.jimble.db")  version "2.5.8"   // if you use a database
 }
 
 repositories {
@@ -7164,7 +7174,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.7")
+	implementation("io.jimble:jimble-web:2.5.8")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7198,7 +7208,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.7' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.8' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on

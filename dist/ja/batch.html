@@ -401,7 +401,31 @@ BatchRegistry.sync(DBUtil.getMainDB());
 <h2 id="二重起動">二重起動<a class="anchor" href="#二重起動">#</a></h2>
 <p>同じバッチが同時に走る本数は <code>allowConcurrentExecutionCount()</code> で決まります。
 既定は1本です。前の実行がまだ終わっていなければ、次はスキップされます。</p>
-<p>サーバーが複数台でも、DB のテーブルで排他するので1本しか走りません。</p>
+<p>サーバーが複数台でも、<strong>cron の1回で走るのは同時実行数まで</strong>です（2.5.8 から）。</p>
+<table>
+<thead>
+<tr>
+<th>同時実行数</th>
+<th>cron の1回で走る数（3台で動かしたとき）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1（既定）</td>
+<td>1（どれか1台）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr>
+<td>0（上限なし）</td>
+<td>3（台数分）</td>
+</tr>
+</tbody>
+</table>
+<p>どの台にも同じ回の時刻が来ますが、<code>batch_master</code> の「最後に走らせた回」と「その回で走らせた数」を進められた台だけが走らせます。
+2.5.7 までは「いま走っている数」だけで止めていたので、<strong>ほかの台より早く終わるバッチは、時刻が少し遅れて来た台でもう一度走ることがありました</strong>（確かめる間隔は1秒、それに台どうしの時計のずれが加わります）。</p>
 <h2 id="単体で走らせる">単体で走らせる<a class="anchor" href="#単体で走らせる">#</a></h2>
 <p>バッチの入口は<strong>自分で書きます</strong>。起動の順番がそのファイルに全部出ます。</p>
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> BlogBatch {
