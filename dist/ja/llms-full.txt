@@ -3242,6 +3242,31 @@ ApiToken.revoke("", me.id(), id);                   // すぐ使えなくなる�
 | スコープ | `ApiToken.scopes(context)` で読めます。**セッションで入った人には、スコープは関係ありません** |
 | CSRF | `Csrf.verify` は見ません（ブラウザは Authorization を勝手に付けないので、別のサイトからは送れません） |
 
+### 管理画面と顧客で分ける
+
+トークンは**ログインの種別（`Auth.REALM`）ごと**に持ちます。管理画面のトークンで顧客の API には入れず、逆もできません。
+**管理者と顧客で利用者の表が別なら、種別も受け取る `lookup` を渡します**（2.5.10 から）。
+ID だけを受け取る形では、ID 1 のトークンが来たときに、管理者と顧客のどちらの ID 1 かを引き分けられません。
+
+```java
+before(ApiToken.authenticate((realm, id) -> realm.equals("operator") ? App.findStaff(id) : App.findMember(id)));
+
+path("/admin", () -> {
+	attribute(Auth.REALM, "operator");
+	attribute(ApiToken.ACCEPT, true);
+	...
+});
+
+path("/shop", () -> {
+	attribute(Auth.REALM, "member");
+	attribute(ApiToken.ACCEPT, true);
+	...
+});
+```
+
+発行・一覧・削除にも種別を渡します（`ApiToken.issue("operator", staff.id(), ...)`・`ApiToken.list("member", customer.id())`）。
+パスキーも同じく種別ごとに持ちます（下の「パスキー」）。
+
 ### 断るとき
 
 | | 状態コード |
@@ -6833,7 +6858,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.10-SNAPSHOT
+jimble 2.5.11-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6856,7 +6881,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.5.10-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.5.11-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -6985,9 +7010,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.9"
-	id("io.jimble.run") version "2.5.9"
-	id("io.jimble.db")  version "2.5.9"
+	id("io.jimble.jte") version "2.5.10"
+	id("io.jimble.run") version "2.5.10"
+	id("io.jimble.db")  version "2.5.10"
 }
 ```
 
@@ -7029,9 +7054,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.9"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.5.9"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.5.9"   // DB を使うなら
+	id("io.jimble.jte") version "2.5.10"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.5.10"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.5.10"   // DB を使うなら
 }
 
 repositories {
@@ -7046,7 +7071,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.9")
+	implementation("io.jimble:jimble-web:2.5.10")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7080,7 +7105,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.9' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.10' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか

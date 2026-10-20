@@ -1118,6 +1118,26 @@ ApiToken.revoke(<span class="h-s">""</span>, me.id(), id);                   <sp
 </tr>
 </tbody>
 </table>
+<h3 id="separate-admin-and-customer-tokens">Separate admin and customer tokens<a class="anchor" href="#separate-admin-and-customer-tokens">#</a></h3>
+<p>Tokens are kept <strong>per login realm (<code>Auth.REALM</code>)</strong>. An admin token does not open the customer API, and the other way round.
+<strong>If admins and customers live in different user tables, pass a <code>lookup</code> that also takes the realm</strong> (since 2.5.10).
+With the ID-only form there is no way to tell whether a token for ID 1 belongs to admin 1 or customer 1.</p>
+<pre class="code"><code class="lang-java">before(ApiToken.authenticate((realm, id) -&gt; realm.equals(<span class="h-s">"operator"</span>) ? App.findStaff(id) : App.findMember(id)));
+
+path(<span class="h-s">"/admin"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"operator"</span>);
+	attribute(ApiToken.ACCEPT, <span class="h-k">true</span>);
+	...
+});
+
+path(<span class="h-s">"/shop"</span>, () -&gt; {
+	attribute(Auth.REALM, <span class="h-s">"member"</span>);
+	attribute(ApiToken.ACCEPT, <span class="h-k">true</span>);
+	...
+});
+</code></pre>
+<p>Pass the realm when issuing, listing and revoking too (<code>ApiToken.issue(&quot;operator&quot;, staff.id(), ...)</code>, <code>ApiToken.list(&quot;member&quot;, customer.id())</code>).
+Passkeys are kept per realm in the same way (see &quot;Passkeys&quot; below).</p>
 <h3 id="when-it-refuses">When it refuses<a class="anchor" href="#when-it-refuses">#</a></h3>
 <table>
 <thead>
@@ -1415,6 +1435,7 @@ keeps getting in with it even after the password is changed.</p>
 			<li class="level-2"><a href="#api-tokens-authorization-bearer">API tokens (Authorization: Bearer)</a></li>
 			<li class="level-3"><a href="#issuing-listing-revoking">Issuing, listing, revoking</a></li>
 			<li class="level-3"><a href="#a-user-who-came-in-with-a-token">A user who came in with a token</a></li>
+			<li class="level-3"><a href="#separate-admin-and-customer-tokens">Separate admin and customer tokens</a></li>
 			<li class="level-3"><a href="#when-it-refuses">When it refuses</a></li>
 			<li class="level-2"><a href="#passkeys-passwordless-login">Passkeys (passwordless login)</a></li>
 			<li class="level-3"><a href="#settings">Settings</a></li>
