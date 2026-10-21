@@ -1138,6 +1138,42 @@ path(<span class="h-s">"/shop"</span>, () -&gt; {
 </code></pre>
 <p>Pass the realm when issuing, listing and revoking too (<code>ApiToken.issue(&quot;operator&quot;, staff.id(), ...)</code>, <code>ApiToken.list(&quot;member&quot;, customer.id())</code>).
 Passkeys are kept per realm in the same way (see &quot;Passkeys&quot; below).</p>
+<h3 id="separate-tenants-saas">Separate tenants (SaaS)<a class="anchor" href="#separate-tenants-saas">#</a></h3>
+<p>In a SaaS where each client has its own domain, <strong>check the token's user against the request's tenant (Host) inside <code>lookup</code></strong> (since 2.5.11).
+Pass a <code>lookup</code> that takes the request, the realm and the ID, and return <code>null</code> when the tenants differ.</p>
+<pre class="code"><code class="lang-java">before(ApiToken.authenticate((c, realm, id) -&gt; {
+	<span class="h-c">// Look the client up in your table (as in "When each client has its own domain (SaaS)" below)</span>
+	Tenant tenant = Tenants.byHost(c.request().host()).orElse(<span class="h-k">null</span>);
+	Principal member = App.findMember(id);
+	<span class="h-c">// A user of another tenant gets null (the same 401 as a disabled user; the response does not reveal the tenant mismatch)</span>
+	<span class="h-k">return</span> tenant != <span class="h-k">null</span> &amp;&amp; member != <span class="h-k">null</span> &amp;&amp; App.tenantOf(id) == tenant.id() ? member : <span class="h-k">null</span>;
+}));
+</code></pre>
+<p>Without this check, a token for a user of tenant A sent to tenant B's host <strong>gets through</strong>, because <code>lookup</code> returns tenant A's user.</p>
+<table>
+<thead>
+<tr>
+<th>Inside <code>lookup</code></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>You may use</td>
+<td><code>c.request()</code> (<code>host()</code>, headers, path), <code>c.route()</code> (route attributes)</td>
+</tr>
+<tr>
+<td>You may not use</td>
+<td><code>c.session()</code> (throws, so 500; keeps the session cookie off token requests), <code>c.response()</code> (return <code>null</code> to refuse), <code>Auth.principal(c)</code> (nobody is logged in yet)</td>
+</tr>
+</tbody>
+</table>
+<p>If <code>lookup</code> throws, the response is 500 (no details). Return <code>null</code> to refuse instead of throwing.</p>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Users who sign in with a session need a separate check.</strong> A session cookie can be sent to another tenant's host too.
+Put a before after <code>Auth::guard</code> that compares the logged-in user's tenant with the Host's tenant.
+Passkeys call <code>Passkey.login(c, rp(c), credential, id -&gt; ...)</code> inside the login handler, so that <code>lookup</code> can use <code>c</code> for the check.</p>
+</div>
 <h3 id="when-it-refuses">When it refuses<a class="anchor" href="#when-it-refuses">#</a></h3>
 <table>
 <thead>
@@ -1436,6 +1472,7 @@ keeps getting in with it even after the password is changed.</p>
 			<li class="level-3"><a href="#issuing-listing-revoking">Issuing, listing, revoking</a></li>
 			<li class="level-3"><a href="#a-user-who-came-in-with-a-token">A user who came in with a token</a></li>
 			<li class="level-3"><a href="#separate-admin-and-customer-tokens">Separate admin and customer tokens</a></li>
+			<li class="level-3"><a href="#separate-tenants-saas">Separate tenants (SaaS)</a></li>
 			<li class="level-3"><a href="#when-it-refuses">When it refuses</a></li>
 			<li class="level-2"><a href="#passkeys-passwordless-login">Passkeys (passwordless login)</a></li>
 			<li class="level-3"><a href="#settings">Settings</a></li>

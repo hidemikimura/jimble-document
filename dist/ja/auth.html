@@ -1135,6 +1135,42 @@ path(<span class="h-s">"/shop"</span>, () -&gt; {
 </code></pre>
 <p>発行・一覧・削除にも種別を渡します（<code>ApiToken.issue(&quot;operator&quot;, staff.id(), ...)</code>・<code>ApiToken.list(&quot;member&quot;, customer.id())</code>）。
 パスキーも同じく種別ごとに持ちます（下の「パスキー」）。</p>
+<h3 id="テナントで分けるsaas">テナントで分ける（SaaS）<a class="anchor" href="#テナントで分けるsaas">#</a></h3>
+<p>クライアントごとにドメインが違う SaaS では、<strong>トークンの利用者のテナントと、リクエストのテナント（Host）を <code>lookup</code> の中で照合します</strong>（2.5.11 から）。
+リクエスト・種別・ID を受け取る <code>lookup</code> を渡し、テナントが違えば <code>null</code> を返します。</p>
+<pre class="code"><code class="lang-java">before(ApiToken.authenticate((c, realm, id) -&gt; {
+	<span class="h-c">// クライアントの表から引く（下の「クライアントごとにドメインが違うとき（SaaS）」と同じ）</span>
+	Tenant tenant = Tenants.byHost(c.request().host()).orElse(<span class="h-k">null</span>);
+	Principal member = App.findMember(id);
+	<span class="h-c">// ほかのテナントの利用者なら null（止めた人と同じ 401。テナントが違うことは応答で分からない）</span>
+	<span class="h-k">return</span> tenant != <span class="h-k">null</span> &amp;&amp; member != <span class="h-k">null</span> &amp;&amp; App.tenantOf(id) == tenant.id() ? member : <span class="h-k">null</span>;
+}));
+</code></pre>
+<p>照合しないと、テナント A の利用者のトークンをテナント B のホストに送ったときに、<code>lookup</code> がテナント A の利用者を返して<strong>通ってしまいます</strong>。</p>
+<table>
+<thead>
+<tr>
+<th><code>lookup</code> の中で</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>使ってよい</td>
+<td><code>c.request()</code>（<code>host()</code>・ヘッダー・パス）、<code>c.route()</code>（ルートの属性）</td>
+</tr>
+<tr>
+<td>使えない</td>
+<td><code>c.session()</code>（例外になり 500。トークンのリクエストにセッションの Cookie を出さないため）、<code>c.response()</code>（断るときは <code>null</code> を返す）、<code>Auth.principal(c)</code>（まだログインしていない）</td>
+</tr>
+</tbody>
+</table>
+<p><code>lookup</code> が例外を投げると 500 です（中身は返しません）。断るときは例外ではなく <code>null</code> を返します。</p>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>**セッションで入る人の照合は、これとは別に要ります。**セッションの Cookie も、ほかのテナントのホストへ送れるからです。
+<code>Auth::guard</code> のあとに、ログイン中の利用者のテナントと Host のテナントを比べる before を置いてください。
+パスキーは、ログインのハンドラの中で <code>Passkey.login(c, rp(c), credential, id -&gt; ...)</code> を呼ぶので、その <code>lookup</code> で <code>c</code> を使って照合できます。</p>
+</div>
 <h3 id="断るとき">断るとき<a class="anchor" href="#断るとき">#</a></h3>
 <table>
 <thead>
@@ -1433,6 +1469,7 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 			<li class="level-3"><a href="#発行一覧削除">発行・一覧・削除</a></li>
 			<li class="level-3"><a href="#トークンで入った人">トークンで入った人</a></li>
 			<li class="level-3"><a href="#管理画面と顧客で分ける">管理画面と顧客で分ける</a></li>
+			<li class="level-3"><a href="#テナントで分けるsaas">テナントで分ける（SaaS）</a></li>
 			<li class="level-3"><a href="#断るとき">断るとき</a></li>
 			<li class="level-2"><a href="#パスキーパスワードなしのログイン">パスキー（パスワードなしのログイン）</a></li>
 			<li class="level-3"><a href="#設定">設定</a></li>
