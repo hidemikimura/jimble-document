@@ -223,9 +223,6 @@
 	<span class="h-k">public</span> String batchName () { <span class="h-k">return</span> <span class="h-s">"記事の掃除"</span>; }
 
 	<span class="h-a">@Override</span>
-	<span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
-
-	<span class="h-a">@Override</span>
 	<span class="h-k">public</span> String cron () {
 
 		<span class="h-c">// 毎日 3:15</span>
@@ -247,8 +244,8 @@
 }</code></pre>
 <ul>
 <li><code>batchName()</code> is the name that shows up on the admin screen</li>
-<li>Only the ones whose <code>isScheduler()</code> returns <code>true</code> are picked up by the scheduler</li>
-<li><code>cron()</code> is a five-field cron expression</li>
+<li><code>cron()</code> is a five-field cron expression. Write one and the scheduler picks the batch up (<code>isEnableScheduler()</code> is <code>true</code> by default)</li>
+<li><strong>Do not make <code>isScheduler()</code> return <code>true</code>.</strong> It asks whether the batch <em>is the scheduler itself</em>; return <code>true</code> and the batch never gets a master row, so cron never runs it</li>
 <li><code>settings()</code> is the configuration held in the DB (<code>defaultBatchSettings()</code> supplies the initial values)</li>
 </ul>
 <h2 id="registering-it">Registering it<a class="anchor" href="#registering-it">#</a></h2>
@@ -300,7 +297,6 @@ It repeats <strong>read → process → write in bulk</strong>, committing every
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> RequestArchiveBatch <span class="h-k">extends</span> AbstractChunkBatch&lt;Data&gt; {
 
 	<span class="h-a">@Override</span> <span class="h-k">public</span> String batchName ()   { <span class="h-k">return</span> <span class="h-s">"Archive old requests"</span>; }
-	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
 	<span class="h-a">@Override</span> <span class="h-k">public</span> String cron ()        { <span class="h-k">return</span> <span class="h-s">"0 4 * * *"</span>; }
 	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">int</span> chunkSize ()      { <span class="h-k">return</span> <span class="h-n">500</span>; }
 
@@ -446,15 +442,17 @@ Up to 2.5.7 only the number of running copies was checked, so <strong>a batch th
 		BatchResult result = BatchExecutor.start(args);       <span class="h-c">// 4. run</span>
 
 		DBUtil.stop();
-		System.exit(result.isExecuted() ? <span class="h-n">0</span> : <span class="h-n">1</span>);
+		System.exit(result == BatchResult.completed ? <span class="h-n">0</span> : <span class="h-n">1</span>);
 
 	}
 
 }
 </code></pre>
-<pre class="code"><code class="lang-bash">java -cp app.jar blog.BlogBatch env=local class=blog.batch.PostCleanupBatch days=30
+<pre class="code"><code class="lang-bash">java -Djimble.env=prod -cp app.jar blog.BlogBatch class=blog.batch.PostCleanupBatch days=30
 </code></pre>
-<p>Anything you pass as <code>key=value</code> lands in <code>args.cliArgs</code>.</p>
+<p>Anything you pass as <code>key=value</code> lands in <code>args.cliArgs</code>.
+The environment comes from <code>-Djimble.env</code> (passing <code>env=</code> does not change it, and a value that differs from the running environment stops the batch).
+Exit with 0 only on <code>completed</code>. <code>isExecuted()</code> means &quot;it ran&quot;, and is <code>true</code> for <code>error</code> and <code>canceled</code> too.</p>
 <p>To run on cron, stand up a separate resident process with <code>DbScheduler</code> as its entry point.</p>
 <h2 id="the-admin-screen">The admin screen<a class="anchor" href="#the-admin-screen">#</a></h2>
 <p>Add <code>jimble-batch-manager</code> and you get a web view that lists your batches and lets you run them, cancel them, and read their history.</p>
@@ -462,8 +460,14 @@ Up to 2.5.7 only the number of running copies was checked, so <strong>a batch th
 </code></pre>
 <pre class="code"><code class="lang-java">install(BatchManagerController::<span class="h-k">new</span>);
 </code></pre>
-<p><strong>You have to add authentication yourself.</strong> Put it in a <code>before</code>; that is all it takes.
-With nothing there, anyone can start your batches.</p>
+<p>Basic authentication is built in. Turn the screen on in the config and give it a user name and password.</p>
+<pre class="code"><code class="lang-hocon">batch_manager {
+  enabled  = <span class="h-k">true</span>                                   <span class="h-c"># false by default</span>
+  username = <span class="h-s">"admin"</span>
+  password = ${?JIMBLE_BATCH_MANAGER_PASSWORD}
+}
+</code></pre>
+<p><strong>If the user name or password is empty, the screen is not mounted at all</strong> (only an error is logged). It is never published without authentication.</p>
 
 		</article>
 

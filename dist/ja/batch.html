@@ -223,9 +223,6 @@
 	<span class="h-k">public</span> String batchName () { <span class="h-k">return</span> <span class="h-s">"記事の掃除"</span>; }
 
 	<span class="h-a">@Override</span>
-	<span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
-
-	<span class="h-a">@Override</span>
 	<span class="h-k">public</span> String cron () {
 
 		<span class="h-c">// 毎日 3:15</span>
@@ -247,8 +244,8 @@
 }</code></pre>
 <ul>
 <li><code>batchName()</code> は管理画面に出る名前です</li>
-<li><code>isScheduler()</code> が <code>true</code> のものだけ、スケジューラが拾います</li>
-<li><code>cron()</code> は5フィールドの cron 式です</li>
+<li><code>cron()</code> は5フィールドの cron 式です。書けばスケジューラが拾います（<code>isEnableScheduler()</code> が既定で <code>true</code>）</li>
+<li><strong><code>isScheduler()</code> は <code>true</code> にしません。</strong>「スケジューラそのものか」を聞くメソッドで、<code>true</code> にするとマスタに載らず、cron で回りません</li>
 <li><code>settings()</code> は DB に入れた設定（<code>defaultBatchSettings()</code> が初期値）です</li>
 </ul>
 <h2 id="登録する">登録する<a class="anchor" href="#登録する">#</a></h2>
@@ -298,7 +295,6 @@ BatchRegistry.sync(DBUtil.getMainDB());
 <pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> RequestArchiveBatch <span class="h-k">extends</span> AbstractChunkBatch&lt;Data&gt; {
 
 	<span class="h-a">@Override</span> <span class="h-k">public</span> String batchName ()   { <span class="h-k">return</span> <span class="h-s">"古い申請の書庫入れ"</span>; }
-	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">boolean</span> isScheduler () { <span class="h-k">return</span> <span class="h-k">true</span>; }
 	<span class="h-a">@Override</span> <span class="h-k">public</span> String cron ()        { <span class="h-k">return</span> <span class="h-s">"0 4 * * *"</span>; }
 	<span class="h-a">@Override</span> <span class="h-k">public</span> <span class="h-k">int</span> chunkSize ()      { <span class="h-k">return</span> <span class="h-n">500</span>; }
 
@@ -441,15 +437,17 @@ BatchRegistry.sync(DBUtil.getMainDB());
 		BatchResult result = BatchExecutor.start(args);       <span class="h-c">// 4. 実行</span>
 
 		DBUtil.stop();
-		System.exit(result.isExecuted() ? <span class="h-n">0</span> : <span class="h-n">1</span>);
+		System.exit(result == BatchResult.completed ? <span class="h-n">0</span> : <span class="h-n">1</span>);
 
 	}
 
 }
 </code></pre>
-<pre class="code"><code class="lang-bash">java -cp app.jar blog.BlogBatch env=local class=blog.batch.PostCleanupBatch days=30
+<pre class="code"><code class="lang-bash">java -Djimble.env=prod -cp app.jar blog.BlogBatch class=blog.batch.PostCleanupBatch days=30
 </code></pre>
-<p><code>key=value</code> の形で渡したものが <code>args.cliArgs</code> に入ります。</p>
+<p><code>key=value</code> の形で渡したものが <code>args.cliArgs</code> に入ります。
+環境は <code>-Djimble.env</code> で決めます（<code>env=</code> を渡しても環境は変わらず、いまの環境と違えば止まります）。
+終了コードは <code>completed</code> のときだけ 0 にします。<code>isExecuted()</code> は「走ったか」で、失敗（<code>error</code>）や中断（<code>canceled</code>）でも <code>true</code> です。</p>
 <p>cron で回すなら <code>DbScheduler</code> を入口にした常駐プロセスを別に立てます。</p>
 <h2 id="管理画面">管理画面<a class="anchor" href="#管理画面">#</a></h2>
 <p><code>jimble-batch-manager</code> を入れると、Web からバッチの一覧・実行・中断・履歴が見られます。</p>
@@ -457,8 +455,14 @@ BatchRegistry.sync(DBUtil.getMainDB());
 </code></pre>
 <pre class="code"><code class="lang-java">install(BatchManagerController::<span class="h-k">new</span>);
 </code></pre>
-<p><strong>認証は自分で付けてください。</strong> <code>before</code> に置くだけです。
-何も付けないと誰でもバッチを起動できます。</p>
+<p>Basic 認証が組み込みで付きます。設定で有効にし、ユーザー名とパスワードを渡します。</p>
+<pre class="code"><code class="lang-hocon">batch_manager {
+  enabled  = <span class="h-k">true</span>                                   <span class="h-c"># 既定は false</span>
+  username = <span class="h-s">"admin"</span>
+  password = ${?JIMBLE_BATCH_MANAGER_PASSWORD}
+}
+</code></pre>
+<p><strong>ユーザー名かパスワードが空だと、画面は組み込まれません</strong>（エラーのログが出るだけです）。認証の無いまま公開されることはありません。</p>
 
 		</article>
 

@@ -329,6 +329,7 @@ when you compare against a default.</p>
 	trust_proxy          = <span class="h-k">false</span>    <span class="h-c"># false until it sits behind a load balancer (see below)</span>
 	access_log           = <span class="h-k">true</span>     <span class="h-c"># turning it off is faster, and leaves no trace</span>
 	bot_access_log       = <span class="h-k">true</span>     <span class="h-c"># keep bot access logs separate</span>
+	access_log_mask      = []       <span class="h-c"># extra query names whose values the access log hides (token etc. are hidden anyway)</span>
 	strict_routes        = <span class="h-k">false</span>    <span class="h-c"># make unreachable routes an error (true in CI)</span>
 	shutdown_grace       = <span class="h-n">0s</span>       <span class="h-c"># from "start stopping" to refusing new requests</span>
 	shutdown_timeout     = <span class="h-n">15s</span>      <span class="h-c"># how long in-flight requests are waited for</span>

@@ -3188,7 +3188,7 @@ Mfa.remainingRecoveryCodes("operator", staff.id());
 | 置き場 | `auth_mfa` と `auth_mfa_recovery`。**DB が要ります**（無ければ `enroll` は例外） |
 | QR 画像 | 作りません。`enrollment.uri()` を渡すので、画面側で描いてください（依存を増やさないため） |
 | SMS / メール | ありません。SMS は SIM の乗っ取りで抜かれます |
-| WebAuthn / パスキー | まだありません |
+| WebAuthn / パスキー | 2つ目の要素としては使いません。**パスキーだけでログインする形があります**（2.4.0。下の「パスキー」）。パスキーで入った人にはコードを聞きません |
 | 「信頼した端末」 | ありません。remember-me が近いことをしますが、**別のものです**（あちらはパスワードの代わり） |
 
 
@@ -5637,9 +5637,6 @@ public class PostCleanupBatch extends AbstractBatch {
 	public String batchName () { return "記事の掃除"; }
 
 	@Override
-	public boolean isScheduler () { return true; }
-
-	@Override
 	public String cron () {
 
 		// 毎日 3:15
@@ -5662,8 +5659,8 @@ public class PostCleanupBatch extends AbstractBatch {
 ```
 
 - `batchName()` は管理画面に出る名前です
-- `isScheduler()` が `true` のものだけ、スケジューラが拾います
-- `cron()` は5フィールドの cron 式です
+- `cron()` は5フィールドの cron 式です。書けばスケジューラが拾います（`isEnableScheduler()` が既定で `true`）
+- **`isScheduler()` は `true` にしません。**「スケジューラそのものか」を聞くメソッドで、`true` にするとマスタに載らず、cron で回りません
 - `settings()` は DB に入れた設定（`defaultBatchSettings()` が初期値）です
 
 ## 登録する
@@ -5729,7 +5726,6 @@ for (Data row : rows) {
 public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
 
 	@Override public String batchName ()   { return "古い申請の書庫入れ"; }
-	@Override public boolean isScheduler () { return true; }
 	@Override public String cron ()        { return "0 4 * * *"; }
 	@Override public int chunkSize ()      { return 500; }
 
@@ -5846,7 +5842,7 @@ public class BlogBatch {
 		BatchResult result = BatchExecutor.start(args);       // 4. 実行
 
 		DBUtil.stop();
-		System.exit(result.isExecuted() ? 0 : 1);
+		System.exit(result == BatchResult.completed ? 0 : 1);
 
 	}
 
@@ -5854,10 +5850,12 @@ public class BlogBatch {
 ```
 
 ```bash
-java -cp app.jar blog.BlogBatch env=local class=blog.batch.PostCleanupBatch days=30
+java -Djimble.env=prod -cp app.jar blog.BlogBatch class=blog.batch.PostCleanupBatch days=30
 ```
 
 `key=value` の形で渡したものが `args.cliArgs` に入ります。
+環境は `-Djimble.env` で決めます（`env=` を渡しても環境は変わらず、いまの環境と違えば止まります）。
+終了コードは `completed` のときだけ 0 にします。`isExecuted()` は「走ったか」で、失敗（`error`）や中断（`canceled`）でも `true` です。
 
 cron で回すなら `DbScheduler` を入口にした常駐プロセスを別に立てます。
 
@@ -5873,8 +5871,17 @@ implementation("io.jimble:jimble-batch-manager:<版>")
 install(BatchManagerController::new);
 ```
 
-**認証は自分で付けてください。** `before` に置くだけです。
-何も付けないと誰でもバッチを起動できます。
+Basic 認証が組み込みで付きます。設定で有効にし、ユーザー名とパスワードを渡します。
+
+```hocon
+batch_manager {
+  enabled  = true                                   # 既定は false
+  username = "admin"
+  password = ${?JIMBLE_BATCH_MANAGER_PASSWORD}
+}
+```
+
+**ユーザー名かパスワードが空だと、画面は組み込まれません**（エラーのログが出るだけです）。認証の無いまま公開されることはありません。
 
 
 
@@ -6887,7 +6894,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.12-SNAPSHOT
+jimble 2.5.13-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6910,7 +6917,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.5.12-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.5.13-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -7039,9 +7046,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.11"
-	id("io.jimble.run") version "2.5.11"
-	id("io.jimble.db")  version "2.5.11"
+	id("io.jimble.jte") version "2.5.12"
+	id("io.jimble.run") version "2.5.12"
+	id("io.jimble.db")  version "2.5.12"
 }
 ```
 
@@ -7083,9 +7090,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.11"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.5.11"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.5.11"   // DB を使うなら
+	id("io.jimble.jte") version "2.5.12"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.5.12"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.5.12"   // DB を使うなら
 }
 
 repositories {
@@ -7100,7 +7107,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.11")
+	implementation("io.jimble:jimble-web:2.5.12")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7134,7 +7141,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.11' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.12' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7943,6 +7950,7 @@ server {
 	trust_proxy          = false    # ロードバランサの後ろに置くまで false（下を参照）
 	access_log           = true     # 切ると速くなるが、何が起きたか残らない
 	bot_access_log       = true     # ボットのアクセスログを分けるか
+	access_log_mask      = []       # アクセスログのクエリで値を伏せる名前（token などは書かなくても伏せる）
 	strict_routes        = false    # 一生呼ばれないルートを例外にする（CI では true に）
 	shutdown_grace       = 0s       # 止め始めてから新規を断つまで
 	shutdown_timeout     = 15s      # 処理中を待つ上限
@@ -8370,6 +8378,7 @@ server {
 	compression          = true       # 文字の応答（1KB 以上）を gzip で返すか
 	access_log           = true       # アクセスログを出すか（[ログ](./log)）
 	bot_access_log       = true       # ボットのアクセスログを分けるか
+	access_log_mask      = []         # アクセスログのクエリで値を伏せる名前（[ログ](./log)）
 	strict_routes        = false      # 一生呼ばれないルートを例外にするか（CI では true に）
 
 	shutdown_grace   = 0s      # 止め始めてから新規を断つまで（秒）
@@ -8724,6 +8733,32 @@ N+1 は「ログを見れば分かる」ようにしてあります（要件 NF-
 > [!TRAP]
 > **クライアントの IP と User-Agent は入っていません。**`local_info` はサーバー自身のものです。
 > 要るなら `Log.addFieldProvider(...)` で足してください。
+
+### クエリの秘密は伏せる
+
+**`query` の `token` などは、キーを残して値だけ `***` にして出します**（2.5.12 から）。
+`/reset?token=abc&page=2` なら `token=***&page=2` です。ログは集約基盤や外部のサービスへ流れ、見られる人もアプリの DB より多いためです。
+
+伏せるのは次の名前です（大文字小文字は区別しません。名前は `%74oken` のようなエンコードを戻してから比べます）。
+
+| 見方 | 名前 |
+| --- | --- |
+| 含まれていれば | `password` `passwd` `secret` `token` `api_key` `api-key` `apikey` `card_number` `cardnumber` |
+| 一致すれば（`a[key]` のような入れ子は段ごと） | `key` `sig` `signature` `authorization` `cookie` `cvc` `cvv` `pin` `otp` `code_verifier` |
+
+同じ一覧で、HTTP クライアントのログのヘッダとクエリ、検査に落ちたとき（422）に返す入力値も伏せています。
+
+アプリ固有の名前は `server.access_log_mask` に足します（名前が一致したときだけ伏せます）。
+
+```conf
+server {
+	access_log_mask = ["invite", "magic"]
+}
+```
+
+> [!TRAP]
+> **パスに入れたトークン（`/reset/{token}`）は伏せられません。**`path` とメッセージにそのまま出ます。
+> どこが秘密かはルートしか知らないためです。秘密はパスに入れず、クエリか本文で受けてください。
 
 ### ボットを分ける
 
@@ -9124,6 +9159,7 @@ assertEquals("GET /posts/{id}", tracer.spans().get(0).name());
 | --- | --- | --- |
 | `server.access_log` | `true` | アクセスログを出す。`false` で1行も出さない |
 | `server.bot_access_log` | `true` | ボットのアクセスログを `access.bot` に分ける |
+| `server.access_log_mask` | `[]` | アクセスログのクエリで値を伏せる名前を足す（`token` などは書かなくても伏せる） |
 | `log.db` | `false` | `DBLog.save(...)` を有効にする |
 | `metrics.enabled` | `true` | メトリクスを数える。`false` で `snapshot()` が空になる |
 

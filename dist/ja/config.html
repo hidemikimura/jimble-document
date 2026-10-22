@@ -321,6 +321,7 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 	trust_proxy          = <span class="h-k">false</span>    <span class="h-c"># ロードバランサの後ろに置くまで false（下を参照）</span>
 	access_log           = <span class="h-k">true</span>     <span class="h-c"># 切ると速くなるが、何が起きたか残らない</span>
 	bot_access_log       = <span class="h-k">true</span>     <span class="h-c"># ボットのアクセスログを分けるか</span>
+	access_log_mask      = []       <span class="h-c"># アクセスログのクエリで値を伏せる名前（token などは書かなくても伏せる）</span>
 	strict_routes        = <span class="h-k">false</span>    <span class="h-c"># 一生呼ばれないルートを例外にする（CI では true に）</span>
 	shutdown_grace       = <span class="h-n">0s</span>       <span class="h-c"># 止め始めてから新規を断つまで</span>
 	shutdown_timeout     = <span class="h-n">15s</span>      <span class="h-c"># 処理中を待つ上限</span>

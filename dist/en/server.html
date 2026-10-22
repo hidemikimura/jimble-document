@@ -226,6 +226,7 @@
 	compression          = <span class="h-k">true</span>       <span class="h-c"># Whether to gzip text responses (1KB and up)</span>
 	access_log           = <span class="h-k">true</span>       <span class="h-c"># Whether to write the access log ([Logging](./log))</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># Whether to split out the bot access log</span>
+	access_log_mask      = []         <span class="h-c"># Extra query names whose values the access log hides ([Logging](./log))</span>
 	strict_routes        = <span class="h-k">false</span>      <span class="h-c"># Throw on routes nothing can reach (turn this on in CI)</span>
 
 	shutdown_grace   = <span class="h-n">0s</span>      <span class="h-c"># From "start stopping" to refusing new requests (seconds)</span>

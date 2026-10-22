@@ -226,6 +226,7 @@
 	compression          = <span class="h-k">true</span>       <span class="h-c"># 文字の応答（1KB 以上）を gzip で返すか</span>
 	access_log           = <span class="h-k">true</span>       <span class="h-c"># アクセスログを出すか（[ログ](./log)）</span>
 	bot_access_log       = <span class="h-k">true</span>       <span class="h-c"># ボットのアクセスログを分けるか</span>
+	access_log_mask      = []         <span class="h-c"># アクセスログのクエリで値を伏せる名前（[ログ](./log)）</span>
 	strict_routes        = <span class="h-k">false</span>      <span class="h-c"># 一生呼ばれないルートを例外にするか（CI では true に）</span>
 
 	shutdown_grace   = <span class="h-n">0s</span>      <span class="h-c"># 止め始めてから新規を断つまで（秒）</span>

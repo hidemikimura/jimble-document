@@ -339,6 +339,38 @@ N+1 is built to be something &quot;you can see in the log&quot; (requirement NF-
 <p><strong>The client's IP and User-Agent are not in there.</strong> <code>local_info</code> is the server's own.
 If you need them, add them with <code>Log.addFieldProvider(...)</code>.</p>
 </div>
+<h3 id="secrets-in-the-query-are-hidden">Secrets in the query are hidden<a class="anchor" href="#secrets-in-the-query-are-hidden">#</a></h3>
+<p><strong>For <code>token</code> and the like in <code>query</code>, the key stays and the value becomes <code>***</code></strong> (since 2.5.12).
+<code>/reset?token=abc&amp;page=2</code> is written as <code>token=***&amp;page=2</code>. Logs travel to aggregators and outside services, and more people can read them than can read your database.</p>
+<p>These names are hidden (case does not matter, and the name is decoded first, so <code>%74oken</code> does not slip through):</p>
+<table>
+<thead>
+<tr>
+<th>Match</th>
+<th>Names</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Contains</td>
+<td><code>password</code> <code>passwd</code> <code>secret</code> <code>token</code> <code>api_key</code> <code>api-key</code> <code>apikey</code> <code>card_number</code> <code>cardnumber</code></td>
+</tr>
+<tr>
+<td>Equals (each level of a nested name like <code>a[key]</code>)</td>
+<td><code>key</code> <code>sig</code> <code>signature</code> <code>authorization</code> <code>cookie</code> <code>cvc</code> <code>cvv</code> <code>pin</code> <code>otp</code> <code>code_verifier</code></td>
+</tr>
+</tbody>
+</table>
+<p>The same list hides headers and query values in the HTTP client's log, and the input values sent back when validation fails (422).</p>
+<p>Add names of your own with <code>server.access_log_mask</code> (hidden only when the name matches):</p>
+<pre class="code"><code class="lang-conf">server {
+	access_log_mask = [<span class="h-s">"invite"</span>, <span class="h-s">"magic"</span>]
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>A token in the path (<code>/reset/{token}</code>) cannot be hidden.</strong> It appears as-is in <code>path</code> and in the message,
+because only the route knows which part is secret. Keep secrets out of the path; take them in the query or the body.</p>
+</div>
 <h3 id="splitting-out-the-bots">Splitting out the bots<a class="anchor" href="#splitting-out-the-bots">#</a></h3>
 <p>With <code>server.bot_access_log</code> (default <code>true</code>) on, bot lines go to <strong><code>access.bot</code></strong>.
 The judgement is a match against a User-Agent list (<code>crawler-user-agents</code>).</p>
@@ -727,6 +759,11 @@ assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<spa
 <td>Splits the bot access log out into <code>access.bot</code></td>
 </tr>
 <tr>
+<td><code>server.access_log_mask</code></td>
+<td><code>[]</code></td>
+<td>Adds query names whose values the access log hides (<code>token</code> and the like are hidden anyway)</td>
+</tr>
+<tr>
 <td><code>log.db</code></td>
 <td><code>false</code></td>
 <td>Enables <code>DBLog.save(...)</code></td>
@@ -762,6 +799,7 @@ assertEquals(<span class="h-s">"GET /posts/{id}"</span>, tracer.spans().get(<spa
 			<li class="level-2"><a href="#logger-names">Logger names</a></li>
 			<li class="level-2"><a href="#what-is-in-every-log-line-always">What is in every log line, always</a></li>
 			<li class="level-2"><a href="#the-access-log">The access log</a></li>
+			<li class="level-3"><a href="#secrets-in-the-query-are-hidden">Secrets in the query are hidden</a></li>
 			<li class="level-3"><a href="#splitting-out-the-bots">Splitting out the bots</a></li>
 			<li class="level-3"><a href="#turning-it-off">Turning it off</a></li>
 			<li class="level-2"><a href="#the-execution-id">The execution ID</a></li>

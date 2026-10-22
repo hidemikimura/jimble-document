@@ -3108,7 +3108,7 @@ Mfa.remainingRecoveryCodes("operator", staff.id());
 | Storage | `auth_mfa` and `auth_mfa_recovery`. **A DB is required** (without one, `enroll` throws) |
 | QR images | Not drawn. You get `enrollment.uri()` and render it yourself (no new dependency) |
 | SMS / email | No. SIM swaps take SMS codes |
-| WebAuthn / passkeys | Not yet |
+| WebAuthn / passkeys | Not as a second factor. **A passkey can be the whole login instead** (since 2.4.0; see "Passkeys" below), and no code is asked of someone who signs in with one |
 | "Trusted devices" | No. remember-me is the nearby thing, and **it is a different thing** — that one replaces the password |
 
 
@@ -5744,9 +5744,6 @@ public class PostCleanupBatch extends AbstractBatch {
 	public String batchName () { return "記事の掃除"; }
 
 	@Override
-	public boolean isScheduler () { return true; }
-
-	@Override
 	public String cron () {
 
 		// 毎日 3:15
@@ -5769,8 +5766,8 @@ public class PostCleanupBatch extends AbstractBatch {
 ```
 
 - `batchName()` is the name that shows up on the admin screen
-- Only the ones whose `isScheduler()` returns `true` are picked up by the scheduler
-- `cron()` is a five-field cron expression
+- `cron()` is a five-field cron expression. Write one and the scheduler picks the batch up (`isEnableScheduler()` is `true` by default)
+- **Do not make `isScheduler()` return `true`.** It asks whether the batch *is the scheduler itself*; return `true` and the batch never gets a master row, so cron never runs it
 - `settings()` is the configuration held in the DB (`defaultBatchSettings()` supplies the initial values)
 
 ## Registering it
@@ -5838,7 +5835,6 @@ It repeats **read → process → write in bulk**, committing every `chunkSize()
 public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
 
 	@Override public String batchName ()   { return "Archive old requests"; }
-	@Override public boolean isScheduler () { return true; }
 	@Override public String cron ()        { return "0 4 * * *"; }
 	@Override public int chunkSize ()      { return 500; }
 
@@ -5958,7 +5954,7 @@ public class BlogBatch {
 		BatchResult result = BatchExecutor.start(args);       // 4. run
 
 		DBUtil.stop();
-		System.exit(result.isExecuted() ? 0 : 1);
+		System.exit(result == BatchResult.completed ? 0 : 1);
 
 	}
 
@@ -5966,10 +5962,12 @@ public class BlogBatch {
 ```
 
 ```bash
-java -cp app.jar blog.BlogBatch env=local class=blog.batch.PostCleanupBatch days=30
+java -Djimble.env=prod -cp app.jar blog.BlogBatch class=blog.batch.PostCleanupBatch days=30
 ```
 
 Anything you pass as `key=value` lands in `args.cliArgs`.
+The environment comes from `-Djimble.env` (passing `env=` does not change it, and a value that differs from the running environment stops the batch).
+Exit with 0 only on `completed`. `isExecuted()` means "it ran", and is `true` for `error` and `canceled` too.
 
 To run on cron, stand up a separate resident process with `DbScheduler` as its entry point.
 
@@ -5985,8 +5983,17 @@ implementation("io.jimble:jimble-batch-manager:<version>")
 install(BatchManagerController::new);
 ```
 
-**You have to add authentication yourself.** Put it in a `before`; that is all it takes.
-With nothing there, anyone can start your batches.
+Basic authentication is built in. Turn the screen on in the config and give it a user name and password.
+
+```hocon
+batch_manager {
+  enabled  = true                                   # false by default
+  username = "admin"
+  password = ${?JIMBLE_BATCH_MANAGER_PASSWORD}
+}
+```
+
+**If the user name or password is empty, the screen is not mounted at all** (only an error is logged). It is never published without authentication.
 
 
 
@@ -7009,7 +7016,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.12-SNAPSHOT
+jimble 2.5.13-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7033,7 +7040,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.5.12-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.5.13-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7166,9 +7173,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.11"
-	id("io.jimble.run") version "2.5.11"
-	id("io.jimble.db")  version "2.5.11"
+	id("io.jimble.jte") version "2.5.12"
+	id("io.jimble.run") version "2.5.12"
+	id("io.jimble.db")  version "2.5.12"
 }
 ```
 
@@ -7211,9 +7218,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.11"   // if you use src/main/jte
-	id("io.jimble.run") version "2.5.11"   // if you want hot reload
-	id("io.jimble.db")  version "2.5.11"   // if you use a database
+	id("io.jimble.jte") version "2.5.12"   // if you use src/main/jte
+	id("io.jimble.run") version "2.5.12"   // if you want hot reload
+	id("io.jimble.db")  version "2.5.12"   // if you use a database
 }
 
 repositories {
@@ -7228,7 +7235,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.11")
+	implementation("io.jimble:jimble-web:2.5.12")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7262,7 +7269,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.11' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.5.12' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -8097,6 +8104,7 @@ server {
 	trust_proxy          = false    # false until it sits behind a load balancer (see below)
 	access_log           = true     # turning it off is faster, and leaves no trace
 	bot_access_log       = true     # keep bot access logs separate
+	access_log_mask      = []       # extra query names whose values the access log hides (token etc. are hidden anyway)
 	strict_routes        = false    # make unreachable routes an error (true in CI)
 	shutdown_grace       = 0s       # from "start stopping" to refusing new requests
 	shutdown_timeout     = 15s      # how long in-flight requests are waited for
@@ -8526,6 +8534,7 @@ server {
 	compression          = true       # Whether to gzip text responses (1KB and up)
 	access_log           = true       # Whether to write the access log ([Logging](./log))
 	bot_access_log       = true       # Whether to split out the bot access log
+	access_log_mask      = []         # Extra query names whose values the access log hides ([Logging](./log))
 	strict_routes        = false      # Throw on routes nothing can reach (turn this on in CI)
 
 	shutdown_grace   = 0s      # From "start stopping" to refusing new requests (seconds)
@@ -8884,6 +8893,32 @@ N+1 is built to be something "you can see in the log" (requirement NF-O-02).
 > [!TRAP]
 > **The client's IP and User-Agent are not in there.** `local_info` is the server's own.
 > If you need them, add them with `Log.addFieldProvider(...)`.
+
+### Secrets in the query are hidden
+
+**For `token` and the like in `query`, the key stays and the value becomes `***`** (since 2.5.12).
+`/reset?token=abc&page=2` is written as `token=***&page=2`. Logs travel to aggregators and outside services, and more people can read them than can read your database.
+
+These names are hidden (case does not matter, and the name is decoded first, so `%74oken` does not slip through):
+
+| Match | Names |
+| --- | --- |
+| Contains | `password` `passwd` `secret` `token` `api_key` `api-key` `apikey` `card_number` `cardnumber` |
+| Equals (each level of a nested name like `a[key]`) | `key` `sig` `signature` `authorization` `cookie` `cvc` `cvv` `pin` `otp` `code_verifier` |
+
+The same list hides headers and query values in the HTTP client's log, and the input values sent back when validation fails (422).
+
+Add names of your own with `server.access_log_mask` (hidden only when the name matches):
+
+```conf
+server {
+	access_log_mask = ["invite", "magic"]
+}
+```
+
+> [!TRAP]
+> **A token in the path (`/reset/{token}`) cannot be hidden.** It appears as-is in `path` and in the message,
+> because only the route knows which part is secret. Keep secrets out of the path; take them in the query or the body.
 
 ### Splitting out the bots
 
@@ -9286,6 +9321,7 @@ assertEquals("GET /posts/{id}", tracer.spans().get(0).name());
 | --- | --- | --- |
 | `server.access_log` | `true` | Writes the access log. `false` writes nothing at all |
 | `server.bot_access_log` | `true` | Splits the bot access log out into `access.bot` |
+| `server.access_log_mask` | `[]` | Adds query names whose values the access log hides (`token` and the like are hidden anyway) |
 | `log.db` | `false` | Enables `DBLog.save(...)` |
 | `metrics.enabled` | `true` | Record metrics. `false` leaves `snapshot()` empty |
 
