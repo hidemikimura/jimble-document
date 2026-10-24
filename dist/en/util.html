@@ -389,14 +389,187 @@ Since 2.6.0 they throw.</p>
 because some APIs return booleans as strings. <code>getString</code> on the <code>Data</code> gives back <code>&quot;true&quot;</code>.</p>
 <p>The instance method <code>new Dson().decode(...)</code> does not throw; check <code>isError()</code> / <code>getErrorException()</code> as before.</p>
 </div>
-<h2 id="type-conversion">Type conversion<a class="anchor" href="#type-conversion">#</a></h2>
-<p><code>Convertor.convert(conf, src, Target.class)</code> is the way in.
-Bean ↔ <code>Data</code> ↔ Map ↔ List ↔ primitives all go down the same single path.
-<code>data.convert(new MyBean())</code> is the same machinery underneath.
-When it cannot convert, it throws an <strong>unchecked exception</strong> (no <code>throws</code> or <code>catch</code> needed).</p>
+<h3 id="reading-into-a-type">Reading into a type<a class="anchor" href="#reading-into-a-type">#</a></h3>
+<p>Beans, records, and Lists of them are <strong>filled while reading, without building a tree (Data)</strong> (since 2.7.0).</p>
+<pre class="code"><code class="lang-java">Order order = Dson.decodes(json, Order.<span class="h-k">class</span>);                     <span class="h-c">// as before</span>
+List&lt;Item&gt; items = Dson.decodes(json, List.<span class="h-k">class</span>, Item.<span class="h-k">class</span>);
+
+Order order = Json.read(json, Order.<span class="h-k">class</span>);                        <span class="h-c">// jimble-json</span>
+List&lt;Item&gt; items = Json.read(json, <span class="h-k">new</span> TypeRef&lt;List&lt;Item&gt;&gt;() {});  <span class="h-c">// a type with type arguments</span>
+</code></pre>
+<ul>
+<li>A record is built with its canonical constructor. Components missing from the JSON are <code>null</code> (<code>0</code> / <code>false</code> for primitives)</li>
+<li>A Bean is built with its no-argument constructor, and <strong>each value goes through the setter if there is one, otherwise into the field</strong> (private fields of superclasses included)</li>
+<li><strong>Unknown keys are skipped</strong> (no exception)</li>
+<li>Nested objects, <code>List&lt;Item&gt;</code>, <code>Map&lt;String, Item&gt;</code>, <code>Optional</code>, arrays, and type variables (<code>TypeRef&lt;Box&lt;Item&gt;&gt;</code>) are read as their types</li>
+</ul>
+<p>Values are converted to the property's type. <strong>Anything that would change the value is refused.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Accepted</td>
+<td><code>&quot;12&quot;</code> → int, full-width <code>&quot;１２&quot;</code>, <code>&quot;1,234&quot;</code>, <code>1.0</code> → int, <code>&quot;yes&quot;</code> / <code>&quot;on&quot;</code> / <code>1</code> → true, enum names (any case), <code>&quot;2026/10/24 10:00:00&quot;</code> · ISO 8601 (with offsets) · epoch millis → date-times, empty string → <code>null</code> (<code>0</code> for primitives)</td>
+</tr>
+<tr>
+<td>Refused</td>
+<td><code>1.5</code> → int, overflow, <code>&quot;abc&quot;</code> → int, <code>&quot;maybe&quot;</code> → boolean, an enum name that does not exist, <code>2024-02-30</code> (an impossible date), a date with something extra at the end</td>
+</tr>
+</tbody>
+</table>
+<p>A refusal throws <code>JsonParseException</code> (<code>JsonException</code> from <code>Json.read</code>) carrying <strong>which property (<code>$.items[1].qty</code>) and the line and column</strong>.</p>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
-<p><strong>Do not reuse a <code>Configration</code>.</strong> Its depth counter and its record of circular
-references are rewritten as the conversion runs. Make <strong>one per conversion.</strong></p>
+<p><strong>Up to 2.6, values that could not be read silently became <code>0</code> or <code>null</code></strong> (<code>&quot;abc&quot;</code> → int gave <code>0</code>, <code>1.5</code> → int gave <code>1</code>).
+Properties with only a setter got no value, and private fields of superclasses were not filled.</p>
+</div>
+<p>To put <code>user_name</code> into a <code>userName</code> property, pass <code>JsonReadOptions.builder().snakeCaseKeys(true)</code>
+(<code>Configration#setDefaultFieldDelimiterChar()</code> for <code>Dson</code>).</p>
+<h3 id="writing">Writing<a class="anchor" href="#writing">#</a></h3>
+<p>Date-time and other types are written like this (since 2.7.0; before that, anything other than <code>Date</code> and <code>LocalDateTime</code> turned the JSON into <code>{}</code> or cut it off midway).</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Date</code> · <code>Timestamp</code> · <code>LocalDateTime</code></td>
+<td><code>yyyy/MM/dd HH:mm:ss</code> (nothing below seconds)</td>
+</tr>
+<tr>
+<td><code>Instant</code> · <code>OffsetDateTime</code> · <code>ZonedDateTime</code> · <code>Calendar</code></td>
+<td><code>yyyy/MM/dd HH:mm:ss</code> in the server's time zone</td>
+</tr>
+<tr>
+<td><code>LocalDate</code> · <code>java.sql.Date</code></td>
+<td><code>yyyy/MM/dd</code></td>
+</tr>
+<tr>
+<td><code>LocalTime</code> · <code>java.sql.Time</code></td>
+<td><code>HH:mm:ss</code></td>
+</tr>
+<tr>
+<td><code>Duration</code> · <code>Period</code></td>
+<td>ISO 8601 (<code>PT1H30M</code> / <code>P1Y2M</code>)</td>
+</tr>
+<tr>
+<td><code>UUID</code> · <code>URI</code> · <code>File</code> and other JDK classes</td>
+<td>A string (<code>toString</code>)</td>
+</tr>
+<tr>
+<td><code>Optional</code></td>
+<td>Its content (<code>null</code> when empty)</td>
+</tr>
+<tr>
+<td>enum</td>
+<td>Its name</td>
+</tr>
+<tr>
+<td>record</td>
+<td>An object, components in declaration order</td>
+</tr>
+<tr>
+<td>Bean</td>
+<td>An object, fields in declaration order (superclass first)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Bean keys come out in declaration order</strong> (since 2.7.0; before that, the order could change each time the JVM started)</li>
+<li><strong>A cyclic reference writes <code>{}</code> / <code>[]</code> the second time and carries on</strong> (as in 2.6)</li>
+<li><strong>Nesting is written up to 512 levels.</strong> Beyond that nothing is written; <code>Dson.encodes</code> returns an empty string and logs an error (up to 2.6, anything past 50 levels silently became <code>{}</code> / <code>[]</code>)</li>
+</ul>
+<p>To keep offsets, to throw on a cycle, or to change how a type is written, use <code>Json.write(value, options)</code> from <code>jimble-json</code>:</p>
+<pre class="code"><code class="lang-java">JsonWriteOptions options = JsonWriteOptions.builder()
+	.keepOffset(<span class="h-k">true</span>)                 <span class="h-c">// Date / Instant / OffsetDateTime and so on as 2026-10-24T19:00:00+09:00</span>
+	.cycle(JsonCycle.THROW)           <span class="h-c">// throw on a cycle, with where it happened (the default for Json.write)</span>
+	.typeWriter(Money.<span class="h-k">class</span>, (value, out) -&gt; out.string(((Money) value).format()))
+	.build();
+
+String json = Json.write(value, options);
+</code></pre>
+<h2 id="type-conversion">Type conversion<a class="anchor" href="#type-conversion">#</a></h2>
+<p><code>Converter.convert(value, Target.class)</code> from <code>jimble-converter</code> is the way in (since 2.7.0; it depends on no other jimble module).
+It converts between Beans, Maps, Lists, records, primitives, and date-times.
+From a <code>Data</code>, use <code>data.convertClass(MyBean.class)</code> or getters such as <code>getIntList</code>; they are the same machinery underneath.
+When it cannot convert, it throws an <strong>unchecked exception</strong> (no <code>throws</code> or <code>catch</code> needed).</p>
+<pre class="code"><code class="lang-java">Order order = Converter.convert(map, Order.<span class="h-k">class</span>);
+List&lt;Item&gt; items = Converter.convert(rows, <span class="h-k">new</span> TypeRef&lt;List&lt;Item&gt;&gt;() {});
+
+ConverterOptions options = ConverterOptions.builder()
+	.rejectUnknownKeys(<span class="h-k">true</span>)          <span class="h-c">// refuse unknown keys</span>
+	.zone(ZoneId.of(<span class="h-s">"Asia/Tokyo"</span>))    <span class="h-c">// time zone for date-times without an offset</span>
+	.typeConverter(Money.<span class="h-k">class</span>, value -&gt; Money.parse(value.toString()))  <span class="h-c">// add a conversion for a type</span>
+	.build();
+Order strict = Converter.convert(map, Order.<span class="h-k">class</span>, options);
+
+<span class="h-k">int</span> qty = Converter.convert(<span class="h-s">"abc"</span>, <span class="h-k">int</span>.<span class="h-k">class</span>, ConverterOptions.LENIENT);  <span class="h-c">// unreadable values become 0 / null (for CSV and the like)</span>
+</code></pre>
+<p>The rules are the same as for <a href="#reading-into-a-type">reading JSON into a type</a>.</p>
+<ul>
+<li><strong>Anything that would change the value throws</strong> (<code>ConversionException</code>, carrying which property: <code>$.items[1].qty</code>): <code>1.5</code> → int, overflow, <code>&quot;abc&quot;</code> → int, an enum name that does not exist, an impossible date, a date with something extra at the end</li>
+<li>Leniency with a clear meaning is accepted: surrounding blanks, full-width digits, <code>&quot;1,234&quot;</code>, <code>1.0</code> → int, <code>true</code> → 1, <code>&quot;yes&quot;</code> / <code>&quot;on&quot;</code> → true (<code>&quot;no&quot;</code> / <code>&quot;off&quot;</code> → false), <code>&quot;2024年01月15日&quot;</code> → a date</li>
+<li>A Bean is filled <strong>through its setter when there is one</strong> (private fields of superclasses included; never <code>static</code> / <code>transient</code> fields). A record is built with its canonical constructor</li>
+<li><strong>Unknown keys are skipped</strong></li>
+<li>Date-times convert between <code>Date</code>, <code>LocalDate</code>, <code>LocalDateTime</code>, <code>Instant</code>, <code>OffsetDateTime</code>, and so on. Offsets such as <code>Z</code> and <code>+09:00</code> are honoured (values without one use the server's time zone)</li>
+<li>A value that already has the target type is returned as is, without copying</li>
+<li>A circular reference throws (<code>cycleToNull(true)</code> turns it into <code>null</code> at that point)</li>
+<li><code>Class</code> / <code>InetAddress</code> / <code>Pattern</code> / <code>File</code> / <code>Path</code> are never built from a string (outside text could trigger class loading, DNS lookups, ReDoS, or file access). Add a <code>typeConverter</code> if you need one</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Up to 2.6, values that could not be read silently became <code>null</code> / <code>0</code></strong> (<code>&quot;abc&quot;</code> → Integer gave <code>null</code>, <code>1.9</code> → Integer gave <code>1</code>, <code>3000000000</code> → Integer overflowed, <code>&quot;no&quot;</code> → Boolean gave true, and the offset in <code>&quot;...Z&quot;</code> was ignored).
+Properties with only a setter received no value.</p>
+</div>
+<h3 id="moving-off-convertor">Moving off <code>Convertor</code><a class="anchor" href="#moving-off-convertor">#</a></h3>
+<p><code>Convertor</code> / <code>IConvertor</code> / <code>ConvertorConfigKeys</code> / <code>PropertyUtil</code> in <code>io.jimble.util.convertor</code> are <strong>deprecated in 2.7.0</strong> (their behaviour is unchanged; underneath they use <code>Converter</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Convertor.convert(null, map, Order.class)</code></td>
+<td><code>Converter.convert(map, Order.class)</code></td>
+</tr>
+<tr>
+<td><code>Convertor.convert(null, rows, List.class, Item.class)</code></td>
+<td><code>Converter.convert(rows, new TypeRef&lt;List&lt;Item&gt;&gt;() {})</code></td>
+</tr>
+<tr>
+<td><code>Convertor.convert(null, data, Order.class)</code></td>
+<td><code>Converter.convert(data, Order.class)</code> (a <code>Data</code> is a Map, so pass it as is; <code>data.convertClass</code> turns failures into <code>null</code>, so use this when you want the exception)</td>
+</tr>
+<tr>
+<td><code>Convertor.addConvertor(Money.class, converter)</code></td>
+<td><code>ConverterOptions.builder().typeConverter(Money.class, conversion)</code></td>
+</tr>
+<tr>
+<td><code>Configration#setDefaultFieldDelimiterChar()</code> (<code>user_name</code> → <code>userName</code>)</td>
+<td><code>ConverterOptions.builder().snakeCaseKeys(true)</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Convertor</code> keeps some of the old leniency that <code>Converter</code> does not have. Check these when you move to <code>Converter</code>:</p>
+<ul>
+<li><strong>A List / Map that already has the target type is still copied</strong> (<code>Converter</code> returns it as is)</li>
+<li><strong>JSON text is parsed</strong> (<code>&quot;[1,2]&quot;</code> → <code>List&lt;Integer&gt;</code>, <code>&quot;{...}&quot;</code> → <code>Data</code>; <code>Converter</code> does not parse JSON, so read it with <code>Dson.decodes</code> first)</li>
+<li><strong>A Map becomes the list of its values, and a list or Map becomes its first value as a string</strong> (<code>Converter</code> throws)</li>
+<li><strong>A circular reference becomes <code>null</code> at that point</strong> (<code>Converter</code> throws by default)</li>
+</ul>
+<p>Converters added with <code>Convertor.addConvertor</code>, date formats passed in a <code>Configration</code> (<code>CONVERT_STRING_TO_DATE</code> / <code>CONVERT_DATE_TO_STRING</code>), and XML <code>Document</code>s still go through the previous converters when called from <code>Convertor</code> / <code>Data</code>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Do not reuse a <code>Configration</code>.</strong> When the previous converters run, its depth counter and its record of
+circular references are rewritten as the conversion runs. Make <strong>one per conversion.</strong></p>
 </div>
 <h2 id="http-client">HTTP client<a class="anchor" href="#http-client">#</a></h2>
 <p>A thin wrapper over the JDK's <code>HttpClient</code>, with a class per method.</p>
@@ -575,7 +748,10 @@ The cache is per process, so <strong>a <code>set</code> on another machine never
 		<ul>
 			<li class="level-2"><a href="#data">Data</a></li>
 			<li class="level-2"><a href="#json">JSON</a></li>
+			<li class="level-3"><a href="#reading-into-a-type">Reading into a type</a></li>
+			<li class="level-3"><a href="#writing">Writing</a></li>
 			<li class="level-2"><a href="#type-conversion">Type conversion</a></li>
+			<li class="level-3"><a href="#moving-off-convertor">Moving off Convertor</a></li>
 			<li class="level-2"><a href="#http-client">HTTP client</a></li>
 			<li class="level-2"><a href="#csv">CSV</a></li>
 			<li class="level-2"><a href="#xml">XML</a></li>

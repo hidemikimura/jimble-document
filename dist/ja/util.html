@@ -385,13 +385,186 @@ assertEquals(List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</sp
 文字列で真偽を返す API があるためです。<code>Data</code> から <code>getString</code> で取れば <code>&quot;true&quot;</code> に戻ります。</p>
 <p>インスタンスの <code>new Dson().decode(...)</code> は例外を投げず、これまでどおり <code>isError()</code> / <code>getErrorException()</code> で見ます。</p>
 </div>
-<h2 id="型変換">型変換<a class="anchor" href="#型変換">#</a></h2>
-<p><code>Convertor.convert(conf, src, 変換先.class)</code> が入口です。
-Bean ↔ <code>Data</code> ↔ Map ↔ List ↔ プリミティブが同じ1本を通ります。
-<code>data.convert(new MyBean())</code> も中身は同じものです。
-変換できなければ<strong>非検査例外</strong>です（<code>throws</code> も <code>catch</code> も要りません）。</p>
+<h3 id="型に読む">型に読む<a class="anchor" href="#型に読む">#</a></h3>
+<p>Bean・record・それらの List は、<strong>木（Data）を作らずに読みながら入れます</strong>（2.7.0 から）。</p>
+<pre class="code"><code class="lang-java">Order order = Dson.decodes(json, Order.<span class="h-k">class</span>);                     <span class="h-c">// これまでどおり</span>
+List&lt;Item&gt; items = Dson.decodes(json, List.<span class="h-k">class</span>, Item.<span class="h-k">class</span>);
+
+Order order = Json.read(json, Order.<span class="h-k">class</span>);                        <span class="h-c">// jimble-json</span>
+List&lt;Item&gt; items = Json.read(json, <span class="h-k">new</span> TypeRef&lt;List&lt;Item&gt;&gt;() {});  <span class="h-c">// 型の引数を持つ型</span>
+</code></pre>
+<ul>
+<li>record は正準のコンストラクタで作ります。JSON に無いコンポーネントは <code>null</code>（プリミティブは <code>0</code> / <code>false</code>）です</li>
+<li>Bean は引数の無いコンストラクタで作り、<strong>setter があれば setter で、無ければフィールドに入れます</strong>（親クラスの private フィールドにも入れます）</li>
+<li><strong>知らないキーは読み飛ばします</strong>（例外にしません）</li>
+<li>入れ子・<code>List&lt;Item&gt;</code>・<code>Map&lt;String, Item&gt;</code>・<code>Optional</code>・配列・型変数（<code>TypeRef&lt;Box&lt;Item&gt;&gt;</code>）も、型どおりに読みます</li>
+</ul>
+<p>値は項目の型にします。<strong>値が変わってしまうものは断ります</strong>。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>受け付ける</td>
+<td><code>&quot;12&quot;</code> → int、全角の <code>&quot;１２&quot;</code>、<code>&quot;1,234&quot;</code>、<code>1.0</code> → int、<code>&quot;yes&quot;</code> / <code>&quot;on&quot;</code> / <code>1</code> → true、enum の名前（大文字小文字は問わない）、<code>&quot;2026/10/24 10:00:00&quot;</code>・ISO 8601（時差つきも）・epoch ミリ秒 → 日時、空文字 → <code>null</code>（プリミティブは <code>0</code>）</td>
+</tr>
+<tr>
+<td>断る</td>
+<td><code>1.5</code> → int、桁あふれ、<code>&quot;abc&quot;</code> → int、<code>&quot;maybe&quot;</code> → boolean、無い enum の名前、<code>2024-02-30</code>（ありえない日付）、後ろに余分のある日付</td>
+</tr>
+</tbody>
+</table>
+<p>断るときは <code>JsonParseException</code>（<code>Json.read</code> は <code>JsonException</code>）で、<strong>どの項目か（<code>$.items[1].qty</code>）と行・文字の位置</strong>が載ります。</p>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
-<p>**<code>Configration</code> は使い回さないでください。**変換の途中で階層カウンタと
+<p><strong>2.6 までは、読めない値を黙って <code>0</code> や <code>null</code> にしていました</strong>（<code>&quot;abc&quot;</code> → int が <code>0</code>、<code>1.5</code> → int が <code>1</code>）。
+setter しかない項目には値が入らず、親クラスの private フィールドにも入りませんでした。</p>
+</div>
+<p><code>user_name</code> を <code>userName</code> の項目に入れたいときは、<code>JsonReadOptions.builder().snakeCaseKeys(true)</code> を渡します
+（<code>Dson</code> では <code>Configration#setDefaultFieldDelimiterChar()</code>）。</p>
+<h3 id="書き出し">書き出し<a class="anchor" href="#書き出し">#</a></h3>
+<p>日時などの型は、次の形で書きます（2.7.0 から。それまでは <code>Date</code> と <code>LocalDateTime</code> 以外を書くと、JSON が <code>{}</code> になったり途中で切れたりしていました）。</p>
+<table>
+<thead>
+<tr>
+<th>型</th>
+<th>形</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Date</code>・<code>Timestamp</code>・<code>LocalDateTime</code></td>
+<td><code>yyyy/MM/dd HH:mm:ss</code>（秒より細かいところは書かない）</td>
+</tr>
+<tr>
+<td><code>Instant</code>・<code>OffsetDateTime</code>・<code>ZonedDateTime</code>・<code>Calendar</code></td>
+<td>サーバーの時間帯にそろえて <code>yyyy/MM/dd HH:mm:ss</code></td>
+</tr>
+<tr>
+<td><code>LocalDate</code>・<code>java.sql.Date</code></td>
+<td><code>yyyy/MM/dd</code></td>
+</tr>
+<tr>
+<td><code>LocalTime</code>・<code>java.sql.Time</code></td>
+<td><code>HH:mm:ss</code></td>
+</tr>
+<tr>
+<td><code>Duration</code>・<code>Period</code></td>
+<td>ISO 8601（<code>PT1H30M</code> / <code>P1Y2M</code>）</td>
+</tr>
+<tr>
+<td><code>UUID</code>・<code>URI</code>・<code>File</code> など JDK のクラス</td>
+<td>文字列（<code>toString</code>）</td>
+</tr>
+<tr>
+<td><code>Optional</code></td>
+<td>中身（空なら <code>null</code>）</td>
+</tr>
+<tr>
+<td>enum</td>
+<td>名前</td>
+</tr>
+<tr>
+<td>record</td>
+<td>コンポーネントを宣言した順に、オブジェクト</td>
+</tr>
+<tr>
+<td>Bean</td>
+<td>フィールドを宣言した順（親クラスから）に、オブジェクト</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Bean のキーは宣言した順です</strong>（2.7.0 から。それまでは JVM を起動するたびに順番が変わることがありました）</li>
+<li><strong>循環参照は、2回目を <code>{}</code> / <code>[]</code> と書いて続けます</strong>（2.6 までと同じ）</li>
+<li>**入れ子は 512 段まで書きます。**超えたら書かず、<code>Dson.encodes</code> は空文字を返してエラーをログに出します（2.6 までは 50 段を超えたところを、黙って <code>{}</code> / <code>[]</code> にしていました）</li>
+</ul>
+<p>時差を残したいとき・循環で例外にしたいとき・型ごとに書き方を変えたいときは、<code>jimble-json</code> の <code>Json.write(value, options)</code> を使います。</p>
+<pre class="code"><code class="lang-java">JsonWriteOptions options = JsonWriteOptions.builder()
+	.keepOffset(<span class="h-k">true</span>)                 <span class="h-c">// Date / Instant / OffsetDateTime などを 2026-10-24T19:00:00+09:00 の形で</span>
+	.cycle(JsonCycle.THROW)           <span class="h-c">// 循環参照は例外（どこで循環したかが載る。Json.write の既定）</span>
+	.typeWriter(Money.<span class="h-k">class</span>, (value, out) -&gt; out.string(((Money) value).format()))
+	.build();
+
+String json = Json.write(value, options);
+</code></pre>
+<h2 id="型変換">型変換<a class="anchor" href="#型変換">#</a></h2>
+<p><code>jimble-converter</code> の <code>Converter.convert(値, 変換先.class)</code> が入口です（2.7.0 から。jimble のほかのモジュールに依存しません）。
+Bean ↔ Map ↔ List ↔ record ↔ プリミティブ・日時のあいだを変換します。
+<code>Data</code> からは <code>data.convertClass(MyBean.class)</code> や <code>getIntList</code> などの getter で、中身は同じものです。
+変換できなければ<strong>非検査例外</strong>です（<code>throws</code> も <code>catch</code> も要りません）。</p>
+<pre class="code"><code class="lang-java">Order order = Converter.convert(map, Order.<span class="h-k">class</span>);
+List&lt;Item&gt; items = Converter.convert(rows, <span class="h-k">new</span> TypeRef&lt;List&lt;Item&gt;&gt;() {});
+
+ConverterOptions options = ConverterOptions.builder()
+	.rejectUnknownKeys(<span class="h-k">true</span>)          <span class="h-c">// 知らないキーで断る</span>
+	.zone(ZoneId.of(<span class="h-s">"Asia/Tokyo"</span>))    <span class="h-c">// 時差の無い日時を補う時間帯</span>
+	.typeConverter(Money.<span class="h-k">class</span>, value -&gt; Money.parse(value.toString()))  <span class="h-c">// 型ごとの変換を足す</span>
+	.build();
+Order strict = Converter.convert(map, Order.<span class="h-k">class</span>, options);
+
+<span class="h-k">int</span> qty = Converter.convert(<span class="h-s">"abc"</span>, <span class="h-k">int</span>.<span class="h-k">class</span>, ConverterOptions.LENIENT);  <span class="h-c">// 読めない値を 0 / null に（CSV など）</span>
+</code></pre>
+<p>決まりは <a href="#型に読む">JSON を型に読む</a> ときと同じです。</p>
+<ul>
+<li><strong>値が変わってしまうものは例外</strong>です（<code>ConversionException</code>。どの項目か <code>$.items[1].qty</code> が載ります）。<code>1.5</code> → int、桁あふれ、<code>&quot;abc&quot;</code> → int、無い enum の名前、ありえない日付、後ろに余分のある日付</li>
+<li>意味がはっきりしているゆるさは受け付けます。前後の空白、全角の数字、<code>&quot;1,234&quot;</code>、<code>1.0</code> → int、<code>true</code> → 1、<code>&quot;yes&quot;</code> / <code>&quot;on&quot;</code> → true（<code>&quot;no&quot;</code> / <code>&quot;off&quot;</code> は false）、<code>&quot;2024年01月15日&quot;</code> → 日付</li>
+<li>Bean には <strong>setter があれば setter で</strong>入れます（親クラスの private フィールドにも入れます。<code>static</code> / <code>transient</code> には入れません）。record は正準のコンストラクタで作ります</li>
+<li><strong>知らないキーは飛ばします</strong></li>
+<li>日時は <code>Date</code>・<code>LocalDate</code>・<code>LocalDateTime</code>・<code>Instant</code>・<code>OffsetDateTime</code> などのあいだで変換します。<code>Z</code> や <code>+09:00</code> の時差は読みます（時差の無いものはサーバーの時間帯）</li>
+<li>型が合っている値は、写さずにそのまま返します</li>
+<li>循環参照は例外です（<code>cycleToNull(true)</code> で、そこを <code>null</code> に）</li>
+<li>文字から <code>Class</code> / <code>InetAddress</code> / <code>Pattern</code> / <code>File</code> / <code>Path</code> は作りません（外から来た文字で、クラスの読み込み・DNS・ReDoS・ファイルへの到達を起こせるため）。要るなら <code>typeConverter</code> で足します</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>2.6 までは、読めない値を黙って <code>null</code> / <code>0</code> にしていました</strong>（<code>&quot;abc&quot;</code> → Integer が <code>null</code>、<code>1.9</code> → Integer が <code>1</code>、<code>3000000000</code> → Integer が桁あふれ、<code>&quot;no&quot;</code> → Boolean が true、<code>&quot;...Z&quot;</code> の時差を無視）。
+setter しかない項目には値が入りませんでした。</p>
+</div>
+<h3 id="convertor-から移る"><code>Convertor</code> から移る<a class="anchor" href="#convertor-から移る">#</a></h3>
+<p><code>io.jimble.util.convertor</code> の <code>Convertor</code> / <code>IConvertor</code> / <code>ConvertorConfigKeys</code> / <code>PropertyUtil</code> は <strong>2.7.0 で deprecated</strong> です（動きは変わりません。中身は <code>Converter</code> です）。</p>
+<table>
+<thead>
+<tr>
+<th>これまで</th>
+<th>これから</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Convertor.convert(null, map, Order.class)</code></td>
+<td><code>Converter.convert(map, Order.class)</code></td>
+</tr>
+<tr>
+<td><code>Convertor.convert(null, rows, List.class, Item.class)</code></td>
+<td><code>Converter.convert(rows, new TypeRef&lt;List&lt;Item&gt;&gt;() {})</code></td>
+</tr>
+<tr>
+<td><code>Convertor.convert(null, data, Order.class)</code></td>
+<td><code>Converter.convert(data, Order.class)</code>（<code>Data</code> は Map なのでそのまま渡せる。<code>data.convertClass</code> は失敗を <code>null</code> にするので、例外が要るならこちら）</td>
+</tr>
+<tr>
+<td><code>Convertor.addConvertor(Money.class, 変換器)</code></td>
+<td><code>ConverterOptions.builder().typeConverter(Money.class, 変換のしかた)</code></td>
+</tr>
+<tr>
+<td><code>Configration#setDefaultFieldDelimiterChar()</code>（<code>user_name</code> → <code>userName</code>）</td>
+<td><code>ConverterOptions.builder().snakeCaseKeys(true)</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Convertor</code> には、<code>Converter</code> に無い、これまでのままのゆるさが残っています。<code>Converter</code> に移すときは、次を確かめてください。</p>
+<ul>
+<li><strong>型が合っている List / Map も写しを返す</strong>（<code>Converter</code> はそのまま返す）</li>
+<li><strong>JSON の文字を読む</strong>（<code>&quot;[1,2]&quot;</code> → <code>List&lt;Integer&gt;</code>、<code>&quot;{...}&quot;</code> → <code>Data</code>。<code>Converter</code> は JSON を読まないので、<code>Dson.decodes</code> で読んでから渡す）</li>
+<li><strong>Map → 一覧は値の一覧、一覧・Map → 文字は先頭の値</strong>（<code>Converter</code> は例外）</li>
+<li><strong>循環参照はそこを <code>null</code> にする</strong>（<code>Converter</code> の既定は例外）</li>
+</ul>
+<p><code>Convertor.addConvertor</code> で足した変換器・<code>Configration</code> に渡した日付の書式（<code>CONVERT_STRING_TO_DATE</code> / <code>CONVERT_DATE_TO_STRING</code>）・XML の <code>Document</code> は、<code>Convertor</code> / <code>Data</code> からは、これまでの変換器で変換します。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>Configration</code> は使い回さないでください。**これまでの変換器を通るとき、変換の途中で階層カウンタと
 循環参照の記録が書き換わります。<strong>1回の変換に1つ</strong>作ります。</p>
 </div>
 <h2 id="http-クライアント">HTTP クライアント<a class="anchor" href="#http-クライアント">#</a></h2>
@@ -570,7 +743,10 @@ String value = DBValue.getString(db, <span class="h-s">"last_imported_at"</span>
 		<ul>
 			<li class="level-2"><a href="#data">Data</a></li>
 			<li class="level-2"><a href="#json">JSON</a></li>
+			<li class="level-3"><a href="#型に読む">型に読む</a></li>
+			<li class="level-3"><a href="#書き出し">書き出し</a></li>
 			<li class="level-2"><a href="#型変換">型変換</a></li>
+			<li class="level-3"><a href="#convertor-から移る">Convertor から移る</a></li>
 			<li class="level-2"><a href="#http-クライアント">HTTP クライアント</a></li>
 			<li class="level-2"><a href="#csv">CSV</a></li>
 			<li class="level-2"><a href="#xml">XML</a></li>

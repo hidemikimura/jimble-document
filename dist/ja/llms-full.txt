@@ -6933,7 +6933,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.6.1-SNAPSHOT
+jimble 2.7.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6956,7 +6956,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.6.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.7.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -7085,9 +7085,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.6.0"
-	id("io.jimble.run") version "2.6.0"
-	id("io.jimble.db")  version "2.6.0"
+	id("io.jimble.jte") version "2.7.0"
+	id("io.jimble.run") version "2.7.0"
+	id("io.jimble.db")  version "2.7.0"
 }
 ```
 
@@ -7129,9 +7129,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.6.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.6.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.6.0"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.0"   // DB を使うなら
 }
 
 repositories {
@@ -7146,7 +7146,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.6.0")
+	implementation("io.jimble:jimble-web:2.7.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7180,7 +7180,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.6.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7189,13 +7189,14 @@ jimbleRun {
 
 | 足すもの | 何が入るか | いっしょに付いてくるもの |
 | --- | --- | --- |
-| `io.jimble:jimble-web` | Web（Router / Context / Session / テンプレート） | `jimble-db` → `jimble-util` → `jimble-json` / `jimble-core` |
-| `io.jimble:jimble-db` | DB だけ（バッチや CLI から使うとき） | `jimble-util` → `jimble-json` / `jimble-core` |
+| `io.jimble:jimble-web` | Web（Router / Context / Session / テンプレート） | `jimble-db` → `jimble-util` → `jimble-json` / `jimble-converter` / `jimble-core` |
+| `io.jimble:jimble-db` | DB だけ（バッチや CLI から使うとき） | `jimble-util` → `jimble-json` / `jimble-converter` / `jimble-core` |
 | `io.jimble:jimble-mq` | MQ | `jimble-db` |
 | `io.jimble:jimble-batch` | バッチ・DB スケジューラ | `jimble-db` / `jimble-mq` |
 | `io.jimble:jimble-batch-manager` | バッチ管理画面 | `jimble-web` / `jimble-batch` |
 | `io.jimble:jimble-mcp` | MCP サーバー | `jimble-web` |
-| `io.jimble:jimble-json` | JSON の読み手だけ（jimble のほかを使わないとき） | なし |
+| `io.jimble:jimble-json` | JSON の読み書きだけ（jimble のほかを使わないとき） | なし |
+| `io.jimble:jimble-converter` | 型変換だけ（Map・Bean・record・日時のあいだ。jimble のほかを使わないとき） | なし |
 | `io.jimble:jimble-otel` | OpenTelemetry へトレースを出す（**足したときだけ 0.9MB 増えます**） | `jimble-core` |
 
 **DB のドライバは要りません**（MySQL / MariaDB と PostgreSQL は `jimble-db` が持っています）。
@@ -9830,15 +9831,131 @@ assertEquals(List.of("あ", "い"), restored.getStringList("tags"));
 >
 > インスタンスの `new Dson().decode(...)` は例外を投げず、これまでどおり `isError()` / `getErrorException()` で見ます。
 
-## 型変換
+### 型に読む
 
-`Convertor.convert(conf, src, 変換先.class)` が入口です。
-Bean ↔ `Data` ↔ Map ↔ List ↔ プリミティブが同じ1本を通ります。
-`data.convert(new MyBean())` も中身は同じものです。
-変換できなければ**非検査例外**です（`throws` も `catch` も要りません）。
+Bean・record・それらの List は、**木（Data）を作らずに読みながら入れます**（2.7.0 から）。
+
+```java
+Order order = Dson.decodes(json, Order.class);                     // これまでどおり
+List<Item> items = Dson.decodes(json, List.class, Item.class);
+
+Order order = Json.read(json, Order.class);                        // jimble-json
+List<Item> items = Json.read(json, new TypeRef<List<Item>>() {});  // 型の引数を持つ型
+```
+
+- record は正準のコンストラクタで作ります。JSON に無いコンポーネントは `null`（プリミティブは `0` / `false`）です
+- Bean は引数の無いコンストラクタで作り、**setter があれば setter で、無ければフィールドに入れます**（親クラスの private フィールドにも入れます）
+- **知らないキーは読み飛ばします**（例外にしません）
+- 入れ子・`List<Item>`・`Map<String, Item>`・`Optional`・配列・型変数（`TypeRef<Box<Item>>`）も、型どおりに読みます
+
+値は項目の型にします。**値が変わってしまうものは断ります**。
+
+| | 例 |
+| --- | --- |
+| 受け付ける | `"12"` → int、全角の `"１２"`、`"1,234"`、`1.0` → int、`"yes"` / `"on"` / `1` → true、enum の名前（大文字小文字は問わない）、`"2026/10/24 10:00:00"`・ISO 8601（時差つきも）・epoch ミリ秒 → 日時、空文字 → `null`（プリミティブは `0`） |
+| 断る | `1.5` → int、桁あふれ、`"abc"` → int、`"maybe"` → boolean、無い enum の名前、`2024-02-30`（ありえない日付）、後ろに余分のある日付 |
+
+断るときは `JsonParseException`（`Json.read` は `JsonException`）で、**どの項目か（`$.items[1].qty`）と行・文字の位置**が載ります。
 
 > [!TRAP]
-> **`Configration` は使い回さないでください。**変換の途中で階層カウンタと
+> **2.6 までは、読めない値を黙って `0` や `null` にしていました**（`"abc"` → int が `0`、`1.5` → int が `1`）。
+> setter しかない項目には値が入らず、親クラスの private フィールドにも入りませんでした。
+
+`user_name` を `userName` の項目に入れたいときは、`JsonReadOptions.builder().snakeCaseKeys(true)` を渡します
+（`Dson` では `Configration#setDefaultFieldDelimiterChar()`）。
+
+### 書き出し
+
+日時などの型は、次の形で書きます（2.7.0 から。それまでは `Date` と `LocalDateTime` 以外を書くと、JSON が `{}` になったり途中で切れたりしていました）。
+
+| 型 | 形 |
+| --- | --- |
+| `Date`・`Timestamp`・`LocalDateTime` | `yyyy/MM/dd HH:mm:ss`（秒より細かいところは書かない） |
+| `Instant`・`OffsetDateTime`・`ZonedDateTime`・`Calendar` | サーバーの時間帯にそろえて `yyyy/MM/dd HH:mm:ss` |
+| `LocalDate`・`java.sql.Date` | `yyyy/MM/dd` |
+| `LocalTime`・`java.sql.Time` | `HH:mm:ss` |
+| `Duration`・`Period` | ISO 8601（`PT1H30M` / `P1Y2M`） |
+| `UUID`・`URI`・`File` など JDK のクラス | 文字列（`toString`） |
+| `Optional` | 中身（空なら `null`） |
+| enum | 名前 |
+| record | コンポーネントを宣言した順に、オブジェクト |
+| Bean | フィールドを宣言した順（親クラスから）に、オブジェクト |
+
+- **Bean のキーは宣言した順です**（2.7.0 から。それまでは JVM を起動するたびに順番が変わることがありました）
+- **循環参照は、2回目を `{}` / `[]` と書いて続けます**（2.6 までと同じ）
+- **入れ子は 512 段まで書きます。**超えたら書かず、`Dson.encodes` は空文字を返してエラーをログに出します（2.6 までは 50 段を超えたところを、黙って `{}` / `[]` にしていました）
+
+時差を残したいとき・循環で例外にしたいとき・型ごとに書き方を変えたいときは、`jimble-json` の `Json.write(value, options)` を使います。
+
+```java
+JsonWriteOptions options = JsonWriteOptions.builder()
+	.keepOffset(true)                 // Date / Instant / OffsetDateTime などを 2026-10-24T19:00:00+09:00 の形で
+	.cycle(JsonCycle.THROW)           // 循環参照は例外（どこで循環したかが載る。Json.write の既定）
+	.typeWriter(Money.class, (value, out) -> out.string(((Money) value).format()))
+	.build();
+
+String json = Json.write(value, options);
+```
+
+## 型変換
+
+`jimble-converter` の `Converter.convert(値, 変換先.class)` が入口です（2.7.0 から。jimble のほかのモジュールに依存しません）。
+Bean ↔ Map ↔ List ↔ record ↔ プリミティブ・日時のあいだを変換します。
+`Data` からは `data.convertClass(MyBean.class)` や `getIntList` などの getter で、中身は同じものです。
+変換できなければ**非検査例外**です（`throws` も `catch` も要りません）。
+
+```java
+Order order = Converter.convert(map, Order.class);
+List<Item> items = Converter.convert(rows, new TypeRef<List<Item>>() {});
+
+ConverterOptions options = ConverterOptions.builder()
+	.rejectUnknownKeys(true)          // 知らないキーで断る
+	.zone(ZoneId.of("Asia/Tokyo"))    // 時差の無い日時を補う時間帯
+	.typeConverter(Money.class, value -> Money.parse(value.toString()))  // 型ごとの変換を足す
+	.build();
+Order strict = Converter.convert(map, Order.class, options);
+
+int qty = Converter.convert("abc", int.class, ConverterOptions.LENIENT);  // 読めない値を 0 / null に（CSV など）
+```
+
+決まりは [JSON を型に読む](#型に読む) ときと同じです。
+
+- **値が変わってしまうものは例外**です（`ConversionException`。どの項目か `$.items[1].qty` が載ります）。`1.5` → int、桁あふれ、`"abc"` → int、無い enum の名前、ありえない日付、後ろに余分のある日付
+- 意味がはっきりしているゆるさは受け付けます。前後の空白、全角の数字、`"1,234"`、`1.0` → int、`true` → 1、`"yes"` / `"on"` → true（`"no"` / `"off"` は false）、`"2024年01月15日"` → 日付
+- Bean には **setter があれば setter で**入れます（親クラスの private フィールドにも入れます。`static` / `transient` には入れません）。record は正準のコンストラクタで作ります
+- **知らないキーは飛ばします**
+- 日時は `Date`・`LocalDate`・`LocalDateTime`・`Instant`・`OffsetDateTime` などのあいだで変換します。`Z` や `+09:00` の時差は読みます（時差の無いものはサーバーの時間帯）
+- 型が合っている値は、写さずにそのまま返します
+- 循環参照は例外です（`cycleToNull(true)` で、そこを `null` に）
+- 文字から `Class` / `InetAddress` / `Pattern` / `File` / `Path` は作りません（外から来た文字で、クラスの読み込み・DNS・ReDoS・ファイルへの到達を起こせるため）。要るなら `typeConverter` で足します
+
+> [!TRAP]
+> **2.6 までは、読めない値を黙って `null` / `0` にしていました**（`"abc"` → Integer が `null`、`1.9` → Integer が `1`、`3000000000` → Integer が桁あふれ、`"no"` → Boolean が true、`"...Z"` の時差を無視）。
+> setter しかない項目には値が入りませんでした。
+
+### `Convertor` から移る
+
+`io.jimble.util.convertor` の `Convertor` / `IConvertor` / `ConvertorConfigKeys` / `PropertyUtil` は **2.7.0 で deprecated** です（動きは変わりません。中身は `Converter` です）。
+
+| これまで | これから |
+| --- | --- |
+| `Convertor.convert(null, map, Order.class)` | `Converter.convert(map, Order.class)` |
+| `Convertor.convert(null, rows, List.class, Item.class)` | `Converter.convert(rows, new TypeRef<List<Item>>() {})` |
+| `Convertor.convert(null, data, Order.class)` | `Converter.convert(data, Order.class)`（`Data` は Map なのでそのまま渡せる。`data.convertClass` は失敗を `null` にするので、例外が要るならこちら） |
+| `Convertor.addConvertor(Money.class, 変換器)` | `ConverterOptions.builder().typeConverter(Money.class, 変換のしかた)` |
+| `Configration#setDefaultFieldDelimiterChar()`（`user_name` → `userName`） | `ConverterOptions.builder().snakeCaseKeys(true)` |
+
+`Convertor` には、`Converter` に無い、これまでのままのゆるさが残っています。`Converter` に移すときは、次を確かめてください。
+
+- **型が合っている List / Map も写しを返す**（`Converter` はそのまま返す）
+- **JSON の文字を読む**（`"[1,2]"` → `List<Integer>`、`"{...}"` → `Data`。`Converter` は JSON を読まないので、`Dson.decodes` で読んでから渡す）
+- **Map → 一覧は値の一覧、一覧・Map → 文字は先頭の値**（`Converter` は例外）
+- **循環参照はそこを `null` にする**（`Converter` の既定は例外）
+
+`Convertor.addConvertor` で足した変換器・`Configration` に渡した日付の書式（`CONVERT_STRING_TO_DATE` / `CONVERT_DATE_TO_STRING`）・XML の `Document` は、`Convertor` / `Data` からは、これまでの変換器で変換します。
+
+> [!TRAP]
+> **`Configration` は使い回さないでください。**これまでの変換器を通るとき、変換の途中で階層カウンタと
 > 循環参照の記録が書き換わります。**1回の変換に1つ**作ります。
 
 ## HTTP クライアント
