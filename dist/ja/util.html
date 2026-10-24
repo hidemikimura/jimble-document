@@ -331,12 +331,59 @@ assertEquals(List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</sp
 </tr>
 </tbody>
 </table>
-<p><strong>壊れた JSON は <code>JsonParseException</code>（非検査）です。</strong><code>Data.fromJsonString</code> も <code>Dson.decodes</code> も同じです。
-括弧が閉じていない・後ろに余分なものがある・JSON ですらない、のどれでも例外になります。
-空文字と <code>&quot;null&quot;</code> は <code>null</code> を返します（例外にしません）。</p>
+<p><strong>壊れた JSON は <code>JsonParseException</code>（非検査）です。</strong><code>Data.fromJsonString</code> も <code>Dson.decodes</code> も、Reader や InputStream から読んでも同じです。
+例外には、どこがおかしいか（<code>3 行 15 文字目</code>）が載ります。空文字と <code>&quot;null&quot;</code> は <code>null</code> を返します（例外にしません）。</p>
+<p><strong>意味がはっきりしているゆるさは受け付け、データを黙って壊すものは断ります</strong>（2.6.0 から。読み手は <code>jimble-json</code>）。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>書き方の例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>受け付ける</td>
+<td>クォートの無いキーと値（<code>{name: jimble}</code>）、シングルクォート、末尾のカンマ、コメント（<code>//</code> と <code>/* */</code>）、<code>NaN</code> / <code>Infinity</code>、<code>+1</code> / <code>01</code> / <code>.5</code>、文字列の中の生の改行</td>
+</tr>
+<tr>
+<td>断る</td>
+<td>区切りの抜け（<code>{&quot;a&quot;:1 &quot;b&quot;:2}</code> / <code>[1,,2]</code>）、値の無いキー（<code>{&quot;a&quot;:}</code>）、壊れたエスケープ（<code>\q</code> / <code>\u12</code>）、閉じていない括弧、後ろの余分なもの、一番外がオブジェクトでも配列でもないもの</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>2.5 までは、区切りの抜けや壊れたエスケープを黙って通していました。</strong>
+<code>{&quot;a&quot;:1 &quot;b&quot;:2}</code> は両方読めてしまい、<code>&quot;\q...&quot;</code> は後ろの4文字を飲み込んで文字列の終わりがずれていました。
+2.6.0 からは例外になります。</p>
+</div>
+<p>**上限があります。**外から来た JSON を読むので、超えたら例外にします。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>上限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>入れ子の深さ</td>
+<td>512 段</td>
+</tr>
+<tr>
+<td>1つの数値の長さ</td>
+<td>1000 文字</td>
+</tr>
+<tr>
+<td>1つの文字列の長さ</td>
+<td>2000 万文字</td>
+</tr>
+</tbody>
+</table>
 <div class="callout callout-note"><p class="callout-title">補足</p>
-<p>**形しか見ません。**読み手は寛容なので、括弧が閉じていれば、値の無い <code>&quot;a&quot;:</code> のような文法の誤りは通ります。
-インスタンスの <code>new Dson().decode(...)</code> は例外を投げず、これまでどおり <code>isError()</code> / <code>getErrorException()</code> で見ます。</p>
+<p>文字列の <code>&quot;true&quot;</code> / <code>&quot;false&quot;</code> は、型を決めずに読む（<code>Data</code> / <code>Map</code> / <code>List</code>）と Boolean になります（2.5 までと同じ）。
+文字列で真偽を返す API があるためです。<code>Data</code> から <code>getString</code> で取れば <code>&quot;true&quot;</code> に戻ります。</p>
+<p>インスタンスの <code>new Dson().decode(...)</code> は例外を投げず、これまでどおり <code>isError()</code> / <code>getErrorException()</code> で見ます。</p>
 </div>
 <h2 id="型変換">型変換<a class="anchor" href="#型変換">#</a></h2>
 <p><code>Convertor.convert(conf, src, 変換先.class)</code> が入口です。

@@ -243,6 +243,54 @@ environment variable wins when it is set. When it is not, the value from the
 line above stays.</p>
 <p><code>jimble-db</code> ships drivers for both MySQL / MariaDB and PostgreSQL, so you
 normally do not have to add one.</p>
+<h2 id="encrypting-the-connection-tls">Encrypting the connection (TLS)<a class="anchor" href="#encrypting-the-connection-tls">#</a></h2>
+<p><strong>Since 2.6.0, the MySQL / MariaDB driver (MariaDB Connector/J 4.0) uses TLS by default and verifies the server's certificate</strong> (<code>sslMode=verify-full</code>).
+The driver in 2.5 (3.5) connected <strong>without encryption</strong> when nothing was set.</p>
+<p>If the certificate cannot be verified, <strong>the connection fails at startup.</strong> With a self-signed MySQL such as Docker's <code>mysql:8.4</code>, you get:</p>
+<pre class="code"><code class="lang-text">Cannot use authentication plugin caching_sha2_password with a Self signed certificates.
+Either set sslMode=trust, use password with a MitM-Proof authentication plugin or provide server certificate to client
+</code></pre>
+<p>MariaDB 11.4 and later servers can be verified even with a self-signed certificate, with nothing added (a local <code>mariadb:11.4</code> connected without any setting).</p>
+<p>Choose with <code>sslMode</code> in the <code>url</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nothing (<code>verify-full</code>)</td>
+<td>The certificate is signed by a CA the JDK trusts, or the server is MariaDB 11.4+</td>
+</tr>
+<tr>
+<td><code>sslMode=verify-full&amp;serverSslCert=/path/to/ca.pem</code></td>
+<td><strong>Production.</strong> Hand over the server's CA certificate (for Amazon RDS / Aurora, the CA certificate AWS publishes)</td>
+</tr>
+<tr>
+<td><code>sslMode=trust</code></td>
+<td>Encrypts, but does not verify the certificate. Stops eavesdropping, not impersonation</td>
+</tr>
+<tr>
+<td><code>sslMode=disable</code></td>
+<td>No encryption. <strong>Local databases only</strong></td>
+</tr>
+</tbody>
+</table>
+<p>To skip encryption only on your machine, put it in the local configuration:</p>
+<pre class="code"><code class="lang-conf"><span class="h-c"># application.local.conf</span>
+include <span class="h-s">"application.conf"</span>
+
+db {
+	blog_example {
+		url = <span class="h-s">"jdbc:mariadb://127.0.0.1:3306/blog_example?sslMode=disable"</span>
+	}
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The old form <code>useSSL=false</code> is treated the same as <code>sslMode=disable</code> (jimble's own test configuration uses it).</p>
+</div>
 <h2 id="choose-a-db-product">Choose a DB product<a class="anchor" href="#choose-a-db-product">#</a></h2>
 <p>Set <code>product</code> and <strong>the SQL builder emits SQL for that product.</strong></p>
 <pre class="code"><code class="lang-conf">db {
@@ -670,6 +718,7 @@ gets generated are all in
 		<p class="section">On this page</p>
 		<ul>
 			<li class="level-2"><a href="#configure-it">Configure it</a></li>
+			<li class="level-2"><a href="#encrypting-the-connection-tls">Encrypting the connection (TLS)</a></li>
 			<li class="level-2"><a href="#choose-a-db-product">Choose a DB product</a></li>
 			<li class="level-2"><a href="#when-the-database-does-not-exist-yet">When the database does not exist yet</a></li>
 			<li class="level-3"><a href="#what-you-cannot-write-for-a-given-product">What you cannot write for a given product</a></li>

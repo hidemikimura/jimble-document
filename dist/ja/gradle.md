@@ -13,9 +13,9 @@
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.12"
-	id("io.jimble.run") version "2.5.12"
-	id("io.jimble.db")  version "2.5.12"
+	id("io.jimble.jte") version "2.6.0"
+	id("io.jimble.run") version "2.6.0"
+	id("io.jimble.db")  version "2.6.0"
 }
 ```
 
@@ -57,9 +57,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.12"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.5.12"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.5.12"   // DB を使うなら
+	id("io.jimble.jte") version "2.6.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.6.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.6.0"   // DB を使うなら
 }
 
 repositories {
@@ -74,7 +74,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.12")
+	implementation("io.jimble:jimble-web:2.6.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -108,7 +108,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.12' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.6.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -117,12 +117,13 @@ jimbleRun {
 
 | 足すもの | 何が入るか | いっしょに付いてくるもの |
 | --- | --- | --- |
-| `io.jimble:jimble-web` | Web（Router / Context / Session / テンプレート） | `jimble-db` → `jimble-util` → `jimble-core` |
-| `io.jimble:jimble-db` | DB だけ（バッチや CLI から使うとき） | `jimble-util` → `jimble-core` |
+| `io.jimble:jimble-web` | Web（Router / Context / Session / テンプレート） | `jimble-db` → `jimble-util` → `jimble-json` / `jimble-core` |
+| `io.jimble:jimble-db` | DB だけ（バッチや CLI から使うとき） | `jimble-util` → `jimble-json` / `jimble-core` |
 | `io.jimble:jimble-mq` | MQ | `jimble-db` |
 | `io.jimble:jimble-batch` | バッチ・DB スケジューラ | `jimble-db` / `jimble-mq` |
 | `io.jimble:jimble-batch-manager` | バッチ管理画面 | `jimble-web` / `jimble-batch` |
 | `io.jimble:jimble-mcp` | MCP サーバー | `jimble-web` |
+| `io.jimble:jimble-json` | JSON の読み手だけ（jimble のほかを使わないとき） | なし |
 | `io.jimble:jimble-otel` | OpenTelemetry へトレースを出す（**足したときだけ 0.9MB 増えます**） | `jimble-core` |
 
 **DB のドライバは要りません**（MySQL / MariaDB と PostgreSQL は `jimble-db` が持っています）。

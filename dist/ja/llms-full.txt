@@ -3643,6 +3643,45 @@ codegen {
 ドライバは `jimble-db` が MySQL / MariaDB と PostgreSQL の両方を持っているので、
 ふつうは足す必要はありません。
 
+## 接続の暗号化（TLS）
+
+**2.6.0 から、MySQL / MariaDB のドライバ（MariaDB Connector/J 4.0）は既定で TLS を使い、サーバーの証明書を確かめます**（`sslMode=verify-full`）。
+2.5 までのドライバ（3.5）は、何も書かなければ**暗号化せずに**繋いでいました。
+
+証明書を確かめられないと、**起動時に繋がらずに落ちます。**Docker の `mysql:8.4` のような自己署名の証明書の MySQL では、こう出ます。
+
+```
+Cannot use authentication plugin caching_sha2_password with a Self signed certificates.
+Either set sslMode=trust, use password with a MitM-Proof authentication plugin or provide server certificate to client
+```
+
+MariaDB 11.4 以降のサーバーは、自己署名の証明書でも書き足さずに確かめられます（手元の `mariadb:11.4` は何も書かずに繋がりました）。
+
+`url` に `sslMode` を書いて決めます。
+
+| 書き方 | 使うところ |
+| --- | --- |
+| 書かない（`verify-full`） | 証明書が JDK の信頼する CA で署名されているとき。MariaDB 11.4 以降のサーバー |
+| `sslMode=verify-full&serverSslCert=/path/to/ca.pem` | **本番。**サーバーの CA 証明書を渡す（Amazon RDS / Aurora なら AWS が配っている CA 証明書） |
+| `sslMode=trust` | 暗号化はするが、証明書を確かめない。盗み見は防ぐが、なりすましは防がない |
+| `sslMode=disable` | 暗号化しない。**手元の DB だけ** |
+
+手元だけ暗号化しないなら、ローカル用の設定に書きます。
+
+```conf
+# application.local.conf
+include "application.conf"
+
+db {
+	blog_example {
+		url = "jdbc:mariadb://127.0.0.1:3306/blog_example?sslMode=disable"
+	}
+}
+```
+
+> [!NOTE]
+> 古い書き方の `useSSL=false` も `sslMode=disable` と同じに扱われます（jimble のテストの設定はこちらです）。
+
 ## DB 製品を選ぶ
 
 `product` に製品を書くと、**SQL ビルダーがその製品用の SQL を出します。**
@@ -6894,7 +6933,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.5.13-SNAPSHOT
+jimble 2.6.1-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6917,7 +6956,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.5.13-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.6.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -7046,9 +7085,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.12"
-	id("io.jimble.run") version "2.5.12"
-	id("io.jimble.db")  version "2.5.12"
+	id("io.jimble.jte") version "2.6.0"
+	id("io.jimble.run") version "2.6.0"
+	id("io.jimble.db")  version "2.6.0"
 }
 ```
 
@@ -7090,9 +7129,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.5.12"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.5.12"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.5.12"   // DB を使うなら
+	id("io.jimble.jte") version "2.6.0"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.6.0"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.6.0"   // DB を使うなら
 }
 
 repositories {
@@ -7107,7 +7146,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.5.12")
+	implementation("io.jimble:jimble-web:2.6.0")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7141,7 +7180,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.5.12' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.6.0' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7150,12 +7189,13 @@ jimbleRun {
 
 | 足すもの | 何が入るか | いっしょに付いてくるもの |
 | --- | --- | --- |
-| `io.jimble:jimble-web` | Web（Router / Context / Session / テンプレート） | `jimble-db` → `jimble-util` → `jimble-core` |
-| `io.jimble:jimble-db` | DB だけ（バッチや CLI から使うとき） | `jimble-util` → `jimble-core` |
+| `io.jimble:jimble-web` | Web（Router / Context / Session / テンプレート） | `jimble-db` → `jimble-util` → `jimble-json` / `jimble-core` |
+| `io.jimble:jimble-db` | DB だけ（バッチや CLI から使うとき） | `jimble-util` → `jimble-json` / `jimble-core` |
 | `io.jimble:jimble-mq` | MQ | `jimble-db` |
 | `io.jimble:jimble-batch` | バッチ・DB スケジューラ | `jimble-db` / `jimble-mq` |
 | `io.jimble:jimble-batch-manager` | バッチ管理画面 | `jimble-web` / `jimble-batch` |
 | `io.jimble:jimble-mcp` | MCP サーバー | `jimble-web` |
+| `io.jimble:jimble-json` | JSON の読み手だけ（jimble のほかを使わないとき） | なし |
 | `io.jimble:jimble-otel` | OpenTelemetry へトレースを出す（**足したときだけ 0.9MB 増えます**） | `jimble-core` |
 
 **DB のドライバは要りません**（MySQL / MariaDB と PostgreSQL は `jimble-db` が持っています）。
@@ -9761,12 +9801,33 @@ assertEquals(List.of("あ", "い"), restored.getStringList("tags"));
 | ストリームに直接 | `data.outputJsonString(outputStream)` |
 | 組み立てずに逐次書く | `JsonHashWriter` / `JsonArrayWriter` |
 
-**壊れた JSON は `JsonParseException`（非検査）です。**`Data.fromJsonString` も `Dson.decodes` も同じです。
-括弧が閉じていない・後ろに余分なものがある・JSON ですらない、のどれでも例外になります。
-空文字と `"null"` は `null` を返します（例外にしません）。
+**壊れた JSON は `JsonParseException`（非検査）です。**`Data.fromJsonString` も `Dson.decodes` も、Reader や InputStream から読んでも同じです。
+例外には、どこがおかしいか（`3 行 15 文字目`）が載ります。空文字と `"null"` は `null` を返します（例外にしません）。
+
+**意味がはっきりしているゆるさは受け付け、データを黙って壊すものは断ります**（2.6.0 から。読み手は `jimble-json`）。
+
+| | 書き方の例 |
+| --- | --- |
+| 受け付ける | クォートの無いキーと値（`{name: jimble}`）、シングルクォート、末尾のカンマ、コメント（`//` と `/* */`）、`NaN` / `Infinity`、`+1` / `01` / `.5`、文字列の中の生の改行 |
+| 断る | 区切りの抜け（`{"a":1 "b":2}` / `[1,,2]`）、値の無いキー（`{"a":}`）、壊れたエスケープ（`\q` / `\u12`）、閉じていない括弧、後ろの余分なもの、一番外がオブジェクトでも配列でもないもの |
+
+> [!TRAP]
+> **2.5 までは、区切りの抜けや壊れたエスケープを黙って通していました。**
+> `{"a":1 "b":2}` は両方読めてしまい、`"\q..."` は後ろの4文字を飲み込んで文字列の終わりがずれていました。
+> 2.6.0 からは例外になります。
+
+**上限があります。**外から来た JSON を読むので、超えたら例外にします。
+
+| | 上限 |
+| --- | --- |
+| 入れ子の深さ | 512 段 |
+| 1つの数値の長さ | 1000 文字 |
+| 1つの文字列の長さ | 2000 万文字 |
 
 > [!NOTE]
-> **形しか見ません。**読み手は寛容なので、括弧が閉じていれば、値の無い `"a":` のような文法の誤りは通ります。
+> 文字列の `"true"` / `"false"` は、型を決めずに読む（`Data` / `Map` / `List`）と Boolean になります（2.5 までと同じ）。
+> 文字列で真偽を返す API があるためです。`Data` から `getString` で取れば `"true"` に戻ります。
+>
 > インスタンスの `new Dson().decode(...)` は例外を投げず、これまでどおり `isError()` / `getErrorException()` で見ます。
 
 ## 型変換

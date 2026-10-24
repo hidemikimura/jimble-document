@@ -335,13 +335,59 @@ assertEquals(List.of(<span class="h-s">"あ"</span>, <span class="h-s">"い"</sp
 </tr>
 </tbody>
 </table>
-<p><strong>Broken JSON throws <code>JsonParseException</code> (unchecked).</strong> <code>Data.fromJsonString</code> and <code>Dson.decodes</code> behave the same.
-Unclosed brackets, something extra at the end, or something that is not JSON at all — each of these throws.
-An empty string and <code>&quot;null&quot;</code> return <code>null</code> (no exception).</p>
+<p><strong>Broken JSON throws <code>JsonParseException</code> (unchecked).</strong> <code>Data.fromJsonString</code> and <code>Dson.decodes</code> behave the same, and so does reading from a Reader or an InputStream.
+The exception says where the problem is (<code>line 3, column 15</code> — written as <code>3 行 15 文字目</code>). An empty string and <code>&quot;null&quot;</code> return <code>null</code> (no exception).</p>
+<p><strong>Leniency with a clear meaning is accepted; anything that would silently damage the data is refused</strong> (since 2.6.0; the reader is <code>jimble-json</code>).</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Accepted</td>
+<td>Unquoted keys and values (<code>{name: jimble}</code>), single quotes, trailing commas, comments (<code>//</code> and <code>/* */</code>), <code>NaN</code> / <code>Infinity</code>, <code>+1</code> / <code>01</code> / <code>.5</code>, raw newlines inside strings</td>
+</tr>
+<tr>
+<td>Refused</td>
+<td>A missing separator (<code>{&quot;a&quot;:1 &quot;b&quot;:2}</code> / <code>[1,,2]</code>), a key with no value (<code>{&quot;a&quot;:}</code>), broken escapes (<code>\q</code> / <code>\u12</code>), unclosed brackets, something extra at the end, a top level that is neither an object nor an array</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>Up to 2.5, missing separators and broken escapes went through silently.</strong>
+<code>{&quot;a&quot;:1 &quot;b&quot;:2}</code> read both values, and <code>&quot;\q...&quot;</code> swallowed the next four characters and moved the end of the string.
+Since 2.6.0 they throw.</p>
+</div>
+<p><strong>There are limits.</strong> The JSON comes from outside, so going over one throws.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nesting depth</td>
+<td>512</td>
+</tr>
+<tr>
+<td>Length of one number</td>
+<td>1,000 characters</td>
+</tr>
+<tr>
+<td>Length of one string</td>
+<td>20 million characters</td>
+</tr>
+</tbody>
+</table>
 <div class="callout callout-note"><p class="callout-title">Note</p>
-<p><strong>Only the shape is checked.</strong> The reader is lenient, so as long as the brackets close, a grammar mistake such as
-<code>&quot;a&quot;:</code> with no value gets through.
-The instance method <code>new Dson().decode(...)</code> does not throw; check <code>isError()</code> / <code>getErrorException()</code> as before.</p>
+<p>The strings <code>&quot;true&quot;</code> / <code>&quot;false&quot;</code> become Boolean when read without a target type (<code>Data</code> / <code>Map</code> / <code>List</code>), as in 2.5,
+because some APIs return booleans as strings. <code>getString</code> on the <code>Data</code> gives back <code>&quot;true&quot;</code>.</p>
+<p>The instance method <code>new Dson().decode(...)</code> does not throw; check <code>isError()</code> / <code>getErrorException()</code> as before.</p>
 </div>
 <h2 id="type-conversion">Type conversion<a class="anchor" href="#type-conversion">#</a></h2>
 <p><code>Convertor.convert(conf, src, Target.class)</code> is the way in.

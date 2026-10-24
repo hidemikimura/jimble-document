@@ -242,6 +242,54 @@ codegen {
 環境変数があればそちらが勝ちます。無ければ前の行の値が残ります。</p>
 <p>ドライバは <code>jimble-db</code> が MySQL / MariaDB と PostgreSQL の両方を持っているので、
 ふつうは足す必要はありません。</p>
+<h2 id="接続の暗号化tls">接続の暗号化（TLS）<a class="anchor" href="#接続の暗号化tls">#</a></h2>
+<p><strong>2.6.0 から、MySQL / MariaDB のドライバ（MariaDB Connector/J 4.0）は既定で TLS を使い、サーバーの証明書を確かめます</strong>（<code>sslMode=verify-full</code>）。
+2.5 までのドライバ（3.5）は、何も書かなければ<strong>暗号化せずに</strong>繋いでいました。</p>
+<p>証明書を確かめられないと、**起動時に繋がらずに落ちます。**Docker の <code>mysql:8.4</code> のような自己署名の証明書の MySQL では、こう出ます。</p>
+<pre class="code"><code class="lang-text">Cannot use authentication plugin caching_sha2_password with a Self signed certificates.
+Either set sslMode=trust, use password with a MitM-Proof authentication plugin or provide server certificate to client
+</code></pre>
+<p>MariaDB 11.4 以降のサーバーは、自己署名の証明書でも書き足さずに確かめられます（手元の <code>mariadb:11.4</code> は何も書かずに繋がりました）。</p>
+<p><code>url</code> に <code>sslMode</code> を書いて決めます。</p>
+<table>
+<thead>
+<tr>
+<th>書き方</th>
+<th>使うところ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>書かない（<code>verify-full</code>）</td>
+<td>証明書が JDK の信頼する CA で署名されているとき。MariaDB 11.4 以降のサーバー</td>
+</tr>
+<tr>
+<td><code>sslMode=verify-full&amp;serverSslCert=/path/to/ca.pem</code></td>
+<td>**本番。**サーバーの CA 証明書を渡す（Amazon RDS / Aurora なら AWS が配っている CA 証明書）</td>
+</tr>
+<tr>
+<td><code>sslMode=trust</code></td>
+<td>暗号化はするが、証明書を確かめない。盗み見は防ぐが、なりすましは防がない</td>
+</tr>
+<tr>
+<td><code>sslMode=disable</code></td>
+<td>暗号化しない。<strong>手元の DB だけ</strong></td>
+</tr>
+</tbody>
+</table>
+<p>手元だけ暗号化しないなら、ローカル用の設定に書きます。</p>
+<pre class="code"><code class="lang-conf"><span class="h-c"># application.local.conf</span>
+include <span class="h-s">"application.conf"</span>
+
+db {
+	blog_example {
+		url = <span class="h-s">"jdbc:mariadb://127.0.0.1:3306/blog_example?sslMode=disable"</span>
+	}
+}
+</code></pre>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>古い書き方の <code>useSSL=false</code> も <code>sslMode=disable</code> と同じに扱われます（jimble のテストの設定はこちらです）。</p>
+</div>
 <h2 id="db-製品を選ぶ">DB 製品を選ぶ<a class="anchor" href="#db-製品を選ぶ">#</a></h2>
 <p><code>product</code> に製品を書くと、<strong>SQL ビルダーがその製品用の SQL を出します。</strong></p>
 <pre class="code"><code class="lang-conf">db {
@@ -661,6 +709,7 @@ DROP TABLE `note`;
 		<p class="section">このページ</p>
 		<ul>
 			<li class="level-2"><a href="#設定する">設定する</a></li>
+			<li class="level-2"><a href="#接続の暗号化tls">接続の暗号化（TLS）</a></li>
 			<li class="level-2"><a href="#db-製品を選ぶ">DB 製品を選ぶ</a></li>
 			<li class="level-2"><a href="#データベースがまだ無いとき">データベースがまだ無いとき</a></li>
 			<li class="level-3"><a href="#その製品で書けないもの">その製品で書けないもの</a></li>
