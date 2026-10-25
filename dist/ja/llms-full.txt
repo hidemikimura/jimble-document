@@ -6933,7 +6933,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.1-SNAPSHOT
+jimble 2.7.2-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6956,7 +6956,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.7.1-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.7.2-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -7085,9 +7085,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.0"
-	id("io.jimble.run") version "2.7.0"
-	id("io.jimble.db")  version "2.7.0"
+	id("io.jimble.jte") version "2.7.1"
+	id("io.jimble.run") version "2.7.1"
+	id("io.jimble.db")  version "2.7.1"
 }
 ```
 
@@ -7129,9 +7129,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.0"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.7.0"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.7.0"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.1"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.1"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.1"   // DB を使うなら
 }
 
 repositories {
@@ -7146,7 +7146,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.0")
+	implementation("io.jimble:jimble-web:2.7.1")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7180,7 +7180,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.1' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -9921,7 +9921,7 @@ int qty = Converter.convert("abc", int.class, ConverterOptions.LENIENT);  // 読
 決まりは [JSON を型に読む](#型に読む) ときと同じです。
 
 - **値が変わってしまうものは例外**です（`ConversionException`。どの項目か `$.items[1].qty` が載ります）。`1.5` → int、桁あふれ、`"abc"` → int、無い enum の名前、ありえない日付、後ろに余分のある日付
-- 意味がはっきりしているゆるさは受け付けます。前後の空白、全角の数字、`"1,234"`、`1.0` → int、`true` → 1、`"yes"` / `"on"` → true（`"no"` / `"off"` は false）、`"2024年01月15日"` → 日付
+- 意味がはっきりしているゆるさは受け付けます。前後の空白、全角の数字、`"1,234"`、`1.0` → int、`true` → 1、`"yes"` / `"on"` → true（`"no"` / `"off"` は false）、`"2024年01月15日"`・`"2024/1/5 9:00"`（月・日・時が 1 桁）→ 日付
 - Bean には **setter があれば setter で**入れます（親クラスの private フィールドにも入れます。`static` / `transient` には入れません）。record は正準のコンストラクタで作ります
 - **知らないキーは飛ばします**
 - 日時は `Date`・`LocalDate`・`LocalDateTime`・`Instant`・`OffsetDateTime` などのあいだで変換します。`Z` や `+09:00` の時差は読みます（時差の無いものはサーバーの時間帯）

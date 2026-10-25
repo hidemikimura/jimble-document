@@ -511,7 +511,7 @@ Order strict = Converter.convert(map, Order.<span class="h-k">class</span>, opti
 <p>決まりは <a href="#型に読む">JSON を型に読む</a> ときと同じです。</p>
 <ul>
 <li><strong>値が変わってしまうものは例外</strong>です（<code>ConversionException</code>。どの項目か <code>$.items[1].qty</code> が載ります）。<code>1.5</code> → int、桁あふれ、<code>&quot;abc&quot;</code> → int、無い enum の名前、ありえない日付、後ろに余分のある日付</li>
-<li>意味がはっきりしているゆるさは受け付けます。前後の空白、全角の数字、<code>&quot;1,234&quot;</code>、<code>1.0</code> → int、<code>true</code> → 1、<code>&quot;yes&quot;</code> / <code>&quot;on&quot;</code> → true（<code>&quot;no&quot;</code> / <code>&quot;off&quot;</code> は false）、<code>&quot;2024年01月15日&quot;</code> → 日付</li>
+<li>意味がはっきりしているゆるさは受け付けます。前後の空白、全角の数字、<code>&quot;1,234&quot;</code>、<code>1.0</code> → int、<code>true</code> → 1、<code>&quot;yes&quot;</code> / <code>&quot;on&quot;</code> → true（<code>&quot;no&quot;</code> / <code>&quot;off&quot;</code> は false）、<code>&quot;2024年01月15日&quot;</code>・<code>&quot;2024/1/5 9:00&quot;</code>（月・日・時が 1 桁）→ 日付</li>
 <li>Bean には <strong>setter があれば setter で</strong>入れます（親クラスの private フィールドにも入れます。<code>static</code> / <code>transient</code> には入れません）。record は正準のコンストラクタで作ります</li>
 <li><strong>知らないキーは飛ばします</strong></li>
 <li>日時は <code>Date</code>・<code>LocalDate</code>・<code>LocalDateTime</code>・<code>Instant</code>・<code>OffsetDateTime</code> などのあいだで変換します。<code>Z</code> や <code>+09:00</code> の時差は読みます（時差の無いものはサーバーの時間帯）</li>

@@ -7055,7 +7055,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.1-SNAPSHOT
+jimble 2.7.2-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7079,7 +7079,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.1-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.2-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7212,9 +7212,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.0"
-	id("io.jimble.run") version "2.7.0"
-	id("io.jimble.db")  version "2.7.0"
+	id("io.jimble.jte") version "2.7.1"
+	id("io.jimble.run") version "2.7.1"
+	id("io.jimble.db")  version "2.7.1"
 }
 ```
 
@@ -7257,9 +7257,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.0"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.0"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.0"   // if you use a database
+	id("io.jimble.jte") version "2.7.1"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.1"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.1"   // if you use a database
 }
 
 repositories {
@@ -7274,7 +7274,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.0")
+	implementation("io.jimble:jimble-web:2.7.1")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7308,7 +7308,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.0' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.1' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -10100,7 +10100,7 @@ int qty = Converter.convert("abc", int.class, ConverterOptions.LENIENT);  // unr
 The rules are the same as for [reading JSON into a type](#reading-into-a-type).
 
 - **Anything that would change the value throws** (`ConversionException`, carrying which property: `$.items[1].qty`): `1.5` → int, overflow, `"abc"` → int, an enum name that does not exist, an impossible date, a date with something extra at the end
-- Leniency with a clear meaning is accepted: surrounding blanks, full-width digits, `"1,234"`, `1.0` → int, `true` → 1, `"yes"` / `"on"` → true (`"no"` / `"off"` → false), `"2024年01月15日"` → a date
+- Leniency with a clear meaning is accepted: surrounding blanks, full-width digits, `"1,234"`, `1.0` → int, `true` → 1, `"yes"` / `"on"` → true (`"no"` / `"off"` → false), `"2024年01月15日"` and `"2024/1/5 9:00"` (one-digit month, day or hour) → a date
 - A Bean is filled **through its setter when there is one** (private fields of superclasses included; never `static` / `transient` fields). A record is built with its canonical constructor
 - **Unknown keys are skipped**
 - Date-times convert between `Date`, `LocalDate`, `LocalDateTime`, `Instant`, `OffsetDateTime`, and so on. Offsets such as `Z` and `+09:00` are honoured (values without one use the server's time zone)
