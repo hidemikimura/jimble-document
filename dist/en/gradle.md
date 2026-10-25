@@ -13,9 +13,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.3"
-	id("io.jimble.run") version "2.7.3"
-	id("io.jimble.db")  version "2.7.3"
+	id("io.jimble.jte") version "2.7.4"
+	id("io.jimble.run") version "2.7.4"
+	id("io.jimble.db")  version "2.7.4"
 }
 ```
 
@@ -58,9 +58,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.3"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.3"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.3"   // if you use a database
+	id("io.jimble.jte") version "2.7.4"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.4"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.4"   // if you use a database
 }
 
 repositories {
@@ -75,7 +75,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.3")
+	implementation("io.jimble:jimble-web:2.7.4")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -109,7 +109,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.3' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.4' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -349,10 +349,10 @@ It also lists **1.x code that 2.0 removed, or whose type or meaning 2.0 changed*
 | J806 | `cookies().put(cookie)` (removed in 2.0; it did not sign) |
 | J807 | `eq(null)` / `not(null)` (throws in 2.0; use `is_null()` / `is_not_null()`) |
 | J808 | The string `"now()"` (just a string in 2.0; use `Dsl.now()`) |
-| J810 | `long id = db.insert(...)` (2.0's `insert` returns nothing; use `insertKey`) |
+| J810 | `long id = db.insert(...)` (2.0's `insert` returns nothing; use `insertKey`). Only when the receiver is jimble's `DB` / `Tx` (an app call such as `ClientRepository.insert(db, ...)` is not reported) |
 | J901 | `Data row = db.select(...)` / `selectCached(...)` (2.0 returns `Optional<Data>`; code that takes it with `.orElse(...)` and the like is not listed) |
 | J902 | `if (!db.execute(...))` / `boolean x = db.execute(...)` (2.0 returns a count, and a failure throws) |
-| J903 | `isError()` (gone in 2.0) |
+| J903 | `db.isError()` (gone in 2.0). Only when the receiver is jimble's `DB` (your own class's `isError()` is not reported) |
 | J904 | Checking the return value of `DBUtil.load` / `DBLock.lock` / `DBLock.create` with `if (!...)` and the like (2.0 returns nothing, and a failure throws) |
 | J905 | `RedisLock.tryLock(...)` (2.0 returns `Optional<RedisLockResult>`; code that takes it as an `Optional` is not listed) |
 | J906 | `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey` (deprecated in 2.0) |

@@ -13,9 +13,9 @@
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.3"
-	id("io.jimble.run") version "2.7.3"
-	id("io.jimble.db")  version "2.7.3"
+	id("io.jimble.jte") version "2.7.4"
+	id("io.jimble.run") version "2.7.4"
+	id("io.jimble.db")  version "2.7.4"
 }
 ```
 
@@ -57,9 +57,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.3"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.7.3"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.7.3"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.4"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.4"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.4"   // DB を使うなら
 }
 
 repositories {
@@ -74,7 +74,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.3")
+	implementation("io.jimble:jimble-web:2.7.4")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -108,7 +108,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.3' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.4' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -341,10 +341,10 @@ jimbleRun {
 | J806 | `cookies().put(cookie)`（2.0 で消えた。署名しなかった） |
 | J807 | `eq(null)` / `not(null)`（2.0 で例外。`is_null()` / `is_not_null()` にする） |
 | J808 | 文字列 `"now()"`（2.0 ではただの文字列。`Dsl.now()` にする） |
-| J810 | `long id = db.insert(...)`（2.0 の `insert` は値を返さない。`insertKey` にする） |
+| J810 | `long id = db.insert(...)`（2.0 の `insert` は値を返さない。`insertKey` にする）。受け手が jimble の `DB` / `Tx` のときだけ（`ClientRepository.insert(db, ...)` のようなアプリのクラスの呼び出しは出さない） |
 | J901 | `Data row = db.select(...)` / `selectCached(...)`（2.0 は `Optional<Data>`。`.orElse(...)` などで受けているものは出さない） |
 | J902 | `if (!db.execute(...))` / `boolean x = db.execute(...)`（2.0 は件数を返し、失敗は例外） |
-| J903 | `isError()`（2.0 で無くなった） |
+| J903 | `db.isError()`（2.0 で無くなった）。受け手が jimble の `DB` のときだけ（自分で作ったクラスの `isError()` は出さない） |
 | J904 | `DBUtil.load` / `DBLock.lock` / `DBLock.create` の戻り値を `if (!...)` などで見ている（2.0 は値を返さず、失敗は例外） |
 | J905 | `RedisLock.tryLock(...)`（2.0 は `Optional<RedisLockResult>`。`Optional` で受けているものは出さない） |
 | J906 | `selectOrThrow` / `selectListOrThrow` / `insertNoReturnKey`（2.0 で非推奨） |
