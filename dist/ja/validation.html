@@ -307,6 +307,13 @@
 <strong>部分一致させたいときは <code>.*</code> で挟んでください。</strong></p>
 </div>
 <div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong><code>email()</code> は、メールを送る側（simplejavamail の既定の検査）が断る形を通しません。</strong>
+通したアドレスへ送れずに、MQ のやり直しが重なることを防ぐためです。
+ローカル部はドットが続かず、最初と最後に来ません（<code>a..b@</code>・<code>.a@</code>・<code>a.@</code> は落ちます）。
+ドメインのラベルは英数字とハイフンで、最初と最後はハイフンではなく、63 文字までです。最後のラベルは数字だけではいけません。
+通す文字は送る側より狭く、英数字と <code>+ _ % - .</code> だけです（引用符・空白・<code>Name &lt;a@…&gt;</code>・日本語は落ちます）。全体は 254 文字までです。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
 <p><strong><code>bool()</code> が通すのは <code>true</code> / <code>false</code> / <code>1</code> / <code>0</code> だけです</strong>（大小は問いません）。
 <code>yes</code> や <code>はい</code> は落ちます——<strong>読み出し側が同じ規則で読む</strong>ので、
 ここを広げると「はい」と答えた人が <code>false</code> として保存されます。</p>
