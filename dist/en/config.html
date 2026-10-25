@@ -336,6 +336,7 @@ when you compare against a default.</p>
 	backlog              = <span class="h-n">1024</span>     <span class="h-c"># connections the OS holds while accept catches up</span>
 	write_queue_length   = <span class="h-n">0</span>        <span class="h-c"># length of the response write queue; 0/1 means "no queue"</span>
 	smart_async_writes   = <span class="h-k">false</span>    <span class="h-c"># with a queue, write inline while it is not busy</span>
+	tcp_no_delay         = <span class="h-k">true</span>     <span class="h-c"># TCP_NODELAY (turn Nagle off; send small writes at once)</span>
 }
 
 metrics {

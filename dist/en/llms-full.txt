@@ -7062,7 +7062,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.3-SNAPSHOT
+jimble 2.7.4-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7086,7 +7086,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.3-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.4-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7219,9 +7219,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.2"
-	id("io.jimble.run") version "2.7.2"
-	id("io.jimble.db")  version "2.7.2"
+	id("io.jimble.jte") version "2.7.3"
+	id("io.jimble.run") version "2.7.3"
+	id("io.jimble.db")  version "2.7.3"
 }
 ```
 
@@ -7264,9 +7264,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.2"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.2"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.2"   // if you use a database
+	id("io.jimble.jte") version "2.7.3"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.3"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.3"   // if you use a database
 }
 
 repositories {
@@ -7281,7 +7281,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.2")
+	implementation("io.jimble:jimble-web:2.7.3")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7315,7 +7315,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.2' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.3' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -7530,6 +7530,7 @@ how to fix it is left out). Any `ERROR` fails the task; `WARN` alone does not.
 | J202 | ERROR | The same key written again after its `${?ENV}` line (the environment variable never wins) |
 | J203 | WARN | `cookie.secure = false` in `application.conf` or a production file (production inherits it and cookies go over http; write it only in `application.local.conf`) |
 | J204 | WARN | `server.trust_proxy = true` with neither `server.trusted_proxies` nor `server.client_ip_header` (with two or more hops, everyone looks like the nearer proxy's IP) |
+| J205 | WARN | `server.tcp_no_delay = false` (responses written in pieces are delayed about 40 ms each from the second request on a connection; only for the special case that relies on Nagle) |
 | J301 | ERROR | `Migration.install()` after `DBUtil.load(...)` (migrations never run) |
 | J302 | ERROR | `BatchRegistry.sync` is used but `BatchTables.install` is called nowhere |
 | J303 | ERROR | `BatchRegistry.sync` before `BatchRegistry.add` (every batch becomes `nothing`) |
@@ -8159,6 +8160,7 @@ server {
 	backlog              = 1024     # connections the OS holds while accept catches up
 	write_queue_length   = 0        # length of the response write queue; 0/1 means "no queue"
 	smart_async_writes   = false    # with a queue, write inline while it is not busy
+	tcp_no_delay         = true     # TCP_NODELAY (turn Nagle off; send small writes at once)
 }
 
 metrics {
@@ -8591,6 +8593,7 @@ server {
 	backlog            = 1024  # Connections the OS holds while accept catches up
 	write_queue_length = 0     # Length of the response write queue; 0/1 means "no queue"
 	smart_async_writes = false # With a queue, write inline while it is not busy
+	tcp_no_delay       = true  # TCP_NODELAY (turn Nagle off; send small writes at once)
 }
 ```
 
@@ -8621,11 +8624,30 @@ queue is not a faster server.
 > **Leaving `write_queue_length` at 0 or 1 while setting `smart_async_writes = true` fails at startup** —
 > silently ignoring it would leave you with a setting that "is on but changes nothing".
 
+**`tcp_no_delay`** sets TCP_NODELAY on accepted connections (turns Nagle's algorithm off).
+**The default is `true`** (Helidon's default is `false`).
+
+Without it, a response written to `outputStream()` in several pieces (`Transfer-Encoding: chunked`:
+HTML, SSE and so on) is **delayed by about 40 ms per request from the second request on the same connection**:
+the later small write waits for the ACK of the earlier one (Nagle), and that meets the client's delayed ACK.
+nginx reuses upstream connections (keepalive), so **this happens behind a proxy too**.
+Responses written in one go with `Content-Length` (`json()` and the like) are not delayed.
+
+In aqSell, turning it on was enough for this (one CPU, one user, reused connections, the checkout flow):
+
+| | off | on |
+|---|---|---|
+| Median HTML page time (same behind nginx) | 44–51 ms | 3–9 ms |
+| Checkouts per minute | 136 | 395 |
+
+Many small responses can mean more packets on the wire, but the delayed-ACK waits disappear.
+**Set it to `false` only in the special case where you rely on Nagle.**
+
 The startup log says which one was chosen.
 
 ```
-サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く）
-サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く）
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く） / TCP_NODELAY=true
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く） / TCP_NODELAY=false
 ```
 
 **Write nothing and you get the defaults above.** What is actually in effect is printed in the startup log.

@@ -235,6 +235,7 @@
 	backlog            = <span class="h-n">1024</span>  <span class="h-c"># Connections the OS holds while accept catches up</span>
 	write_queue_length = <span class="h-n">0</span>     <span class="h-c"># Length of the response write queue; 0/1 means "no queue"</span>
 	smart_async_writes = <span class="h-k">false</span> <span class="h-c"># With a queue, write inline while it is not busy</span>
+	tcp_no_delay       = <span class="h-k">true</span>  <span class="h-c"># TCP_NODELAY (turn Nagle off; send small writes at once)</span>
 }
 </code></pre>
 <h2 id="accepting-connections-and-writing-responses">Accepting connections and writing responses<a class="anchor" href="#accepting-connections-and-writing-responses">#</a></h2>
@@ -260,9 +261,40 @@ Helidon does not read it unless <code>write_queue_length</code> is <strong>2 or 
 <strong>Leaving <code>write_queue_length</code> at 0 or 1 while setting <code>smart_async_writes = true</code> fails at startup</strong> —
 silently ignoring it would leave you with a setting that &quot;is on but changes nothing&quot;.</p>
 </div>
+<p><strong><code>tcp_no_delay</code></strong> sets TCP_NODELAY on accepted connections (turns Nagle's algorithm off).
+<strong>The default is <code>true</code></strong> (Helidon's default is <code>false</code>).</p>
+<p>Without it, a response written to <code>outputStream()</code> in several pieces (<code>Transfer-Encoding: chunked</code>:
+HTML, SSE and so on) is <strong>delayed by about 40 ms per request from the second request on the same connection</strong>:
+the later small write waits for the ACK of the earlier one (Nagle), and that meets the client's delayed ACK.
+nginx reuses upstream connections (keepalive), so <strong>this happens behind a proxy too</strong>.
+Responses written in one go with <code>Content-Length</code> (<code>json()</code> and the like) are not delayed.</p>
+<p>In aqSell, turning it on was enough for this (one CPU, one user, reused connections, the checkout flow):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>off</th>
+<th>on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Median HTML page time (same behind nginx)</td>
+<td>44–51 ms</td>
+<td>3–9 ms</td>
+</tr>
+<tr>
+<td>Checkouts per minute</td>
+<td>136</td>
+<td>395</td>
+</tr>
+</tbody>
+</table>
+<p>Many small responses can mean more packets on the wire, but the delayed-ACK waits disappear.
+<strong>Set it to <code>false</code> only in the special case where you rely on Nagle.</strong></p>
 <p>The startup log says which one was chosen.</p>
-<pre class="code"><code class="lang-text">サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く）
-サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く）
+<pre class="code"><code class="lang-text">サーバー設定（接続）: 接続待ち=1024 / 書き出し列=作らない（その場で書く） / TCP_NODELAY=true
+サーバー設定（接続）: 接続待ち=1024 / 書き出し列=32（空いていればその場で書く） / TCP_NODELAY=false
 </code></pre>
 <p><strong>Write nothing and you get the defaults above.</strong> What is actually in effect is printed in the startup log.</p>
 <pre class="code"><code class="lang-text">jimble を起動しました: http://localhost:9000

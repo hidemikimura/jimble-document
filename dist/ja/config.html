@@ -328,6 +328,7 @@ application.prod.conf     本番。1行目で共通を読み、続きで上書�
 	backlog              = <span class="h-n">1024</span>     <span class="h-c"># 受け付け待ちの接続を OS に持たせる数</span>
 	write_queue_length   = <span class="h-n">0</span>        <span class="h-c"># 応答を書き出す列の長さ。0/1 は「列を作らない」</span>
 	smart_async_writes   = <span class="h-k">false</span>    <span class="h-c"># 列があるとき、空いていればその場で書く</span>
+	tcp_no_delay         = <span class="h-k">true</span>     <span class="h-c"># TCP_NODELAY（Nagle を切り、小さく書いたものもすぐ送る）</span>
 }
 
 metrics {
