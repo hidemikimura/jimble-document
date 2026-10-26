@@ -222,7 +222,9 @@
 <span class="h-c">// 明示的に保存する（要件 F-S-02）。自動保存はしない</span>
 context.session().save();</code></pre>
 <p><strong>Nothing is saved automatically.</strong> Nothing is written unless you call <code>save()</code>.
-That is to avoid writing on every request that only ever read.</p>
+That is to avoid writing on every request that only ever read.
+<strong><code>save()</code> does not write the contents unless you changed them</strong> (2.7.6); it only extends the lifetime.
+Even if you call <code>save()</code> on every request, a page that only reads does not rewrite the session, and it cannot wipe out a value another request from the same user just put in.</p>
 <p><strong>Change it with <code>session().put(...)</code> / <code>remove(...)</code> / <code>clear()</code>.</strong>
 <code>session().data()</code> (and <code>request().session()</code>) is <strong>a read-only copy</strong>; writing to it throws <code>UnsupportedOperationException</code>.
 That keeps you from a change that is never marked as changed and so never saved.</p>

@@ -222,7 +222,9 @@
 <span class="h-c">// 明示的に保存する（要件 F-S-02）。自動保存はしない</span>
 context.session().save();</code></pre>
 <p><strong>自動保存はしません。</strong> <code>save()</code> を呼ばなければ書かれません。
-「読んだだけのリクエストで毎回書き込む」を避けるためです。</p>
+「読んだだけのリクエストで毎回書き込む」を避けるためです。
+<strong><code>save()</code> を呼んでも、中身を変えていなければ書きません</strong>（2.7.6）。生存期間を延ばすだけです。
+毎回 <code>save()</code> を呼ぶ書き方でも、読むだけのページでは中身を書き直さず、同じ人の別のリクエストが入れた値を古い中身で消すこともありません。</p>
 <p><strong>変えるのは <code>session().put(...)</code> / <code>remove(...)</code> / <code>clear()</code> です。</strong>
 <code>session().data()</code>（と <code>request().session()</code>）は<strong>読み取り専用の写し</strong>で、書き換えると <code>UnsupportedOperationException</code> になります。
 「変えた」印が付かずに保存されない、を起こさないためです。</p>
