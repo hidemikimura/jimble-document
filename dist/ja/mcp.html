@@ -579,6 +579,36 @@ MCP のクラスの中に書くか、<code>before</code> と <code>install</code
 <p>クライアントは最初に <code>server/discover</code> を投げて、
 話せる版と、そのサーバーが何を持っているかを見ます。
 <strong>この呼び出しにだけは版のヘッダが要りません</strong>（版を知るための呼び出しなので）。</p>
+<h3 id="langchain4j-からつなぐ">LangChain4j からつなぐ<a class="anchor" href="#langchain4j-からつなぐ">#</a></h3>
+<p>LangChain4j の MCP クライアントは 2026-07-28 版で話せます
+（langchain4j-mcp 1.22.0-beta32 と jimble 2.7.6 で、一覧・呼び出し・リソース・プロンプト・購読・認証の失敗まで確かめています）。</p>
+<pre class="code"><code class="lang-java">McpTransport transport = StreamableHttpMcpTransport.builder()
+	.url(<span class="h-s">"https://app.example.com/mcp"</span>)
+	.customHeaders(() -&gt; Map.of(<span class="h-s">"Authorization"</span>, <span class="h-s">"Bearer "</span> + tokens.current()))
+	.build();
+
+McpClient client = DefaultMcpClient.builder()
+	.key(<span class="h-s">"app"</span>)
+	.transport(transport)
+	.protocolVersion(<span class="h-s">"2026-07-28"</span>)   <span class="h-c">// 版を決めておく（下を参照）</span>
+	.onResourceUpdated((c, uri) -&gt; refresh(uri))
+	.build();
+
+<span class="h-k">long</span> subscription = client.subscribeToResources(List.of(<span class="h-s">"blog://latest"</span>));
+</code></pre>
+<ul>
+<li><strong><code>protocolVersion(&quot;2026-07-28&quot;)</code> を書いてください。</strong>
+書かなくても <code>server/discover</code> で 2026-07-28 を選びますが、<code>/mcp</code> の認証で 401 を返すと、
+古い版の <code>initialize</code> を送り直したうえで「どちらの版にも答えない」という例外になり、認証の失敗に見えません。
+書いておけば <code>dev.langchain4j.exception.HttpException</code> の <code>statusCode()</code> が 401 になります
+（401 の本文は捨てられます）</li>
+<li><strong>ツールの失敗は例外になります。</strong><code>ToolResult.error(...)</code> も、必須の引数が無いときも、ツールが例外を投げたときも、
+<code>McpApplicationErrorException</code> です。メッセージは <code>ToolResult.error(...)</code> に書いた文です
+（ツールが投げた例外の中身は出ません）。<code>executeTool</code> を直に呼ぶなら捕まえてください</li>
+<li><strong><code>structured(...)</code> を付けた結果は、その JSON がモデルに渡ります。</strong><code>ToolResult.text(...)</code> の文は使われません。
+読ませたい説明があるなら、構造化した値に入れてください</li>
+<li>一覧はページを最後までたどり、購読は頼んだ URI の通知だけを受け取ります。取り消し（<code>unsubscribeFromResources</code>）も効きます</li>
+</ul>
 
 		</article>
 
@@ -613,6 +643,7 @@ MCP のクラスの中に書くか、<code>before</code> と <code>install</code
 			<li class="level-2"><a href="#origin-を必ず設定してください">Origin を必ず設定してください</a></li>
 			<li class="level-2"><a href="#mcp-に認証を掛けてください">/mcp に認証を掛けてください</a></li>
 			<li class="level-2"><a href="#つなぐ">つなぐ</a></li>
+			<li class="level-3"><a href="#langchain4j-からつなぐ">LangChain4j からつなぐ</a></li>
 		</ul>
 	</nav>
 </div>

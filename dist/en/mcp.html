@@ -580,6 +580,36 @@ An unauthenticated <code>/mcp</code> called from the same source address cannot 
 <p>A client starts with <code>server/discover</code> to find out which revisions the server speaks
 and what it has. <strong>That one call does not need the version header</strong> — it is the call
 you make to learn the version.</p>
+<h3 id="connecting-from-langchain4j">Connecting from LangChain4j<a class="anchor" href="#connecting-from-langchain4j">#</a></h3>
+<p>The LangChain4j MCP client speaks the 2026-07-28 revision
+(checked with langchain4j-mcp 1.22.0-beta32 and jimble 2.7.6: listing, calls, resources, prompts, subscriptions and failed authentication).</p>
+<pre class="code"><code class="lang-java">McpTransport transport = StreamableHttpMcpTransport.builder()
+	.url(<span class="h-s">"https://app.example.com/mcp"</span>)
+	.customHeaders(() -&gt; Map.of(<span class="h-s">"Authorization"</span>, <span class="h-s">"Bearer "</span> + tokens.current()))
+	.build();
+
+McpClient client = DefaultMcpClient.builder()
+	.key(<span class="h-s">"app"</span>)
+	.transport(transport)
+	.protocolVersion(<span class="h-s">"2026-07-28"</span>)   <span class="h-c">// pin the revision (see below)</span>
+	.onResourceUpdated((c, uri) -&gt; refresh(uri))
+	.build();
+
+<span class="h-k">long</span> subscription = client.subscribeToResources(List.of(<span class="h-s">"blog://latest"</span>));
+</code></pre>
+<ul>
+<li><strong>Set <code>protocolVersion(&quot;2026-07-28&quot;)</code>.</strong>
+Without it the client still picks 2026-07-28 through <code>server/discover</code>, but when the auth on <code>/mcp</code> answers 401,
+it retries with the old revision's <code>initialize</code> and ends up with an exception saying the server answered neither revision —
+which does not look like an authentication failure.
+With it, <code>statusCode()</code> on <code>dev.langchain4j.exception.HttpException</code> is 401 (the 401 body is dropped)</li>
+<li><strong>Tool failures become exceptions.</strong> <code>ToolResult.error(...)</code>, a missing required argument and a tool that throws
+all arrive as <code>McpApplicationErrorException</code>. The message is the text you gave <code>ToolResult.error(...)</code>
+(what the tool threw is not exposed). Catch it if you call <code>executeTool</code> directly</li>
+<li><strong>When a result has <code>structured(...)</code>, that JSON is what the model gets;</strong> the <code>ToolResult.text(...)</code> text is not used.
+Put anything you want the model to read into the structured value</li>
+<li>Lists are followed to the last page, a subscription receives only the URIs it asked for, and <code>unsubscribeFromResources</code> works</li>
+</ul>
 
 		</article>
 
@@ -614,6 +644,7 @@ you make to learn the version.</p>
 			<li class="level-2"><a href="#always-configure-origin">Always configure Origin</a></li>
 			<li class="level-2"><a href="#put-authentication-on-mcp">Put authentication on /mcp</a></li>
 			<li class="level-2"><a href="#connecting-to-it">Connecting to it</a></li>
+			<li class="level-3"><a href="#connecting-from-langchain4j">Connecting from LangChain4j</a></li>
 		</ul>
 	</nav>
 </div>
