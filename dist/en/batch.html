@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -399,6 +403,33 @@ You do not need to check the result of each statement.
 <strong>Do not <code>catch</code> the failure and carry on.</strong> Committing that chunk is then refused with
 <code>TransactionException</code> (<code>DB_004</code>) and everything in it is rolled back.</p>
 </blockquote>
+<h3 id="running-per-data-source">Running per data source<a class="anchor" href="#running-per-data-source">#</a></h3>
+<p>When databases with the same tables are lined up, override <code>db(args)</code> to choose the database to read and
+write (since 2.7.8). The default is the main database. <strong>Taking the data source as an argument</strong> is the
+recommended shape.</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">protected</span> DB db (BatchArgs args) {
+	<span class="h-k">return</span> DBUtil.getDB(args.cliArgs().getString(<span class="h-s">"data_source"</span>));
+}
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-c"># Run once per shop database</span>
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_a
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_b
+</code></pre>
+<ul>
+<li><strong>One run, one data source.</strong> Each data source gets its own <code>batch_history</code> record, so you can see which
+one failed and how far it got</li>
+<li>One data source failing does not affect the other runs (re-run only the failed one)</li>
+<li>The restart point is per data source too. Pass the starting key of <code>KeyPagingReader</code> as an argument to
+continue from where it stopped</li>
+<li><code>db(args)</code> <strong>must return a new <code>DB</code> on every call</strong> (to keep the reading and writing DBs apart;
+<code>DBUtil.getDB</code> does). Returning the same one throws</li>
+<li>The run record, progress and cancel flag are still written to the main database</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>There is no built-in helper that walks every data source inside one run. Doing that would need a second
+mechanism to decide, per data source, what to do after a failure (continue or stop) and how far each got.</p>
+</div>
 <h2 id="double-starts">Double starts<a class="anchor" href="#double-starts">#</a></h2>
 <p>How many copies of the same batch may run at once is set by <code>allowConcurrentExecutionCount()</code>.
 The default is one. If the previous execution has not finished, the next one is skipped.</p>
@@ -472,8 +503,8 @@ Exit with 0 only on <code>completed</code>. <code>isExecuted()</code> means &quo
 		</article>
 
 		<nav class="pager" aria-label="Previous and next page">
-			<a class="prev" href="codegen">
-				<span>Previous</span>Migrations and code generation
+			<a class="prev" href="multi-db">
+				<span>Previous</span>Lining up databases with the same tables
 			</a>
 			<a class="next" href="mq">
 				<span>Next</span>MQ
@@ -490,6 +521,7 @@ Exit with 0 only on <code>completed</code>. <code>isExecuted()</code> means &quo
 			<li class="level-2"><a href="#reading-a-batch-of-rows-at-a-time">Reading a batch of rows at a time</a></li>
 			<li class="level-3"><a href="#when-it-fails-partway">When it fails partway</a></li>
 			<li class="level-3"><a href="#the-reading-db-and-the-writing-db-are-different">The reading DB and the writing DB are different</a></li>
+			<li class="level-3"><a href="#running-per-data-source">Running per data source</a></li>
 			<li class="level-2"><a href="#double-starts">Double starts</a></li>
 			<li class="level-2"><a href="#running-one-on-its-own">Running one on its own</a></li>
 			<li class="level-2"><a href="#the-admin-screen">The admin screen</a></li>

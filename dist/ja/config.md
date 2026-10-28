@@ -11,7 +11,7 @@
 ```
 conf/application.conf          設定
 conf/application.local.conf    環境別
-conf/migration/<スキーマ名>/   マイグレーション
+conf/migration/<フォルダ名>/   マイグレーション
 ```
 
 `build.gradle.kts` で `conf` をリソースに足します。
@@ -373,6 +373,9 @@ db {
 	# データソースの名前ではないので、この位置に書く
 	remove_all_null_table_data = false
 
+	# 起動時の確かめ（つなぐ・管理の表・マイグレーション）を並べる数。既定 1（2.7.8 から）
+	startup_parallelism = 1
+
 	# データソースごとに1ブロック。名前（blog）が DB クラスの名前になる
 	blog {
 		main     = true                    # 主データソースにするか
@@ -381,7 +384,14 @@ db {
 		username = ${?DB_USER}
 		password = ${?DB_PASSWORD}
 		product  = "mysql"                 # mysql | mariadb | postgresql | postgres | pgsql
-		schema   = ""                      # 空ならブロックの名前。以前は scheme という綴りだった
+		schema   = ""                      # マイグレーションのフォルダ名。空ならブロックの名前。以前は scheme という綴りだった
+		migration_dir = ""                 # マイグレーションのフォルダ名。書けば schema より優先（2.7.8 から）。同じ作りの DB には同じ名前を書く
+		# migrate_on_startup = false        # 起動時にマイグレーションを当てるか。書かなければ migration.on_startup に従う（2.7.8 から）
+		codegen_name = ""                  # 生成コードの名前（パッケージの末尾とクラス名）。空ならブロックの名前。同じ名前のデータソースは 1 組を共有（2.7.8 から）
+		codegen      = true                # 生成コードを作るか（2.7.8 から）
+		mq           = true                # MQ のキューを置くか（2.7.8 から）
+		required     = true                # つながらなければ起動を止め、死活監視に入れるか。主は false にできない（2.7.8 から）
+		# framework_tables = ["db_lock"]   # 作る管理の表。書かなければ全部（db_log / db_value / db_lock / redis_lock / db_cache）。db_lock は外せない（2.7.8 から）
 
 		maximum_pool_size     = 10         # プールの最大
 		minimum_idle          = 1          # 常に開けておく数
@@ -442,7 +452,8 @@ mq {
 	poll_max          = 1s     # キューが空のときの取り出し役の待ちの上限（だんだん伸びる）
 	retry_backoff     = 10s    # リトライの間隔（回を追うごとに倍）
 	retry_backoff_max = 10m
-	stale             = 10m    # これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）
+	stale             = 10m    # これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）。一番長い処理より長くする
+	recover_interval  = 1m     # running のまま残った行を戻す間隔。0s なら起動のときだけ（2.7.8 から）
 
 	# 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。
 	# DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない。
@@ -451,6 +462,14 @@ mq {
 	thread_count {
 		short_time = 2
 		long_time  = 8
+	}
+
+	hint           = off   # 仕事のある印。off | memory | redis（2.7.8 から。データソースを並べたら redis を勧める）
+	sweep_interval = 10s   # 印を使うとき、全部のデータソースを回る間隔。印の無い行は遅くともこれで拾う（2.7.8 から）
+
+	# キューごとの設定（2.7.8 から）。data_sources はそのキューを置くデータソース（書かなければ db.<名前>.mq = true の全部）
+	queues {
+		mq_notice { data_sources = ["shop_a", "shop_b"] }
 	}
 }
 

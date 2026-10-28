@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -298,6 +302,24 @@ The process dying partway through the work is the usual reason.</p>
 <li>For an external API, attach an idempotency key</li>
 </ul>
 <p>&quot;Exactly once&quot; is not something a distributed system can give you. jimble does not pretend it can.</p>
+<h3 id="rows-left-running">Rows left running<a class="anchor" href="#rows-left-running">#</a></h3>
+<p>If a process dies partway through, the row stays <code>running</code>.
+<strong><code>running</code> rows older than <code>mq.stale</code> (10 minutes by default) are put back to <code>waiting</code> every
+<code>mq.recover_interval</code> (1 minute by default)</strong> (since 2.7.8; before that only when the queue started).
+Putting a row back counts as one retry, and a row that has used up <code>maxRetry()</code> becomes <code>dead</code>. Several
+servers doing this at once do not count twice.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Make <code>mq.stale</code> longer than your longest job.</strong>
+A job that runs longer than <code>mq.stale</code> is put back while it is still running, and another worker runs it
+again (it runs twice). When that happens, the old job that finishes later <strong>does not write its result</strong>
+(only a row still in the state it was claimed in is updated; since 2.7.8). If the log says the row &quot;was
+claimed again while it was being processed&quot;, raise <code>mq.stale</code>.</p>
+</div>
+<pre class="code"><code class="lang-conf">mq {
+	stale            = <span class="h-n">10m</span>   <span class="h-c"># running rows older than this are treated as left behind by a dead process</span>
+	recover_interval = <span class="h-n">1m</span>    <span class="h-c"># how often to put them back; 0s means only when the queue starts</span>
+}
+</code></pre>
 <h2 id="registering-it-and-running-it">Registering it and running it<a class="anchor" href="#registering-it-and-running-it">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-c">// create the table</span>
 <span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
@@ -313,6 +335,112 @@ However many servers run the queue, each message is taken by exactly one worker 
 <code>mq.thread_count.&lt;type&gt;</code> is <strong>how many messages are processed in parallel</strong>; raising it does not add connections
 borrowed while the queue is idle (up to 2.1.2 every worker polled the DB itself, so a slow DB filled one
 connection per worker at once).</p>
+<h2 id="choosing-the-data-sources-a-queue-lives-on">Choosing the data sources a queue lives on<a class="anchor" href="#choosing-the-data-sources-a-queue-lives-on">#</a></h2>
+<p>With several data sources, a queue's table is created on <strong>every data source</strong>, and the poller visits them
+all in turn. A database that does not use queues (a shared one, say) can be left out (since 2.7.8).</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ..., mq = <span class="h-k">false</span> }   <span class="h-c"># no queues on this data source</span>
+	shop_a { url = <span class="h-s">"..."</span> }
+	shop_b { url = <span class="h-s">"..."</span> }
+}
+
+mq.queues {
+	mq_notice { data_sources = [<span class="h-s">"shop_a"</span>, <span class="h-s">"shop_b"</span>] }   <span class="h-c"># where this queue lives (unset means every data source with mq = true)</span>
+}
+</code></pre>
+<ul>
+<li>A data source that is left out gets <strong>no table, and is not visited for claiming, for recovering stale
+rows (<code>recoverStale</code>), or for counting (<code>pendingCount</code>)</strong></li>
+<li>The poller orders the data sources by name and <strong>starts right after the one it last claimed from</strong>
+(since 2.7.8). One data source with a long backlog does not hold back the others (they are visited
+within &quot;number of data sources&quot; claims)</li>
+<li>With both settings, the queue lives only on data sources that satisfy both. An unknown name in
+<code>data_sources</code> stops startup</li>
+<li><strong><code>put</code> on a database of a data source that is left out throws <code>MqException</code></strong> (nobody would process it)</li>
+<li>Keep the queue table in the same database as the business tables, so enqueueing and the business update
+roll back together</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>The scheduler's queue (<code>scheduler.queue_name</code>, <code>mq_scheduler</code> by default) lives on the main data source
+only</strong> (since 2.7.8). The scheduler's own tables (<code>batch_master</code> and the rest) and the admin screen's
+enqueueing are on the main data source, so the queue is created there and claimed from there regardless of
+<code>db.&lt;name&gt;.mq</code>. Rows put on other data sources are no longer claimed. To keep a queue of your own on the
+main data source only, use <code>MqQueue.mainOnly(&quot;name&quot;)</code> and return true from <code>mainOnly()</code> in the
+<code>MqExecutor</code> that puts to it.</p>
+</div>
+<h2 id="visiting-only-the-databases-that-have-work">Visiting only the databases that have work<a class="anchor" href="#visiting-only-the-databases-that-have-work">#</a></h2>
+<p>With dozens of data sources, the poller visits <strong>even the empty ones on every round</strong>. Whether the
+system is idle or only one database has work, SELECTs grow with the number of data sources.
+Set <code>mq.hint</code> and <strong>putting a message leaves a &quot;this data source has work&quot; hint</strong>; the poller then visits
+only the data sources with a hint (since 2.7.8).</p>
+<pre class="code"><code class="lang-conf">mq {
+	hint           = redis   <span class="h-c"># off (default: visit everything every round) | memory | redis</span>
+	sweep_interval = <span class="h-n">10s</span>     <span class="h-c"># how often every data source is visited (rows without a hint are picked up within this)</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th><code>mq.hint</code></th>
+<th>Where hints live</th>
+<th>When it fits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off</code> (default)</td>
+<td>Nowhere; every round visits everything (as before)</td>
+<td>Few data sources</td>
+</tr>
+<tr>
+<td><code>memory</code></td>
+<td>Inside the same process only</td>
+<td>Putting and claiming happen in the same process</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>Inside the process and in a Redis set</td>
+<td>Put from the web, claim in a batch process (different processes)</td>
+</tr>
+</tbody>
+</table>
+<p>With hints, the poller visits only:</p>
+<ul>
+<li>data sources with a hint (kept for 5 seconds after the hint is seen, so a putting transaction that has
+not committed yet is not missed)</li>
+<li>data sources that last returned as many rows as were wanted (there may be more)</li>
+<li>every data source, once per <code>sweep_interval</code></li>
+</ul>
+<p><strong>A hint only makes the poller look sooner; nothing is lost without it.</strong> If Redis is down, neither putting
+nor claiming fails (a log line is written) and the rows are picked up by the full round.</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>A row without a hint can wait up to <code>sweep_interval</code>.</strong> Rows get no hint when another process put them
+with a time (<code>scheduled_at</code>), when another process put them under <code>memory</code>, or while Redis was down.
+Retries are not delayed: the poller's own process keeps a hint for the retry time.</p>
+</div>
+<p>Claiming SELECTs measured on a local MySQL with one queue, two workers, <code>poll_max = 1s</code> and
+<code>sweep_interval = 10s</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Data sources</th>
+<th>Idle (<code>off</code> → <code>redis</code>)</th>
+<th>To the other databases while one gets 10 messages a second (<code>off</code> → <code>redis</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>20/s → 2/s</td>
+<td>837/s → 1.8/s</td>
+</tr>
+<tr>
+<td>30</td>
+<td>54/s → 6/s</td>
+<td>1,701/s → 5.8/s</td>
+</tr>
+</tbody>
+</table>
 
 		</article>
 
@@ -332,7 +460,10 @@ connection per worker at once).</p>
 			<li class="level-2"><a href="#writing-one">Writing one</a></li>
 			<li class="level-2"><a href="#enqueueing">Enqueueing</a></li>
 			<li class="level-2"><a href="#it-will-run-twice">It will run twice</a></li>
+			<li class="level-3"><a href="#rows-left-running">Rows left running</a></li>
 			<li class="level-2"><a href="#registering-it-and-running-it">Registering it and running it</a></li>
+			<li class="level-2"><a href="#choosing-the-data-sources-a-queue-lives-on">Choosing the data sources a queue lives on</a></li>
+			<li class="level-2"><a href="#visiting-only-the-databases-that-have-work">Visiting only the databases that have work</a></li>
 		</ul>
 	</nav>
 </div>

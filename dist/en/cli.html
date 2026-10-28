@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -220,6 +224,7 @@
 
   new &lt;name&gt;              プロジェクトの雛形を作る
   migrate                 未適用のマイグレーションを適用する
+  migrateCheck            当たっているかを確かめる（DB には書かない）
   codegen &lt;source root&gt;   テーブル定義のコードを生成する（例: src/main/java）
   version                 版を表示する
 </code></pre>
@@ -239,6 +244,10 @@
 <tr>
 <td><code>migrate</code></td>
 <td>Apply the migrations that have not been applied yet</td>
+</tr>
+<tr>
+<td><code>migrateCheck</code></td>
+<td>Check that the migrations have been applied (writes nothing)</td>
 </tr>
 <tr>
 <td><code>codegen &lt;source root&gt;</code></td>
@@ -266,7 +275,7 @@ Build it from the repository.</p>
 <code>codegen</code> also run as Gradle tasks (<code>./gradlew migrate</code> / <code>./gradlew codegen</code>).</p>
 </div>
 <pre class="code"><code class="lang-bash">$ jimble version
-<span class="h-k">jimble</span> 2.7.8-SNAPSHOT
+<span class="h-k">jimble</span> 2.7.9-SNAPSHOT
 </code></pre>
 <p>If you would rather not type that every time, add the <code>export</code> above to your
 <code>~/.zshrc</code>, or make a link.</p>
@@ -285,7 +294,7 @@ What runs is the copy under <code>build/install/</code>, so
 </div>
 <h3 id="using-a-jimble-you-built-yourself">Using a jimble you built yourself<a class="anchor" href="#using-a-jimble-you-built-yourself">#</a></h3>
 <p>The <code>build.gradle.kts</code> that <code>jimble new</code> writes points at <strong>the version the CLI
-was built from</strong>. If that version is not published (<code>2.7.8-SNAPSHOT</code>, say),
+was built from</strong>. If that version is not published (<code>2.7.9-SNAPSHOT</code>, say),
 <strong>publish it locally first</strong>.</p>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> publishToMavenLocal
 <span class="h-k">./gradlew</span> -p gradle-plugin publishToMavenLocal
@@ -309,10 +318,8 @@ If you only ever use published versions, you do not need any of this.</p>
 	conf/migration/my_blog/001_create_note.sql.example
 	AGENTS.md
 	CLAUDE.md
-	.claude/skills/jimble/SKILL.md
-	.claude/skills/jimble-db/SKILL.md
-	.claude/skills/jimble-web/SKILL.md
-	.claude/skills/jimble-batch/SKILL.md
+	.claude/skills/jimble/SKILL.md          (the entry point; points to the others)
+	.claude/skills/jimble-*/SKILL.md        (one per area: web, DB, batch, MQ, config, ...)
 	.claude/jimble-skills.properties
 </code></pre>
 <p><strong>It also places guidance for AI assistants</strong> (<code>AGENTS.md</code>, a <code>CLAUDE.md</code> that only loads it, and the skills under
@@ -362,6 +369,9 @@ and call it there.</p>
 <pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
 </code></pre>
 </div>
+<p>For the options that apply to databases lined up side by side (<code>--data-source</code>,
+<code>--migration-dir</code>, <code>--parallel</code>, <code>--keep-going</code>) and for <code>migrateCheck</code>, see
+<a href="./codegen#applying-to-databases-lined-up-side-by-side">Applying to databases lined up side by side</a>.</p>
 <h2 id="checking-the-version">Checking the version<a class="anchor" href="#checking-the-version">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> version
 </code></pre>

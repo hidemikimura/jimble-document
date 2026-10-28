@@ -6,16 +6,16 @@ There are three. **Add only the ones you need.**
 
 | ID | What it does | Main tasks |
 | --- | --- | --- |
-| `io.jimble.db` | Runs migrations and code generation in front of `compileJava` | `migrate` / `codegen` / `codegenCheck` |
+| `io.jimble.db` | Runs migrations and code generation in front of `compileJava` | `migrate` / `codegen` / `codegenCheck` / `migrateCheck` |
 | `io.jimble.jte` | Turns `src/main/jte` into Java in front of `compileJava` | `generateJte` |
 | `io.jimble.run` | Hot reload for development | `jimbleRun` |
 
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"
-	id("io.jimble.run") version "2.7.7"
-	id("io.jimble.db")  version "2.7.7"
+	id("io.jimble.jte") version "2.7.8"
+	id("io.jimble.run") version "2.7.8"
+	id("io.jimble.db")  version "2.7.8"
 }
 ```
 
@@ -58,9 +58,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.7"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.7"   // if you use a database
+	id("io.jimble.jte") version "2.7.8"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.8"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.8"   // if you use a database
 }
 
 repositories {
@@ -75,7 +75,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.7")
+	implementation("io.jimble:jimble-web:2.7.8")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -109,7 +109,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.7' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.8' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -137,7 +137,18 @@ jimbleRun {
 ./gradlew migrate       # apply the SQL that has not been applied
 ./gradlew codegen       # build the table definition classes (after migrate)
 ./gradlew codegenCheck  # check the committed generated code against the schema
+./gradlew migrateCheck  # check that the migrations have been applied (writes nothing; since 2.7.8)
 ```
+
+Pass options to `migrate` and `migrateCheck` through `jimble.migrateArgs`
+(since 2.7.8).
+
+```bash
+./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --parallel 4 --keep-going"
+```
+
+What the options mean is in
+[Applying to databases lined up side by side](./codegen#applying-to-databases-lined-up-side-by-side).
 
 What they do is in [Migrations and code generation](./codegen).
 
@@ -300,7 +311,7 @@ application's AI keeps reading the old version's explanations. **Run it after yo
 
 ```bash
 ./gradlew jimbleSkills
-./gradlew jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record
+./gradlew jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record (and delete ones this version dropped)
 ```
 
 - **Hand-edited skills are never overwritten.** The hash of what was placed is recorded in
@@ -308,7 +319,12 @@ application's AI keeps reading the old version's explanations. **Run it after yo
   anything else is left alone
 - **Skills with no record** (placed by a `jimble new` from before the record existed) are left alone too, since there is
   no telling whether they were edited. If you did not edit them, use `--overwrite`
+- **Skills new in this version are added, and skills this version no longer ships are deleted** (2.7.8). A version that splits
+  or renames skills is brought in line just by running the task. Only files that still match the record (untouched since jimble
+  placed them) are deleted; an edited one is kept and reported as "old" every time (`--overwrite` deletes it).
+  Skills that are not in the record (your application's own) are never looked at
 - **Put your application's own rules in `AGENTS.md`, not in the skills.** An edited skill can no longer be brought up to date
+- Commit `.claude/skills/` and `.claude/jimble-skills.properties` afterwards
 - `AGENTS.md` / `CLAUDE.md` are **placed only if missing, never touched otherwise** (`CLAUDE.md` just says `@AGENTS.md`)
 
 ### jimbleCheck

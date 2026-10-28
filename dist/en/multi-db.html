@@ -1,0 +1,396 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lining up databases with the same tables - jimble</title>
+<meta name="description" content="One set of web and batch servers, one database per client. Configuration, choosing the database per request, migrations, generated code, MQ, connection counts, and when one goes down">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+			<li>
+				<a href="multi-db"
+				   class="current">Lining up databases with the same tables</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+			<li>
+				<a href="mail"
+				   class="">Mail</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">Versions and compatibility</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="lining-up-databases-with-the-same-tables">Lining up databases with the same tables<a class="anchor" href="#lining-up-databases-with-the-same-tables">#</a></h1>
+<p>Keep one set of web and batch servers, line up many <strong>databases with the same tables</strong> as <code>db.&lt;name&gt;</code>,
+and choose the client's database for each request (2.7.8 completes the settings for this).</p>
+<ul>
+<li><strong>Good for</strong>: a database per client (or per group of clients); a dedicated database for a large client</li>
+<li><strong>Not for</strong>: <strong>hundreds</strong> of data sources or more. Pools, MQ claiming and the startup checks grow with
+the number of data sources. Aim for dozens at most (not one database per company)</li>
+</ul>
+<p>The shared database (the main one, <code>main = true</code>) holds the client ledger, the scheduler, batch
+management and so on; the shop databases hold the business tables and the MQ queue tables.</p>
+<h2 id="example-configuration">Example configuration<a class="anchor" href="#example-configuration">#</a></h2>
+<pre class="code"><code class="lang-conf"><span class="h-c"># example of lined-up databases</span>
+db_templates {
+	tenant {
+		driver             = <span class="h-s">"org.mariadb.jdbc.Driver"</span>
+		username           = ${?SHOP_DB_USER}
+		password           = ${?SHOP_DB_PASSWORD}
+		maximum_pool_size  = <span class="h-n">6</span>
+		minimum_idle       = <span class="h-n">0</span>              <span class="h-c"># do not keep connections open to idle databases</span>
+		connection_timeout = <span class="h-n">3s</span>             <span class="h-c"># do not let an unreachable database delay startup too much</span>
+		migration_dir      = <span class="h-s">"shop"</span>         <span class="h-c"># the same SQL for every shop database</span>
+		migrate_on_startup = <span class="h-k">false</span>          <span class="h-c"># apply from the CLI during deployment, not at startup</span>
+		codegen_name       = <span class="h-s">"shop"</span>         <span class="h-c"># one set of generated code</span>
+		required           = <span class="h-k">false</span>          <span class="h-c"># one going down does not stop startup or the health check</span>
+		framework_tables   = [<span class="h-s">"db_lock"</span>]    <span class="h-c"># no framework tables the shop databases do not need</span>
+	}
+}
+
+db {
+	startup_parallelism = <span class="h-n">8</span>                 <span class="h-c"># run the startup checks in parallel</span>
+
+	main {
+		main     = <span class="h-k">true</span>
+		driver   = <span class="h-s">"org.mariadb.jdbc.Driver"</span>
+		url      = <span class="h-s">"jdbc:mariadb://db0/common"</span>
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		mq       = <span class="h-k">false</span>                    <span class="h-c"># no queues on the shared database</span>
+	}
+
+	shop_a = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mariadb://db1/shop_a"</span> }
+	shop_b = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mariadb://db1/shop_b"</span> }
+}
+
+mq {
+	hint           = redis                  <span class="h-c"># visit only the databases that have work</span>
+	sweep_interval = <span class="h-n">10s</span>
+}
+</code></pre>
+<p>Each setting is described in <a href="./db">DB</a>, <a href="./codegen">Migrations and code generation</a> and <a href="./mq">MQ</a>.
+The template (<code>db_templates</code>) lives outside <code>db { }</code> and is copied and overridden with <code>${}</code>.</p>
+<h2 id="choosing-the-database-per-request">Choosing the database per request<a class="anchor" href="#choosing-the-database-per-request">#</a></h2>
+<p>In an entry filter, choose the database <strong>from the Host or the like</strong> and keep it on the request.</p>
+<pre class="code"><code class="lang-java">before(context -&gt; {
+	String dataSource = tenants.dataSourceOf(context.request().host());   <span class="h-c">// look up the ledger (cached)</span>
+	<span class="h-k">if</span> (dataSource == <span class="h-k">null</span>) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">404</span>, <span class="h-s">"unknown host"</span>);
+	}
+	context.attribute(SHOP_DB, dataSource);
+});
+
+get(<span class="h-s">"/orders"</span>, context -&gt; {
+	<span class="h-k">try</span> (DB db = DBUtil.getDB(context.&lt;String&gt;attribute(SHOP_DB))) {
+		context.response().json(<span class="h-s">"orders"</span>, db.selectList(SQL.select().from(Order.instance())));
+	}
+});
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>Do not take the value that chooses the database from request parameters (query, form, JSON).</strong>
+Changing that value would hit another client's database. Derive it from something fixed by the route,
+such as the Host, and keep filtering by <code>shop_id</code> inside the shop database too.</p>
+</div>
+<p>Keep the ledger (Host → data source name) in the shared database and cache the lookups (every request
+goes through it).</p>
+<h2 id="what-stays-on-the-main-data-source">What stays on the main data source<a class="anchor" href="#what-stays-on-the-main-data-source">#</a></h2>
+<p>These live only on the main data source (the shop databases do not need them):</p>
+<ul>
+<li>the scheduler (<code>batch_master</code> and the rest) and its MQ queue (<code>mq_scheduler</code>)</li>
+<li>batch run records (<code>batch_history</code> and the rest); even a chunk batch running on a shop database records
+on the main one (<a href="./batch">Batch</a>)</li>
+<li>session and authentication tables (<code>session</code>, <code>auth_*</code>) and rate limits</li>
+<li>code migrations (<code>CodeMigration</code>)</li>
+</ul>
+<h2 id="applying-migrations">Applying migrations<a class="anchor" href="#applying-migrations">#</a></h2>
+<p>Set <code>migrate_on_startup = false</code> on the shop databases and <strong>apply them from the CLI during deployment</strong>.</p>
+<pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+<span class="h-c"># start the application once they line up</span>
+</code></pre>
+<p>A failure does not stop the others, and a per-data-source result is printed at the end. <code>migrateCheck</code>
+writes nothing and reports files not applied, extra records and hash mismatches per data source
+(<a href="./codegen#applying-to-databases-lined-up-side-by-side">Applying to databases lined up side by side</a>).</p>
+<h2 id="generated-code">Generated code<a class="anchor" href="#generated-code">#</a></h2>
+<p>With the same <code>codegen_name</code>, there is one set of generated code (the representative is the main data
+source, else the first by name). Table classes put only the table name into SQL, so <strong>run them with the
+database chosen for the request</strong>. <code>Shop.db()</code> returns the representative database, so do not use it for
+shop work (<a href="./codegen#sharing-generated-code-across-databases-with-the-same-tables">Sharing generated code</a>).</p>
+<h2 id="mq">MQ<a class="anchor" href="#mq">#</a></h2>
+<ul>
+<li><strong>Keep the queue table in the same database as the business tables</strong>, so enqueueing and the business
+update roll back together</li>
+<li>Leave out databases that use no queues (such as the shared one) with <code>mq = false</code>. Putting to one that is
+left out throws</li>
+<li>The poller orders the data sources by name and starts right after the one it last claimed from (one
+database with a backlog does not hold back the others)</li>
+<li>With <code>mq.hint = redis</code>, only databases with work are visited. Every database is visited once per
+<code>sweep_interval</code>, which is the longest a row without a hint waits</li>
+<li>Query estimate: with <code>hint = off</code>, even an idle process issues &quot;queues × types × databases × 2 ÷
+<code>poll_max</code>&quot; SELECTs per second</li>
+</ul>
+<p>See &quot;Choosing the data sources a queue lives on&quot; and &quot;Visiting only the databases that have work&quot; in
+<a href="./mq">MQ</a>.</p>
+<h2 id="connection-counts">Connection counts<a class="anchor" href="#connection-counts">#</a></h2>
+<p>There is one pool per data source × write/read × parent and each sub.</p>
+<ul>
+<li>Connections a process always keeps open = the sum of <code>minimum_idle</code> over those pools</li>
+<li>Connections at peak = the sum of <code>maximum_pool_size</code> over those pools</li>
+</ul>
+<p>With 30 shop databases in the example above, the shop databases keep 0 open and reach 30 × 6 = 180 at
+peak (plus the main one). Set the database server's <code>max_connections</code> above the number of processes × the
+peak.</p>
+<h2 id="sql-result-cache">SQL result cache<a class="anchor" href="#sql-result-cache">#</a></h2>
+<p>The SQL result cache is <strong>kept apart by data source name</strong>, so shop databases never share entries.
+<strong>For caches your application keeps itself</strong> (the ledger, settings, templates and so on), <strong>put the data
+source name into the key</strong>. Otherwise another client's value comes back.</p>
+<h2 id="when-one-database-goes-down">When one database goes down<a class="anchor" href="#when-one-database-goes-down">#</a></h2>
+<p>Set <code>required = false</code> on the shop databases.</p>
+<ul>
+<li>If one cannot be reached at startup, startup goes on, and once the database is back it just works</li>
+<li><code>DBUtil.healthCheck()</code> (the health check) looks only at <code>required = true</code> data sources, so one going
+down does not take the whole machine out of rotation</li>
+<li>Per data source, use <code>DBUtil.healthCheckAll()</code></li>
+<li>A database that could not be reached at startup did not get its framework tables or migrations. Apply
+them with the CLI's <code>migrate --data-source</code> once it is back</li>
+</ul>
+<p>See <a href="./db#data-sources-that-may-be-down">DB</a>.</p>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="codegen">
+				<span>Previous</span>Migrations and code generation
+			</a>
+			<a class="next" href="batch">
+				<span>Next</span>Batch
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#example-configuration">Example configuration</a></li>
+			<li class="level-2"><a href="#choosing-the-database-per-request">Choosing the database per request</a></li>
+			<li class="level-2"><a href="#what-stays-on-the-main-data-source">What stays on the main data source</a></li>
+			<li class="level-2"><a href="#applying-migrations">Applying migrations</a></li>
+			<li class="level-2"><a href="#generated-code">Generated code</a></li>
+			<li class="level-2"><a href="#mq">MQ</a></li>
+			<li class="level-2"><a href="#connection-counts">Connection counts</a></li>
+			<li class="level-2"><a href="#sql-result-cache">SQL result cache</a></li>
+			<li class="level-2"><a href="#when-one-database-goes-down">When one database goes down</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

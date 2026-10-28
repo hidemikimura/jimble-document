@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -429,6 +433,9 @@ Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだ�
 <p>終わるときは <code>DBUtil.stop()</code> です（Web は<a href="./server">グレースフルシャットダウン</a>が呼びます。
 バッチやテストでは自分で呼びます）。</p>
 <h2 id="データソースが複数あるとき">データソースが複数あるとき<a class="anchor" href="#データソースが複数あるとき">#</a></h2>
+<div class="callout callout-tip"><p class="callout-title">こつ</p>
+<p>同じ作りの DB を何本も並べ、要求ごとにクライアントの DB を選ぶ使い方は、<a href="./multi-db">同じ作りの DB を並べる</a> に 1 ページでまとめてあります。</p>
+</div>
 <pre class="code"><code class="lang-conf">db {
 	main_db { main = <span class="h-k">true</span>, ... }
 	log_db  { ... }
@@ -438,9 +445,162 @@ Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだ�
 <code>main = true</code> のものは <code>DBUtil.getMainDB()</code> です（引数なしの <code>getDB()</code> はありません）。</p>
 <p>トップレベルに並べたものは、<strong>1本ごとに独立した扱い</strong>を受けます。</p>
 <ul>
-<li><code>conf/migration/&lt;データソース名&gt;/</code> のマイグレーションが当たります</li>
-<li>codegen が <code>db/&lt;データソース名&gt;/</code> を作ります</li>
-<li><code>migration</code> / <code>db_lock</code> / <code>db_value</code> / <code>db_cache</code> もそちらに作られます</li>
+<li><code>conf/migration/&lt;データソース名&gt;/</code> のマイグレーションが当たります（<code>migration_dir</code> で別のフォルダにできます。下を参照）</li>
+<li>codegen が <code>db/&lt;データソース名&gt;/</code> を作ります（<code>codegen_name</code> で同じ作りの DB と 1 組を共有できます。<a href="./codegen#同じ作りの-db-で生成コードを共有する">コード生成</a>）</li>
+<li><code>migration</code> / <code>db_lock</code> / <code>db_value</code> / <code>db_cache</code> もそちらに作られます（<code>framework_tables</code> で絞れます。下を参照）</li>
+</ul>
+<p>jimble が使う表は、無ければ起動時に作ります。空の DB に何台かが同時に初めて起動しても、
+ほかの台が先に作った表はそのまま使います（2.7.8 から。表のコメント「説明:版」で見分けます）。
+アプリが同じ名前の表を持っているときは、これまでどおり起動で止まります。</p>
+<p>同じ表の作りの DB を何本も並べるときは、マイグレーションのフォルダを1つにできます（2.7.8 から）。</p>
+<pre class="code"><code class="lang-conf">db {
+	shop_a { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span> }
+	shop_b { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span> }
+}
+</code></pre>
+<p><code>conf/migration/shop/</code> の SQL が、<code>shop_a</code> と <code>shop_b</code> のそれぞれに1回ずつ当たります。
+当たったかどうかの記録（<code>migration</code>・<code>migration_history</code>）はそれぞれの DB に残るので、
+片方だけ当たっていれば、もう片方にだけ当たります。
+Java で書くマイグレーション（<code>CodeMigration</code>）は主にしか当たりません。</p>
+<h3 id="同じ作りの-db-をひな形から書く">同じ作りの DB をひな形から書く<a class="anchor" href="#同じ作りの-db-をひな形から書く">#</a></h3>
+<p>同じ作りの DB を数十並べるとき、プールの大きさやサブの組を全部に書き写す必要はありません。
+<strong>ひな形を <code>db { }</code> の外に置き、HOCON の <code>${}</code> で写して上書きします</strong>（jimble に専用のキーはありません）。</p>
+<pre class="code"><code class="lang-conf">db_templates {
+	tenant {
+		maximum_pool_size = <span class="h-n">6</span>
+		minimum_idle      = <span class="h-n">0</span>           <span class="h-c"># 並べた DB は 0 を勧めます（下を参照）</span>
+		migration_dir     = <span class="h-s">"shop"</span>
+		codegen_name      = <span class="h-s">"shop"</span>
+		required          = <span class="h-k">false</span>
+		subs {
+			shop  { maximum_pool_size = <span class="h-n">4</span> }
+			admin { maximum_pool_size = <span class="h-n">2</span> }
+		}
+	}
+}
+
+db {
+	main   { main = <span class="h-k">true</span>, url = <span class="h-s">"..."</span> }
+	shop_a = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mysql://db1/shop_a"</span> }
+	shop_b = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mysql://db1/shop_b"</span>, maximum_pool_size = <span class="h-n">8</span> }
+}
+</code></pre>
+<ul>
+<li><code>${db_templates.tenant} { ... }</code> は、ひな形を写したうえで、<code>{ }</code> の中で上書きします（サブの組も写ります）</li>
+<li>ひな形は <code>db { }</code> の外に置きます。中に置くとデータソースとして読まれます</li>
+</ul>
+<h3 id="起動時の確かめを並べる">起動時の確かめを並べる<a class="anchor" href="#起動時の確かめを並べる">#</a></h3>
+<p>起動時の確かめ（つなぐ・版を読む・管理の表を作る・マイグレーション）は、データソースごとに 1 つずつ行います。
+データソースが多いと、その分だけ起動が延びます。<code>db.startup_parallelism</code> で並べられます（2.7.8 から）。</p>
+<pre class="code"><code class="lang-conf">db {
+	startup_parallelism = <span class="h-n">8</span>   <span class="h-c"># 既定 1（1 つずつ）</span>
+	...
+}
+</code></pre>
+<ul>
+<li>主を先に 1 つで読み、残りを並べて読みます（データソースごとの処理が主を当てにしても大丈夫です）</li>
+<li>1 つでも失敗すれば、全部が終わるのを待ってから、これまでどおり起動を止めます</li>
+<li>ログにはデータソースの名前が付くので、並べても、どのデータソースの話かは分かります</li>
+</ul>
+<p>手元の MySQL で、空の DB に初めて起動したとき（DB と管理の表を作るところを含む）の <code>DBUtil.load</code> の時間です。</p>
+<table>
+<thead>
+<tr>
+<th>データソースの数</th>
+<th>1 つずつ</th>
+<th>5 並び</th>
+<th>10 並び</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>11.3 秒</td>
+<td>2.6 秒</td>
+<td>1.5 秒</td>
+</tr>
+<tr>
+<td>30</td>
+<td>33.7 秒</td>
+<td>7.5 秒</td>
+<td>4.2 秒</td>
+</tr>
+</tbody>
+</table>
+<h3 id="接続の数を数える">接続の数を数える<a class="anchor" href="#接続の数を数える">#</a></h3>
+<p>プールは「データソース × 書き込み／読み取り（<code>read</code>）× 親とサブ」ごとにできます。</p>
+<ul>
+<li><strong>1 プロセスが常に開いている本数</strong> ＝ それぞれのプールの <code>minimum_idle</code> の合計</li>
+<li><strong>多いときの本数</strong> ＝ それぞれのプールの <code>maximum_pool_size</code> の合計</li>
+</ul>
+<p>例：店の DB が 30 個、それぞれ <code>minimum_idle = 1</code>・<code>maximum_pool_size = 6</code> で、サブが 2 つ（それぞれ 1・4 と 1・2）なら、
+常に 30 × (1 + 1 + 1) = 90 本、多いときは 30 × (6 + 4 + 2) = 360 本です。
+**並べた店の DB は <code>minimum_idle = 0</code> を勧めます。**使っていない DB の接続を開いたままにしません（使うときに開くので、最初の 1 本だけ遅れます）。
+DB サーバーの <code>max_connections</code> は、プロセスの数 × 多いときの本数より大きくしてください。</p>
+<h3 id="管理の表を絞る">管理の表を絞る<a class="anchor" href="#管理の表を絞る">#</a></h3>
+<p>jimble は、データソースごとに次の管理の表を作ります。店の DB のように使わない表があるなら、
+<code>framework_tables</code> で作る表を絞れます（2.7.8 から）。</p>
+<table>
+<thead>
+<tr>
+<th>表</th>
+<th>何が使うか</th>
+<th>外せるか</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db_lock</code></td>
+<td><code>DBLock</code>（業務の Tx と同じ DB でロックする）、<strong>マイグレーションのロック</strong></td>
+<td>外せません</td>
+</tr>
+<tr>
+<td><code>db_value</code></td>
+<td><code>DBValue</code>（キーと値を置く）</td>
+<td>外せます</td>
+</tr>
+<tr>
+<td><code>db_cache</code></td>
+<td><code>Cache.instance(db)</code> で <code>cache.type = db</code> のとき（<code>DBCache</code>）</td>
+<td>外せます</td>
+</tr>
+<tr>
+<td><code>redis_lock</code></td>
+<td><code>RedisLock.lock(db, ...)</code> / <code>tryLock(db, ...)</code>（DB を渡すほう。印を付ける）</td>
+<td>外せます</td>
+</tr>
+<tr>
+<td><code>db_log</code></td>
+<td><code>DBLog.save</code>（<code>log.db = true</code> のとき）</td>
+<td>外せます</td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-conf">db {
+	shop_a { url = <span class="h-s">"..."</span>, framework_tables = [<span class="h-s">"db_lock"</span>] }
+}
+</code></pre>
+<ul>
+<li>書かなければ、これまでどおり全部を作ります</li>
+<li><strong>外した表を使う API をそのデータソースで呼ぶと、<code>IllegalStateException</code></strong> になります（「表が無い」という SQL のエラーではなく、設定の名前を言います）</li>
+<li>知らない名前や、<code>db_lock</code> の無い一覧は、起動で止まります</li>
+<li><code>migration</code>・<code>migration_history</code> はマイグレーションが作ります（この一覧には入りません）。MQ のキューの表は <code>db.&lt;名前&gt;.mq</code> で絞ります（<a href="./mq">MQ</a>）</li>
+</ul>
+<h3 id="落ちても全体を止めないデータソース">落ちても全体を止めないデータソース<a class="anchor" href="#落ちても全体を止めないデータソース">#</a></h3>
+<p>データソースを何本も並べると、<strong>1 つがつながらないだけで起動しなくなり</strong>、<code>DBUtil.healthCheck()</code> も false になります。
+落ちても全体を止めたくないデータソースは <code>required = false</code> にします（2.7.8 から）。</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ... }                  <span class="h-c"># 主は required = false にできません</span>
+	shop_a { url = <span class="h-s">"..."</span>, required = <span class="h-k">false</span>, connection_timeout = <span class="h-n">3s</span> }
+}
+</code></pre>
+<ul>
+<li>起動時につながらなくても、ログを出して起動を続けます。そのデータソースを使うと、つながらない例外になります</li>
+<li><strong>DB が戻れば、そのまま使えます</strong>（プールがつなぎ直します。HikariCP は、つながらないあいだ試す間隔を最大 5 秒まで延ばすので、戻ってから数秒かかります）</li>
+<li>起動時につながらなかったデータソースには、<strong>管理の表とマイグレーションを当てていません</strong>。つながってから起動し直すか、CLI の <code>migrate --data-source</code> で当ててください</li>
+<li>つながったのにマイグレーションが失敗したときは、これまでどおり起動を止めます</li>
+<li><code>DBUtil.healthCheck()</code> は <code>required = true</code> のものだけを見ます。データソースごとの状態は <code>DBUtil.healthCheckAll()</code>（名前 → 読めるか）で見ます</li>
+<li>つながらないデータソースは、起動が <code>connection_timeout</code> だけ延びることがあります（短めにしてください）</li>
 </ul>
 <p><strong>設定を書き写さずにもう1本ぶら下げたい</strong>だけなら、<code>subs</code> を使います。</p>
 <pre class="code"><code class="lang-conf">db {
@@ -459,6 +619,9 @@ Web・バッチ・スケジューラで別々に書くと、<b>どれか1つだ�
 同じデータベースを指していても別の接続なので、親のトランザクションの中で
 <code>newSubDB</code> に書いても<strong>一緒には戻りません</strong>。片方だけ残ります。
 親から設定を引き継ぐ、それ以上のことはしていないと思ってください。</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>SQL 結果キャッシュは、別の DB を指す <code>subs</code> を親と分けます（2.7.8 から）。<a href="./cache">キャッシュ</a> を見てください。</p>
 </div>
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>subs</code> にはマイグレーションも codegen も当たりません。</strong>
@@ -673,7 +836,7 @@ SQL で書いてください（MySQL は <code>INSERT ... ON DUPLICATE KEY UPDAT
 <code>insertNoReturnKey</code> は非推奨です（2.x で消します）。<code>insert</code> か <code>execute</code> を使ってください。</p>
 </div>
 <h2 id="マイグレーション">マイグレーション<a class="anchor" href="#マイグレーション">#</a></h2>
-<p><code>conf/migration/&lt;スキーマ名&gt;/001_xxx.sql</code> に置きます。</p>
+<p><code>conf/migration/&lt;フォルダ名&gt;/001_xxx.sql</code> に置きます（フォルダ名は <code>migration_dir</code>、無ければ <code>schema</code>、それも無ければデータソース名）。</p>
 <pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
 
 CREATE TABLE `note` (
@@ -716,6 +879,11 @@ DROP TABLE `note`;
 			<li class="level-3"><a href="#気をつけること">気をつけること</a></li>
 			<li class="level-2"><a href="#起動時に繋ぐ">起動時に繋ぐ</a></li>
 			<li class="level-2"><a href="#データソースが複数あるとき">データソースが複数あるとき</a></li>
+			<li class="level-3"><a href="#同じ作りの-db-をひな形から書く">同じ作りの DB をひな形から書く</a></li>
+			<li class="level-3"><a href="#起動時の確かめを並べる">起動時の確かめを並べる</a></li>
+			<li class="level-3"><a href="#接続の数を数える">接続の数を数える</a></li>
+			<li class="level-3"><a href="#管理の表を絞る">管理の表を絞る</a></li>
+			<li class="level-3"><a href="#落ちても全体を止めないデータソース">落ちても全体を止めないデータソース</a></li>
 			<li class="level-2"><a href="#テーブル定義を生成する">テーブル定義を生成する</a></li>
 			<li class="level-2"><a href="#引く">引く</a></li>
 			<li class="level-3"><a href="#json-の列">JSON の列</a></li>

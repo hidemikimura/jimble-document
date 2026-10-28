@@ -15,7 +15,7 @@
 
 ## マイグレーション
 
-`conf/migration/<スキーマ名>/` に SQL を置きます。
+`conf/migration/<フォルダ名>/` に SQL を置きます。
 
 ```sql
 # --- !Ups
@@ -43,7 +43,8 @@ DROP TABLE `note`;
 > 両方に配りたいときは[製品ごとに分けられます](#製品ごとに-sql-を分ける)。
 
 - ファイル名は自由。**名前の自然順**に当たります（`001_` を付けるのが分かりやすい）
-- `<スキーマ名>` は設定の `scheme`（無ければデータソース名）
+- `<フォルダ名>` は `db.<名前>.migration_dir`。無ければ `schema`、それも無ければデータソース名です（`migration.resource_dir` を変えれば `conf/migration` の部分も変わります）
+- 同じ表の作りの DB を何本もデータソースにするときは、どれにも同じ `migration_dir` を書きます。同じ SQL がそれぞれの DB に1回ずつ当たり、当たった記録（`migration`・`migration_history`）もそれぞれの DB に残ります
 - **クラスパスから探します**。`conf/` をリソースに足しておいてください（[設定](./config)）
 
 ### 1文ずつの切り分け
@@ -88,7 +89,8 @@ DROP TABLE `note`;
 
 > [!WARN]
 > **DDL はロールバックされません。**MariaDB / MySQL は `CREATE TABLE` などで暗黙にコミットします。
-> 1ファイルに複数の DDL を書くと、**途中まで当たった状態**で止まります。
+> PostgreSQL も、マイグレーションの SQL は1文ずつ確定させて流します（Tx に入れません）。
+> どちらでも、1ファイルに複数の DDL を書くと、**途中まで当たった状態**で止まります。
 
 ### 当て終わった SQL を書き換えない
 
@@ -168,9 +170,15 @@ conf/migration/blog_example/
 `db_lock` の行を `FOR UPDATE` で取ってから当てるので、**1台しか流れません。**
 待ちきれなかった側は起動に失敗します（`migration.lock_timeout`、既定 60 秒）。
 
+記録の表（`migration` など）もロックを取ってから作るので、空の DB に何台かが同時に初めて起動しても取り合いません（2.7.8 から）。
+ロックはロック用の接続の Tx で持ち、SQL は別の接続で流します。
+DDL の暗黙のコミットは SQL を流した接続にしか効かないので、**DDL を流してもロックは外れません。**
+そのため、**プールが 2 本以上要ります**（`maximum_pool_size = 1` なら、すぐに分かる例外で止まります）。
+どれを当てたかは、`read` を書いていても書き込みの接続から読みます（2.7.8 から。レプリカが遅れていても、同じファイルをもう一度流しません）。
+
 > [!NOTE]
-> ロック待ちのタイムアウトは**そのセッションだけ**に設定します（`SET SESSION`）。
-> サーバー全体の設定は変えません。
+> ロック待ちのタイムアウトは**そのセッションだけ**に設定します（MySQL は `SET SESSION`、PostgreSQL は `SET LOCAL`）。
+> サーバー全体の設定は変えません。MySQL では、終わったら元の値に戻してからプールに返します（2.7.8 から）。
 
 ### Java で書くマイグレーション
 
@@ -187,6 +195,47 @@ Migration.install();
 > [!TRAP]
 > **CLI の `migrate` はコードマイグレーションを走らせません。**
 > 登録がアプリのコードにあるためで、動くのは**アプリの起動時**だけです。
+
+> [!NOTE]
+> **コードマイグレーションが当たるのは主のデータソース（`main = true`）だけです。**
+> 同じ `migration_dir` を書いて並べたほかのデータソースには当たりません。SQL のマイグレーションとは違います。
+
+### 並べた DB に当てる
+
+同じ表の作りの DB を何本もデータソースにする（同じ `migration_dir` を付ける）ときは、
+**起動では当てず、デプロイの段で CLI から当てる**のがおすすめです（2.7.8 から）。
+
+```conf
+db {
+	main   { main = true, ... }                                    # 主は起動時に当ててよい
+	shop_a { url = "...", migration_dir = "shop", migrate_on_startup = false }
+	shop_b { url = "...", migration_dir = "shop", migrate_on_startup = false }
+}
+```
+
+デプロイの手順は次のとおりです。
+
+```bash
+# 1. 並べた DB に当てる。1 つ失敗してもほかを続け、最後に一覧を出す（失敗があれば 0 以外で終わる）
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+# 2. 版がそろったかを確かめる（DB には書かない。ずれがあれば 0 以外で終わる）
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+# 3. アプリを起動する
+```
+
+| オプション | 意味 |
+|---|---|
+| `--data-source <名前>` | 当てる先を絞る（くり返し可） |
+| `--migration-dir <フォルダ>` | そのフォルダを使うデータソースに絞る（くり返し可）。`--data-source` と両方なら、両方を満たすもの |
+| `--parallel <数>` | 並べて当てる数（既定 1）。1 つのデータソースにつき、接続を 2 本使います |
+| `--keep-going` | 1 つ失敗してもほかを続ける（`migrate` だけ）。既定は名前の順に当て、最初の失敗で止めます |
+
+- 絞ったときは、**選んだデータソースにしかつなぎません**（つながらない別の DB に引きずられません）
+- `migrateCheck` は、フォルダの SQL ファイルとそれぞれの DB の `migration` を突き合わせ、
+  **未適用・余分（ファイルが無いのに記録がある）・ハッシュ違い**をデータソースごとに出します
+- `db.<名前>.migrate_on_startup` を書けば、そのデータソースだけ `migration.on_startup` より優先します。
+  `migration.on_startup = false` でも、`true` と書いたデータソースには起動時に当てます
+- Gradle からは `./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --keep-going"` のように渡します（[Gradle プラグイン](./gradle)）
 
 ## コード生成
 
@@ -226,6 +275,36 @@ public class Post extends Table {
  * 直しても次の codegen で消えます。
  */
 ```
+
+### 同じ作りの DB で生成コードを共有する
+
+同じ表の作りの DB を何本もデータソースにするときは、`codegen_name` に同じ名前を書くと、
+**生成コードを 1 組だけ**持てます（2.7.8 から）。
+
+```conf
+db {
+	main   { main = true, ... }
+	shop_a { url = "...", codegen_name = "shop" }
+	shop_b { url = "...", codegen_name = "shop" }
+	log    { url = "...", codegen = false }      # 生成しない
+}
+```
+
+- 生成するのは `db/shop/`（パッケージ `<codegen.package>.shop`、スキーマクラス `Shop`）の 1 組だけです。
+  `codegenCheck` も、この 1 組を突き合わせます
+- 表は**代表**（主があれば主、無ければ名前の順で最初）の DB から読みます。
+  ほかの DB の表の作り（表の名前と、列の名前・型）が代表と違えば、生成のときに警告します（止めはしません）
+- テーブルクラスは SQL に**表の名前しか入れない**ので、どの DB に渡してもその DB で動きます。
+  **共有する組では、DB は要求ごとに選んだもの（`ContextDb` などで持っているもの）を渡して実行してください。**
+  `Shop.db()` は代表の DB を返します
+- `codegen_name` はパッケージ名とフォルダ名になるので、小文字で始まる小文字・数字・`_` で書きます
+- `codegen = false` のデータソースは生成しません
+- 書かなければ、これまでどおりデータソースごとに生成します（生成物は変わりません）
+
+> [!NOTE]
+> データソース名に大文字があると、フォルダ（`db/blog/`）とパッケージ（`db.Blog`）の綴りが揃いません。
+> これまでの作りで、変えると生成物の置き場所が変わるので変えていません。生成のときに警告が出ます。
+> 揃えたいときは `codegen_name = "blog"` と書いてください（パッケージが `db.blog` に変わります）。
 
 ### 型の対応
 
@@ -310,8 +389,11 @@ Gradle が使えないところ（CI・本番）では CLI で同じことがで
 
 ```bash
 java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck
 java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
 ```
+
+`migrate`・`migrateCheck` に付けられるオプションは [並べた DB に当てる](#並べた-db-に当てる) を見てください。
 
 設定も SQL も**クラスパスから**探します。
 Gradle のタスクは [Gradle プラグイン](./gradle) にまとめてあります。

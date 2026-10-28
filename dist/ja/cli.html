@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -220,6 +224,7 @@
 
   new &lt;name&gt;              プロジェクトの雛形を作る
   migrate                 未適用のマイグレーションを適用する
+  migrateCheck            当たっているかを確かめる（DB には書かない）
   codegen &lt;ソースルート&gt;   テーブル定義のコードを生成する（例: src/main/java）
   version                 版を表示する
 </code></pre>
@@ -239,7 +244,7 @@
 <code>migrate</code> と <code>codegen</code> は Gradle のタスク（<code>./gradlew migrate</code> / <code>./gradlew codegen</code>）でも走ります。</p>
 </div>
 <pre class="code"><code class="lang-bash">$ jimble version
-<span class="h-k">jimble</span> 2.7.8-SNAPSHOT
+<span class="h-k">jimble</span> 2.7.9-SNAPSHOT
 </code></pre>
 <p>毎回書きたくなければ、<code>~/.zshrc</code> に上の <code>export</code> を足すか、リンクを張ってください。</p>
 <pre class="code"><code class="lang-bash">ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
@@ -257,7 +262,7 @@
 </div>
 <h3 id="手元でビルドした-jimble-を使うとき">手元でビルドした jimble を使うとき<a class="anchor" href="#手元でビルドした-jimble-を使うとき">#</a></h3>
 <p><code>jimble new</code> が作る <code>build.gradle.kts</code> は、<strong>CLI をビルドした版</strong>を参照します。
-公開していない版（<code>2.7.8-SNAPSHOT</code> など）なら、<strong>先にローカルへ publish</strong>してください。</p>
+公開していない版（<code>2.7.9-SNAPSHOT</code> など）なら、<strong>先にローカルへ publish</strong>してください。</p>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> publishToMavenLocal
 <span class="h-k">./gradlew</span> -p gradle-plugin publishToMavenLocal
 </code></pre>
@@ -280,10 +285,8 @@
 	conf/migration/my_blog/001_create_note.sql.example
 	AGENTS.md
 	CLAUDE.md
-	.claude/skills/jimble/SKILL.md
-	.claude/skills/jimble-db/SKILL.md
-	.claude/skills/jimble-web/SKILL.md
-	.claude/skills/jimble-batch/SKILL.md
+	.claude/skills/jimble/SKILL.md          （入口。ほかの skill への案内）
+	.claude/skills/jimble-*/SKILL.md        （Web・DB・バッチ・MQ・設定などの分野ごと）
 	.claude/jimble-skills.properties
 </code></pre>
 <p><strong>AI への案内も置きます</strong>（<code>AGENTS.md</code> と、それを読み込むだけの <code>CLAUDE.md</code>、<code>.claude/skills/</code> の skill）。
@@ -331,6 +334,8 @@ CI や本番で Gradle が使えないところでは、jar をクラスパス�
 <pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
 </code></pre>
 </div>
+<p>並べた DB に当てるオプション（<code>--data-source</code>・<code>--migration-dir</code>・<code>--parallel</code>・<code>--keep-going</code>）と、
+当たっているかを確かめる <code>migrateCheck</code> は <a href="./codegen#並べた-db-に当てる">並べた DB に当てる</a> を見てください。</p>
 <h2 id="版を確認する">版を確認する<a class="anchor" href="#版を確認する">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">jimble</span> version
 </code></pre>

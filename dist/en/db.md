@@ -214,6 +214,10 @@ To shut down, call `DBUtil.stop()` (the web server does it as part of
 
 ## When there is more than one data source
 
+> [!TIP]
+> Lining up many databases with the same tables and choosing the client's database per request is
+> summarised on one page: [Lining up databases with the same tables](./multi-db).
+
 ```conf
 db {
 	main_db { main = true, ... }
@@ -226,9 +230,151 @@ The one with `main = true` is `DBUtil.getMainDB()` (there is no no-argument `get
 
 Everything listed at the top level is **treated as its own thing**:
 
-- migrations under `conf/migration/<data source name>/` are applied to it
-- codegen generates `db/<data source name>/` for it
-- `migration` / `db_lock` / `db_value` / `db_cache` are created there too
+- migrations under `conf/migration/<data source name>/` are applied to it (`migration_dir` picks another folder; see below)
+- codegen generates `db/<data source name>/` for it (`codegen_name` shares one set with databases that have the same tables; see [code generation](./codegen#sharing-generated-code-across-databases-with-the-same-tables))
+- `migration` / `db_lock` / `db_value` / `db_cache` are created there too (`framework_tables` narrows them; see below)
+
+jimble creates the tables it uses at startup when they are missing. When
+several servers start on an empty database for the first time, a table another
+server has just created is used as it is (since 2.7.8; it is recognised by the
+table comment, "description:version"). If your application has its own table
+with the same name, startup still stops as before.
+
+When you line up several databases with the same tables, they can share one
+migration folder (since 2.7.8).
+
+```conf
+db {
+	shop_a { url = "...", migration_dir = "shop" }
+	shop_b { url = "...", migration_dir = "shop" }
+}
+```
+
+The SQL in `conf/migration/shop/` is applied once to `shop_a` and once to
+`shop_b`. Each database keeps its own record (`migration` and
+`migration_history`), so if only one of them has a file applied, it is applied
+to the other one only. Migrations written in Java (`CodeMigration`) run on the
+main data source only.
+
+### Writing same-shaped databases from a template
+
+When you line up dozens of databases with the same tables, there is no need to copy the pool sizes and
+the set of subs into each one. **Put a template outside `db { }` and copy it with HOCON's `${}`, then
+override** (jimble has no dedicated key for this).
+
+```conf
+db_templates {
+	tenant {
+		maximum_pool_size = 6
+		minimum_idle      = 0           # recommended for lined-up databases (see below)
+		migration_dir     = "shop"
+		codegen_name      = "shop"
+		required          = false
+		subs {
+			shop  { maximum_pool_size = 4 }
+			admin { maximum_pool_size = 2 }
+		}
+	}
+}
+
+db {
+	main   { main = true, url = "..." }
+	shop_a = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_a" }
+	shop_b = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_b", maximum_pool_size = 8 }
+}
+```
+
+- `${db_templates.tenant} { ... }` copies the template and then applies what is inside `{ }` (the subs are
+  copied too)
+- Keep the template outside `db { }`; inside, it would be read as a data source
+
+### Running the startup checks in parallel
+
+The startup checks (connect, read the version, create framework tables, migrations) run one data source at
+a time. With many data sources, startup grows accordingly. `db.startup_parallelism` runs them in parallel
+(since 2.7.8).
+
+```conf
+db {
+	startup_parallelism = 8   # default 1 (one at a time)
+	...
+}
+```
+
+- The main data source is loaded first on its own, then the rest in parallel (per-data-source tasks can
+  rely on the main data source)
+- If any of them fails, startup waits for the rest and then stops, as before
+- Log lines carry the data source name, so they stay readable in parallel
+
+`DBUtil.load` time on a local MySQL, starting on empty databases (including creating the databases and
+framework tables):
+
+| Data sources | One at a time | 5 in parallel | 10 in parallel |
+|---|---|---|---|
+| 10 | 11.3 s | 2.6 s | 1.5 s |
+| 30 | 33.7 s | 7.5 s | 4.2 s |
+
+### Counting connections
+
+There is one pool per data source × write/read (`read`) × parent and each sub.
+
+- **Connections a process always keeps open** = the sum of `minimum_idle` over those pools
+- **Connections at peak** = the sum of `maximum_pool_size` over those pools
+
+For example, 30 shop databases with `minimum_idle = 1` and `maximum_pool_size = 6`, each with two subs (1/4
+and 1/2), keep 30 × (1 + 1 + 1) = 90 open and reach 30 × (6 + 4 + 2) = 360 at peak.
+**`minimum_idle = 0` is recommended for lined-up shop databases**, so idle databases hold no connections
+(the first use opens one, which is slightly slower). Set the database server's `max_connections` above the
+number of processes × the peak.
+
+### Choosing which framework tables are created
+
+jimble creates the following framework tables on each data source. If a database (one shop's, say)
+does not use some of them, `framework_tables` narrows what is created (since 2.7.8).
+
+| Table | Used by | Can be left out |
+|---|---|---|
+| `db_lock` | `DBLock` (locking in the same database as the business transaction), **the migration lock** | No |
+| `db_value` | `DBValue` (key/value storage) | Yes |
+| `db_cache` | `Cache.instance(db)` with `cache.type = db` (`DBCache`) | Yes |
+| `redis_lock` | `RedisLock.lock(db, ...)` / `tryLock(db, ...)` (the variants that take a DB; they leave a mark) | Yes |
+| `db_log` | `DBLog.save` (with `log.db = true`) | Yes |
+
+```conf
+db {
+	shop_a { url = "...", framework_tables = ["db_lock"] }
+}
+```
+
+- Without it, everything is created as before
+- **Calling an API that needs a table that was left out, on that data source, throws
+  `IllegalStateException`** (naming the setting, rather than an SQL "table not found" error)
+- An unknown name, or a list without `db_lock`, stops startup
+- `migration` and `migration_history` are created by migrations (not part of this list). MQ queue tables
+  are narrowed with `db.<name>.mq` ([MQ](./mq))
+
+### Data sources that may be down
+
+With many data sources, **one that cannot be reached stops startup**, and `DBUtil.healthCheck()` turns
+false. For a data source whose outage should not stop everything, set `required = false` (since 2.7.8).
+
+```conf
+db {
+	main   { main = true, ... }                  # the main data source cannot be required = false
+	shop_a { url = "...", required = false, connection_timeout = 3s }
+}
+```
+
+- If it cannot be reached at startup, a log line is written and startup goes on. Using that data source
+  throws the usual connection exception
+- **Once the database is back, it just works** (the pool reconnects; HikariCP stretches its retry interval
+  up to 5 seconds while it cannot connect, so it takes a few seconds after the database comes back)
+- A data source that could not be reached at startup **did not get its framework tables or migrations**.
+  Restart once it is reachable, or apply them with the CLI's `migrate --data-source`
+- If it is reached but a migration fails, startup still stops as before
+- `DBUtil.healthCheck()` looks only at `required = true` data sources. Per data source, use
+  `DBUtil.healthCheckAll()` (name → readable)
+- An unreachable data source can delay startup by up to `connection_timeout` (keep it short)
 
 If all you want is **one more handle without copying the settings**, use `subs`.
 
@@ -252,6 +398,10 @@ Get it with `db.newSubDB("archive_db")`.
 > connection, so writing through `newSubDB` inside the parent's transaction
 > **does not roll back with it** — one side stays. Assume it inherits the settings
 > from the parent and nothing more.
+
+> [!NOTE]
+> The SQL result cache keeps a `subs` entry that points at another database apart from its parent
+> (since 2.7.8). See [Cache](./cache).
 
 > [!TRAP]
 > **Migrations and codegen do not apply to `subs`.** Per-data-source work only runs
@@ -455,7 +605,7 @@ int count = db.execute("INSERT INTO archive SELECT * FROM post WHERE ...");  // 
 
 ## Migrations
 
-Put them in `conf/migration/<schema name>/001_xxx.sql`.
+Put them in `conf/migration/<folder name>/001_xxx.sql` (the folder name is `migration_dir`, else `schema`, else the data source name).
 
 ```sql
 # --- !Ups

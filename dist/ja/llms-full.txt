@@ -3825,6 +3825,9 @@ public static void main (String[] args) {
 
 ## データソースが複数あるとき
 
+> [!TIP]
+> 同じ作りの DB を何本も並べ、要求ごとにクライアントの DB を選ぶ使い方は、[同じ作りの DB を並べる](./multi-db) に 1 ページでまとめてあります。
+
 ```conf
 db {
 	main_db { main = true, ... }
@@ -3837,9 +3840,135 @@ db {
 
 トップレベルに並べたものは、**1本ごとに独立した扱い**を受けます。
 
-- `conf/migration/<データソース名>/` のマイグレーションが当たります
-- codegen が `db/<データソース名>/` を作ります
-- `migration` / `db_lock` / `db_value` / `db_cache` もそちらに作られます
+- `conf/migration/<データソース名>/` のマイグレーションが当たります（`migration_dir` で別のフォルダにできます。下を参照）
+- codegen が `db/<データソース名>/` を作ります（`codegen_name` で同じ作りの DB と 1 組を共有できます。[コード生成](./codegen#同じ作りの-db-で生成コードを共有する)）
+- `migration` / `db_lock` / `db_value` / `db_cache` もそちらに作られます（`framework_tables` で絞れます。下を参照）
+
+jimble が使う表は、無ければ起動時に作ります。空の DB に何台かが同時に初めて起動しても、
+ほかの台が先に作った表はそのまま使います（2.7.8 から。表のコメント「説明:版」で見分けます）。
+アプリが同じ名前の表を持っているときは、これまでどおり起動で止まります。
+
+同じ表の作りの DB を何本も並べるときは、マイグレーションのフォルダを1つにできます（2.7.8 から）。
+
+```conf
+db {
+	shop_a { url = "...", migration_dir = "shop" }
+	shop_b { url = "...", migration_dir = "shop" }
+}
+```
+
+`conf/migration/shop/` の SQL が、`shop_a` と `shop_b` のそれぞれに1回ずつ当たります。
+当たったかどうかの記録（`migration`・`migration_history`）はそれぞれの DB に残るので、
+片方だけ当たっていれば、もう片方にだけ当たります。
+Java で書くマイグレーション（`CodeMigration`）は主にしか当たりません。
+
+### 同じ作りの DB をひな形から書く
+
+同じ作りの DB を数十並べるとき、プールの大きさやサブの組を全部に書き写す必要はありません。
+**ひな形を `db { }` の外に置き、HOCON の `${}` で写して上書きします**（jimble に専用のキーはありません）。
+
+```conf
+db_templates {
+	tenant {
+		maximum_pool_size = 6
+		minimum_idle      = 0           # 並べた DB は 0 を勧めます（下を参照）
+		migration_dir     = "shop"
+		codegen_name      = "shop"
+		required          = false
+		subs {
+			shop  { maximum_pool_size = 4 }
+			admin { maximum_pool_size = 2 }
+		}
+	}
+}
+
+db {
+	main   { main = true, url = "..." }
+	shop_a = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_a" }
+	shop_b = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_b", maximum_pool_size = 8 }
+}
+```
+
+- `${db_templates.tenant} { ... }` は、ひな形を写したうえで、`{ }` の中で上書きします（サブの組も写ります）
+- ひな形は `db { }` の外に置きます。中に置くとデータソースとして読まれます
+
+### 起動時の確かめを並べる
+
+起動時の確かめ（つなぐ・版を読む・管理の表を作る・マイグレーション）は、データソースごとに 1 つずつ行います。
+データソースが多いと、その分だけ起動が延びます。`db.startup_parallelism` で並べられます（2.7.8 から）。
+
+```conf
+db {
+	startup_parallelism = 8   # 既定 1（1 つずつ）
+	...
+}
+```
+
+- 主を先に 1 つで読み、残りを並べて読みます（データソースごとの処理が主を当てにしても大丈夫です）
+- 1 つでも失敗すれば、全部が終わるのを待ってから、これまでどおり起動を止めます
+- ログにはデータソースの名前が付くので、並べても、どのデータソースの話かは分かります
+
+手元の MySQL で、空の DB に初めて起動したとき（DB と管理の表を作るところを含む）の `DBUtil.load` の時間です。
+
+| データソースの数 | 1 つずつ | 5 並び | 10 並び |
+|---|---|---|---|
+| 10 | 11.3 秒 | 2.6 秒 | 1.5 秒 |
+| 30 | 33.7 秒 | 7.5 秒 | 4.2 秒 |
+
+### 接続の数を数える
+
+プールは「データソース × 書き込み／読み取り（`read`）× 親とサブ」ごとにできます。
+
+- **1 プロセスが常に開いている本数** ＝ それぞれのプールの `minimum_idle` の合計
+- **多いときの本数** ＝ それぞれのプールの `maximum_pool_size` の合計
+
+例：店の DB が 30 個、それぞれ `minimum_idle = 1`・`maximum_pool_size = 6` で、サブが 2 つ（それぞれ 1・4 と 1・2）なら、
+常に 30 × (1 + 1 + 1) = 90 本、多いときは 30 × (6 + 4 + 2) = 360 本です。
+**並べた店の DB は `minimum_idle = 0` を勧めます。**使っていない DB の接続を開いたままにしません（使うときに開くので、最初の 1 本だけ遅れます）。
+DB サーバーの `max_connections` は、プロセスの数 × 多いときの本数より大きくしてください。
+
+### 管理の表を絞る
+
+jimble は、データソースごとに次の管理の表を作ります。店の DB のように使わない表があるなら、
+`framework_tables` で作る表を絞れます（2.7.8 から）。
+
+| 表 | 何が使うか | 外せるか |
+|---|---|---|
+| `db_lock` | `DBLock`（業務の Tx と同じ DB でロックする）、**マイグレーションのロック** | 外せません |
+| `db_value` | `DBValue`（キーと値を置く） | 外せます |
+| `db_cache` | `Cache.instance(db)` で `cache.type = db` のとき（`DBCache`） | 外せます |
+| `redis_lock` | `RedisLock.lock(db, ...)` / `tryLock(db, ...)`（DB を渡すほう。印を付ける） | 外せます |
+| `db_log` | `DBLog.save`（`log.db = true` のとき） | 外せます |
+
+```conf
+db {
+	shop_a { url = "...", framework_tables = ["db_lock"] }
+}
+```
+
+- 書かなければ、これまでどおり全部を作ります
+- **外した表を使う API をそのデータソースで呼ぶと、`IllegalStateException`** になります（「表が無い」という SQL のエラーではなく、設定の名前を言います）
+- 知らない名前や、`db_lock` の無い一覧は、起動で止まります
+- `migration`・`migration_history` はマイグレーションが作ります（この一覧には入りません）。MQ のキューの表は `db.<名前>.mq` で絞ります（[MQ](./mq)）
+
+### 落ちても全体を止めないデータソース
+
+データソースを何本も並べると、**1 つがつながらないだけで起動しなくなり**、`DBUtil.healthCheck()` も false になります。
+落ちても全体を止めたくないデータソースは `required = false` にします（2.7.8 から）。
+
+```conf
+db {
+	main   { main = true, ... }                  # 主は required = false にできません
+	shop_a { url = "...", required = false, connection_timeout = 3s }
+}
+```
+
+- 起動時につながらなくても、ログを出して起動を続けます。そのデータソースを使うと、つながらない例外になります
+- **DB が戻れば、そのまま使えます**（プールがつなぎ直します。HikariCP は、つながらないあいだ試す間隔を最大 5 秒まで延ばすので、戻ってから数秒かかります）
+- 起動時につながらなかったデータソースには、**管理の表とマイグレーションを当てていません**。つながってから起動し直すか、CLI の `migrate --data-source` で当ててください
+- つながったのにマイグレーションが失敗したときは、これまでどおり起動を止めます
+- `DBUtil.healthCheck()` は `required = true` のものだけを見ます。データソースごとの状態は `DBUtil.healthCheckAll()`（名前 → 読めるか）で見ます
+- つながらないデータソースは、起動が `connection_timeout` だけ延びることがあります（短めにしてください）
 
 **設定を書き写さずにもう1本ぶら下げたい**だけなら、`subs` を使います。
 
@@ -3862,6 +3991,9 @@ db {
 > 同じデータベースを指していても別の接続なので、親のトランザクションの中で
 > `newSubDB` に書いても**一緒には戻りません**。片方だけ残ります。
 > 親から設定を引き継ぐ、それ以上のことはしていないと思ってください。
+
+> [!NOTE]
+> SQL 結果キャッシュは、別の DB を指す `subs` を親と分けます（2.7.8 から）。[キャッシュ](./cache) を見てください。
 
 > [!TRAP]
 > **`subs` にはマイグレーションも codegen も当たりません。**
@@ -4065,7 +4197,7 @@ int count = db.execute("INSERT INTO archive SELECT * FROM post WHERE ...");  // 
 
 ## マイグレーション
 
-`conf/migration/<スキーマ名>/001_xxx.sql` に置きます。
+`conf/migration/<フォルダ名>/001_xxx.sql` に置きます（フォルダ名は `migration_dir`、無ければ `schema`、それも無ければデータソース名）。
 
 ```sql
 # --- !Ups
@@ -5202,6 +5334,10 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 | 別のプロセスから DB を直接書き換えた | 追えません。`sql_cache.ttl`（既定 5 分）が保険です |
 | `sql_cache.store = "memory"` | **その台の中だけ**です。複数台なら `redis` か `db` にしてください |
 
+キャッシュは**データソースごとに分かれます**（キーとタグにデータソースの名前が入ります）。
+`subs` は、親と同じ URL なら親と同じ名前（サブで書けば親のキャッシュも消えます）、別の DB を指すなら「親.サブ」で分かれます（2.7.8 から。それまでは別の DB を指すサブでも親と混ざり、別の DB の結果が返っていました）。
+URL が同じ文字列のときだけ「同じ DB」とみなします。
+
 ### 設定
 
 ```conf
@@ -5366,7 +5502,7 @@ redis {
 
 ## マイグレーション
 
-`conf/migration/<スキーマ名>/` に SQL を置きます。
+`conf/migration/<フォルダ名>/` に SQL を置きます。
 
 ```sql
 # --- !Ups
@@ -5394,7 +5530,8 @@ DROP TABLE `note`;
 > 両方に配りたいときは[製品ごとに分けられます](#製品ごとに-sql-を分ける)。
 
 - ファイル名は自由。**名前の自然順**に当たります（`001_` を付けるのが分かりやすい）
-- `<スキーマ名>` は設定の `scheme`（無ければデータソース名）
+- `<フォルダ名>` は `db.<名前>.migration_dir`。無ければ `schema`、それも無ければデータソース名です（`migration.resource_dir` を変えれば `conf/migration` の部分も変わります）
+- 同じ表の作りの DB を何本もデータソースにするときは、どれにも同じ `migration_dir` を書きます。同じ SQL がそれぞれの DB に1回ずつ当たり、当たった記録（`migration`・`migration_history`）もそれぞれの DB に残ります
 - **クラスパスから探します**。`conf/` をリソースに足しておいてください（[設定](./config)）
 
 ### 1文ずつの切り分け
@@ -5439,7 +5576,8 @@ DROP TABLE `note`;
 
 > [!WARN]
 > **DDL はロールバックされません。**MariaDB / MySQL は `CREATE TABLE` などで暗黙にコミットします。
-> 1ファイルに複数の DDL を書くと、**途中まで当たった状態**で止まります。
+> PostgreSQL も、マイグレーションの SQL は1文ずつ確定させて流します（Tx に入れません）。
+> どちらでも、1ファイルに複数の DDL を書くと、**途中まで当たった状態**で止まります。
 
 ### 当て終わった SQL を書き換えない
 
@@ -5519,9 +5657,15 @@ conf/migration/blog_example/
 `db_lock` の行を `FOR UPDATE` で取ってから当てるので、**1台しか流れません。**
 待ちきれなかった側は起動に失敗します（`migration.lock_timeout`、既定 60 秒）。
 
+記録の表（`migration` など）もロックを取ってから作るので、空の DB に何台かが同時に初めて起動しても取り合いません（2.7.8 から）。
+ロックはロック用の接続の Tx で持ち、SQL は別の接続で流します。
+DDL の暗黙のコミットは SQL を流した接続にしか効かないので、**DDL を流してもロックは外れません。**
+そのため、**プールが 2 本以上要ります**（`maximum_pool_size = 1` なら、すぐに分かる例外で止まります）。
+どれを当てたかは、`read` を書いていても書き込みの接続から読みます（2.7.8 から。レプリカが遅れていても、同じファイルをもう一度流しません）。
+
 > [!NOTE]
-> ロック待ちのタイムアウトは**そのセッションだけ**に設定します（`SET SESSION`）。
-> サーバー全体の設定は変えません。
+> ロック待ちのタイムアウトは**そのセッションだけ**に設定します（MySQL は `SET SESSION`、PostgreSQL は `SET LOCAL`）。
+> サーバー全体の設定は変えません。MySQL では、終わったら元の値に戻してからプールに返します（2.7.8 から）。
 
 ### Java で書くマイグレーション
 
@@ -5538,6 +5682,47 @@ Migration.install();
 > [!TRAP]
 > **CLI の `migrate` はコードマイグレーションを走らせません。**
 > 登録がアプリのコードにあるためで、動くのは**アプリの起動時**だけです。
+
+> [!NOTE]
+> **コードマイグレーションが当たるのは主のデータソース（`main = true`）だけです。**
+> 同じ `migration_dir` を書いて並べたほかのデータソースには当たりません。SQL のマイグレーションとは違います。
+
+### 並べた DB に当てる
+
+同じ表の作りの DB を何本もデータソースにする（同じ `migration_dir` を付ける）ときは、
+**起動では当てず、デプロイの段で CLI から当てる**のがおすすめです（2.7.8 から）。
+
+```conf
+db {
+	main   { main = true, ... }                                    # 主は起動時に当ててよい
+	shop_a { url = "...", migration_dir = "shop", migrate_on_startup = false }
+	shop_b { url = "...", migration_dir = "shop", migrate_on_startup = false }
+}
+```
+
+デプロイの手順は次のとおりです。
+
+```bash
+# 1. 並べた DB に当てる。1 つ失敗してもほかを続け、最後に一覧を出す（失敗があれば 0 以外で終わる）
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+# 2. 版がそろったかを確かめる（DB には書かない。ずれがあれば 0 以外で終わる）
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+# 3. アプリを起動する
+```
+
+| オプション | 意味 |
+|---|---|
+| `--data-source <名前>` | 当てる先を絞る（くり返し可） |
+| `--migration-dir <フォルダ>` | そのフォルダを使うデータソースに絞る（くり返し可）。`--data-source` と両方なら、両方を満たすもの |
+| `--parallel <数>` | 並べて当てる数（既定 1）。1 つのデータソースにつき、接続を 2 本使います |
+| `--keep-going` | 1 つ失敗してもほかを続ける（`migrate` だけ）。既定は名前の順に当て、最初の失敗で止めます |
+
+- 絞ったときは、**選んだデータソースにしかつなぎません**（つながらない別の DB に引きずられません）
+- `migrateCheck` は、フォルダの SQL ファイルとそれぞれの DB の `migration` を突き合わせ、
+  **未適用・余分（ファイルが無いのに記録がある）・ハッシュ違い**をデータソースごとに出します
+- `db.<名前>.migrate_on_startup` を書けば、そのデータソースだけ `migration.on_startup` より優先します。
+  `migration.on_startup = false` でも、`true` と書いたデータソースには起動時に当てます
+- Gradle からは `./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --keep-going"` のように渡します（[Gradle プラグイン](./gradle)）
 
 ## コード生成
 
@@ -5577,6 +5762,36 @@ public class Post extends Table {
  * 直しても次の codegen で消えます。
  */
 ```
+
+### 同じ作りの DB で生成コードを共有する
+
+同じ表の作りの DB を何本もデータソースにするときは、`codegen_name` に同じ名前を書くと、
+**生成コードを 1 組だけ**持てます（2.7.8 から）。
+
+```conf
+db {
+	main   { main = true, ... }
+	shop_a { url = "...", codegen_name = "shop" }
+	shop_b { url = "...", codegen_name = "shop" }
+	log    { url = "...", codegen = false }      # 生成しない
+}
+```
+
+- 生成するのは `db/shop/`（パッケージ `<codegen.package>.shop`、スキーマクラス `Shop`）の 1 組だけです。
+  `codegenCheck` も、この 1 組を突き合わせます
+- 表は**代表**（主があれば主、無ければ名前の順で最初）の DB から読みます。
+  ほかの DB の表の作り（表の名前と、列の名前・型）が代表と違えば、生成のときに警告します（止めはしません）
+- テーブルクラスは SQL に**表の名前しか入れない**ので、どの DB に渡してもその DB で動きます。
+  **共有する組では、DB は要求ごとに選んだもの（`ContextDb` などで持っているもの）を渡して実行してください。**
+  `Shop.db()` は代表の DB を返します
+- `codegen_name` はパッケージ名とフォルダ名になるので、小文字で始まる小文字・数字・`_` で書きます
+- `codegen = false` のデータソースは生成しません
+- 書かなければ、これまでどおりデータソースごとに生成します（生成物は変わりません）
+
+> [!NOTE]
+> データソース名に大文字があると、フォルダ（`db/blog/`）とパッケージ（`db.Blog`）の綴りが揃いません。
+> これまでの作りで、変えると生成物の置き場所が変わるので変えていません。生成のときに警告が出ます。
+> 揃えたいときは `codegen_name = "blog"` と書いてください（パッケージが `db.blog` に変わります）。
 
 ### 型の対応
 
@@ -5661,11 +5876,170 @@ Gradle が使えないところ（CI・本番）では CLI で同じことがで
 
 ```bash
 java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck
 java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
 ```
 
+`migrate`・`migrateCheck` に付けられるオプションは [並べた DB に当てる](#並べた-db-に当てる) を見てください。
+
 設定も SQL も**クラスパスから**探します。
 Gradle のタスクは [Gradle プラグイン](./gradle) にまとめてあります。
+
+
+
+---
+
+<!-- https://jimble.io/ja/multi-db -->
+
+
+# 同じ作りの DB を並べる
+
+Web とバッチのサーバーは 1 組のまま、**同じ表の作りの DB** を `db.<名前>` で何本も並べ、
+要求ごとにクライアントの DB を選ぶ使い方です（2.7.8 から、このための設定がそろいました）。
+
+- **向くこと**：クライアントごと（またはクライアントのまとまりごと）に DB を分けたい。大きなクライアントだけ専用の DB にしたい
+- **向かないこと**：データソースが**数百以上**。プール・MQ の取り出し・起動の確かめが、データソースの数に比例して増えます。
+  数十までを目安にしてください（1 社 1 DB にはしない）
+
+共通の DB（主。`main = true`）には、クライアントの台帳・スケジューラ・バッチの管理などを置き、
+店の DB には業務の表と MQ のキューの表を置きます。
+
+## 設定の例
+
+```conf
+# 並べる設定の例
+db_templates {
+	tenant {
+		driver             = "org.mariadb.jdbc.Driver"
+		username           = ${?SHOP_DB_USER}
+		password           = ${?SHOP_DB_PASSWORD}
+		maximum_pool_size  = 6
+		minimum_idle       = 0              # 使っていない DB の接続を開いたままにしない
+		connection_timeout = 3s             # つながらない DB で起動を延ばしすぎない
+		migration_dir      = "shop"         # どの店の DB にも同じ SQL を当てる
+		migrate_on_startup = false          # 起動では当てず、デプロイの段で CLI から当てる
+		codegen_name       = "shop"         # 生成コードは 1 組だけ
+		required           = false          # 1 つ落ちても、起動と死活監視を止めない
+		framework_tables   = ["db_lock"]    # 店の DB に要らない管理の表を作らない
+	}
+}
+
+db {
+	startup_parallelism = 8                 # 起動時の確かめを並べる
+
+	main {
+		main     = true
+		driver   = "org.mariadb.jdbc.Driver"
+		url      = "jdbc:mariadb://db0/common"
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		mq       = false                    # 共通の DB にはキューを置かない
+	}
+
+	shop_a = ${db_templates.tenant} { url = "jdbc:mariadb://db1/shop_a" }
+	shop_b = ${db_templates.tenant} { url = "jdbc:mariadb://db1/shop_b" }
+}
+
+mq {
+	hint           = redis                  # 仕事のある DB だけを見に行く
+	sweep_interval = 10s
+}
+```
+
+それぞれの設定は、[DB](./db)・[マイグレーションとコード生成](./codegen)・[MQ](./mq) に詳しく書いてあります。
+ひな形（`db_templates`）は `db { }` の外に置き、`${}` で写して上書きします。
+
+## 要求ごとに DB を選ぶ
+
+入口のフィルタで、**Host などから** DB を選び、要求に持たせます。
+
+```java
+before(context -> {
+	String dataSource = tenants.dataSourceOf(context.request().host());   // 台帳から引く（キャッシュする）
+	if (dataSource == null) {
+		throw new HttpException(404, "知らないホストです");
+	}
+	context.attribute(SHOP_DB, dataSource);
+});
+
+get("/orders", context -> {
+	try (DB db = DBUtil.getDB(context.<String>attribute(SHOP_DB))) {
+		context.response().json("orders", db.selectList(SQL.select().from(Order.instance())));
+	}
+});
+```
+
+> [!WARN]
+> **選ぶ値を、要求のパラメータ（クエリ・フォーム・JSON）から取らないでください。**
+> 値を書き換えるだけで、別のクライアントの DB に当たります。Host のように、
+> 経路で決まるものから引き、店の DB の中でも `shop_id` で絞る決まりは残してください。
+
+台帳（Host → データソース名）は共通の DB に置き、引いた結果はキャッシュします（すべての要求が共通の DB に集まるため）。
+
+## 主に残るもの
+
+次のものは、主のデータソースにだけ置かれます（店の DB には要りません）。
+
+- スケジューラ（`batch_master` など）と、スケジューラの MQ のキュー（`mq_scheduler`）
+- バッチの実行の記録（`batch_history` など）。チャンク処理を店の DB で回しても、記録は主です（[バッチ](./batch)）
+- セッションと認証の表（`session`・`auth_*`）、流量制限
+- コードマイグレーション（`CodeMigration`）
+
+## マイグレーションを当てる
+
+店の DB は `migrate_on_startup = false` にして、**デプロイの段で CLI から当てます**。
+
+```bash
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+# そろっていれば、アプリを起動する
+```
+
+1 つ失敗してもほかを続け、最後にデータソースごとの結果を出します。`migrateCheck` は DB に書かずに、
+未適用・余分・ハッシュ違いをデータソースごとに出します（[並べた DB に当てる](./codegen#並べた-db-に当てる)）。
+
+## 生成コード
+
+`codegen_name` を同じにすると、生成コードは 1 組だけです（代表は主、無ければ名前の順で最初）。
+テーブルクラスは SQL に表の名前しか入れないので、**要求ごとに選んだ DB を渡して実行します**。
+`Shop.db()` は代表の DB を返すので、店の DB の処理では使いません（[同じ作りの DB で生成コードを共有する](./codegen#同じ作りの-db-で生成コードを共有する)）。
+
+## MQ
+
+- **キューの表は、業務の表と同じ DB に置きます。**積むのと業務の更新が、同じトランザクションで一緒に巻き戻ります
+- 共通の DB など、キューを使わない DB は `mq = false` で外します。外した DB に積むと例外です
+- 取り出し役は、データソースを名前の順に、直前に取った DB の次から見ます（1 つの DB に溜まっても、ほかを待たせません）
+- `mq.hint = redis` なら、仕事のある DB だけを見に行きます。全部を回るのは `sweep_interval` ごとで、印の無い行の遅れは最悪その間です
+- 問い合わせの目安：`hint = off` だと、暇なときでも 1 プロセスで毎秒「キューの数 × 種別の数 × DB の数 × 2 ÷ `poll_max`」本の SELECT が出ます
+
+詳しくは [MQ](./mq) の「キューを置くデータソースを絞る」「仕事のある DB だけを見に行く」を見てください。
+
+## 接続の数
+
+プールは「データソース × 書き込み／読み取り × 親とサブ」ごとにできます。
+
+- 1 プロセスが常に開く本数 ＝ それぞれのプールの `minimum_idle` の合計
+- 多いときの本数 ＝ それぞれのプールの `maximum_pool_size` の合計
+
+上の例で店の DB が 30 個なら、店の DB の分は常に 0 本、多いときは 30 × 6 = 180 本です（主の分は別）。
+DB サーバーの `max_connections` は、プロセスの数 × 多いときの本数より大きくしてください。
+
+## SQL 結果キャッシュ
+
+SQL 結果キャッシュは**データソースの名前で分かれます**。店の DB どうしで混ざることはありません。
+**アプリが自分で持つキャッシュ**（台帳・設定・テンプレートなど）のキーには、**データソースの名前を入れてください**。
+入れないと、別のクライアントの値が返ります。
+
+## 1 つの DB が落ちたとき
+
+店の DB は `required = false` にします。
+
+- 起動時につながらなくても起動を続け、DB が戻ればそのまま使えます
+- `DBUtil.healthCheck()`（死活監視）は `required = true` のものだけを見るので、1 つ落ちても台ごと外れません
+- データソースごとの状態は `DBUtil.healthCheckAll()` で見られます
+- 起動時につながらなかった DB には、管理の表とマイグレーションを当てていません。戻ったら CLI の `migrate --data-source` で当ててください
+
+詳しくは [DB](./db#落ちても全体を止めないデータソース) を見てください。
 
 
 
@@ -5856,6 +6230,34 @@ public class RequestArchiveBatch extends AbstractChunkBatch<Data> {
 > 1文ごとに結果を確かめる必要はありません。
 > **失敗を `catch` して続けないでください。**そのかたまりの確定が `TransactionException`（`DB_004`）で断られ、全部巻き戻ります。
 
+### データソースごとに回す
+
+同じ表の作りの DB を並べたとき、読み書きする DB は `db(args)` を上書きして選びます（2.7.8 から）。
+既定は主の DB です。**引数でデータソースを受け取る**形を勧めます。
+
+```java
+@Override
+protected DB db (BatchArgs args) {
+	return DBUtil.getDB(args.cliArgs().getString("data_source"));
+}
+```
+
+```bash
+# 店の DB ごとに1回ずつ走らせる
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_a
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_b
+```
+
+- **1 回の実行で1つのデータソース**にします。実行の記録（`batch_history`）がデータソースごとに残り、どれが失敗したか、どこまで確定したかが分かります
+- 1つのデータソースが失敗しても、ほかの実行には響きません（失敗したものだけ流し直します）
+- 再開の位置もデータソースごとです。`KeyPagingReader` の開始キーを引数で渡せば、落ちたところから続けられます
+- `db(args)` は**呼ぶたびに新しい `DB` を返してください**（読む DB と書く DB を分けるため。`DBUtil.getDB` はそうなっています）。同じものを返すと例外になります
+- 実行の記録・進み具合・中断の印は、これにかかわらず主の DB に書きます
+
+> [!NOTE]
+> 全データソースを1回の実行の中で順に回す部品は用意していません。1回の実行の中でまとめると、
+> 1つの失敗で残りをどうするか（続けるか止めるか）・どこまで確定したかを、データソースごとに持つ仕組みがもう1つ要るからです。
+
 ## 二重起動
 
 同じバッチが同時に走る本数は `allowConcurrentExecutionCount()` で決まります。
@@ -6036,6 +6438,25 @@ new NoticeExecutor().put(db, data, scheduledAt);
 
 「ちょうど1回」は分散システムでは作れません。jimble はそのふりをしません。
 
+### 処理中のまま残った行
+
+プロセスが処理の途中で落ちると、行は `running` のまま残ります。
+**`mq.stale`（既定 10 分）より古い `running` の行は、`mq.recover_interval`（既定 1 分）ごとに `waiting` に戻します**（2.7.8 から。それまではキューを起動するときだけでした）。
+戻すのもリトライの1回と数え、`maxRetry()` を使い切った行は `dead` にします。何台かで同時に戻しても、二重には数えません。
+
+> [!WARN]
+> **`mq.stale` は、一番長くかかる処理より長くしてください。**
+> `mq.stale` より長く処理していると、まだ動いているのに戻され、ほかのワーカーがもう一度処理します（二重に動きます）。
+> このとき、あとから終わった古い処理は**結果を書きません**（取ったときの状態のままの行だけ書き換えます。2.7.8 から）。
+> ログに「処理している間に取り直されていたので、結果を書きません」と出たら、`mq.stale` を延ばしてください。
+
+```conf
+mq {
+	stale            = 10m   # これより古い running の行を、落ちたプロセスが残したものとみなす
+	recover_interval = 1m    # 戻す間隔。0s なら、キューを起動するときだけ
+}
+```
+
 ## 登録して回す
 
 ```java
@@ -6054,6 +6475,74 @@ MqRegistry.add(NoticeExecutor::new);
 何台で回しても、1件のメッセージを取れるのは1台のワーカーだけです（2回処理されることがあるのは、上の「二重に実行される」の場合です）。
 `mq.thread_count.<種別>` は**並んで処理する数**で、増やしても、何もしていないときに DB の接続を借りる数は増えません
 （2.1.2 まではワーカーが1本ずつ自分で DB を見ていたので、DB の応答が遅れると、ワーカーの数だけ接続が同時に埋まりました）。
+
+## キューを置くデータソースを絞る
+
+データソースを何本も並べると、キューの表は**全部のデータソースに**作られ、取り出し役は全部を順に見に行きます。
+キューを使わない DB（共通の DB など）は外せます（2.7.8 から）。
+
+```conf
+db {
+	main   { main = true, ..., mq = false }   # このデータソースにはキューを置かない
+	shop_a { url = "..." }
+	shop_b { url = "..." }
+}
+
+mq.queues {
+	mq_notice { data_sources = ["shop_a", "shop_b"] }   # このキューを置くデータソース（書かなければ mq = true の全部）
+}
+```
+
+- 外したデータソースには、**表を作らず、取り出し・迷子の戻し（`recoverStale`）・件数（`pendingCount`）にも行きません**
+- 取り出し役は、データソースを名前の順に並べ、**直前に行を取ったデータソースの次から**見ます（2.7.8 から）。
+  1つのデータソースに行が溜まり続けても、ほかのデータソースの行は待たされません（取り出し「データソースの数」回の内に見に行きます）
+- 両方を書けば、両方を満たすデータソースだけに置きます。`data_sources` に知らない名前があると、起動で止まります
+- **外したデータソースの DB に `put` すると、`MqException` になります**（積んでも誰も処理しないため）
+- キューの表は、業務の表と同じ DB に置きます。積むのと業務の更新が、同じトランザクションで一緒に巻き戻ります
+
+> [!NOTE]
+> **スケジューラのキュー（`scheduler.queue_name`、既定 `mq_scheduler`）は主だけに置きます**（2.7.8 から）。
+> スケジューラの管理（`batch_master` など）も、管理画面から積むのも主なので、`db.<名前>.mq` にかかわらず主に作り、主だけから取り出します。
+> 主のほかにも積んだ行があっても、もう取り出されません。自分のキューを主だけに置きたいときは `MqQueue.mainOnly("名前")` を使い、
+> 積む `MqExecutor` で `mainOnly()` を true にします。
+
+## 仕事のある DB だけを見に行く
+
+データソースを何十も並べると、取り出し役は**空のデータソースまで毎周**見に行きます。
+暇でも、1 つの DB に仕事があるだけでも、データソースの数に比例して SELECT が出ます。
+`mq.hint` を書くと、**積んだときに「このデータソースに仕事がある」という印を付け**、取り出し役は印の付いたデータソースだけを見に行きます（2.7.8 から）。
+
+```conf
+mq {
+	hint           = redis   # off（既定。毎周すべてを見る）| memory | redis
+	sweep_interval = 10s     # 全部のデータソースを回る間隔（印の無い行は、遅くともこの間隔で拾う）
+}
+```
+
+| `mq.hint` | 印の置き場 | 向くとき |
+|---|---|---|
+| `off`（既定） | 置かない。毎周すべてを見る（これまでどおり） | データソースが少ない |
+| `memory` | 同じプロセスの中だけ | 積むのと取り出すのが同じプロセス |
+| `redis` | 同じプロセスの中と Redis の集合 | Web で積み、バッチで取り出す（別のプロセス） |
+
+印を使うとき、取り出し役が見るのは次のものだけです。
+
+- 印の付いたデータソース（印を見てから 5 秒は見続けます。積んだ側のトランザクションがまだ確定していなくても取りこぼしません）
+- 直前に、欲しいだけ取れたデータソース（まだ残っているかもしれない）
+- `sweep_interval` ごとの周は、すべて
+
+**印は「見に行く順を早める」ためのもので、無くても取りこぼしません。**Redis が止まっても、積むのも取り出すのも失敗させず（ログを出すだけ）、全部を回る周で拾います。
+
+> [!WARN]
+> **印の無い行は、最悪 `sweep_interval` だけ遅れます。**印が付かないのは、ほかのプロセスが時刻（`scheduled_at`）を付けて積んだ行・`memory` で別のプロセスが積んだ行・Redis が止まっていたときの行です。
+> リトライの行は、やり直す時刻の印を取り出し役のプロセスが持つので、遅れません。
+
+手元の MySQL で、キュー 1 本・ワーカー 2 本・`poll_max = 1s`・`sweep_interval = 10s` のときの、取り出しの SELECT の数です。
+
+| データソースの数 | 暇なとき（`off` → `redis`） | 1 つの DB に毎秒 10 件積んだときの、ほかの DB への数（`off` → `redis`） |
+|---|---|---|
+| 10 | 20 本/秒 → 2 本/秒 | 837 本/秒 → 1.8 本/秒 |
+| 30 | 54 本/秒 → 6 本/秒 | 1,701 本/秒 → 5.8 本/秒 |
 
 
 
@@ -6949,6 +7438,7 @@ long subscription = client.subscribeToResources(List.of("blog://latest"));
 
   new <name>              プロジェクトの雛形を作る
   migrate                 未適用のマイグレーションを適用する
+  migrateCheck            当たっているかを確かめる（DB には書かない）
   codegen <ソースルート>   テーブル定義のコードを生成する（例: src/main/java）
   version                 版を表示する
 ```
@@ -6975,7 +7465,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.8-SNAPSHOT
+jimble 2.7.9-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -6998,7 +7488,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.7.8-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.7.9-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -7030,10 +7520,8 @@ my-blog/
 	conf/migration/my_blog/001_create_note.sql.example
 	AGENTS.md
 	CLAUDE.md
-	.claude/skills/jimble/SKILL.md
-	.claude/skills/jimble-db/SKILL.md
-	.claude/skills/jimble-web/SKILL.md
-	.claude/skills/jimble-batch/SKILL.md
+	.claude/skills/jimble/SKILL.md          （入口。ほかの skill への案内）
+	.claude/skills/jimble-*/SKILL.md        （Web・DB・バッチ・MQ・設定などの分野ごと）
 	.claude/jimble-skills.properties
 ```
 
@@ -7098,6 +7586,9 @@ $ curl http://localhost:9000/hello
 > java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
 > ```
 
+並べた DB に当てるオプション（`--data-source`・`--migration-dir`・`--parallel`・`--keep-going`）と、
+当たっているかを確かめる `migrateCheck` は [並べた DB に当てる](./codegen#並べた-db-に当てる) を見てください。
+
 ## 版を確認する
 
 ```bash
@@ -7120,16 +7611,16 @@ jar の `Implementation-Version` を読んでいます。
 
 | ID | 何をするか | 主なタスク |
 | --- | --- | --- |
-| `io.jimble.db` | マイグレーションとコード生成を `compileJava` の前に流す | `migrate` / `codegen` / `codegenCheck` |
+| `io.jimble.db` | マイグレーションとコード生成を `compileJava` の前に流す | `migrate` / `codegen` / `codegenCheck` / `migrateCheck` |
 | `io.jimble.jte` | `src/main/jte` を `compileJava` の前に Java に変換する | `generateJte` |
 | `io.jimble.run` | 開発用のホットリロード | `jimbleRun` |
 
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"
-	id("io.jimble.run") version "2.7.7"
-	id("io.jimble.db")  version "2.7.7"
+	id("io.jimble.jte") version "2.7.8"
+	id("io.jimble.run") version "2.7.8"
+	id("io.jimble.db")  version "2.7.8"
 }
 ```
 
@@ -7171,9 +7662,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.7.7"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.7.7"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.8"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.8"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.8"   // DB を使うなら
 }
 
 repositories {
@@ -7188,7 +7679,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.7")
+	implementation("io.jimble:jimble-web:2.7.8")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7222,7 +7713,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.7' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.8' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -7249,7 +7740,16 @@ jimbleRun {
 ./gradlew migrate       # 未適用の SQL を当てる
 ./gradlew codegen       # テーブル定義のクラスを作る（migrate のあと）
 ./gradlew codegenCheck  # コミットされている生成物がスキーマと合うか見る
+./gradlew migrateCheck  # マイグレーションが当たっているかを見る（DB には書かない。2.7.8 から）
 ```
+
+`migrate`・`migrateCheck` にオプションを渡すときは `jimble.migrateArgs` に書きます（2.7.8 から）。
+
+```bash
+./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --parallel 4 --keep-going"
+```
+
+オプションの意味は [並べた DB に当てる](./codegen#並べた-db-に当てる) を見てください。
 
 中身は [マイグレーションとコード生成](./codegen) を見てください。
 
@@ -7401,14 +7901,18 @@ jimbleRun {
 
 ```bash
 ./gradlew jimbleSkills
-./gradlew jimbleSkills --overwrite   # 手で直したもの・控えの無いものも入れ替える
+./gradlew jimbleSkills --overwrite   # 手で直したもの・控えの無いものも入れ替える（この版に無いものは消す）
 ```
 
 - **手で直した skill は上書きしません。**置いたときの中身のハッシュを `.claude/jimble-skills.properties` に控えていて、
   控えと同じ（jimble が置いたまま）なら入れ替え、違えば触りません
 - **控えの無い skill**（控えを書くようになる前の `jimble new` で置いたもの）も、直したかどうか分からないので触りません。
   直していなければ `--overwrite` で入れ替えてください
+- **この版で増えた skill は足し、この版で無くなった skill は消します**（2.7.8）。skill を分けたり名前を変えたりした版でも、
+  流すだけで揃います。消すのは控えと同じ（jimble が置いたまま）ものだけで、手で直してあれば消さずに「古い」と知らせ続けます
+  （`--overwrite` なら消します）。控えに無い skill（アプリが自分で置いたもの）は見ません
 - **アプリ固有の決まりは skill ではなく `AGENTS.md` に書きます。**skill を直すと、次の版に揃えられなくなります
+- 揃えたら `.claude/skills/` と `.claude/jimble-skills.properties` をコミットしてください
 - `AGENTS.md` / `CLAUDE.md` は**無ければ置き、あれば触りません**（`CLAUDE.md` は `@AGENTS.md` と書いて読み込むだけ）
 
 ### jimbleCheck
@@ -7899,7 +8403,7 @@ JIMBLE_TEST_PG_PASSWORD=jimble \
 ```
 conf/application.conf          設定
 conf/application.local.conf    環境別
-conf/migration/<スキーマ名>/   マイグレーション
+conf/migration/<フォルダ名>/   マイグレーション
 ```
 
 `build.gradle.kts` で `conf` をリソースに足します。
@@ -8261,6 +8765,9 @@ db {
 	# データソースの名前ではないので、この位置に書く
 	remove_all_null_table_data = false
 
+	# 起動時の確かめ（つなぐ・管理の表・マイグレーション）を並べる数。既定 1（2.7.8 から）
+	startup_parallelism = 1
+
 	# データソースごとに1ブロック。名前（blog）が DB クラスの名前になる
 	blog {
 		main     = true                    # 主データソースにするか
@@ -8269,7 +8776,14 @@ db {
 		username = ${?DB_USER}
 		password = ${?DB_PASSWORD}
 		product  = "mysql"                 # mysql | mariadb | postgresql | postgres | pgsql
-		schema   = ""                      # 空ならブロックの名前。以前は scheme という綴りだった
+		schema   = ""                      # マイグレーションのフォルダ名。空ならブロックの名前。以前は scheme という綴りだった
+		migration_dir = ""                 # マイグレーションのフォルダ名。書けば schema より優先（2.7.8 から）。同じ作りの DB には同じ名前を書く
+		# migrate_on_startup = false        # 起動時にマイグレーションを当てるか。書かなければ migration.on_startup に従う（2.7.8 から）
+		codegen_name = ""                  # 生成コードの名前（パッケージの末尾とクラス名）。空ならブロックの名前。同じ名前のデータソースは 1 組を共有（2.7.8 から）
+		codegen      = true                # 生成コードを作るか（2.7.8 から）
+		mq           = true                # MQ のキューを置くか（2.7.8 から）
+		required     = true                # つながらなければ起動を止め、死活監視に入れるか。主は false にできない（2.7.8 から）
+		# framework_tables = ["db_lock"]   # 作る管理の表。書かなければ全部（db_log / db_value / db_lock / redis_lock / db_cache）。db_lock は外せない（2.7.8 から）
 
 		maximum_pool_size     = 10         # プールの最大
 		minimum_idle          = 1          # 常に開けておく数
@@ -8330,7 +8844,8 @@ mq {
 	poll_max          = 1s     # キューが空のときの取り出し役の待ちの上限（だんだん伸びる）
 	retry_backoff     = 10s    # リトライの間隔（回を追うごとに倍）
 	retry_backoff_max = 10m
-	stale             = 10m    # これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）
+	stale             = 10m    # これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）。一番長い処理より長くする
+	recover_interval  = 1m     # running のまま残った行を戻す間隔。0s なら起動のときだけ（2.7.8 から）
 
 	# 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。
 	# DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない。
@@ -8339,6 +8854,14 @@ mq {
 	thread_count {
 		short_time = 2
 		long_time  = 8
+	}
+
+	hint           = off   # 仕事のある印。off | memory | redis（2.7.8 から。データソースを並べたら redis を勧める）
+	sweep_interval = 10s   # 印を使うとき、全部のデータソースを回る間隔。印の無い行は遅くともこれで拾う（2.7.8 から）
+
+	# キューごとの設定（2.7.8 から）。data_sources はそのキューを置くデータソース（書かなければ db.<名前>.mq = true の全部）
+	queues {
+		mq_notice { data_sources = ["shop_a", "shop_b"] }
 	}
 }
 
@@ -8680,6 +9203,14 @@ jimble はヘルスチェックのルートを用意しません。**こう書�
 ```java
 get("/health_check", context ->
 	context.response().send(Shutdown.isStopping() ? 503 : 200));
+```
+
+DB も見るなら `DBUtil.healthCheck()` を足します。見るのは `db.<名前>.required = true`（既定）のデータソースだけです（2.7.8 から）。
+店の DB のように、1 つ落ちても台ごと外したくないデータソースは `required = false` にします（[DB](./db#落ちても全体を止めないデータソース)）。
+
+```java
+get("/health_check", context ->
+	context.response().send(Shutdown.isStopping() || !DBUtil.healthCheck() ? 503 : 200));
 ```
 
 > [!TIP]

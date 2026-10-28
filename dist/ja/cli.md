@@ -7,6 +7,7 @@
 
   new <name>              プロジェクトの雛形を作る
   migrate                 未適用のマイグレーションを適用する
+  migrateCheck            当たっているかを確かめる（DB には書かない）
   codegen <ソースルート>   テーブル定義のコードを生成する（例: src/main/java）
   version                 版を表示する
 ```
@@ -33,7 +34,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.8-SNAPSHOT
+jimble 2.7.9-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -56,7 +57,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.7.8-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.7.9-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -88,10 +89,8 @@ my-blog/
 	conf/migration/my_blog/001_create_note.sql.example
 	AGENTS.md
 	CLAUDE.md
-	.claude/skills/jimble/SKILL.md
-	.claude/skills/jimble-db/SKILL.md
-	.claude/skills/jimble-web/SKILL.md
-	.claude/skills/jimble-batch/SKILL.md
+	.claude/skills/jimble/SKILL.md          （入口。ほかの skill への案内）
+	.claude/skills/jimble-*/SKILL.md        （Web・DB・バッチ・MQ・設定などの分野ごと）
 	.claude/jimble-skills.properties
 ```
 
@@ -155,6 +154,9 @@ $ curl http://localhost:9000/hello
 > ```bash
 > java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
 > ```
+
+並べた DB に当てるオプション（`--data-source`・`--migration-dir`・`--parallel`・`--keep-going`）と、
+当たっているかを確かめる `migrateCheck` は [並べた DB に当てる](./codegen#並べた-db-に当てる) を見てください。
 
 ## 版を確認する
 

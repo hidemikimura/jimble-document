@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -298,6 +302,21 @@
 <li>外部 API なら、冪等キーを付ける</li>
 </ul>
 <p>「ちょうど1回」は分散システムでは作れません。jimble はそのふりをしません。</p>
+<h3 id="処理中のまま残った行">処理中のまま残った行<a class="anchor" href="#処理中のまま残った行">#</a></h3>
+<p>プロセスが処理の途中で落ちると、行は <code>running</code> のまま残ります。
+<strong><code>mq.stale</code>（既定 10 分）より古い <code>running</code> の行は、<code>mq.recover_interval</code>（既定 1 分）ごとに <code>waiting</code> に戻します</strong>（2.7.8 から。それまではキューを起動するときだけでした）。
+戻すのもリトライの1回と数え、<code>maxRetry()</code> を使い切った行は <code>dead</code> にします。何台かで同時に戻しても、二重には数えません。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>mq.stale</code> は、一番長くかかる処理より長くしてください。</strong>
+<code>mq.stale</code> より長く処理していると、まだ動いているのに戻され、ほかのワーカーがもう一度処理します（二重に動きます）。
+このとき、あとから終わった古い処理は<strong>結果を書きません</strong>（取ったときの状態のままの行だけ書き換えます。2.7.8 から）。
+ログに「処理している間に取り直されていたので、結果を書きません」と出たら、<code>mq.stale</code> を延ばしてください。</p>
+</div>
+<pre class="code"><code class="lang-conf">mq {
+	stale            = <span class="h-n">10m</span>   <span class="h-c"># これより古い running の行を、落ちたプロセスが残したものとみなす</span>
+	recover_interval = <span class="h-n">1m</span>    <span class="h-c"># 戻す間隔。0s なら、キューを起動するときだけ</span>
+}
+</code></pre>
 <h2 id="登録して回す">登録して回す<a class="anchor" href="#登録して回す">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-c">// テーブルを用意する</span>
 <span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();
@@ -312,6 +331,101 @@ MqRegistry.add(NoticeExecutor::<span class="h-k">new</span>);
 何台で回しても、1件のメッセージを取れるのは1台のワーカーだけです（2回処理されることがあるのは、上の「二重に実行される」の場合です）。
 <code>mq.thread_count.&lt;種別&gt;</code> は<strong>並んで処理する数</strong>で、増やしても、何もしていないときに DB の接続を借りる数は増えません
 （2.1.2 まではワーカーが1本ずつ自分で DB を見ていたので、DB の応答が遅れると、ワーカーの数だけ接続が同時に埋まりました）。</p>
+<h2 id="キューを置くデータソースを絞る">キューを置くデータソースを絞る<a class="anchor" href="#キューを置くデータソースを絞る">#</a></h2>
+<p>データソースを何本も並べると、キューの表は<strong>全部のデータソースに</strong>作られ、取り出し役は全部を順に見に行きます。
+キューを使わない DB（共通の DB など）は外せます（2.7.8 から）。</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ..., mq = <span class="h-k">false</span> }   <span class="h-c"># このデータソースにはキューを置かない</span>
+	shop_a { url = <span class="h-s">"..."</span> }
+	shop_b { url = <span class="h-s">"..."</span> }
+}
+
+mq.queues {
+	mq_notice { data_sources = [<span class="h-s">"shop_a"</span>, <span class="h-s">"shop_b"</span>] }   <span class="h-c"># このキューを置くデータソース（書かなければ mq = true の全部）</span>
+}
+</code></pre>
+<ul>
+<li>外したデータソースには、<strong>表を作らず、取り出し・迷子の戻し（<code>recoverStale</code>）・件数（<code>pendingCount</code>）にも行きません</strong></li>
+<li>取り出し役は、データソースを名前の順に並べ、<strong>直前に行を取ったデータソースの次から</strong>見ます（2.7.8 から）。
+1つのデータソースに行が溜まり続けても、ほかのデータソースの行は待たされません（取り出し「データソースの数」回の内に見に行きます）</li>
+<li>両方を書けば、両方を満たすデータソースだけに置きます。<code>data_sources</code> に知らない名前があると、起動で止まります</li>
+<li><strong>外したデータソースの DB に <code>put</code> すると、<code>MqException</code> になります</strong>（積んでも誰も処理しないため）</li>
+<li>キューの表は、業務の表と同じ DB に置きます。積むのと業務の更新が、同じトランザクションで一緒に巻き戻ります</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>スケジューラのキュー（<code>scheduler.queue_name</code>、既定 <code>mq_scheduler</code>）は主だけに置きます</strong>（2.7.8 から）。
+スケジューラの管理（<code>batch_master</code> など）も、管理画面から積むのも主なので、<code>db.&lt;名前&gt;.mq</code> にかかわらず主に作り、主だけから取り出します。
+主のほかにも積んだ行があっても、もう取り出されません。自分のキューを主だけに置きたいときは <code>MqQueue.mainOnly(&quot;名前&quot;)</code> を使い、
+積む <code>MqExecutor</code> で <code>mainOnly()</code> を true にします。</p>
+</div>
+<h2 id="仕事のある-db-だけを見に行く">仕事のある DB だけを見に行く<a class="anchor" href="#仕事のある-db-だけを見に行く">#</a></h2>
+<p>データソースを何十も並べると、取り出し役は<strong>空のデータソースまで毎周</strong>見に行きます。
+暇でも、1 つの DB に仕事があるだけでも、データソースの数に比例して SELECT が出ます。
+<code>mq.hint</code> を書くと、<strong>積んだときに「このデータソースに仕事がある」という印を付け</strong>、取り出し役は印の付いたデータソースだけを見に行きます（2.7.8 から）。</p>
+<pre class="code"><code class="lang-conf">mq {
+	hint           = redis   <span class="h-c"># off（既定。毎周すべてを見る）| memory | redis</span>
+	sweep_interval = <span class="h-n">10s</span>     <span class="h-c"># 全部のデータソースを回る間隔（印の無い行は、遅くともこの間隔で拾う）</span>
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th><code>mq.hint</code></th>
+<th>印の置き場</th>
+<th>向くとき</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off</code>（既定）</td>
+<td>置かない。毎周すべてを見る（これまでどおり）</td>
+<td>データソースが少ない</td>
+</tr>
+<tr>
+<td><code>memory</code></td>
+<td>同じプロセスの中だけ</td>
+<td>積むのと取り出すのが同じプロセス</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>同じプロセスの中と Redis の集合</td>
+<td>Web で積み、バッチで取り出す（別のプロセス）</td>
+</tr>
+</tbody>
+</table>
+<p>印を使うとき、取り出し役が見るのは次のものだけです。</p>
+<ul>
+<li>印の付いたデータソース（印を見てから 5 秒は見続けます。積んだ側のトランザクションがまだ確定していなくても取りこぼしません）</li>
+<li>直前に、欲しいだけ取れたデータソース（まだ残っているかもしれない）</li>
+<li><code>sweep_interval</code> ごとの周は、すべて</li>
+</ul>
+<p>**印は「見に行く順を早める」ためのもので、無くても取りこぼしません。**Redis が止まっても、積むのも取り出すのも失敗させず（ログを出すだけ）、全部を回る周で拾います。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>**印の無い行は、最悪 <code>sweep_interval</code> だけ遅れます。**印が付かないのは、ほかのプロセスが時刻（<code>scheduled_at</code>）を付けて積んだ行・<code>memory</code> で別のプロセスが積んだ行・Redis が止まっていたときの行です。
+リトライの行は、やり直す時刻の印を取り出し役のプロセスが持つので、遅れません。</p>
+</div>
+<p>手元の MySQL で、キュー 1 本・ワーカー 2 本・<code>poll_max = 1s</code>・<code>sweep_interval = 10s</code> のときの、取り出しの SELECT の数です。</p>
+<table>
+<thead>
+<tr>
+<th>データソースの数</th>
+<th>暇なとき（<code>off</code> → <code>redis</code>）</th>
+<th>1 つの DB に毎秒 10 件積んだときの、ほかの DB への数（<code>off</code> → <code>redis</code>）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>20 本/秒 → 2 本/秒</td>
+<td>837 本/秒 → 1.8 本/秒</td>
+</tr>
+<tr>
+<td>30</td>
+<td>54 本/秒 → 6 本/秒</td>
+<td>1,701 本/秒 → 5.8 本/秒</td>
+</tr>
+</tbody>
+</table>
 
 		</article>
 
@@ -331,7 +445,10 @@ MqRegistry.add(NoticeExecutor::<span class="h-k">new</span>);
 			<li class="level-2"><a href="#書く">書く</a></li>
 			<li class="level-2"><a href="#積む">積む</a></li>
 			<li class="level-2"><a href="#二重に実行される">二重に実行される</a></li>
+			<li class="level-3"><a href="#処理中のまま残った行">処理中のまま残った行</a></li>
 			<li class="level-2"><a href="#登録して回す">登録して回す</a></li>
+			<li class="level-2"><a href="#キューを置くデータソースを絞る">キューを置くデータソースを絞る</a></li>
+			<li class="level-2"><a href="#仕事のある-db-だけを見に行く">仕事のある DB だけを見に行く</a></li>
 		</ul>
 	</nav>
 </div>

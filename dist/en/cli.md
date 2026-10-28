@@ -7,6 +7,7 @@
 
   new <name>              プロジェクトの雛形を作る
   migrate                 未適用のマイグレーションを適用する
+  migrateCheck            当たっているかを確かめる（DB には書かない）
   codegen <source root>   テーブル定義のコードを生成する（例: src/main/java）
   version                 版を表示する
 ```
@@ -17,6 +18,7 @@ The help text prints in Japanese. What each command does:
 |---|---|
 | `new <name>` | Write a project skeleton |
 | `migrate` | Apply the migrations that have not been applied yet |
+| `migrateCheck` | Check that the migrations have been applied (writes nothing) |
 | `codegen <source root>` | Generate the table definition code (`src/main/java`, say) |
 | `version` | Print the version |
 
@@ -42,7 +44,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.8-SNAPSHOT
+jimble 2.7.9-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -66,7 +68,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.8-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.9-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -99,10 +101,8 @@ my-blog/
 	conf/migration/my_blog/001_create_note.sql.example
 	AGENTS.md
 	CLAUDE.md
-	.claude/skills/jimble/SKILL.md
-	.claude/skills/jimble-db/SKILL.md
-	.claude/skills/jimble-web/SKILL.md
-	.claude/skills/jimble-batch/SKILL.md
+	.claude/skills/jimble/SKILL.md          (the entry point; points to the others)
+	.claude/skills/jimble-*/SKILL.md        (one per area: web, DB, batch, MQ, config, ...)
 	.claude/jimble-skills.properties
 ```
 
@@ -168,6 +168,10 @@ their settings are in [the Gradle plugins](./gradle).
 > ```bash
 > java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
 > ```
+
+For the options that apply to databases lined up side by side (`--data-source`,
+`--migration-dir`, `--parallel`, `--keep-going`) and for `migrateCheck`, see
+[Applying to databases lined up side by side](./codegen#applying-to-databases-lined-up-side-by-side).
 
 ## Checking the version
 

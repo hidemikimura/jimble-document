@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -436,6 +440,10 @@ Tests call the same thing (<a href="./pitfalls">Pitfalls</a> / <a href="./testin
 <p>To shut down, call <code>DBUtil.stop()</code> (the web server does it as part of
 <a href="./server">graceful shutdown</a>; in batches and tests you call it yourself).</p>
 <h2 id="when-there-is-more-than-one-data-source">When there is more than one data source<a class="anchor" href="#when-there-is-more-than-one-data-source">#</a></h2>
+<div class="callout callout-tip"><p class="callout-title">Tip</p>
+<p>Lining up many databases with the same tables and choosing the client's database per request is
+summarised on one page: <a href="./multi-db">Lining up databases with the same tables</a>.</p>
+</div>
 <pre class="code"><code class="lang-conf">db {
 	main_db { main = <span class="h-k">true</span>, ... }
 	log_db  { ... }
@@ -445,9 +453,178 @@ Tests call the same thing (<a href="./pitfalls">Pitfalls</a> / <a href="./testin
 The one with <code>main = true</code> is <code>DBUtil.getMainDB()</code> (there is no no-argument <code>getDB()</code>).</p>
 <p>Everything listed at the top level is <strong>treated as its own thing</strong>:</p>
 <ul>
-<li>migrations under <code>conf/migration/&lt;data source name&gt;/</code> are applied to it</li>
-<li>codegen generates <code>db/&lt;data source name&gt;/</code> for it</li>
-<li><code>migration</code> / <code>db_lock</code> / <code>db_value</code> / <code>db_cache</code> are created there too</li>
+<li>migrations under <code>conf/migration/&lt;data source name&gt;/</code> are applied to it (<code>migration_dir</code> picks another folder; see below)</li>
+<li>codegen generates <code>db/&lt;data source name&gt;/</code> for it (<code>codegen_name</code> shares one set with databases that have the same tables; see <a href="./codegen#sharing-generated-code-across-databases-with-the-same-tables">code generation</a>)</li>
+<li><code>migration</code> / <code>db_lock</code> / <code>db_value</code> / <code>db_cache</code> are created there too (<code>framework_tables</code> narrows them; see below)</li>
+</ul>
+<p>jimble creates the tables it uses at startup when they are missing. When
+several servers start on an empty database for the first time, a table another
+server has just created is used as it is (since 2.7.8; it is recognised by the
+table comment, &quot;description:version&quot;). If your application has its own table
+with the same name, startup still stops as before.</p>
+<p>When you line up several databases with the same tables, they can share one
+migration folder (since 2.7.8).</p>
+<pre class="code"><code class="lang-conf">db {
+	shop_a { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span> }
+	shop_b { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span> }
+}
+</code></pre>
+<p>The SQL in <code>conf/migration/shop/</code> is applied once to <code>shop_a</code> and once to
+<code>shop_b</code>. Each database keeps its own record (<code>migration</code> and
+<code>migration_history</code>), so if only one of them has a file applied, it is applied
+to the other one only. Migrations written in Java (<code>CodeMigration</code>) run on the
+main data source only.</p>
+<h3 id="writing-same-shaped-databases-from-a-template">Writing same-shaped databases from a template<a class="anchor" href="#writing-same-shaped-databases-from-a-template">#</a></h3>
+<p>When you line up dozens of databases with the same tables, there is no need to copy the pool sizes and
+the set of subs into each one. <strong>Put a template outside <code>db { }</code> and copy it with HOCON's <code>${}</code>, then
+override</strong> (jimble has no dedicated key for this).</p>
+<pre class="code"><code class="lang-conf">db_templates {
+	tenant {
+		maximum_pool_size = <span class="h-n">6</span>
+		minimum_idle      = <span class="h-n">0</span>           <span class="h-c"># recommended for lined-up databases (see below)</span>
+		migration_dir     = <span class="h-s">"shop"</span>
+		codegen_name      = <span class="h-s">"shop"</span>
+		required          = <span class="h-k">false</span>
+		subs {
+			shop  { maximum_pool_size = <span class="h-n">4</span> }
+			admin { maximum_pool_size = <span class="h-n">2</span> }
+		}
+	}
+}
+
+db {
+	main   { main = <span class="h-k">true</span>, url = <span class="h-s">"..."</span> }
+	shop_a = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mysql://db1/shop_a"</span> }
+	shop_b = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mysql://db1/shop_b"</span>, maximum_pool_size = <span class="h-n">8</span> }
+}
+</code></pre>
+<ul>
+<li><code>${db_templates.tenant} { ... }</code> copies the template and then applies what is inside <code>{ }</code> (the subs are
+copied too)</li>
+<li>Keep the template outside <code>db { }</code>; inside, it would be read as a data source</li>
+</ul>
+<h3 id="running-the-startup-checks-in-parallel">Running the startup checks in parallel<a class="anchor" href="#running-the-startup-checks-in-parallel">#</a></h3>
+<p>The startup checks (connect, read the version, create framework tables, migrations) run one data source at
+a time. With many data sources, startup grows accordingly. <code>db.startup_parallelism</code> runs them in parallel
+(since 2.7.8).</p>
+<pre class="code"><code class="lang-conf">db {
+	startup_parallelism = <span class="h-n">8</span>   <span class="h-c"># default 1 (one at a time)</span>
+	...
+}
+</code></pre>
+<ul>
+<li>The main data source is loaded first on its own, then the rest in parallel (per-data-source tasks can
+rely on the main data source)</li>
+<li>If any of them fails, startup waits for the rest and then stops, as before</li>
+<li>Log lines carry the data source name, so they stay readable in parallel</li>
+</ul>
+<p><code>DBUtil.load</code> time on a local MySQL, starting on empty databases (including creating the databases and
+framework tables):</p>
+<table>
+<thead>
+<tr>
+<th>Data sources</th>
+<th>One at a time</th>
+<th>5 in parallel</th>
+<th>10 in parallel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>11.3 s</td>
+<td>2.6 s</td>
+<td>1.5 s</td>
+</tr>
+<tr>
+<td>30</td>
+<td>33.7 s</td>
+<td>7.5 s</td>
+<td>4.2 s</td>
+</tr>
+</tbody>
+</table>
+<h3 id="counting-connections">Counting connections<a class="anchor" href="#counting-connections">#</a></h3>
+<p>There is one pool per data source × write/read (<code>read</code>) × parent and each sub.</p>
+<ul>
+<li><strong>Connections a process always keeps open</strong> = the sum of <code>minimum_idle</code> over those pools</li>
+<li><strong>Connections at peak</strong> = the sum of <code>maximum_pool_size</code> over those pools</li>
+</ul>
+<p>For example, 30 shop databases with <code>minimum_idle = 1</code> and <code>maximum_pool_size = 6</code>, each with two subs (1/4
+and 1/2), keep 30 × (1 + 1 + 1) = 90 open and reach 30 × (6 + 4 + 2) = 360 at peak.
+<strong><code>minimum_idle = 0</code> is recommended for lined-up shop databases</strong>, so idle databases hold no connections
+(the first use opens one, which is slightly slower). Set the database server's <code>max_connections</code> above the
+number of processes × the peak.</p>
+<h3 id="choosing-which-framework-tables-are-created">Choosing which framework tables are created<a class="anchor" href="#choosing-which-framework-tables-are-created">#</a></h3>
+<p>jimble creates the following framework tables on each data source. If a database (one shop's, say)
+does not use some of them, <code>framework_tables</code> narrows what is created (since 2.7.8).</p>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Used by</th>
+<th>Can be left out</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db_lock</code></td>
+<td><code>DBLock</code> (locking in the same database as the business transaction), <strong>the migration lock</strong></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>db_value</code></td>
+<td><code>DBValue</code> (key/value storage)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>db_cache</code></td>
+<td><code>Cache.instance(db)</code> with <code>cache.type = db</code> (<code>DBCache</code>)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>redis_lock</code></td>
+<td><code>RedisLock.lock(db, ...)</code> / <code>tryLock(db, ...)</code> (the variants that take a DB; they leave a mark)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>db_log</code></td>
+<td><code>DBLog.save</code> (with <code>log.db = true</code>)</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<pre class="code"><code class="lang-conf">db {
+	shop_a { url = <span class="h-s">"..."</span>, framework_tables = [<span class="h-s">"db_lock"</span>] }
+}
+</code></pre>
+<ul>
+<li>Without it, everything is created as before</li>
+<li><strong>Calling an API that needs a table that was left out, on that data source, throws
+<code>IllegalStateException</code></strong> (naming the setting, rather than an SQL &quot;table not found&quot; error)</li>
+<li>An unknown name, or a list without <code>db_lock</code>, stops startup</li>
+<li><code>migration</code> and <code>migration_history</code> are created by migrations (not part of this list). MQ queue tables
+are narrowed with <code>db.&lt;name&gt;.mq</code> (<a href="./mq">MQ</a>)</li>
+</ul>
+<h3 id="data-sources-that-may-be-down">Data sources that may be down<a class="anchor" href="#data-sources-that-may-be-down">#</a></h3>
+<p>With many data sources, <strong>one that cannot be reached stops startup</strong>, and <code>DBUtil.healthCheck()</code> turns
+false. For a data source whose outage should not stop everything, set <code>required = false</code> (since 2.7.8).</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ... }                  <span class="h-c"># the main data source cannot be required = false</span>
+	shop_a { url = <span class="h-s">"..."</span>, required = <span class="h-k">false</span>, connection_timeout = <span class="h-n">3s</span> }
+}
+</code></pre>
+<ul>
+<li>If it cannot be reached at startup, a log line is written and startup goes on. Using that data source
+throws the usual connection exception</li>
+<li><strong>Once the database is back, it just works</strong> (the pool reconnects; HikariCP stretches its retry interval
+up to 5 seconds while it cannot connect, so it takes a few seconds after the database comes back)</li>
+<li>A data source that could not be reached at startup <strong>did not get its framework tables or migrations</strong>.
+Restart once it is reachable, or apply them with the CLI's <code>migrate --data-source</code></li>
+<li>If it is reached but a migration fails, startup still stops as before</li>
+<li><code>DBUtil.healthCheck()</code> looks only at <code>required = true</code> data sources. Per data source, use
+<code>DBUtil.healthCheckAll()</code> (name → readable)</li>
+<li>An unreachable data source can delay startup by up to <code>connection_timeout</code> (keep it short)</li>
 </ul>
 <p>If all you want is <strong>one more handle without copying the settings</strong>, use <code>subs</code>.</p>
 <pre class="code"><code class="lang-conf">db {
@@ -467,6 +644,10 @@ from its parent. Even when it points at the same database it is a different
 connection, so writing through <code>newSubDB</code> inside the parent's transaction
 <strong>does not roll back with it</strong> — one side stays. Assume it inherits the settings
 from the parent and nothing more.</p>
+</div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>The SQL result cache keeps a <code>subs</code> entry that points at another database apart from its parent
+(since 2.7.8). See <a href="./cache">Cache</a>.</p>
 </div>
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>Migrations and codegen do not apply to <code>subs</code>.</strong> Per-data-source work only runs
@@ -681,7 +862,7 @@ To use it as &quot;update if it exists&quot;, catch it outside the transaction o
 <code>insertNoReturnKey</code> is deprecated (it goes away during 2.x); use <code>insert</code> or <code>execute</code>.</p>
 </div>
 <h2 id="migrations">Migrations<a class="anchor" href="#migrations">#</a></h2>
-<p>Put them in <code>conf/migration/&lt;schema name&gt;/001_xxx.sql</code>.</p>
+<p>Put them in <code>conf/migration/&lt;folder name&gt;/001_xxx.sql</code> (the folder name is <code>migration_dir</code>, else <code>schema</code>, else the data source name).</p>
 <pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
 
 CREATE TABLE `note` (
@@ -725,6 +906,11 @@ gets generated are all in
 			<li class="level-3"><a href="#things-to-watch">Things to watch</a></li>
 			<li class="level-2"><a href="#connecting-at-startup">Connecting at startup</a></li>
 			<li class="level-2"><a href="#when-there-is-more-than-one-data-source">When there is more than one data source</a></li>
+			<li class="level-3"><a href="#writing-same-shaped-databases-from-a-template">Writing same-shaped databases from a template</a></li>
+			<li class="level-3"><a href="#running-the-startup-checks-in-parallel">Running the startup checks in parallel</a></li>
+			<li class="level-3"><a href="#counting-connections">Counting connections</a></li>
+			<li class="level-3"><a href="#choosing-which-framework-tables-are-created">Choosing which framework tables are created</a></li>
+			<li class="level-3"><a href="#data-sources-that-may-be-down">Data sources that may be down</a></li>
 			<li class="level-2"><a href="#generate-table-definitions">Generate table definitions</a></li>
 			<li class="level-2"><a href="#selecting">Selecting</a></li>
 			<li class="level-3"><a href="#json-columns">JSON columns</a></li>

@@ -21,6 +21,7 @@
 	<url><loc>https://jimble.io/ja/migrate-2</loc></url>
 	<url><loc>https://jimble.io/ja/migration-jooby</loc></url>
 	<url><loc>https://jimble.io/ja/mq</loc></url>
+	<url><loc>https://jimble.io/ja/multi-db</loc></url>
 	<url><loc>https://jimble.io/ja/pitfalls</loc></url>
 	<url><loc>https://jimble.io/ja/principles</loc></url>
 	<url><loc>https://jimble.io/ja/quickstart</loc></url>
@@ -61,6 +62,7 @@
 	<url><loc>https://jimble.io/en/migrate-2</loc></url>
 	<url><loc>https://jimble.io/en/migration-jooby</loc></url>
 	<url><loc>https://jimble.io/en/mq</loc></url>
+	<url><loc>https://jimble.io/en/multi-db</loc></url>
 	<url><loc>https://jimble.io/en/pitfalls</loc></url>
 	<url><loc>https://jimble.io/en/principles</loc></url>
 	<url><loc>https://jimble.io/en/quickstart</loc></url>

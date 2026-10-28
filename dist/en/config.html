@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -221,7 +225,7 @@
 <p><strong>Configuration goes in <code>conf/</code>.</strong></p>
 <pre class="code"><code class="lang-text">conf/application.conf          configuration
 conf/application.local.conf    per environment
-conf/migration/&lt;schema name&gt;/  migrations
+conf/migration/&lt;folder name&gt;/  migrations
 </code></pre>
 <p>Add <code>conf</code> to your resources in <code>build.gradle.kts</code>.</p>
 <pre class="code"><code class="lang-kotlin">sourceSets {
@@ -556,6 +560,9 @@ db {
 	<span class="h-c"># Not a data source name, so it goes at this level</span>
 	remove_all_null_table_data = <span class="h-k">false</span>
 
+	<span class="h-c"># how many data sources to run the startup checks for in parallel (connect, framework tables, migrations). default 1 (since 2.7.8)</span>
+	startup_parallelism = <span class="h-n">1</span>
+
 	<span class="h-c"># One block per data source. The name (blog) becomes the name of the DB class</span>
 	blog {
 		main     = <span class="h-k">true</span>                    <span class="h-c"># use as the main data source</span>
@@ -564,7 +571,14 @@ db {
 		username = ${?DB_USER}
 		password = ${?DB_PASSWORD}
 		product  = <span class="h-s">"mysql"</span>                 <span class="h-c"># mysql | mariadb | postgresql | postgres | pgsql</span>
-		schema   = <span class="h-s">""</span>                      <span class="h-c"># empty means the block's name. spelled scheme before</span>
+		schema   = <span class="h-s">""</span>                      <span class="h-c"># migration folder name. empty means the block's name. spelled scheme before</span>
+		migration_dir = <span class="h-s">""</span>                 <span class="h-c"># migration folder name. wins over schema when set (since 2.7.8). give same-shaped DBs the same name</span>
+		<span class="h-c"># migrate_on_startup = false        # apply migrations at startup? unset means follow migration.on_startup (since 2.7.8)</span>
+		codegen_name = <span class="h-s">""</span>                  <span class="h-c"># name for generated code (package tail and class name). empty means the block's name. same name = one shared set (since 2.7.8)</span>
+		codegen      = <span class="h-k">true</span>                <span class="h-c"># generate code for this data source? (since 2.7.8)</span>
+		mq           = <span class="h-k">true</span>                <span class="h-c"># put MQ queues on this data source? (since 2.7.8)</span>
+		required     = <span class="h-k">true</span>                <span class="h-c"># stop startup if unreachable, and include in the health check? main cannot be false (since 2.7.8)</span>
+		<span class="h-c"># framework_tables = ["db_lock"]   # framework tables to create. unset means all (db_log / db_value / db_lock / redis_lock / db_cache); db_lock cannot be left out (since 2.7.8)</span>
 
 		maximum_pool_size     = <span class="h-n">10</span>         <span class="h-c"># largest the pool gets</span>
 		minimum_idle          = <span class="h-n">1</span>          <span class="h-c"># connections always kept open</span>
@@ -626,6 +640,7 @@ mq {
 	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># interval between retries (doubles each time)</span>
 	retry_backoff_max = <span class="h-n">10m</span>
 	stale             = <span class="h-n">10m</span>    <span class="h-c"># this long as running counts as dead (sent back to waiting, counted as one retry)</span>
+	recover_interval  = <span class="h-n">1m</span>     <span class="h-c"># how often rows left running are put back; 0s means only at startup (since 2.7.8)</span>
 
 	<span class="h-c"># Workers per execution type (how many run in parallel). Left out, each type's own default is used.</span>
 	<span class="h-c"># One poller per queue reads the DB, so more workers do not add connections while idle.</span>
@@ -634,6 +649,14 @@ mq {
 	thread_count {
 		short_time = <span class="h-n">2</span>
 		long_time  = <span class="h-n">8</span>
+	}
+
+	hint           = off   <span class="h-c"># work hints: off | memory | redis (since 2.7.8; redis is recommended with many data sources)</span>
+	sweep_interval = <span class="h-n">10s</span>   <span class="h-c"># with hints, how often every data source is visited; rows without a hint wait at most this long (since 2.7.8)</span>
+
+	<span class="h-c"># per-queue settings (since 2.7.8). data_sources is where the queue lives (unset means every data source with db.&lt;name&gt;.mq = true)</span>
+	queues {
+		mq_notice { data_sources = [<span class="h-s">"shop_a"</span>, <span class="h-s">"shop_b"</span>] }
 	}
 }
 

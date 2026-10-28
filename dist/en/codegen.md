@@ -17,7 +17,7 @@ table definition classes are built from that.
 
 ## Migrations
 
-Put your SQL in `conf/migration/<schema name>/`.
+Put your SQL in `conf/migration/<folder name>/`.
 
 ```sql
 # --- !Ups
@@ -46,8 +46,12 @@ DROP TABLE `note`;
 
 - File names are up to you. They are applied in **the natural order of the names**
   (a `001_` prefix makes it obvious)
-- `<schema name>` is `scheme` from the configuration (or the data source name if
-  that is missing)
+- `<folder name>` is `db.<name>.migration_dir`. Without it, `schema`; without
+  that, the data source name (changing `migration.resource_dir` changes the
+  `conf/migration` part too)
+- When several data sources are databases with the same tables, give them all
+  the same `migration_dir`. The same SQL is applied once to each database, and
+  each database keeps its own record (`migration` and `migration_history`)
 - **They are looked up from the classpath.** Add `conf/` to your resources
   ([Configuration](./config))
 
@@ -97,8 +101,10 @@ down → up.
 
 > [!WARN]
 > **DDL is not rolled back.** MariaDB / MySQL commit implicitly on
-> `CREATE TABLE` and friends.
-> Put several DDL statements in one file and it stops **with part of it applied.**
+> `CREATE TABLE` and friends. On PostgreSQL too, migration SQL runs one
+> statement at a time with each one committed (not inside a transaction).
+> On either, put several DDL statements in one file and it stops **with part of
+> it applied.**
 
 ### Do not rewrite SQL that has already been applied
 
@@ -194,9 +200,22 @@ The row in `db_lock` is taken with `FOR UPDATE` before anything is applied, so
 **only one machine runs.** The one that could not wait long enough fails to start
 (`migration.lock_timeout`, 60 seconds by default).
 
+The record tables (`migration` and the rest) are also created after the lock
+is taken, so several servers starting on an empty database for the first time
+do not fight over them (since 2.7.8).
+The lock is held in a transaction on its own connection, and the SQL runs on
+another connection. An implicit commit from DDL only affects the connection
+that ran it, so **running DDL does not release the lock.** That is why **the
+pool needs at least two connections** (with `maximum_pool_size = 1` it stops
+right away with an exception that says so). What has been applied is read
+from the write connection even when `read` is configured (since 2.7.8), so a
+lagging replica does not make it run the same file again.
+
 > [!NOTE]
-> The lock wait timeout is set **for that session only** (`SET SESSION`).
-> The server-wide setting is left alone.
+> The lock wait timeout is set **for that session only** (`SET SESSION` on
+> MySQL, `SET LOCAL` on PostgreSQL). The server-wide setting is left alone. On
+> MySQL the old value is put back before the connection returns to the pool
+> (since 2.7.8).
 
 ### Migrations written in Java
 
@@ -216,6 +235,52 @@ They run once each, in `versionYyyyMmDd()` order, and the result is kept in
 > **The CLI's `migrate` does not run code migrations.**
 > The registration lives in your application code, so they only run **when the
 > application starts.**
+
+> [!NOTE]
+> **Code migrations run only on the main data source (`main = true`).**
+> Other data sources that share a `migration_dir` do not get them, unlike SQL
+> migrations.
+
+### Applying to databases lined up side by side
+
+When several data sources are databases with the same tables (they share a
+`migration_dir`), the recommended way is **not to apply at startup, but from
+the CLI during deployment** (since 2.7.8).
+
+```conf
+db {
+	main   { main = true, ... }                                    # fine to apply at startup
+	shop_a { url = "...", migration_dir = "shop", migrate_on_startup = false }
+	shop_b { url = "...", migration_dir = "shop", migrate_on_startup = false }
+}
+```
+
+The deployment steps are:
+
+```bash
+# 1. Apply to the lined-up databases. Keep going past a failure and print a list at the end (non-zero exit if anything failed)
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+# 2. Check that they are all at the same version (writes nothing; non-zero exit if anything is off)
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+# 3. Start the application
+```
+
+| Option | Meaning |
+|---|---|
+| `--data-source <name>` | Only these data sources (repeatable) |
+| `--migration-dir <folder>` | Only the data sources that use this folder (repeatable). With `--data-source` too, those that match both |
+| `--parallel <n>` | How many to apply at once (default 1). Each data source uses two connections |
+| `--keep-going` | Keep going after a failure (`migrate` only). By default they run in name order and stop at the first failure |
+
+- When you narrow it down, **only the chosen data sources are connected to**
+  (a database that cannot be reached does not drag the rest down)
+- `migrateCheck` compares the SQL files in the folder with each database's
+  `migration` table and reports, per data source, **files not applied, extra
+  records (no file), and hash mismatches**
+- `db.<name>.migrate_on_startup` overrides `migration.on_startup` for that data
+  source only. A data source that says `true` is applied at startup even when
+  `migration.on_startup = false`
+- From Gradle, pass them as `./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --keep-going"` ([Gradle plugin](./gradle))
 
 ## Code generation
 
@@ -260,6 +325,44 @@ runtime).
 
 > In English: "jimble wrote this file (codegen). Do not edit it by hand — an edit
 > is gone at the next codegen."
+
+### Sharing generated code across databases with the same tables
+
+When several data sources are databases with the same tables, give them the
+same `codegen_name` and you keep **only one set of generated code** (since
+2.7.8).
+
+```conf
+db {
+	main   { main = true, ... }
+	shop_a { url = "...", codegen_name = "shop" }
+	shop_b { url = "...", codegen_name = "shop" }
+	log    { url = "...", codegen = false }      # not generated
+}
+```
+
+- Only `db/shop/` is generated (package `<codegen.package>.shop`, schema class
+  `Shop`). `codegenCheck` compares that one set too
+- The tables are read from the **representative** database (the main data
+  source if it is in the group, otherwise the first by name). If another
+  database's tables (table names, column names and types) differ from it, a
+  warning is logged at generation time (generation does not stop)
+- Table classes put **only the table name** into SQL, so they run on whichever
+  database you pass. **For a shared set, run them with the database chosen for
+  the request (the one you keep in `ContextDb` or the like).** `Shop.db()`
+  returns the representative database
+- `codegen_name` becomes a package name and a folder name, so it is lowercase
+  letters, digits and `_`, starting with a letter
+- A data source with `codegen = false` is not generated
+- Without these settings, code is generated per data source as before (the
+  output does not change)
+
+> [!NOTE]
+> If a data source name has uppercase letters, the folder (`db/blog/`) and the
+> package (`db.Blog`) are spelled differently. That is how it has always been,
+> and changing it would move the generated files, so it stays; a warning is
+> logged at generation time. To line them up, write `codegen_name = "blog"`
+> (the package becomes `db.blog`).
 
 ### Type mapping
 
@@ -346,8 +449,12 @@ Where Gradle is not available (CI, production), the CLI does the same things.
 
 ```bash
 java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck
 java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
 ```
+
+The options for `migrate` and `migrateCheck` are in
+[Applying to databases lined up side by side](#applying-to-databases-lined-up-side-by-side).
 
 Both the configuration and the SQL are looked up **from the classpath**.
 The Gradle tasks are listed in [the Gradle plugins](./gradle).

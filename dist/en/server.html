@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -457,6 +461,13 @@ so what to return is left to the app.</p>
 <p>jimble does not provide a health check route. <strong>Write it like this.</strong></p>
 <pre class="code"><code class="lang-java">get(<span class="h-s">"/health_check"</span>, context -&gt;
 	context.response().send(Shutdown.isStopping() ? <span class="h-n">503</span> : <span class="h-n">200</span>));
+</code></pre>
+<p>To check the database too, add <code>DBUtil.healthCheck()</code>. It looks only at data sources with
+<code>db.&lt;name&gt;.required = true</code> (the default; since 2.7.8). For a data source such as one shop's database,
+where one going down should not take the whole machine out of rotation, set <code>required = false</code>
+(<a href="./db#data-sources-that-may-be-down">DB</a>).</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/health_check"</span>, context -&gt;
+	context.response().send(Shutdown.isStopping() || !DBUtil.healthCheck() ? <span class="h-n">503</span> : <span class="h-n">200</span>));
 </code></pre>
 <div class="callout callout-tip"><p class="callout-title">Tip</p>
 <p>It takes the load balancer a while to pull this machine out of rotation.

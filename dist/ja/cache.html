@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -438,6 +442,9 @@ db.selectListCached(SQL.select().from(Customer.instance()).where(Customer.shop_i
 </tr>
 </tbody>
 </table>
+<p>キャッシュは<strong>データソースごとに分かれます</strong>（キーとタグにデータソースの名前が入ります）。
+<code>subs</code> は、親と同じ URL なら親と同じ名前（サブで書けば親のキャッシュも消えます）、別の DB を指すなら「親.サブ」で分かれます（2.7.8 から。それまでは別の DB を指すサブでも親と混ざり、別の DB の結果が返っていました）。
+URL が同じ文字列のときだけ「同じ DB」とみなします。</p>
 <h3 id="設定">設定<a class="anchor" href="#設定">#</a></h3>
 <pre class="code"><code class="lang-conf">sql_cache {
 	enabled = <span class="h-k">true</span>       <span class="h-c"># 既定は false</span>

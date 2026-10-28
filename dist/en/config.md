@@ -11,7 +11,7 @@ You write it in `conf/application.conf`. The format is HOCON.
 ```
 conf/application.conf          configuration
 conf/application.local.conf    per environment
-conf/migration/<schema name>/  migrations
+conf/migration/<folder name>/  migrations
 ```
 
 Add `conf` to your resources in `build.gradle.kts`.
@@ -380,6 +380,9 @@ db {
 	# Not a data source name, so it goes at this level
 	remove_all_null_table_data = false
 
+	# how many data sources to run the startup checks for in parallel (connect, framework tables, migrations). default 1 (since 2.7.8)
+	startup_parallelism = 1
+
 	# One block per data source. The name (blog) becomes the name of the DB class
 	blog {
 		main     = true                    # use as the main data source
@@ -388,7 +391,14 @@ db {
 		username = ${?DB_USER}
 		password = ${?DB_PASSWORD}
 		product  = "mysql"                 # mysql | mariadb | postgresql | postgres | pgsql
-		schema   = ""                      # empty means the block's name. spelled scheme before
+		schema   = ""                      # migration folder name. empty means the block's name. spelled scheme before
+		migration_dir = ""                 # migration folder name. wins over schema when set (since 2.7.8). give same-shaped DBs the same name
+		# migrate_on_startup = false        # apply migrations at startup? unset means follow migration.on_startup (since 2.7.8)
+		codegen_name = ""                  # name for generated code (package tail and class name). empty means the block's name. same name = one shared set (since 2.7.8)
+		codegen      = true                # generate code for this data source? (since 2.7.8)
+		mq           = true                # put MQ queues on this data source? (since 2.7.8)
+		required     = true                # stop startup if unreachable, and include in the health check? main cannot be false (since 2.7.8)
+		# framework_tables = ["db_lock"]   # framework tables to create. unset means all (db_log / db_value / db_lock / redis_lock / db_cache); db_lock cannot be left out (since 2.7.8)
 
 		maximum_pool_size     = 10         # largest the pool gets
 		minimum_idle          = 1          # connections always kept open
@@ -450,6 +460,7 @@ mq {
 	retry_backoff     = 10s    # interval between retries (doubles each time)
 	retry_backoff_max = 10m
 	stale             = 10m    # this long as running counts as dead (sent back to waiting, counted as one retry)
+	recover_interval  = 1m     # how often rows left running are put back; 0s means only at startup (since 2.7.8)
 
 	# Workers per execution type (how many run in parallel). Left out, each type's own default is used.
 	# One poller per queue reads the DB, so more workers do not add connections while idle.
@@ -458,6 +469,14 @@ mq {
 	thread_count {
 		short_time = 2
 		long_time  = 8
+	}
+
+	hint           = off   # work hints: off | memory | redis (since 2.7.8; redis is recommended with many data sources)
+	sweep_interval = 10s   # with hints, how often every data source is visited; rows without a hint wait at most this long (since 2.7.8)
+
+	# per-queue settings (since 2.7.8). data_sources is where the queue lives (unset means every data source with db.<name>.mq = true)
+	queues {
+		mq_notice { data_sources = ["shop_a", "shop_b"] }
 	}
 }
 

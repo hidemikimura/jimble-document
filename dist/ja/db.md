@@ -207,6 +207,9 @@ public static void main (String[] args) {
 
 ## データソースが複数あるとき
 
+> [!TIP]
+> 同じ作りの DB を何本も並べ、要求ごとにクライアントの DB を選ぶ使い方は、[同じ作りの DB を並べる](./multi-db) に 1 ページでまとめてあります。
+
 ```conf
 db {
 	main_db { main = true, ... }
@@ -219,9 +222,135 @@ db {
 
 トップレベルに並べたものは、**1本ごとに独立した扱い**を受けます。
 
-- `conf/migration/<データソース名>/` のマイグレーションが当たります
-- codegen が `db/<データソース名>/` を作ります
-- `migration` / `db_lock` / `db_value` / `db_cache` もそちらに作られます
+- `conf/migration/<データソース名>/` のマイグレーションが当たります（`migration_dir` で別のフォルダにできます。下を参照）
+- codegen が `db/<データソース名>/` を作ります（`codegen_name` で同じ作りの DB と 1 組を共有できます。[コード生成](./codegen#同じ作りの-db-で生成コードを共有する)）
+- `migration` / `db_lock` / `db_value` / `db_cache` もそちらに作られます（`framework_tables` で絞れます。下を参照）
+
+jimble が使う表は、無ければ起動時に作ります。空の DB に何台かが同時に初めて起動しても、
+ほかの台が先に作った表はそのまま使います（2.7.8 から。表のコメント「説明:版」で見分けます）。
+アプリが同じ名前の表を持っているときは、これまでどおり起動で止まります。
+
+同じ表の作りの DB を何本も並べるときは、マイグレーションのフォルダを1つにできます（2.7.8 から）。
+
+```conf
+db {
+	shop_a { url = "...", migration_dir = "shop" }
+	shop_b { url = "...", migration_dir = "shop" }
+}
+```
+
+`conf/migration/shop/` の SQL が、`shop_a` と `shop_b` のそれぞれに1回ずつ当たります。
+当たったかどうかの記録（`migration`・`migration_history`）はそれぞれの DB に残るので、
+片方だけ当たっていれば、もう片方にだけ当たります。
+Java で書くマイグレーション（`CodeMigration`）は主にしか当たりません。
+
+### 同じ作りの DB をひな形から書く
+
+同じ作りの DB を数十並べるとき、プールの大きさやサブの組を全部に書き写す必要はありません。
+**ひな形を `db { }` の外に置き、HOCON の `${}` で写して上書きします**（jimble に専用のキーはありません）。
+
+```conf
+db_templates {
+	tenant {
+		maximum_pool_size = 6
+		minimum_idle      = 0           # 並べた DB は 0 を勧めます（下を参照）
+		migration_dir     = "shop"
+		codegen_name      = "shop"
+		required          = false
+		subs {
+			shop  { maximum_pool_size = 4 }
+			admin { maximum_pool_size = 2 }
+		}
+	}
+}
+
+db {
+	main   { main = true, url = "..." }
+	shop_a = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_a" }
+	shop_b = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_b", maximum_pool_size = 8 }
+}
+```
+
+- `${db_templates.tenant} { ... }` は、ひな形を写したうえで、`{ }` の中で上書きします（サブの組も写ります）
+- ひな形は `db { }` の外に置きます。中に置くとデータソースとして読まれます
+
+### 起動時の確かめを並べる
+
+起動時の確かめ（つなぐ・版を読む・管理の表を作る・マイグレーション）は、データソースごとに 1 つずつ行います。
+データソースが多いと、その分だけ起動が延びます。`db.startup_parallelism` で並べられます（2.7.8 から）。
+
+```conf
+db {
+	startup_parallelism = 8   # 既定 1（1 つずつ）
+	...
+}
+```
+
+- 主を先に 1 つで読み、残りを並べて読みます（データソースごとの処理が主を当てにしても大丈夫です）
+- 1 つでも失敗すれば、全部が終わるのを待ってから、これまでどおり起動を止めます
+- ログにはデータソースの名前が付くので、並べても、どのデータソースの話かは分かります
+
+手元の MySQL で、空の DB に初めて起動したとき（DB と管理の表を作るところを含む）の `DBUtil.load` の時間です。
+
+| データソースの数 | 1 つずつ | 5 並び | 10 並び |
+|---|---|---|---|
+| 10 | 11.3 秒 | 2.6 秒 | 1.5 秒 |
+| 30 | 33.7 秒 | 7.5 秒 | 4.2 秒 |
+
+### 接続の数を数える
+
+プールは「データソース × 書き込み／読み取り（`read`）× 親とサブ」ごとにできます。
+
+- **1 プロセスが常に開いている本数** ＝ それぞれのプールの `minimum_idle` の合計
+- **多いときの本数** ＝ それぞれのプールの `maximum_pool_size` の合計
+
+例：店の DB が 30 個、それぞれ `minimum_idle = 1`・`maximum_pool_size = 6` で、サブが 2 つ（それぞれ 1・4 と 1・2）なら、
+常に 30 × (1 + 1 + 1) = 90 本、多いときは 30 × (6 + 4 + 2) = 360 本です。
+**並べた店の DB は `minimum_idle = 0` を勧めます。**使っていない DB の接続を開いたままにしません（使うときに開くので、最初の 1 本だけ遅れます）。
+DB サーバーの `max_connections` は、プロセスの数 × 多いときの本数より大きくしてください。
+
+### 管理の表を絞る
+
+jimble は、データソースごとに次の管理の表を作ります。店の DB のように使わない表があるなら、
+`framework_tables` で作る表を絞れます（2.7.8 から）。
+
+| 表 | 何が使うか | 外せるか |
+|---|---|---|
+| `db_lock` | `DBLock`（業務の Tx と同じ DB でロックする）、**マイグレーションのロック** | 外せません |
+| `db_value` | `DBValue`（キーと値を置く） | 外せます |
+| `db_cache` | `Cache.instance(db)` で `cache.type = db` のとき（`DBCache`） | 外せます |
+| `redis_lock` | `RedisLock.lock(db, ...)` / `tryLock(db, ...)`（DB を渡すほう。印を付ける） | 外せます |
+| `db_log` | `DBLog.save`（`log.db = true` のとき） | 外せます |
+
+```conf
+db {
+	shop_a { url = "...", framework_tables = ["db_lock"] }
+}
+```
+
+- 書かなければ、これまでどおり全部を作ります
+- **外した表を使う API をそのデータソースで呼ぶと、`IllegalStateException`** になります（「表が無い」という SQL のエラーではなく、設定の名前を言います）
+- 知らない名前や、`db_lock` の無い一覧は、起動で止まります
+- `migration`・`migration_history` はマイグレーションが作ります（この一覧には入りません）。MQ のキューの表は `db.<名前>.mq` で絞ります（[MQ](./mq)）
+
+### 落ちても全体を止めないデータソース
+
+データソースを何本も並べると、**1 つがつながらないだけで起動しなくなり**、`DBUtil.healthCheck()` も false になります。
+落ちても全体を止めたくないデータソースは `required = false` にします（2.7.8 から）。
+
+```conf
+db {
+	main   { main = true, ... }                  # 主は required = false にできません
+	shop_a { url = "...", required = false, connection_timeout = 3s }
+}
+```
+
+- 起動時につながらなくても、ログを出して起動を続けます。そのデータソースを使うと、つながらない例外になります
+- **DB が戻れば、そのまま使えます**（プールがつなぎ直します。HikariCP は、つながらないあいだ試す間隔を最大 5 秒まで延ばすので、戻ってから数秒かかります）
+- 起動時につながらなかったデータソースには、**管理の表とマイグレーションを当てていません**。つながってから起動し直すか、CLI の `migrate --data-source` で当ててください
+- つながったのにマイグレーションが失敗したときは、これまでどおり起動を止めます
+- `DBUtil.healthCheck()` は `required = true` のものだけを見ます。データソースごとの状態は `DBUtil.healthCheckAll()`（名前 → 読めるか）で見ます
+- つながらないデータソースは、起動が `connection_timeout` だけ延びることがあります（短めにしてください）
 
 **設定を書き写さずにもう1本ぶら下げたい**だけなら、`subs` を使います。
 
@@ -244,6 +373,9 @@ db {
 > 同じデータベースを指していても別の接続なので、親のトランザクションの中で
 > `newSubDB` に書いても**一緒には戻りません**。片方だけ残ります。
 > 親から設定を引き継ぐ、それ以上のことはしていないと思ってください。
+
+> [!NOTE]
+> SQL 結果キャッシュは、別の DB を指す `subs` を親と分けます（2.7.8 から）。[キャッシュ](./cache) を見てください。
 
 > [!TRAP]
 > **`subs` にはマイグレーションも codegen も当たりません。**
@@ -447,7 +579,7 @@ int count = db.execute("INSERT INTO archive SELECT * FROM post WHERE ...");  // 
 
 ## マイグレーション
 
-`conf/migration/<スキーマ名>/001_xxx.sql` に置きます。
+`conf/migration/<フォルダ名>/001_xxx.sql` に置きます（フォルダ名は `migration_dir`、無ければ `schema`、それも無ければデータソース名）。
 
 ```sql
 # --- !Ups

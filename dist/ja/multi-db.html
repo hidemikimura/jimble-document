@@ -1,0 +1,383 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>同じ作りの DB を並べる - jimble</title>
+<meta name="description" content="Web・バッチは 1 組のまま、クライアントごとに DB だけを分ける。設定・要求ごとの DB の選び方・マイグレーション・生成コード・MQ・接続の数・落ちたとき">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="page">日本語</a>
+		<a href="../en/"
+		 aria-current="false">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">ログインと認可</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+			<li>
+				<a href="multi-db"
+				   class="current">同じ作りの DB を並べる</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+			<li>
+				<a href="mail"
+				   class="">メール</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble コマンド</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">版と互換性</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="同じ作りの-db-を並べる">同じ作りの DB を並べる<a class="anchor" href="#同じ作りの-db-を並べる">#</a></h1>
+<p>Web とバッチのサーバーは 1 組のまま、<strong>同じ表の作りの DB</strong> を <code>db.&lt;名前&gt;</code> で何本も並べ、
+要求ごとにクライアントの DB を選ぶ使い方です（2.7.8 から、このための設定がそろいました）。</p>
+<ul>
+<li><strong>向くこと</strong>：クライアントごと（またはクライアントのまとまりごと）に DB を分けたい。大きなクライアントだけ専用の DB にしたい</li>
+<li><strong>向かないこと</strong>：データソースが<strong>数百以上</strong>。プール・MQ の取り出し・起動の確かめが、データソースの数に比例して増えます。
+数十までを目安にしてください（1 社 1 DB にはしない）</li>
+</ul>
+<p>共通の DB（主。<code>main = true</code>）には、クライアントの台帳・スケジューラ・バッチの管理などを置き、
+店の DB には業務の表と MQ のキューの表を置きます。</p>
+<h2 id="設定の例">設定の例<a class="anchor" href="#設定の例">#</a></h2>
+<pre class="code"><code class="lang-conf"><span class="h-c"># 並べる設定の例</span>
+db_templates {
+	tenant {
+		driver             = <span class="h-s">"org.mariadb.jdbc.Driver"</span>
+		username           = ${?SHOP_DB_USER}
+		password           = ${?SHOP_DB_PASSWORD}
+		maximum_pool_size  = <span class="h-n">6</span>
+		minimum_idle       = <span class="h-n">0</span>              <span class="h-c"># 使っていない DB の接続を開いたままにしない</span>
+		connection_timeout = <span class="h-n">3s</span>             <span class="h-c"># つながらない DB で起動を延ばしすぎない</span>
+		migration_dir      = <span class="h-s">"shop"</span>         <span class="h-c"># どの店の DB にも同じ SQL を当てる</span>
+		migrate_on_startup = <span class="h-k">false</span>          <span class="h-c"># 起動では当てず、デプロイの段で CLI から当てる</span>
+		codegen_name       = <span class="h-s">"shop"</span>         <span class="h-c"># 生成コードは 1 組だけ</span>
+		required           = <span class="h-k">false</span>          <span class="h-c"># 1 つ落ちても、起動と死活監視を止めない</span>
+		framework_tables   = [<span class="h-s">"db_lock"</span>]    <span class="h-c"># 店の DB に要らない管理の表を作らない</span>
+	}
+}
+
+db {
+	startup_parallelism = <span class="h-n">8</span>                 <span class="h-c"># 起動時の確かめを並べる</span>
+
+	main {
+		main     = <span class="h-k">true</span>
+		driver   = <span class="h-s">"org.mariadb.jdbc.Driver"</span>
+		url      = <span class="h-s">"jdbc:mariadb://db0/common"</span>
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		mq       = <span class="h-k">false</span>                    <span class="h-c"># 共通の DB にはキューを置かない</span>
+	}
+
+	shop_a = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mariadb://db1/shop_a"</span> }
+	shop_b = ${db_templates.tenant} { url = <span class="h-s">"jdbc:mariadb://db1/shop_b"</span> }
+}
+
+mq {
+	hint           = redis                  <span class="h-c"># 仕事のある DB だけを見に行く</span>
+	sweep_interval = <span class="h-n">10s</span>
+}
+</code></pre>
+<p>それぞれの設定は、<a href="./db">DB</a>・<a href="./codegen">マイグレーションとコード生成</a>・<a href="./mq">MQ</a> に詳しく書いてあります。
+ひな形（<code>db_templates</code>）は <code>db { }</code> の外に置き、<code>${}</code> で写して上書きします。</p>
+<h2 id="要求ごとに-db-を選ぶ">要求ごとに DB を選ぶ<a class="anchor" href="#要求ごとに-db-を選ぶ">#</a></h2>
+<p>入口のフィルタで、<strong>Host などから</strong> DB を選び、要求に持たせます。</p>
+<pre class="code"><code class="lang-java">before(context -&gt; {
+	String dataSource = tenants.dataSourceOf(context.request().host());   <span class="h-c">// 台帳から引く（キャッシュする）</span>
+	<span class="h-k">if</span> (dataSource == <span class="h-k">null</span>) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">404</span>, <span class="h-s">"知らないホストです"</span>);
+	}
+	context.attribute(SHOP_DB, dataSource);
+});
+
+get(<span class="h-s">"/orders"</span>, context -&gt; {
+	<span class="h-k">try</span> (DB db = DBUtil.getDB(context.&lt;String&gt;attribute(SHOP_DB))) {
+		context.response().json(<span class="h-s">"orders"</span>, db.selectList(SQL.select().from(Order.instance())));
+	}
+});
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>選ぶ値を、要求のパラメータ（クエリ・フォーム・JSON）から取らないでください。</strong>
+値を書き換えるだけで、別のクライアントの DB に当たります。Host のように、
+経路で決まるものから引き、店の DB の中でも <code>shop_id</code> で絞る決まりは残してください。</p>
+</div>
+<p>台帳（Host → データソース名）は共通の DB に置き、引いた結果はキャッシュします（すべての要求が共通の DB に集まるため）。</p>
+<h2 id="主に残るもの">主に残るもの<a class="anchor" href="#主に残るもの">#</a></h2>
+<p>次のものは、主のデータソースにだけ置かれます（店の DB には要りません）。</p>
+<ul>
+<li>スケジューラ（<code>batch_master</code> など）と、スケジューラの MQ のキュー（<code>mq_scheduler</code>）</li>
+<li>バッチの実行の記録（<code>batch_history</code> など）。チャンク処理を店の DB で回しても、記録は主です（<a href="./batch">バッチ</a>）</li>
+<li>セッションと認証の表（<code>session</code>・<code>auth_*</code>）、流量制限</li>
+<li>コードマイグレーション（<code>CodeMigration</code>）</li>
+</ul>
+<h2 id="マイグレーションを当てる">マイグレーションを当てる<a class="anchor" href="#マイグレーションを当てる">#</a></h2>
+<p>店の DB は <code>migrate_on_startup = false</code> にして、<strong>デプロイの段で CLI から当てます</strong>。</p>
+<pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+<span class="h-c"># そろっていれば、アプリを起動する</span>
+</code></pre>
+<p>1 つ失敗してもほかを続け、最後にデータソースごとの結果を出します。<code>migrateCheck</code> は DB に書かずに、
+未適用・余分・ハッシュ違いをデータソースごとに出します（<a href="./codegen#並べた-db-に当てる">並べた DB に当てる</a>）。</p>
+<h2 id="生成コード">生成コード<a class="anchor" href="#生成コード">#</a></h2>
+<p><code>codegen_name</code> を同じにすると、生成コードは 1 組だけです（代表は主、無ければ名前の順で最初）。
+テーブルクラスは SQL に表の名前しか入れないので、<strong>要求ごとに選んだ DB を渡して実行します</strong>。
+<code>Shop.db()</code> は代表の DB を返すので、店の DB の処理では使いません（<a href="./codegen#同じ作りの-db-で生成コードを共有する">同じ作りの DB で生成コードを共有する</a>）。</p>
+<h2 id="mq">MQ<a class="anchor" href="#mq">#</a></h2>
+<ul>
+<li>**キューの表は、業務の表と同じ DB に置きます。**積むのと業務の更新が、同じトランザクションで一緒に巻き戻ります</li>
+<li>共通の DB など、キューを使わない DB は <code>mq = false</code> で外します。外した DB に積むと例外です</li>
+<li>取り出し役は、データソースを名前の順に、直前に取った DB の次から見ます（1 つの DB に溜まっても、ほかを待たせません）</li>
+<li><code>mq.hint = redis</code> なら、仕事のある DB だけを見に行きます。全部を回るのは <code>sweep_interval</code> ごとで、印の無い行の遅れは最悪その間です</li>
+<li>問い合わせの目安：<code>hint = off</code> だと、暇なときでも 1 プロセスで毎秒「キューの数 × 種別の数 × DB の数 × 2 ÷ <code>poll_max</code>」本の SELECT が出ます</li>
+</ul>
+<p>詳しくは <a href="./mq">MQ</a> の「キューを置くデータソースを絞る」「仕事のある DB だけを見に行く」を見てください。</p>
+<h2 id="接続の数">接続の数<a class="anchor" href="#接続の数">#</a></h2>
+<p>プールは「データソース × 書き込み／読み取り × 親とサブ」ごとにできます。</p>
+<ul>
+<li>1 プロセスが常に開く本数 ＝ それぞれのプールの <code>minimum_idle</code> の合計</li>
+<li>多いときの本数 ＝ それぞれのプールの <code>maximum_pool_size</code> の合計</li>
+</ul>
+<p>上の例で店の DB が 30 個なら、店の DB の分は常に 0 本、多いときは 30 × 6 = 180 本です（主の分は別）。
+DB サーバーの <code>max_connections</code> は、プロセスの数 × 多いときの本数より大きくしてください。</p>
+<h2 id="sql-結果キャッシュ">SQL 結果キャッシュ<a class="anchor" href="#sql-結果キャッシュ">#</a></h2>
+<p>SQL 結果キャッシュは<strong>データソースの名前で分かれます</strong>。店の DB どうしで混ざることはありません。
+<strong>アプリが自分で持つキャッシュ</strong>（台帳・設定・テンプレートなど）のキーには、<strong>データソースの名前を入れてください</strong>。
+入れないと、別のクライアントの値が返ります。</p>
+<h2 id="1-つの-db-が落ちたとき">1 つの DB が落ちたとき<a class="anchor" href="#1-つの-db-が落ちたとき">#</a></h2>
+<p>店の DB は <code>required = false</code> にします。</p>
+<ul>
+<li>起動時につながらなくても起動を続け、DB が戻ればそのまま使えます</li>
+<li><code>DBUtil.healthCheck()</code>（死活監視）は <code>required = true</code> のものだけを見るので、1 つ落ちても台ごと外れません</li>
+<li>データソースごとの状態は <code>DBUtil.healthCheckAll()</code> で見られます</li>
+<li>起動時につながらなかった DB には、管理の表とマイグレーションを当てていません。戻ったら CLI の <code>migrate --data-source</code> で当ててください</li>
+</ul>
+<p>詳しくは <a href="./db#落ちても全体を止めないデータソース">DB</a> を見てください。</p>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="codegen">
+				<span>前</span>マイグレーションとコード生成
+			</a>
+			<a class="next" href="batch">
+				<span>次</span>バッチ
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#設定の例">設定の例</a></li>
+			<li class="level-2"><a href="#要求ごとに-db-を選ぶ">要求ごとに DB を選ぶ</a></li>
+			<li class="level-2"><a href="#主に残るもの">主に残るもの</a></li>
+			<li class="level-2"><a href="#マイグレーションを当てる">マイグレーションを当てる</a></li>
+			<li class="level-2"><a href="#生成コード">生成コード</a></li>
+			<li class="level-2"><a href="#mq">MQ</a></li>
+			<li class="level-2"><a href="#接続の数">接続の数</a></li>
+			<li class="level-2"><a href="#sql-結果キャッシュ">SQL 結果キャッシュ</a></li>
+			<li class="level-2"><a href="#1-つの-db-が落ちたとき">1 つの DB が落ちたとき</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

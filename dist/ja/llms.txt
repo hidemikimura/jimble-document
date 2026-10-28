@@ -30,6 +30,7 @@
 - [遅延読み込みと先読み](https://jimble.io/ja/async.md): 参照された時点で引く。全部たどるなら IN 句1本にまとめる
 - [キャッシュとロック](https://jimble.io/ja/cache.md): DB / メモリ / Redis の差し替え、SQL 結果の自動無効化、分散ロック
 - [マイグレーションとコード生成](https://jimble.io/ja/codegen.md): SQL の当て方、生成されるクラス、いつ何が走るか
+- [同じ作りの DB を並べる](https://jimble.io/ja/multi-db.md): Web・バッチは 1 組のまま、クライアントごとに DB だけを分ける。設定・要求ごとの DB の選び方・マイグレーション・生成コード・MQ・接続の数・落ちたとき
 
 ## 実行基盤
 

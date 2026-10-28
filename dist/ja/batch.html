@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -394,6 +398,29 @@ BatchRegistry.sync(DBUtil.getMainDB());
 1文ごとに結果を確かめる必要はありません。
 **失敗を <code>catch</code> して続けないでください。**そのかたまりの確定が <code>TransactionException</code>（<code>DB_004</code>）で断られ、全部巻き戻ります。</p>
 </blockquote>
+<h3 id="データソースごとに回す">データソースごとに回す<a class="anchor" href="#データソースごとに回す">#</a></h3>
+<p>同じ表の作りの DB を並べたとき、読み書きする DB は <code>db(args)</code> を上書きして選びます（2.7.8 から）。
+既定は主の DB です。<strong>引数でデータソースを受け取る</strong>形を勧めます。</p>
+<pre class="code"><code class="lang-java"><span class="h-a">@Override</span>
+<span class="h-k">protected</span> DB db (BatchArgs args) {
+	<span class="h-k">return</span> DBUtil.getDB(args.cliArgs().getString(<span class="h-s">"data_source"</span>));
+}
+</code></pre>
+<pre class="code"><code class="lang-bash"><span class="h-c"># 店の DB ごとに1回ずつ走らせる</span>
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_a
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_b
+</code></pre>
+<ul>
+<li><strong>1 回の実行で1つのデータソース</strong>にします。実行の記録（<code>batch_history</code>）がデータソースごとに残り、どれが失敗したか、どこまで確定したかが分かります</li>
+<li>1つのデータソースが失敗しても、ほかの実行には響きません（失敗したものだけ流し直します）</li>
+<li>再開の位置もデータソースごとです。<code>KeyPagingReader</code> の開始キーを引数で渡せば、落ちたところから続けられます</li>
+<li><code>db(args)</code> は<strong>呼ぶたびに新しい <code>DB</code> を返してください</strong>（読む DB と書く DB を分けるため。<code>DBUtil.getDB</code> はそうなっています）。同じものを返すと例外になります</li>
+<li>実行の記録・進み具合・中断の印は、これにかかわらず主の DB に書きます</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>全データソースを1回の実行の中で順に回す部品は用意していません。1回の実行の中でまとめると、
+1つの失敗で残りをどうするか（続けるか止めるか）・どこまで確定したかを、データソースごとに持つ仕組みがもう1つ要るからです。</p>
+</div>
 <h2 id="二重起動">二重起動<a class="anchor" href="#二重起動">#</a></h2>
 <p>同じバッチが同時に走る本数は <code>allowConcurrentExecutionCount()</code> で決まります。
 既定は1本です。前の実行がまだ終わっていなければ、次はスキップされます。</p>
@@ -467,8 +494,8 @@ BatchRegistry.sync(DBUtil.getMainDB());
 		</article>
 
 		<nav class="pager" aria-label="前後のページ">
-			<a class="prev" href="codegen">
-				<span>前</span>マイグレーションとコード生成
+			<a class="prev" href="multi-db">
+				<span>前</span>同じ作りの DB を並べる
 			</a>
 			<a class="next" href="mq">
 				<span>次</span>MQ
@@ -485,6 +512,7 @@ BatchRegistry.sync(DBUtil.getMainDB());
 			<li class="level-2"><a href="#一定件数ずつ読んでまとめて書く">一定件数ずつ読んでまとめて書く</a></li>
 			<li class="level-3"><a href="#途中で落ちたとき">途中で落ちたとき</a></li>
 			<li class="level-3"><a href="#読む-db-と書く-db-は別です">読む DB と書く DB は別です</a></li>
+			<li class="level-3"><a href="#データソースごとに回す">データソースごとに回す</a></li>
 			<li class="level-2"><a href="#二重起動">二重起動</a></li>
 			<li class="level-2"><a href="#単体で走らせる">単体で走らせる</a></li>
 			<li class="level-2"><a href="#管理画面">管理画面</a></li>

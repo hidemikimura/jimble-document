@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -453,6 +457,11 @@ before(BotBlocker.of(context -&gt; context.response().redirect(<span class="h-s"
 <p>jimble はヘルスチェックのルートを用意しません。<strong>こう書いてください。</strong></p>
 <pre class="code"><code class="lang-java">get(<span class="h-s">"/health_check"</span>, context -&gt;
 	context.response().send(Shutdown.isStopping() ? <span class="h-n">503</span> : <span class="h-n">200</span>));
+</code></pre>
+<p>DB も見るなら <code>DBUtil.healthCheck()</code> を足します。見るのは <code>db.&lt;名前&gt;.required = true</code>（既定）のデータソースだけです（2.7.8 から）。
+店の DB のように、1 つ落ちても台ごと外したくないデータソースは <code>required = false</code> にします（<a href="./db#落ちても全体を止めないデータソース">DB</a>）。</p>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/health_check"</span>, context -&gt;
+	context.response().send(Shutdown.isStopping() || !DBUtil.healthCheck() ? <span class="h-n">503</span> : <span class="h-n">200</span>));
 </code></pre>
 <div class="callout callout-tip"><p class="callout-title">こつ</p>
 <p>ロードバランサがこの台を外すまでには時間がかかります。

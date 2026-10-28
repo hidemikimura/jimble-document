@@ -6,16 +6,16 @@
 
 | ID | 何をするか | 主なタスク |
 | --- | --- | --- |
-| `io.jimble.db` | マイグレーションとコード生成を `compileJava` の前に流す | `migrate` / `codegen` / `codegenCheck` |
+| `io.jimble.db` | マイグレーションとコード生成を `compileJava` の前に流す | `migrate` / `codegen` / `codegenCheck` / `migrateCheck` |
 | `io.jimble.jte` | `src/main/jte` を `compileJava` の前に Java に変換する | `generateJte` |
 | `io.jimble.run` | 開発用のホットリロード | `jimbleRun` |
 
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"
-	id("io.jimble.run") version "2.7.7"
-	id("io.jimble.db")  version "2.7.7"
+	id("io.jimble.jte") version "2.7.8"
+	id("io.jimble.run") version "2.7.8"
+	id("io.jimble.db")  version "2.7.8"
 }
 ```
 
@@ -57,9 +57,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.7.7"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.7.7"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.8"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.8"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.8"   // DB を使うなら
 }
 
 repositories {
@@ -74,7 +74,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.7")
+	implementation("io.jimble:jimble-web:2.7.8")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -108,7 +108,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.7' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.8' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -135,7 +135,16 @@ jimbleRun {
 ./gradlew migrate       # 未適用の SQL を当てる
 ./gradlew codegen       # テーブル定義のクラスを作る（migrate のあと）
 ./gradlew codegenCheck  # コミットされている生成物がスキーマと合うか見る
+./gradlew migrateCheck  # マイグレーションが当たっているかを見る（DB には書かない。2.7.8 から）
 ```
+
+`migrate`・`migrateCheck` にオプションを渡すときは `jimble.migrateArgs` に書きます（2.7.8 から）。
+
+```bash
+./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --parallel 4 --keep-going"
+```
+
+オプションの意味は [並べた DB に当てる](./codegen#並べた-db-に当てる) を見てください。
 
 中身は [マイグレーションとコード生成](./codegen) を見てください。
 
@@ -287,14 +296,18 @@ jimbleRun {
 
 ```bash
 ./gradlew jimbleSkills
-./gradlew jimbleSkills --overwrite   # 手で直したもの・控えの無いものも入れ替える
+./gradlew jimbleSkills --overwrite   # 手で直したもの・控えの無いものも入れ替える（この版に無いものは消す）
 ```
 
 - **手で直した skill は上書きしません。**置いたときの中身のハッシュを `.claude/jimble-skills.properties` に控えていて、
   控えと同じ（jimble が置いたまま）なら入れ替え、違えば触りません
 - **控えの無い skill**（控えを書くようになる前の `jimble new` で置いたもの）も、直したかどうか分からないので触りません。
   直していなければ `--overwrite` で入れ替えてください
+- **この版で増えた skill は足し、この版で無くなった skill は消します**（2.7.8）。skill を分けたり名前を変えたりした版でも、
+  流すだけで揃います。消すのは控えと同じ（jimble が置いたまま）ものだけで、手で直してあれば消さずに「古い」と知らせ続けます
+  （`--overwrite` なら消します）。控えに無い skill（アプリが自分で置いたもの）は見ません
 - **アプリ固有の決まりは skill ではなく `AGENTS.md` に書きます。**skill を直すと、次の版に揃えられなくなります
+- 揃えたら `.claude/skills/` と `.claude/jimble-skills.properties` をコミットしてください
 - `AGENTS.md` / `CLAUDE.md` は**無ければ置き、あれば触りません**（`CLAUDE.md` は `@AGENTS.md` と書いて読み込むだけ）
 
 ### jimbleCheck

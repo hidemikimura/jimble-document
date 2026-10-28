@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -452,6 +456,11 @@ evicted.</p>
 </tr>
 </tbody>
 </table>
+<p>The cache is <strong>kept apart per data source</strong> (the data source name goes into keys and tags). A <code>subs</code> entry
+with the same URL as its parent uses the parent's name (writing through the sub evicts the parent's
+entries), and one pointing at another database uses &quot;parent.sub&quot; (since 2.7.8; before that, a sub pointing
+at another database shared the parent's entries and could return the other database's results). Only an
+identical URL string counts as &quot;the same database&quot;.</p>
 <h3 id="configuration">Configuration<a class="anchor" href="#configuration">#</a></h3>
 <pre class="code"><code class="lang-conf">sql_cache {
 	enabled = <span class="h-k">true</span>       <span class="h-c"># false by default</span>

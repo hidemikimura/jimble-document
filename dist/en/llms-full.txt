@@ -3863,6 +3863,10 @@ To shut down, call `DBUtil.stop()` (the web server does it as part of
 
 ## When there is more than one data source
 
+> [!TIP]
+> Lining up many databases with the same tables and choosing the client's database per request is
+> summarised on one page: [Lining up databases with the same tables](./multi-db).
+
 ```conf
 db {
 	main_db { main = true, ... }
@@ -3875,9 +3879,151 @@ The one with `main = true` is `DBUtil.getMainDB()` (there is no no-argument `get
 
 Everything listed at the top level is **treated as its own thing**:
 
-- migrations under `conf/migration/<data source name>/` are applied to it
-- codegen generates `db/<data source name>/` for it
-- `migration` / `db_lock` / `db_value` / `db_cache` are created there too
+- migrations under `conf/migration/<data source name>/` are applied to it (`migration_dir` picks another folder; see below)
+- codegen generates `db/<data source name>/` for it (`codegen_name` shares one set with databases that have the same tables; see [code generation](./codegen#sharing-generated-code-across-databases-with-the-same-tables))
+- `migration` / `db_lock` / `db_value` / `db_cache` are created there too (`framework_tables` narrows them; see below)
+
+jimble creates the tables it uses at startup when they are missing. When
+several servers start on an empty database for the first time, a table another
+server has just created is used as it is (since 2.7.8; it is recognised by the
+table comment, "description:version"). If your application has its own table
+with the same name, startup still stops as before.
+
+When you line up several databases with the same tables, they can share one
+migration folder (since 2.7.8).
+
+```conf
+db {
+	shop_a { url = "...", migration_dir = "shop" }
+	shop_b { url = "...", migration_dir = "shop" }
+}
+```
+
+The SQL in `conf/migration/shop/` is applied once to `shop_a` and once to
+`shop_b`. Each database keeps its own record (`migration` and
+`migration_history`), so if only one of them has a file applied, it is applied
+to the other one only. Migrations written in Java (`CodeMigration`) run on the
+main data source only.
+
+### Writing same-shaped databases from a template
+
+When you line up dozens of databases with the same tables, there is no need to copy the pool sizes and
+the set of subs into each one. **Put a template outside `db { }` and copy it with HOCON's `${}`, then
+override** (jimble has no dedicated key for this).
+
+```conf
+db_templates {
+	tenant {
+		maximum_pool_size = 6
+		minimum_idle      = 0           # recommended for lined-up databases (see below)
+		migration_dir     = "shop"
+		codegen_name      = "shop"
+		required          = false
+		subs {
+			shop  { maximum_pool_size = 4 }
+			admin { maximum_pool_size = 2 }
+		}
+	}
+}
+
+db {
+	main   { main = true, url = "..." }
+	shop_a = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_a" }
+	shop_b = ${db_templates.tenant} { url = "jdbc:mysql://db1/shop_b", maximum_pool_size = 8 }
+}
+```
+
+- `${db_templates.tenant} { ... }` copies the template and then applies what is inside `{ }` (the subs are
+  copied too)
+- Keep the template outside `db { }`; inside, it would be read as a data source
+
+### Running the startup checks in parallel
+
+The startup checks (connect, read the version, create framework tables, migrations) run one data source at
+a time. With many data sources, startup grows accordingly. `db.startup_parallelism` runs them in parallel
+(since 2.7.8).
+
+```conf
+db {
+	startup_parallelism = 8   # default 1 (one at a time)
+	...
+}
+```
+
+- The main data source is loaded first on its own, then the rest in parallel (per-data-source tasks can
+  rely on the main data source)
+- If any of them fails, startup waits for the rest and then stops, as before
+- Log lines carry the data source name, so they stay readable in parallel
+
+`DBUtil.load` time on a local MySQL, starting on empty databases (including creating the databases and
+framework tables):
+
+| Data sources | One at a time | 5 in parallel | 10 in parallel |
+|---|---|---|---|
+| 10 | 11.3 s | 2.6 s | 1.5 s |
+| 30 | 33.7 s | 7.5 s | 4.2 s |
+
+### Counting connections
+
+There is one pool per data source × write/read (`read`) × parent and each sub.
+
+- **Connections a process always keeps open** = the sum of `minimum_idle` over those pools
+- **Connections at peak** = the sum of `maximum_pool_size` over those pools
+
+For example, 30 shop databases with `minimum_idle = 1` and `maximum_pool_size = 6`, each with two subs (1/4
+and 1/2), keep 30 × (1 + 1 + 1) = 90 open and reach 30 × (6 + 4 + 2) = 360 at peak.
+**`minimum_idle = 0` is recommended for lined-up shop databases**, so idle databases hold no connections
+(the first use opens one, which is slightly slower). Set the database server's `max_connections` above the
+number of processes × the peak.
+
+### Choosing which framework tables are created
+
+jimble creates the following framework tables on each data source. If a database (one shop's, say)
+does not use some of them, `framework_tables` narrows what is created (since 2.7.8).
+
+| Table | Used by | Can be left out |
+|---|---|---|
+| `db_lock` | `DBLock` (locking in the same database as the business transaction), **the migration lock** | No |
+| `db_value` | `DBValue` (key/value storage) | Yes |
+| `db_cache` | `Cache.instance(db)` with `cache.type = db` (`DBCache`) | Yes |
+| `redis_lock` | `RedisLock.lock(db, ...)` / `tryLock(db, ...)` (the variants that take a DB; they leave a mark) | Yes |
+| `db_log` | `DBLog.save` (with `log.db = true`) | Yes |
+
+```conf
+db {
+	shop_a { url = "...", framework_tables = ["db_lock"] }
+}
+```
+
+- Without it, everything is created as before
+- **Calling an API that needs a table that was left out, on that data source, throws
+  `IllegalStateException`** (naming the setting, rather than an SQL "table not found" error)
+- An unknown name, or a list without `db_lock`, stops startup
+- `migration` and `migration_history` are created by migrations (not part of this list). MQ queue tables
+  are narrowed with `db.<name>.mq` ([MQ](./mq))
+
+### Data sources that may be down
+
+With many data sources, **one that cannot be reached stops startup**, and `DBUtil.healthCheck()` turns
+false. For a data source whose outage should not stop everything, set `required = false` (since 2.7.8).
+
+```conf
+db {
+	main   { main = true, ... }                  # the main data source cannot be required = false
+	shop_a { url = "...", required = false, connection_timeout = 3s }
+}
+```
+
+- If it cannot be reached at startup, a log line is written and startup goes on. Using that data source
+  throws the usual connection exception
+- **Once the database is back, it just works** (the pool reconnects; HikariCP stretches its retry interval
+  up to 5 seconds while it cannot connect, so it takes a few seconds after the database comes back)
+- A data source that could not be reached at startup **did not get its framework tables or migrations**.
+  Restart once it is reachable, or apply them with the CLI's `migrate --data-source`
+- If it is reached but a migration fails, startup still stops as before
+- `DBUtil.healthCheck()` looks only at `required = true` data sources. Per data source, use
+  `DBUtil.healthCheckAll()` (name → readable)
+- An unreachable data source can delay startup by up to `connection_timeout` (keep it short)
 
 If all you want is **one more handle without copying the settings**, use `subs`.
 
@@ -3901,6 +4047,10 @@ Get it with `db.newSubDB("archive_db")`.
 > connection, so writing through `newSubDB` inside the parent's transaction
 > **does not roll back with it** — one side stays. Assume it inherits the settings
 > from the parent and nothing more.
+
+> [!NOTE]
+> The SQL result cache keeps a `subs` entry that points at another database apart from its parent
+> (since 2.7.8). See [Cache](./cache).
 
 > [!TRAP]
 > **Migrations and codegen do not apply to `subs`.** Per-data-source work only runs
@@ -4104,7 +4254,7 @@ int count = db.execute("INSERT INTO archive SELECT * FROM post WHERE ...");  // 
 
 ## Migrations
 
-Put them in `conf/migration/<schema name>/001_xxx.sql`.
+Put them in `conf/migration/<folder name>/001_xxx.sql` (the folder name is `migration_dir`, else `schema`, else the data source name).
 
 ```sql
 # --- !Ups
@@ -5263,6 +5413,12 @@ evicted.
 | The DB written directly by another process | Cannot be followed. `sql_cache.ttl` (5 minutes by default) is your safety net |
 | `sql_cache.store = "memory"` | **That machine only.** With more than one machine, use `redis` or `db` |
 
+The cache is **kept apart per data source** (the data source name goes into keys and tags). A `subs` entry
+with the same URL as its parent uses the parent's name (writing through the sub evicts the parent's
+entries), and one pointing at another database uses "parent.sub" (since 2.7.8; before that, a sub pointing
+at another database shared the parent's entries and could return the other database's results). Only an
+identical URL string counts as "the same database".
+
 ### Configuration
 
 ```conf
@@ -5439,7 +5595,7 @@ table definition classes are built from that.
 
 ## Migrations
 
-Put your SQL in `conf/migration/<schema name>/`.
+Put your SQL in `conf/migration/<folder name>/`.
 
 ```sql
 # --- !Ups
@@ -5468,8 +5624,12 @@ DROP TABLE `note`;
 
 - File names are up to you. They are applied in **the natural order of the names**
   (a `001_` prefix makes it obvious)
-- `<schema name>` is `scheme` from the configuration (or the data source name if
-  that is missing)
+- `<folder name>` is `db.<name>.migration_dir`. Without it, `schema`; without
+  that, the data source name (changing `migration.resource_dir` changes the
+  `conf/migration` part too)
+- When several data sources are databases with the same tables, give them all
+  the same `migration_dir`. The same SQL is applied once to each database, and
+  each database keeps its own record (`migration` and `migration_history`)
 - **They are looked up from the classpath.** Add `conf/` to your resources
   ([Configuration](./config))
 
@@ -5519,8 +5679,10 @@ down → up.
 
 > [!WARN]
 > **DDL is not rolled back.** MariaDB / MySQL commit implicitly on
-> `CREATE TABLE` and friends.
-> Put several DDL statements in one file and it stops **with part of it applied.**
+> `CREATE TABLE` and friends. On PostgreSQL too, migration SQL runs one
+> statement at a time with each one committed (not inside a transaction).
+> On either, put several DDL statements in one file and it stops **with part of
+> it applied.**
 
 ### Do not rewrite SQL that has already been applied
 
@@ -5616,9 +5778,22 @@ The row in `db_lock` is taken with `FOR UPDATE` before anything is applied, so
 **only one machine runs.** The one that could not wait long enough fails to start
 (`migration.lock_timeout`, 60 seconds by default).
 
+The record tables (`migration` and the rest) are also created after the lock
+is taken, so several servers starting on an empty database for the first time
+do not fight over them (since 2.7.8).
+The lock is held in a transaction on its own connection, and the SQL runs on
+another connection. An implicit commit from DDL only affects the connection
+that ran it, so **running DDL does not release the lock.** That is why **the
+pool needs at least two connections** (with `maximum_pool_size = 1` it stops
+right away with an exception that says so). What has been applied is read
+from the write connection even when `read` is configured (since 2.7.8), so a
+lagging replica does not make it run the same file again.
+
 > [!NOTE]
-> The lock wait timeout is set **for that session only** (`SET SESSION`).
-> The server-wide setting is left alone.
+> The lock wait timeout is set **for that session only** (`SET SESSION` on
+> MySQL, `SET LOCAL` on PostgreSQL). The server-wide setting is left alone. On
+> MySQL the old value is put back before the connection returns to the pool
+> (since 2.7.8).
 
 ### Migrations written in Java
 
@@ -5638,6 +5813,52 @@ They run once each, in `versionYyyyMmDd()` order, and the result is kept in
 > **The CLI's `migrate` does not run code migrations.**
 > The registration lives in your application code, so they only run **when the
 > application starts.**
+
+> [!NOTE]
+> **Code migrations run only on the main data source (`main = true`).**
+> Other data sources that share a `migration_dir` do not get them, unlike SQL
+> migrations.
+
+### Applying to databases lined up side by side
+
+When several data sources are databases with the same tables (they share a
+`migration_dir`), the recommended way is **not to apply at startup, but from
+the CLI during deployment** (since 2.7.8).
+
+```conf
+db {
+	main   { main = true, ... }                                    # fine to apply at startup
+	shop_a { url = "...", migration_dir = "shop", migrate_on_startup = false }
+	shop_b { url = "...", migration_dir = "shop", migrate_on_startup = false }
+}
+```
+
+The deployment steps are:
+
+```bash
+# 1. Apply to the lined-up databases. Keep going past a failure and print a list at the end (non-zero exit if anything failed)
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+# 2. Check that they are all at the same version (writes nothing; non-zero exit if anything is off)
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+# 3. Start the application
+```
+
+| Option | Meaning |
+|---|---|
+| `--data-source <name>` | Only these data sources (repeatable) |
+| `--migration-dir <folder>` | Only the data sources that use this folder (repeatable). With `--data-source` too, those that match both |
+| `--parallel <n>` | How many to apply at once (default 1). Each data source uses two connections |
+| `--keep-going` | Keep going after a failure (`migrate` only). By default they run in name order and stop at the first failure |
+
+- When you narrow it down, **only the chosen data sources are connected to**
+  (a database that cannot be reached does not drag the rest down)
+- `migrateCheck` compares the SQL files in the folder with each database's
+  `migration` table and reports, per data source, **files not applied, extra
+  records (no file), and hash mismatches**
+- `db.<name>.migrate_on_startup` overrides `migration.on_startup` for that data
+  source only. A data source that says `true` is applied at startup even when
+  `migration.on_startup = false`
+- From Gradle, pass them as `./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --keep-going"` ([Gradle plugin](./gradle))
 
 ## Code generation
 
@@ -5682,6 +5903,44 @@ runtime).
 
 > In English: "jimble wrote this file (codegen). Do not edit it by hand — an edit
 > is gone at the next codegen."
+
+### Sharing generated code across databases with the same tables
+
+When several data sources are databases with the same tables, give them the
+same `codegen_name` and you keep **only one set of generated code** (since
+2.7.8).
+
+```conf
+db {
+	main   { main = true, ... }
+	shop_a { url = "...", codegen_name = "shop" }
+	shop_b { url = "...", codegen_name = "shop" }
+	log    { url = "...", codegen = false }      # not generated
+}
+```
+
+- Only `db/shop/` is generated (package `<codegen.package>.shop`, schema class
+  `Shop`). `codegenCheck` compares that one set too
+- The tables are read from the **representative** database (the main data
+  source if it is in the group, otherwise the first by name). If another
+  database's tables (table names, column names and types) differ from it, a
+  warning is logged at generation time (generation does not stop)
+- Table classes put **only the table name** into SQL, so they run on whichever
+  database you pass. **For a shared set, run them with the database chosen for
+  the request (the one you keep in `ContextDb` or the like).** `Shop.db()`
+  returns the representative database
+- `codegen_name` becomes a package name and a folder name, so it is lowercase
+  letters, digits and `_`, starting with a letter
+- A data source with `codegen = false` is not generated
+- Without these settings, code is generated per data source as before (the
+  output does not change)
+
+> [!NOTE]
+> If a data source name has uppercase letters, the folder (`db/blog/`) and the
+> package (`db.Blog`) are spelled differently. That is how it has always been,
+> and changing it would move the generated files, so it stays; a warning is
+> logged at generation time. To line them up, write `codegen_name = "blog"`
+> (the package becomes `db.blog`).
 
 ### Type mapping
 
@@ -5768,11 +6027,184 @@ Where Gradle is not available (CI, production), the CLI does the same things.
 
 ```bash
 java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck
 java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
 ```
 
+The options for `migrate` and `migrateCheck` are in
+[Applying to databases lined up side by side](#applying-to-databases-lined-up-side-by-side).
+
 Both the configuration and the SQL are looked up **from the classpath**.
 The Gradle tasks are listed in [the Gradle plugins](./gradle).
+
+
+
+---
+
+<!-- https://jimble.io/en/multi-db -->
+
+
+# Lining up databases with the same tables
+
+Keep one set of web and batch servers, line up many **databases with the same tables** as `db.<name>`,
+and choose the client's database for each request (2.7.8 completes the settings for this).
+
+- **Good for**: a database per client (or per group of clients); a dedicated database for a large client
+- **Not for**: **hundreds** of data sources or more. Pools, MQ claiming and the startup checks grow with
+  the number of data sources. Aim for dozens at most (not one database per company)
+
+The shared database (the main one, `main = true`) holds the client ledger, the scheduler, batch
+management and so on; the shop databases hold the business tables and the MQ queue tables.
+
+## Example configuration
+
+```conf
+# example of lined-up databases
+db_templates {
+	tenant {
+		driver             = "org.mariadb.jdbc.Driver"
+		username           = ${?SHOP_DB_USER}
+		password           = ${?SHOP_DB_PASSWORD}
+		maximum_pool_size  = 6
+		minimum_idle       = 0              # do not keep connections open to idle databases
+		connection_timeout = 3s             # do not let an unreachable database delay startup too much
+		migration_dir      = "shop"         # the same SQL for every shop database
+		migrate_on_startup = false          # apply from the CLI during deployment, not at startup
+		codegen_name       = "shop"         # one set of generated code
+		required           = false          # one going down does not stop startup or the health check
+		framework_tables   = ["db_lock"]    # no framework tables the shop databases do not need
+	}
+}
+
+db {
+	startup_parallelism = 8                 # run the startup checks in parallel
+
+	main {
+		main     = true
+		driver   = "org.mariadb.jdbc.Driver"
+		url      = "jdbc:mariadb://db0/common"
+		username = ${?DB_USER}
+		password = ${?DB_PASSWORD}
+		mq       = false                    # no queues on the shared database
+	}
+
+	shop_a = ${db_templates.tenant} { url = "jdbc:mariadb://db1/shop_a" }
+	shop_b = ${db_templates.tenant} { url = "jdbc:mariadb://db1/shop_b" }
+}
+
+mq {
+	hint           = redis                  # visit only the databases that have work
+	sweep_interval = 10s
+}
+```
+
+Each setting is described in [DB](./db), [Migrations and code generation](./codegen) and [MQ](./mq).
+The template (`db_templates`) lives outside `db { }` and is copied and overridden with `${}`.
+
+## Choosing the database per request
+
+In an entry filter, choose the database **from the Host or the like** and keep it on the request.
+
+```java
+before(context -> {
+	String dataSource = tenants.dataSourceOf(context.request().host());   // look up the ledger (cached)
+	if (dataSource == null) {
+		throw new HttpException(404, "unknown host");
+	}
+	context.attribute(SHOP_DB, dataSource);
+});
+
+get("/orders", context -> {
+	try (DB db = DBUtil.getDB(context.<String>attribute(SHOP_DB))) {
+		context.response().json("orders", db.selectList(SQL.select().from(Order.instance())));
+	}
+});
+```
+
+> [!WARN]
+> **Do not take the value that chooses the database from request parameters (query, form, JSON).**
+> Changing that value would hit another client's database. Derive it from something fixed by the route,
+> such as the Host, and keep filtering by `shop_id` inside the shop database too.
+
+Keep the ledger (Host → data source name) in the shared database and cache the lookups (every request
+goes through it).
+
+## What stays on the main data source
+
+These live only on the main data source (the shop databases do not need them):
+
+- the scheduler (`batch_master` and the rest) and its MQ queue (`mq_scheduler`)
+- batch run records (`batch_history` and the rest); even a chunk batch running on a shop database records
+  on the main one ([Batch](./batch))
+- session and authentication tables (`session`, `auth_*`) and rate limits
+- code migrations (`CodeMigration`)
+
+## Applying migrations
+
+Set `migrate_on_startup = false` on the shop databases and **apply them from the CLI during deployment**.
+
+```bash
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+# start the application once they line up
+```
+
+A failure does not stop the others, and a per-data-source result is printed at the end. `migrateCheck`
+writes nothing and reports files not applied, extra records and hash mismatches per data source
+([Applying to databases lined up side by side](./codegen#applying-to-databases-lined-up-side-by-side)).
+
+## Generated code
+
+With the same `codegen_name`, there is one set of generated code (the representative is the main data
+source, else the first by name). Table classes put only the table name into SQL, so **run them with the
+database chosen for the request**. `Shop.db()` returns the representative database, so do not use it for
+shop work ([Sharing generated code](./codegen#sharing-generated-code-across-databases-with-the-same-tables)).
+
+## MQ
+
+- **Keep the queue table in the same database as the business tables**, so enqueueing and the business
+  update roll back together
+- Leave out databases that use no queues (such as the shared one) with `mq = false`. Putting to one that is
+  left out throws
+- The poller orders the data sources by name and starts right after the one it last claimed from (one
+  database with a backlog does not hold back the others)
+- With `mq.hint = redis`, only databases with work are visited. Every database is visited once per
+  `sweep_interval`, which is the longest a row without a hint waits
+- Query estimate: with `hint = off`, even an idle process issues "queues × types × databases × 2 ÷
+  `poll_max`" SELECTs per second
+
+See "Choosing the data sources a queue lives on" and "Visiting only the databases that have work" in
+[MQ](./mq).
+
+## Connection counts
+
+There is one pool per data source × write/read × parent and each sub.
+
+- Connections a process always keeps open = the sum of `minimum_idle` over those pools
+- Connections at peak = the sum of `maximum_pool_size` over those pools
+
+With 30 shop databases in the example above, the shop databases keep 0 open and reach 30 × 6 = 180 at
+peak (plus the main one). Set the database server's `max_connections` above the number of processes × the
+peak.
+
+## SQL result cache
+
+The SQL result cache is **kept apart by data source name**, so shop databases never share entries.
+**For caches your application keeps itself** (the ledger, settings, templates and so on), **put the data
+source name into the key**. Otherwise another client's value comes back.
+
+## When one database goes down
+
+Set `required = false` on the shop databases.
+
+- If one cannot be reached at startup, startup goes on, and once the database is back it just works
+- `DBUtil.healthCheck()` (the health check) looks only at `required = true` data sources, so one going
+  down does not take the whole machine out of rotation
+- Per data source, use `DBUtil.healthCheckAll()`
+- A database that could not be reached at startup did not get its framework tables or migrations. Apply
+  them with the CLI's `migrate --data-source` once it is back
+
+See [DB](./db#data-sources-that-may-be-down).
 
 
 
@@ -5968,6 +6400,38 @@ better that than spinning forever in silence.
 > **Do not `catch` the failure and carry on.** Committing that chunk is then refused with
 > `TransactionException` (`DB_004`) and everything in it is rolled back.
 
+### Running per data source
+
+When databases with the same tables are lined up, override `db(args)` to choose the database to read and
+write (since 2.7.8). The default is the main database. **Taking the data source as an argument** is the
+recommended shape.
+
+```java
+@Override
+protected DB db (BatchArgs args) {
+	return DBUtil.getDB(args.cliArgs().getString("data_source"));
+}
+```
+
+```bash
+# Run once per shop database
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_a
+java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_b
+```
+
+- **One run, one data source.** Each data source gets its own `batch_history` record, so you can see which
+  one failed and how far it got
+- One data source failing does not affect the other runs (re-run only the failed one)
+- The restart point is per data source too. Pass the starting key of `KeyPagingReader` as an argument to
+  continue from where it stopped
+- `db(args)` **must return a new `DB` on every call** (to keep the reading and writing DBs apart;
+  `DBUtil.getDB` does). Returning the same one throws
+- The run record, progress and cancel flag are still written to the main database
+
+> [!NOTE]
+> There is no built-in helper that walks every data source inside one run. Doing that would need a second
+> mechanism to decide, per data source, what to do after a failure (continue or stop) and how far each got.
+
 ## Double starts
 
 How many copies of the same batch may run at once is set by `allowConcurrentExecutionCount()`.
@@ -6148,6 +6612,28 @@ So **write it so that running it again lands in the same place**.
 
 "Exactly once" is not something a distributed system can give you. jimble does not pretend it can.
 
+### Rows left running
+
+If a process dies partway through, the row stays `running`.
+**`running` rows older than `mq.stale` (10 minutes by default) are put back to `waiting` every
+`mq.recover_interval` (1 minute by default)** (since 2.7.8; before that only when the queue started).
+Putting a row back counts as one retry, and a row that has used up `maxRetry()` becomes `dead`. Several
+servers doing this at once do not count twice.
+
+> [!WARN]
+> **Make `mq.stale` longer than your longest job.**
+> A job that runs longer than `mq.stale` is put back while it is still running, and another worker runs it
+> again (it runs twice). When that happens, the old job that finishes later **does not write its result**
+> (only a row still in the state it was claimed in is updated; since 2.7.8). If the log says the row "was
+> claimed again while it was being processed", raise `mq.stale`.
+
+```conf
+mq {
+	stale            = 10m   # running rows older than this are treated as left behind by a dead process
+	recover_interval = 1m    # how often to put them back; 0s means only when the queue starts
+}
+```
+
 ## Registering it and running it
 
 ```java
@@ -6167,6 +6653,85 @@ However many servers run the queue, each message is taken by exactly one worker 
 `mq.thread_count.<type>` is **how many messages are processed in parallel**; raising it does not add connections
 borrowed while the queue is idle (up to 2.1.2 every worker polled the DB itself, so a slow DB filled one
 connection per worker at once).
+
+## Choosing the data sources a queue lives on
+
+With several data sources, a queue's table is created on **every data source**, and the poller visits them
+all in turn. A database that does not use queues (a shared one, say) can be left out (since 2.7.8).
+
+```conf
+db {
+	main   { main = true, ..., mq = false }   # no queues on this data source
+	shop_a { url = "..." }
+	shop_b { url = "..." }
+}
+
+mq.queues {
+	mq_notice { data_sources = ["shop_a", "shop_b"] }   # where this queue lives (unset means every data source with mq = true)
+}
+```
+
+- A data source that is left out gets **no table, and is not visited for claiming, for recovering stale
+  rows (`recoverStale`), or for counting (`pendingCount`)**
+- The poller orders the data sources by name and **starts right after the one it last claimed from**
+  (since 2.7.8). One data source with a long backlog does not hold back the others (they are visited
+  within "number of data sources" claims)
+- With both settings, the queue lives only on data sources that satisfy both. An unknown name in
+  `data_sources` stops startup
+- **`put` on a database of a data source that is left out throws `MqException`** (nobody would process it)
+- Keep the queue table in the same database as the business tables, so enqueueing and the business update
+  roll back together
+
+> [!NOTE]
+> **The scheduler's queue (`scheduler.queue_name`, `mq_scheduler` by default) lives on the main data source
+> only** (since 2.7.8). The scheduler's own tables (`batch_master` and the rest) and the admin screen's
+> enqueueing are on the main data source, so the queue is created there and claimed from there regardless of
+> `db.<name>.mq`. Rows put on other data sources are no longer claimed. To keep a queue of your own on the
+> main data source only, use `MqQueue.mainOnly("name")` and return true from `mainOnly()` in the
+> `MqExecutor` that puts to it.
+
+## Visiting only the databases that have work
+
+With dozens of data sources, the poller visits **even the empty ones on every round**. Whether the
+system is idle or only one database has work, SELECTs grow with the number of data sources.
+Set `mq.hint` and **putting a message leaves a "this data source has work" hint**; the poller then visits
+only the data sources with a hint (since 2.7.8).
+
+```conf
+mq {
+	hint           = redis   # off (default: visit everything every round) | memory | redis
+	sweep_interval = 10s     # how often every data source is visited (rows without a hint are picked up within this)
+}
+```
+
+| `mq.hint` | Where hints live | When it fits |
+|---|---|---|
+| `off` (default) | Nowhere; every round visits everything (as before) | Few data sources |
+| `memory` | Inside the same process only | Putting and claiming happen in the same process |
+| `redis` | Inside the process and in a Redis set | Put from the web, claim in a batch process (different processes) |
+
+With hints, the poller visits only:
+
+- data sources with a hint (kept for 5 seconds after the hint is seen, so a putting transaction that has
+  not committed yet is not missed)
+- data sources that last returned as many rows as were wanted (there may be more)
+- every data source, once per `sweep_interval`
+
+**A hint only makes the poller look sooner; nothing is lost without it.** If Redis is down, neither putting
+nor claiming fails (a log line is written) and the rows are picked up by the full round.
+
+> [!WARN]
+> **A row without a hint can wait up to `sweep_interval`.** Rows get no hint when another process put them
+> with a time (`scheduled_at`), when another process put them under `memory`, or while Redis was down.
+> Retries are not delayed: the poller's own process keeps a hint for the retry time.
+
+Claiming SELECTs measured on a local MySQL with one queue, two workers, `poll_max = 1s` and
+`sweep_interval = 10s`:
+
+| Data sources | Idle (`off` → `redis`) | To the other databases while one gets 10 messages a second (`off` → `redis`) |
+|---|---|---|
+| 10 | 20/s → 2/s | 837/s → 1.8/s |
+| 30 | 54/s → 6/s | 1,701/s → 5.8/s |
 
 
 
@@ -7062,6 +7627,7 @@ long subscription = client.subscribeToResources(List.of("blog://latest"));
 
   new <name>              プロジェクトの雛形を作る
   migrate                 未適用のマイグレーションを適用する
+  migrateCheck            当たっているかを確かめる（DB には書かない）
   codegen <source root>   テーブル定義のコードを生成する（例: src/main/java）
   version                 版を表示する
 ```
@@ -7072,6 +7638,7 @@ The help text prints in Japanese. What each command does:
 |---|---|
 | `new <name>` | Write a project skeleton |
 | `migrate` | Apply the migrations that have not been applied yet |
+| `migrateCheck` | Check that the migrations have been applied (writes nothing) |
 | `codegen <source root>` | Generate the table definition code (`src/main/java`, say) |
 | `version` | Print the version |
 
@@ -7097,7 +7664,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.8-SNAPSHOT
+jimble 2.7.9-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7121,7 +7688,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.8-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.9-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7154,10 +7721,8 @@ my-blog/
 	conf/migration/my_blog/001_create_note.sql.example
 	AGENTS.md
 	CLAUDE.md
-	.claude/skills/jimble/SKILL.md
-	.claude/skills/jimble-db/SKILL.md
-	.claude/skills/jimble-web/SKILL.md
-	.claude/skills/jimble-batch/SKILL.md
+	.claude/skills/jimble/SKILL.md          (the entry point; points to the others)
+	.claude/skills/jimble-*/SKILL.md        (one per area: web, DB, batch, MQ, config, ...)
 	.claude/jimble-skills.properties
 ```
 
@@ -7224,6 +7789,10 @@ their settings are in [the Gradle plugins](./gradle).
 > java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
 > ```
 
+For the options that apply to databases lined up side by side (`--data-source`,
+`--migration-dir`, `--parallel`, `--keep-going`) and for `migrateCheck`, see
+[Applying to databases lined up side by side](./codegen#applying-to-databases-lined-up-side-by-side).
+
 ## Checking the version
 
 ```bash
@@ -7247,16 +7816,16 @@ There are three. **Add only the ones you need.**
 
 | ID | What it does | Main tasks |
 | --- | --- | --- |
-| `io.jimble.db` | Runs migrations and code generation in front of `compileJava` | `migrate` / `codegen` / `codegenCheck` |
+| `io.jimble.db` | Runs migrations and code generation in front of `compileJava` | `migrate` / `codegen` / `codegenCheck` / `migrateCheck` |
 | `io.jimble.jte` | Turns `src/main/jte` into Java in front of `compileJava` | `generateJte` |
 | `io.jimble.run` | Hot reload for development | `jimbleRun` |
 
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"
-	id("io.jimble.run") version "2.7.7"
-	id("io.jimble.db")  version "2.7.7"
+	id("io.jimble.jte") version "2.7.8"
+	id("io.jimble.run") version "2.7.8"
+	id("io.jimble.db")  version "2.7.8"
 }
 ```
 
@@ -7299,9 +7868,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.7"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.7"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.7"   // if you use a database
+	id("io.jimble.jte") version "2.7.8"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.8"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.8"   // if you use a database
 }
 
 repositories {
@@ -7316,7 +7885,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.7")
+	implementation("io.jimble:jimble-web:2.7.8")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7350,7 +7919,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.7' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.8' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -7378,7 +7947,18 @@ jimbleRun {
 ./gradlew migrate       # apply the SQL that has not been applied
 ./gradlew codegen       # build the table definition classes (after migrate)
 ./gradlew codegenCheck  # check the committed generated code against the schema
+./gradlew migrateCheck  # check that the migrations have been applied (writes nothing; since 2.7.8)
 ```
+
+Pass options to `migrate` and `migrateCheck` through `jimble.migrateArgs`
+(since 2.7.8).
+
+```bash
+./gradlew migrate -Pjimble.migrateArgs="--migration-dir shop --parallel 4 --keep-going"
+```
+
+What the options mean is in
+[Applying to databases lined up side by side](./codegen#applying-to-databases-lined-up-side-by-side).
 
 What they do is in [Migrations and code generation](./codegen).
 
@@ -7541,7 +8121,7 @@ application's AI keeps reading the old version's explanations. **Run it after yo
 
 ```bash
 ./gradlew jimbleSkills
-./gradlew jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record
+./gradlew jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record (and delete ones this version dropped)
 ```
 
 - **Hand-edited skills are never overwritten.** The hash of what was placed is recorded in
@@ -7549,7 +8129,12 @@ application's AI keeps reading the old version's explanations. **Run it after yo
   anything else is left alone
 - **Skills with no record** (placed by a `jimble new` from before the record existed) are left alone too, since there is
   no telling whether they were edited. If you did not edit them, use `--overwrite`
+- **Skills new in this version are added, and skills this version no longer ships are deleted** (2.7.8). A version that splits
+  or renames skills is brought in line just by running the task. Only files that still match the record (untouched since jimble
+  placed them) are deleted; an edited one is kept and reported as "old" every time (`--overwrite` deletes it).
+  Skills that are not in the record (your application's own) are never looked at
 - **Put your application's own rules in `AGENTS.md`, not in the skills.** An edited skill can no longer be brought up to date
+- Commit `.claude/skills/` and `.claude/jimble-skills.properties` afterwards
 - `AGENTS.md` / `CLAUDE.md` are **placed only if missing, never touched otherwise** (`CLAUDE.md` just says `@AGENTS.md`)
 
 ### jimbleCheck
@@ -8046,7 +8631,7 @@ You write it in `conf/application.conf`. The format is HOCON.
 ```
 conf/application.conf          configuration
 conf/application.local.conf    per environment
-conf/migration/<schema name>/  migrations
+conf/migration/<folder name>/  migrations
 ```
 
 Add `conf` to your resources in `build.gradle.kts`.
@@ -8415,6 +9000,9 @@ db {
 	# Not a data source name, so it goes at this level
 	remove_all_null_table_data = false
 
+	# how many data sources to run the startup checks for in parallel (connect, framework tables, migrations). default 1 (since 2.7.8)
+	startup_parallelism = 1
+
 	# One block per data source. The name (blog) becomes the name of the DB class
 	blog {
 		main     = true                    # use as the main data source
@@ -8423,7 +9011,14 @@ db {
 		username = ${?DB_USER}
 		password = ${?DB_PASSWORD}
 		product  = "mysql"                 # mysql | mariadb | postgresql | postgres | pgsql
-		schema   = ""                      # empty means the block's name. spelled scheme before
+		schema   = ""                      # migration folder name. empty means the block's name. spelled scheme before
+		migration_dir = ""                 # migration folder name. wins over schema when set (since 2.7.8). give same-shaped DBs the same name
+		# migrate_on_startup = false        # apply migrations at startup? unset means follow migration.on_startup (since 2.7.8)
+		codegen_name = ""                  # name for generated code (package tail and class name). empty means the block's name. same name = one shared set (since 2.7.8)
+		codegen      = true                # generate code for this data source? (since 2.7.8)
+		mq           = true                # put MQ queues on this data source? (since 2.7.8)
+		required     = true                # stop startup if unreachable, and include in the health check? main cannot be false (since 2.7.8)
+		# framework_tables = ["db_lock"]   # framework tables to create. unset means all (db_log / db_value / db_lock / redis_lock / db_cache); db_lock cannot be left out (since 2.7.8)
 
 		maximum_pool_size     = 10         # largest the pool gets
 		minimum_idle          = 1          # connections always kept open
@@ -8485,6 +9080,7 @@ mq {
 	retry_backoff     = 10s    # interval between retries (doubles each time)
 	retry_backoff_max = 10m
 	stale             = 10m    # this long as running counts as dead (sent back to waiting, counted as one retry)
+	recover_interval  = 1m     # how often rows left running are put back; 0s means only at startup (since 2.7.8)
 
 	# Workers per execution type (how many run in parallel). Left out, each type's own default is used.
 	# One poller per queue reads the DB, so more workers do not add connections while idle.
@@ -8493,6 +9089,14 @@ mq {
 	thread_count {
 		short_time = 2
 		long_time  = 8
+	}
+
+	hint           = off   # work hints: off | memory | redis (since 2.7.8; redis is recommended with many data sources)
+	sweep_interval = 10s   # with hints, how often every data source is visited; rows without a hint wait at most this long (since 2.7.8)
+
+	# per-queue settings (since 2.7.8). data_sources is where the queue lives (unset means every data source with db.<name>.mq = true)
+	queues {
+		mq_notice { data_sources = ["shop_a", "shop_b"] }
 	}
 }
 
@@ -8840,6 +9444,16 @@ jimble does not provide a health check route. **Write it like this.**
 ```java
 get("/health_check", context ->
 	context.response().send(Shutdown.isStopping() ? 503 : 200));
+```
+
+To check the database too, add `DBUtil.healthCheck()`. It looks only at data sources with
+`db.<name>.required = true` (the default; since 2.7.8). For a data source such as one shop's database,
+where one going down should not take the whole machine out of rotation, set `required = false`
+([DB](./db#data-sources-that-may-be-down)).
+
+```java
+get("/health_check", context ->
+	context.response().send(Shutdown.isStopping() || !DBUtil.healthCheck() ? 503 : 200));
 ```
 
 > [!TIP]

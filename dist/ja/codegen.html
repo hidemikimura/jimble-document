@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="current">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -243,7 +247,7 @@
 ずれていないかは CI で <code>codegenCheck</code> が見ます。</p>
 </div>
 <h2 id="マイグレーション">マイグレーション<a class="anchor" href="#マイグレーション">#</a></h2>
-<p><code>conf/migration/&lt;スキーマ名&gt;/</code> に SQL を置きます。</p>
+<p><code>conf/migration/&lt;フォルダ名&gt;/</code> に SQL を置きます。</p>
 <pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
 
 CREATE TABLE `note` (
@@ -267,7 +271,8 @@ PostgreSQL なら PostgreSQL の書き方で書いてください
 </div>
 <ul>
 <li>ファイル名は自由。<strong>名前の自然順</strong>に当たります（<code>001_</code> を付けるのが分かりやすい）</li>
-<li><code>&lt;スキーマ名&gt;</code> は設定の <code>scheme</code>（無ければデータソース名）</li>
+<li><code>&lt;フォルダ名&gt;</code> は <code>db.&lt;名前&gt;.migration_dir</code>。無ければ <code>schema</code>、それも無ければデータソース名です（<code>migration.resource_dir</code> を変えれば <code>conf/migration</code> の部分も変わります）</li>
+<li>同じ表の作りの DB を何本もデータソースにするときは、どれにも同じ <code>migration_dir</code> を書きます。同じ SQL がそれぞれの DB に1回ずつ当たり、当たった記録（<code>migration</code>・<code>migration_history</code>）もそれぞれの DB に残ります</li>
 <li><strong>クラスパスから探します</strong>。<code>conf/</code> をリソースに足しておいてください（<a href="./config">設定</a>）</li>
 </ul>
 <h3 id="1文ずつの切り分け">1文ずつの切り分け<a class="anchor" href="#1文ずつの切り分け">#</a></h3>
@@ -351,7 +356,8 @@ down のときに<b>テーブルは残ったまま履歴だけ消える</b>こ�
 失敗したことは <code>migration</code> に <code>up_error</code> として残り、次回は down → up をやり直します。</p>
 <div class="callout callout-warn"><p class="callout-title">注意</p>
 <p>**DDL はロールバックされません。**MariaDB / MySQL は <code>CREATE TABLE</code> などで暗黙にコミットします。
-1ファイルに複数の DDL を書くと、<strong>途中まで当たった状態</strong>で止まります。</p>
+PostgreSQL も、マイグレーションの SQL は1文ずつ確定させて流します（Tx に入れません）。
+どちらでも、1ファイルに複数の DDL を書くと、<strong>途中まで当たった状態</strong>で止まります。</p>
 </div>
 <h3 id="当て終わった-sql-を書き換えない">当て終わった SQL を書き換えない<a class="anchor" href="#当て終わった-sql-を書き換えない">#</a></h3>
 <p>ハッシュを見ているので、<strong>当たったあとに書き換えると失敗します。</strong></p>
@@ -413,9 +419,14 @@ MySQL は <code>AFTER body</code> と書けますが、PostgreSQL は必ず末�
 <h3 id="複数のサーバーが同時に起動しても">複数のサーバーが同時に起動しても<a class="anchor" href="#複数のサーバーが同時に起動しても">#</a></h3>
 <p><code>db_lock</code> の行を <code>FOR UPDATE</code> で取ってから当てるので、<strong>1台しか流れません。</strong>
 待ちきれなかった側は起動に失敗します（<code>migration.lock_timeout</code>、既定 60 秒）。</p>
+<p>記録の表（<code>migration</code> など）もロックを取ってから作るので、空の DB に何台かが同時に初めて起動しても取り合いません（2.7.8 から）。
+ロックはロック用の接続の Tx で持ち、SQL は別の接続で流します。
+DDL の暗黙のコミットは SQL を流した接続にしか効かないので、<strong>DDL を流してもロックは外れません。</strong>
+そのため、<strong>プールが 2 本以上要ります</strong>（<code>maximum_pool_size = 1</code> なら、すぐに分かる例外で止まります）。
+どれを当てたかは、<code>read</code> を書いていても書き込みの接続から読みます（2.7.8 から。レプリカが遅れていても、同じファイルをもう一度流しません）。</p>
 <div class="callout callout-note"><p class="callout-title">補足</p>
-<p>ロック待ちのタイムアウトは<strong>そのセッションだけ</strong>に設定します（<code>SET SESSION</code>）。
-サーバー全体の設定は変えません。</p>
+<p>ロック待ちのタイムアウトは<strong>そのセッションだけ</strong>に設定します（MySQL は <code>SET SESSION</code>、PostgreSQL は <code>SET LOCAL</code>）。
+サーバー全体の設定は変えません。MySQL では、終わったら元の値に戻してからプールに返します（2.7.8 から）。</p>
 </div>
 <h3 id="java-で書くマイグレーション">Java で書くマイグレーション<a class="anchor" href="#java-で書くマイグレーション">#</a></h3>
 <p>SQL では書けない移行（既存データの詰め替えなど）はクラスで書きます。</p>
@@ -428,6 +439,60 @@ Migration.install();
 <p><strong>CLI の <code>migrate</code> はコードマイグレーションを走らせません。</strong>
 登録がアプリのコードにあるためで、動くのは<strong>アプリの起動時</strong>だけです。</p>
 </div>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p><strong>コードマイグレーションが当たるのは主のデータソース（<code>main = true</code>）だけです。</strong>
+同じ <code>migration_dir</code> を書いて並べたほかのデータソースには当たりません。SQL のマイグレーションとは違います。</p>
+</div>
+<h3 id="並べた-db-に当てる">並べた DB に当てる<a class="anchor" href="#並べた-db-に当てる">#</a></h3>
+<p>同じ表の作りの DB を何本もデータソースにする（同じ <code>migration_dir</code> を付ける）ときは、
+<strong>起動では当てず、デプロイの段で CLI から当てる</strong>のがおすすめです（2.7.8 から）。</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ... }                                    <span class="h-c"># 主は起動時に当ててよい</span>
+	shop_a { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span>, migrate_on_startup = <span class="h-k">false</span> }
+	shop_b { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span>, migrate_on_startup = <span class="h-k">false</span> }
+}
+</code></pre>
+<p>デプロイの手順は次のとおりです。</p>
+<pre class="code"><code class="lang-bash"><span class="h-c"># 1. 並べた DB に当てる。1 つ失敗してもほかを続け、最後に一覧を出す（失敗があれば 0 以外で終わる）</span>
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+<span class="h-c"># 2. 版がそろったかを確かめる（DB には書かない。ずれがあれば 0 以外で終わる）</span>
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+<span class="h-c"># 3. アプリを起動する</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>オプション</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--data-source &lt;名前&gt;</code></td>
+<td>当てる先を絞る（くり返し可）</td>
+</tr>
+<tr>
+<td><code>--migration-dir &lt;フォルダ&gt;</code></td>
+<td>そのフォルダを使うデータソースに絞る（くり返し可）。<code>--data-source</code> と両方なら、両方を満たすもの</td>
+</tr>
+<tr>
+<td><code>--parallel &lt;数&gt;</code></td>
+<td>並べて当てる数（既定 1）。1 つのデータソースにつき、接続を 2 本使います</td>
+</tr>
+<tr>
+<td><code>--keep-going</code></td>
+<td>1 つ失敗してもほかを続ける（<code>migrate</code> だけ）。既定は名前の順に当て、最初の失敗で止めます</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>絞ったときは、<strong>選んだデータソースにしかつなぎません</strong>（つながらない別の DB に引きずられません）</li>
+<li><code>migrateCheck</code> は、フォルダの SQL ファイルとそれぞれの DB の <code>migration</code> を突き合わせ、
+<strong>未適用・余分（ファイルが無いのに記録がある）・ハッシュ違い</strong>をデータソースごとに出します</li>
+<li><code>db.&lt;名前&gt;.migrate_on_startup</code> を書けば、そのデータソースだけ <code>migration.on_startup</code> より優先します。
+<code>migration.on_startup = false</code> でも、<code>true</code> と書いたデータソースには起動時に当てます</li>
+<li>Gradle からは <code>./gradlew migrate -Pjimble.migrateArgs=&quot;--migration-dir shop --keep-going&quot;</code> のように渡します（<a href="./gradle">Gradle プラグイン</a>）</li>
+</ul>
 <h2 id="コード生成">コード生成<a class="anchor" href="#コード生成">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
 </code></pre>
@@ -482,6 +547,33 @@ Migration.install();
  * 直しても次の codegen で消えます。
  */</span>
 </code></pre>
+<h3 id="同じ作りの-db-で生成コードを共有する">同じ作りの DB で生成コードを共有する<a class="anchor" href="#同じ作りの-db-で生成コードを共有する">#</a></h3>
+<p>同じ表の作りの DB を何本もデータソースにするときは、<code>codegen_name</code> に同じ名前を書くと、
+<strong>生成コードを 1 組だけ</strong>持てます（2.7.8 から）。</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ... }
+	shop_a { url = <span class="h-s">"..."</span>, codegen_name = <span class="h-s">"shop"</span> }
+	shop_b { url = <span class="h-s">"..."</span>, codegen_name = <span class="h-s">"shop"</span> }
+	log    { url = <span class="h-s">"..."</span>, codegen = <span class="h-k">false</span> }      <span class="h-c"># 生成しない</span>
+}
+</code></pre>
+<ul>
+<li>生成するのは <code>db/shop/</code>（パッケージ <code>&lt;codegen.package&gt;.shop</code>、スキーマクラス <code>Shop</code>）の 1 組だけです。
+<code>codegenCheck</code> も、この 1 組を突き合わせます</li>
+<li>表は<strong>代表</strong>（主があれば主、無ければ名前の順で最初）の DB から読みます。
+ほかの DB の表の作り（表の名前と、列の名前・型）が代表と違えば、生成のときに警告します（止めはしません）</li>
+<li>テーブルクラスは SQL に<strong>表の名前しか入れない</strong>ので、どの DB に渡してもその DB で動きます。
+<strong>共有する組では、DB は要求ごとに選んだもの（<code>ContextDb</code> などで持っているもの）を渡して実行してください。</strong>
+<code>Shop.db()</code> は代表の DB を返します</li>
+<li><code>codegen_name</code> はパッケージ名とフォルダ名になるので、小文字で始まる小文字・数字・<code>_</code> で書きます</li>
+<li><code>codegen = false</code> のデータソースは生成しません</li>
+<li>書かなければ、これまでどおりデータソースごとに生成します（生成物は変わりません）</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>データソース名に大文字があると、フォルダ（<code>db/blog/</code>）とパッケージ（<code>db.Blog</code>）の綴りが揃いません。
+これまでの作りで、変えると生成物の置き場所が変わるので変えていません。生成のときに警告が出ます。
+揃えたいときは <code>codegen_name = &quot;blog&quot;</code> と書いてください（パッケージが <code>db.blog</code> に変わります）。</p>
+</div>
 <h3 id="型の対応">型の対応<a class="anchor" href="#型の対応">#</a></h3>
 <table>
 <thead>
@@ -622,8 +714,10 @@ codegen {
 <h2 id="cli-から">CLI から<a class="anchor" href="#cli-から">#</a></h2>
 <p>Gradle が使えないところ（CI・本番）では CLI で同じことができます。</p>
 <pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck
 java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
 </code></pre>
+<p><code>migrate</code>・<code>migrateCheck</code> に付けられるオプションは <a href="#並べた-db-に当てる">並べた DB に当てる</a> を見てください。</p>
 <p>設定も SQL も<strong>クラスパスから</strong>探します。
 Gradle のタスクは <a href="./gradle">Gradle プラグイン</a> にまとめてあります。</p>
 
@@ -633,8 +727,8 @@ Gradle のタスクは <a href="./gradle">Gradle プラグイン</a> にまと�
 			<a class="prev" href="cache">
 				<span>前</span>キャッシュとロック
 			</a>
-			<a class="next" href="batch">
-				<span>次</span>バッチ
+			<a class="next" href="multi-db">
+				<span>次</span>同じ作りの DB を並べる
 			</a>
 		</nav>
 	</main>
@@ -649,7 +743,9 @@ Gradle のタスクは <a href="./gradle">Gradle プラグイン</a> にまと�
 			<li class="level-3"><a href="#製品ごとに-sql-を分ける">製品ごとに SQL を分ける</a></li>
 			<li class="level-3"><a href="#複数のサーバーが同時に起動しても">複数のサーバーが同時に起動しても</a></li>
 			<li class="level-3"><a href="#java-で書くマイグレーション">Java で書くマイグレーション</a></li>
+			<li class="level-3"><a href="#並べた-db-に当てる">並べた DB に当てる</a></li>
 			<li class="level-2"><a href="#コード生成">コード生成</a></li>
+			<li class="level-3"><a href="#同じ作りの-db-で生成コードを共有する">同じ作りの DB で生成コードを共有する</a></li>
 			<li class="level-3"><a href="#型の対応">型の対応</a></li>
 			<li class="level-3"><a href="#postgresql-のとき">PostgreSQL のとき</a></li>
 			<li class="level-3"><a href="#生成しないテーブル">生成しないテーブル</a></li>

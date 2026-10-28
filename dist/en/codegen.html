@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="current">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -245,7 +249,7 @@ an environment with no DB.
 <code>codegenCheck</code> in CI watches for drift.</p>
 </div>
 <h2 id="migrations">Migrations<a class="anchor" href="#migrations">#</a></h2>
-<p>Put your SQL in <code>conf/migration/&lt;schema name&gt;/</code>.</p>
+<p>Put your SQL in <code>conf/migration/&lt;folder name&gt;/</code>.</p>
 <pre class="code"><code class="lang-sql"># <span class="h-c">--- !Ups</span>
 
 CREATE TABLE `note` (
@@ -270,8 +274,12 @@ PostgreSQL syntax if that is what you are on (<code>BIGINT UNSIGNED AUTO_INCREME
 <ul>
 <li>File names are up to you. They are applied in <strong>the natural order of the names</strong>
 (a <code>001_</code> prefix makes it obvious)</li>
-<li><code>&lt;schema name&gt;</code> is <code>scheme</code> from the configuration (or the data source name if
-that is missing)</li>
+<li><code>&lt;folder name&gt;</code> is <code>db.&lt;name&gt;.migration_dir</code>. Without it, <code>schema</code>; without
+that, the data source name (changing <code>migration.resource_dir</code> changes the
+<code>conf/migration</code> part too)</li>
+<li>When several data sources are databases with the same tables, give them all
+the same <code>migration_dir</code>. The same SQL is applied once to each database, and
+each database keeps its own record (<code>migration</code> and <code>migration_history</code>)</li>
 <li><strong>They are looked up from the classpath.</strong> Add <code>conf/</code> to your resources
 (<a href="./config">Configuration</a>)</li>
 </ul>
@@ -360,8 +368,10 @@ The failure stays in <code>migration</code> as <code>up_error</code>, and the ne
 down → up.</p>
 <div class="callout callout-warn"><p class="callout-title">Careful</p>
 <p><strong>DDL is not rolled back.</strong> MariaDB / MySQL commit implicitly on
-<code>CREATE TABLE</code> and friends.
-Put several DDL statements in one file and it stops <strong>with part of it applied.</strong></p>
+<code>CREATE TABLE</code> and friends. On PostgreSQL too, migration SQL runs one
+statement at a time with each one committed (not inside a transaction).
+On either, put several DDL statements in one file and it stops <strong>with part of
+it applied.</strong></p>
 </div>
 <h3 id="do-not-rewrite-sql-that-has-already-been-applied">Do not rewrite SQL that has already been applied<a class="anchor" href="#do-not-rewrite-sql-that-has-already-been-applied">#</a></h3>
 <p>The hash is checked, so <strong>rewriting it after it has been applied fails.</strong></p>
@@ -442,9 +452,21 @@ nullability and comments are the same).
 <p>The row in <code>db_lock</code> is taken with <code>FOR UPDATE</code> before anything is applied, so
 <strong>only one machine runs.</strong> The one that could not wait long enough fails to start
 (<code>migration.lock_timeout</code>, 60 seconds by default).</p>
+<p>The record tables (<code>migration</code> and the rest) are also created after the lock
+is taken, so several servers starting on an empty database for the first time
+do not fight over them (since 2.7.8).
+The lock is held in a transaction on its own connection, and the SQL runs on
+another connection. An implicit commit from DDL only affects the connection
+that ran it, so <strong>running DDL does not release the lock.</strong> That is why <strong>the
+pool needs at least two connections</strong> (with <code>maximum_pool_size = 1</code> it stops
+right away with an exception that says so). What has been applied is read
+from the write connection even when <code>read</code> is configured (since 2.7.8), so a
+lagging replica does not make it run the same file again.</p>
 <div class="callout callout-note"><p class="callout-title">Note</p>
-<p>The lock wait timeout is set <strong>for that session only</strong> (<code>SET SESSION</code>).
-The server-wide setting is left alone.</p>
+<p>The lock wait timeout is set <strong>for that session only</strong> (<code>SET SESSION</code> on
+MySQL, <code>SET LOCAL</code> on PostgreSQL). The server-wide setting is left alone. On
+MySQL the old value is put back before the connection returns to the pool
+(since 2.7.8).</p>
 </div>
 <h3 id="migrations-written-in-java">Migrations written in Java<a class="anchor" href="#migrations-written-in-java">#</a></h3>
 <p>A migration you cannot express in SQL (repacking existing data, for instance)
@@ -460,6 +482,65 @@ Migration.install();
 The registration lives in your application code, so they only run <strong>when the
 application starts.</strong></p>
 </div>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p><strong>Code migrations run only on the main data source (<code>main = true</code>).</strong>
+Other data sources that share a <code>migration_dir</code> do not get them, unlike SQL
+migrations.</p>
+</div>
+<h3 id="applying-to-databases-lined-up-side-by-side">Applying to databases lined up side by side<a class="anchor" href="#applying-to-databases-lined-up-side-by-side">#</a></h3>
+<p>When several data sources are databases with the same tables (they share a
+<code>migration_dir</code>), the recommended way is <strong>not to apply at startup, but from
+the CLI during deployment</strong> (since 2.7.8).</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ... }                                    <span class="h-c"># fine to apply at startup</span>
+	shop_a { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span>, migrate_on_startup = <span class="h-k">false</span> }
+	shop_b { url = <span class="h-s">"..."</span>, migration_dir = <span class="h-s">"shop"</span>, migrate_on_startup = <span class="h-k">false</span> }
+}
+</code></pre>
+<p>The deployment steps are:</p>
+<pre class="code"><code class="lang-bash"><span class="h-c"># 1. Apply to the lined-up databases. Keep going past a failure and print a list at the end (non-zero exit if anything failed)</span>
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate --migration-dir shop --parallel 4 --keep-going
+<span class="h-c"># 2. Check that they are all at the same version (writes nothing; non-zero exit if anything is off)</span>
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck --migration-dir shop
+<span class="h-c"># 3. Start the application</span>
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--data-source &lt;name&gt;</code></td>
+<td>Only these data sources (repeatable)</td>
+</tr>
+<tr>
+<td><code>--migration-dir &lt;folder&gt;</code></td>
+<td>Only the data sources that use this folder (repeatable). With <code>--data-source</code> too, those that match both</td>
+</tr>
+<tr>
+<td><code>--parallel &lt;n&gt;</code></td>
+<td>How many to apply at once (default 1). Each data source uses two connections</td>
+</tr>
+<tr>
+<td><code>--keep-going</code></td>
+<td>Keep going after a failure (<code>migrate</code> only). By default they run in name order and stop at the first failure</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>When you narrow it down, <strong>only the chosen data sources are connected to</strong>
+(a database that cannot be reached does not drag the rest down)</li>
+<li><code>migrateCheck</code> compares the SQL files in the folder with each database's
+<code>migration</code> table and reports, per data source, <strong>files not applied, extra
+records (no file), and hash mismatches</strong></li>
+<li><code>db.&lt;name&gt;.migrate_on_startup</code> overrides <code>migration.on_startup</code> for that data
+source only. A data source that says <code>true</code> is applied at startup even when
+<code>migration.on_startup = false</code></li>
+<li>From Gradle, pass them as <code>./gradlew migrate -Pjimble.migrateArgs=&quot;--migration-dir shop --keep-going&quot;</code> (<a href="./gradle">Gradle plugin</a>)</li>
+</ul>
 <h2 id="code-generation">Code generation<a class="anchor" href="#code-generation">#</a></h2>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> codegen
 </code></pre>
@@ -520,6 +601,41 @@ Generated files carry a marker at the top, too.</p>
 <p>In English: &quot;jimble wrote this file (codegen). Do not edit it by hand — an edit
 is gone at the next codegen.&quot;</p>
 </blockquote>
+<h3 id="sharing-generated-code-across-databases-with-the-same-tables">Sharing generated code across databases with the same tables<a class="anchor" href="#sharing-generated-code-across-databases-with-the-same-tables">#</a></h3>
+<p>When several data sources are databases with the same tables, give them the
+same <code>codegen_name</code> and you keep <strong>only one set of generated code</strong> (since
+2.7.8).</p>
+<pre class="code"><code class="lang-conf">db {
+	main   { main = <span class="h-k">true</span>, ... }
+	shop_a { url = <span class="h-s">"..."</span>, codegen_name = <span class="h-s">"shop"</span> }
+	shop_b { url = <span class="h-s">"..."</span>, codegen_name = <span class="h-s">"shop"</span> }
+	log    { url = <span class="h-s">"..."</span>, codegen = <span class="h-k">false</span> }      <span class="h-c"># not generated</span>
+}
+</code></pre>
+<ul>
+<li>Only <code>db/shop/</code> is generated (package <code>&lt;codegen.package&gt;.shop</code>, schema class
+<code>Shop</code>). <code>codegenCheck</code> compares that one set too</li>
+<li>The tables are read from the <strong>representative</strong> database (the main data
+source if it is in the group, otherwise the first by name). If another
+database's tables (table names, column names and types) differ from it, a
+warning is logged at generation time (generation does not stop)</li>
+<li>Table classes put <strong>only the table name</strong> into SQL, so they run on whichever
+database you pass. <strong>For a shared set, run them with the database chosen for
+the request (the one you keep in <code>ContextDb</code> or the like).</strong> <code>Shop.db()</code>
+returns the representative database</li>
+<li><code>codegen_name</code> becomes a package name and a folder name, so it is lowercase
+letters, digits and <code>_</code>, starting with a letter</li>
+<li>A data source with <code>codegen = false</code> is not generated</li>
+<li>Without these settings, code is generated per data source as before (the
+output does not change)</li>
+</ul>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>If a data source name has uppercase letters, the folder (<code>db/blog/</code>) and the
+package (<code>db.Blog</code>) are spelled differently. That is how it has always been,
+and changing it would move the generated files, so it stays; a warning is
+logged at generation time. To line them up, write <code>codegen_name = &quot;blog&quot;</code>
+(the package becomes <code>db.blog</code>).</p>
+</div>
 <h3 id="type-mapping">Type mapping<a class="anchor" href="#type-mapping">#</a></h3>
 <table>
 <thead>
@@ -662,8 +778,11 @@ codegen {
 <h2 id="from-the-cli">From the CLI<a class="anchor" href="#from-the-cli">#</a></h2>
 <p>Where Gradle is not available (CI, production), the CLI does the same things.</p>
 <pre class="code"><code class="lang-bash">java -cp app.jar io.jimble.db.cli.JimbleDbCli migrate
+java -cp app.jar io.jimble.db.cli.JimbleDbCli migrateCheck
 java -cp app.jar io.jimble.db.cli.JimbleDbCli codegen src/main/java
 </code></pre>
+<p>The options for <code>migrate</code> and <code>migrateCheck</code> are in
+<a href="#applying-to-databases-lined-up-side-by-side">Applying to databases lined up side by side</a>.</p>
 <p>Both the configuration and the SQL are looked up <strong>from the classpath</strong>.
 The Gradle tasks are listed in <a href="./gradle">the Gradle plugins</a>.</p>
 
@@ -673,8 +792,8 @@ The Gradle tasks are listed in <a href="./gradle">the Gradle plugins</a>.</p>
 			<a class="prev" href="cache">
 				<span>Previous</span>Cache and locks
 			</a>
-			<a class="next" href="batch">
-				<span>Next</span>Batch
+			<a class="next" href="multi-db">
+				<span>Next</span>Lining up databases with the same tables
 			</a>
 		</nav>
 	</main>
@@ -689,7 +808,9 @@ The Gradle tasks are listed in <a href="./gradle">the Gradle plugins</a>.</p>
 			<li class="level-3"><a href="#splitting-sql-per-product">Splitting SQL per product</a></li>
 			<li class="level-3"><a href="#when-several-servers-start-at-once">When several servers start at once</a></li>
 			<li class="level-3"><a href="#migrations-written-in-java">Migrations written in Java</a></li>
+			<li class="level-3"><a href="#applying-to-databases-lined-up-side-by-side">Applying to databases lined up side by side</a></li>
 			<li class="level-2"><a href="#code-generation">Code generation</a></li>
+			<li class="level-3"><a href="#sharing-generated-code-across-databases-with-the-same-tables">Sharing generated code across databases with the same tables</a></li>
 			<li class="level-3"><a href="#type-mapping">Type mapping</a></li>
 			<li class="level-3"><a href="#on-postgresql">On PostgreSQL</a></li>
 			<li class="level-3"><a href="#tables-that-are-not-generated">Tables that are not generated</a></li>

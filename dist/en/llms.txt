@@ -30,6 +30,7 @@
 - [Lazy loading and prefetch](https://jimble.io/en/async.md): Fetched at the moment it is referenced. When you walk the whole tree, roll it into one IN clause
 - [Cache and locks](https://jimble.io/en/cache.md): Swapping between DB / memory / Redis, automatic invalidation of SQL results, and distributed locks
 - [Migrations and code generation](https://jimble.io/en/codegen.md): How SQL is applied, what classes are generated, and when each thing runs
+- [Lining up databases with the same tables](https://jimble.io/en/multi-db.md): One set of web and batch servers, one database per client. Configuration, choosing the database per request, migrations, generated code, MQ, connection counts, and when one goes down
 
 ## Runtime
 

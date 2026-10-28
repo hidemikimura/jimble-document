@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">マイグレーションとコード生成</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
 		</ul>
 		<p class="section">実行基盤</p>
 		<ul>
@@ -221,7 +225,7 @@
 <p><strong>設定は <code>conf/</code> に置きます。</strong></p>
 <pre class="code"><code class="lang-text">conf/application.conf          設定
 conf/application.local.conf    環境別
-conf/migration/&lt;スキーマ名&gt;/   マイグレーション
+conf/migration/&lt;フォルダ名&gt;/   マイグレーション
 </code></pre>
 <p><code>build.gradle.kts</code> で <code>conf</code> をリソースに足します。</p>
 <pre class="code"><code class="lang-kotlin">sourceSets {
@@ -548,6 +552,9 @@ db {
 	<span class="h-c"># データソースの名前ではないので、この位置に書く</span>
 	remove_all_null_table_data = <span class="h-k">false</span>
 
+	<span class="h-c"># 起動時の確かめ（つなぐ・管理の表・マイグレーション）を並べる数。既定 1（2.7.8 から）</span>
+	startup_parallelism = <span class="h-n">1</span>
+
 	<span class="h-c"># データソースごとに1ブロック。名前（blog）が DB クラスの名前になる</span>
 	blog {
 		main     = <span class="h-k">true</span>                    <span class="h-c"># 主データソースにするか</span>
@@ -556,7 +563,14 @@ db {
 		username = ${?DB_USER}
 		password = ${?DB_PASSWORD}
 		product  = <span class="h-s">"mysql"</span>                 <span class="h-c"># mysql | mariadb | postgresql | postgres | pgsql</span>
-		schema   = <span class="h-s">""</span>                      <span class="h-c"># 空ならブロックの名前。以前は scheme という綴りだった</span>
+		schema   = <span class="h-s">""</span>                      <span class="h-c"># マイグレーションのフォルダ名。空ならブロックの名前。以前は scheme という綴りだった</span>
+		migration_dir = <span class="h-s">""</span>                 <span class="h-c"># マイグレーションのフォルダ名。書けば schema より優先（2.7.8 から）。同じ作りの DB には同じ名前を書く</span>
+		<span class="h-c"># migrate_on_startup = false        # 起動時にマイグレーションを当てるか。書かなければ migration.on_startup に従う（2.7.8 から）</span>
+		codegen_name = <span class="h-s">""</span>                  <span class="h-c"># 生成コードの名前（パッケージの末尾とクラス名）。空ならブロックの名前。同じ名前のデータソースは 1 組を共有（2.7.8 から）</span>
+		codegen      = <span class="h-k">true</span>                <span class="h-c"># 生成コードを作るか（2.7.8 から）</span>
+		mq           = <span class="h-k">true</span>                <span class="h-c"># MQ のキューを置くか（2.7.8 から）</span>
+		required     = <span class="h-k">true</span>                <span class="h-c"># つながらなければ起動を止め、死活監視に入れるか。主は false にできない（2.7.8 から）</span>
+		<span class="h-c"># framework_tables = ["db_lock"]   # 作る管理の表。書かなければ全部（db_log / db_value / db_lock / redis_lock / db_cache）。db_lock は外せない（2.7.8 から）</span>
 
 		maximum_pool_size     = <span class="h-n">10</span>         <span class="h-c"># プールの最大</span>
 		minimum_idle          = <span class="h-n">1</span>          <span class="h-c"># 常に開けておく数</span>
@@ -617,7 +631,8 @@ mq {
 	poll_max          = <span class="h-n">1s</span>     <span class="h-c"># キューが空のときの取り出し役の待ちの上限（だんだん伸びる）</span>
 	retry_backoff     = <span class="h-n">10s</span>    <span class="h-c"># リトライの間隔（回を追うごとに倍）</span>
 	retry_backoff_max = <span class="h-n">10m</span>
-	stale             = <span class="h-n">10m</span>    <span class="h-c"># これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）</span>
+	stale             = <span class="h-n">10m</span>    <span class="h-c"># これだけ running のままなら落ちたとみなす（waiting に戻し、リトライの1回と数える）。一番長い処理より長くする</span>
+	recover_interval  = <span class="h-n">1m</span>     <span class="h-c"># running のまま残った行を戻す間隔。0s なら起動のときだけ（2.7.8 から）</span>
 
 	<span class="h-c"># 実行種別ごとのワーカーの数（並んで処理する数）。書かなければ種別ごとの既定。</span>
 	<span class="h-c"># DB から取るのはキューごとに1本の取り出し役なので、増やしても待っているときの接続は増えない。</span>
@@ -626,6 +641,14 @@ mq {
 	thread_count {
 		short_time = <span class="h-n">2</span>
 		long_time  = <span class="h-n">8</span>
+	}
+
+	hint           = off   <span class="h-c"># 仕事のある印。off | memory | redis（2.7.8 から。データソースを並べたら redis を勧める）</span>
+	sweep_interval = <span class="h-n">10s</span>   <span class="h-c"># 印を使うとき、全部のデータソースを回る間隔。印の無い行は遅くともこれで拾う（2.7.8 から）</span>
+
+	<span class="h-c"># キューごとの設定（2.7.8 から）。data_sources はそのキューを置くデータソース（書かなければ db.&lt;名前&gt;.mq = true の全部）</span>
+	queues {
+		mq_notice { data_sources = [<span class="h-s">"shop_a"</span>, <span class="h-s">"shop_b"</span>] }
 	}
 }
 

@@ -118,6 +118,10 @@
 				<a href="codegen"
 				   class="">Migrations and code generation</a>
 			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
 		</ul>
 		<p class="section">Runtime</p>
 		<ul>
@@ -229,7 +233,7 @@
 <tr>
 <td><code>io.jimble.db</code></td>
 <td>Runs migrations and code generation in front of <code>compileJava</code></td>
-<td><code>migrate</code> / <code>codegen</code> / <code>codegenCheck</code></td>
+<td><code>migrate</code> / <code>codegen</code> / <code>codegenCheck</code> / <code>migrateCheck</code></td>
 </tr>
 <tr>
 <td><code>io.jimble.jte</code></td>
@@ -245,9 +249,9 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.7"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.7"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.7"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.8"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.8"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.8"</span>
 }
 </code></pre>
 <p><strong>They are not on the Plugin Portal.</strong> They come from Maven Central, so write the
@@ -281,9 +285,9 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.7"</span>   <span class="h-c">// if you use src/main/jte</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.7"</span>   <span class="h-c">// if you want hot reload</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.7"</span>   <span class="h-c">// if you use a database</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.8"</span>   <span class="h-c">// if you use src/main/jte</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.8"</span>   <span class="h-c">// if you want hot reload</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.8"</span>   <span class="h-c">// if you use a database</span>
 }
 
 repositories {
@@ -298,7 +302,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:2.7.7"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:2.7.8"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -329,7 +333,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>The toolchain block is required.</strong> Without it you stop at dependency resolution.</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:2.7.7' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:2.7.8' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="which-artifact-to-depend-on">Which artifact to depend on<a class="anchor" href="#which-artifact-to-depend-on">#</a></h2>
@@ -396,7 +400,14 @@ but 'io.jimble:jimble-web:2.7.7' is only compatible with JVM runtime version 25 
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate       # apply the SQL that has not been applied
 <span class="h-k">./gradlew</span> codegen       # build the table definition classes (after migrate)
 <span class="h-k">./gradlew</span> codegenCheck  # check the committed generated code against the schema
+<span class="h-k">./gradlew</span> migrateCheck  # check that the migrations have been applied (writes nothing; since 2.7.8)
 </code></pre>
+<p>Pass options to <code>migrate</code> and <code>migrateCheck</code> through <code>jimble.migrateArgs</code>
+(since 2.7.8).</p>
+<pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> migrate -Pjimble.migrateArgs="--migration-dir shop --parallel 4 --keep-going"
+</code></pre>
+<p>What the options mean is in
+<a href="./codegen#applying-to-databases-lined-up-side-by-side">Applying to databases lined up side by side</a>.</p>
 <p>What they do is in <a href="./codegen">Migrations and code generation</a>.</p>
 <pre class="code"><code class="lang-kotlin">jimble {
 	sourceRoot   = <span class="h-s">"src/main/java"</span>   <span class="h-c">// where generated code goes</span>
@@ -651,7 +662,7 @@ If <code>gradlew</code> is broken, it says why and falls back to <code>gradle</c
 <p><code>jimble new</code> <strong>copies</strong> the skills in, so upgrading jimble leaves the copies behind and your
 application's AI keeps reading the old version's explanations. <strong>Run it after you upgrade.</strong></p>
 <pre class="code"><code class="lang-bash"><span class="h-k">./gradlew</span> jimbleSkills
-<span class="h-k">./gradlew</span> jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record
+<span class="h-k">./gradlew</span> jimbleSkills --overwrite   # also replace hand-edited skills and ones with no record (and delete ones this version dropped)
 </code></pre>
 <ul>
 <li><strong>Hand-edited skills are never overwritten.</strong> The hash of what was placed is recorded in
@@ -659,7 +670,12 @@ application's AI keeps reading the old version's explanations. <strong>Run it af
 anything else is left alone</li>
 <li><strong>Skills with no record</strong> (placed by a <code>jimble new</code> from before the record existed) are left alone too, since there is
 no telling whether they were edited. If you did not edit them, use <code>--overwrite</code></li>
+<li><strong>Skills new in this version are added, and skills this version no longer ships are deleted</strong> (2.7.8). A version that splits
+or renames skills is brought in line just by running the task. Only files that still match the record (untouched since jimble
+placed them) are deleted; an edited one is kept and reported as &quot;old&quot; every time (<code>--overwrite</code> deletes it).
+Skills that are not in the record (your application's own) are never looked at</li>
 <li><strong>Put your application's own rules in <code>AGENTS.md</code>, not in the skills.</strong> An edited skill can no longer be brought up to date</li>
+<li>Commit <code>.claude/skills/</code> and <code>.claude/jimble-skills.properties</code> afterwards</li>
 <li><code>AGENTS.md</code> / <code>CLAUDE.md</code> are <strong>placed only if missing, never touched otherwise</strong> (<code>CLAUDE.md</code> just says <code>@AGENTS.md</code>)</li>
 </ul>
 <h3 id="jimblecheck">jimbleCheck<a class="anchor" href="#jimblecheck">#</a></h3>
