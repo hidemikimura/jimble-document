@@ -353,6 +353,10 @@ down does not take the whole machine out of rotation</li>
 <li>Per data source, use <code>DBUtil.healthCheckAll()</code></li>
 <li>A database that could not be reached at startup did not get its framework tables or migrations. Apply
 them with the CLI's <code>migrate --data-source</code> once it is back</li>
+<li><strong>MQ keeps going</strong> (since 2.7.9). A database that is down is retried after a pause (1 second, doubling
+up to 30 seconds), and meanwhile the other databases' rows keep being claimed. Once it is back, its rows
+are claimed again. Recovering stale rows and <code>pendingCount()</code> also skip the database that is down and
+return the others</li>
 </ul>
 <p>See <a href="./db#data-sources-that-may-be-down">DB</a>.</p>
 

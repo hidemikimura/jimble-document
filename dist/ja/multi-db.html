@@ -340,6 +340,7 @@ DB サーバーの <code>max_connections</code> は、プロセスの数 × 多�
 <li><code>DBUtil.healthCheck()</code>（死活監視）は <code>required = true</code> のものだけを見るので、1 つ落ちても台ごと外れません</li>
 <li>データソースごとの状態は <code>DBUtil.healthCheckAll()</code> で見られます</li>
 <li>起動時につながらなかった DB には、管理の表とマイグレーションを当てていません。戻ったら CLI の <code>migrate --data-source</code> で当ててください</li>
+<li><strong>MQ は止まりません</strong>（2.7.9 から）。落ちた DB はしばらくあけて（1 秒から倍々、最大 30 秒）見直し、そのあいだはほかの DB の行を取り出し続けます。戻れば、その DB の行もまた取り出します。迷子の戻しと <code>pendingCount()</code> も、落ちた DB を飛ばしてほかの DB の分を返します</li>
 </ul>
 <p>詳しくは <a href="./db#落ちても全体を止めないデータソース">DB</a> を見てください。</p>
 

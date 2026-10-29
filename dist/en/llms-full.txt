@@ -6203,6 +6203,10 @@ Set `required = false` on the shop databases.
 - Per data source, use `DBUtil.healthCheckAll()`
 - A database that could not be reached at startup did not get its framework tables or migrations. Apply
   them with the CLI's `migrate --data-source` once it is back
+- **MQ keeps going** (since 2.7.9). A database that is down is retried after a pause (1 second, doubling
+  up to 30 seconds), and meanwhile the other databases' rows keep being claimed. Once it is back, its rows
+  are claimed again. Recovering stale rows and `pendingCount()` also skip the database that is down and
+  return the others
 
 See [DB](./db#data-sources-that-may-be-down).
 
@@ -6689,6 +6693,21 @@ mq.queues {
 > `db.<name>.mq`. Rows put on other data sources are no longer claimed. To keep a queue of your own on the
 > main data source only, use `MqQueue.mainOnly("name")` and return true from `mainOnly()` in the
 > `MqExecutor` that puts to it.
+
+### When one data source goes down
+
+With several data sources, if one goes down (cannot connect, cannot read the table), **the queue keeps
+running on the other data sources** (since 2.7.9).
+
+- The poller **retries the data source that is down after a pause** (1 second, doubling up to 30
+  seconds) and skips it meanwhile, so waiting for a connection to an unreachable database does not hold
+  back the other data sources' rows
+- A log line is written when it goes down, when a retry still fails, and when it comes back (not on
+  every round)
+- Recovering stale rows (`recoverStale`) skips the data source that is down and recovers the others, so
+  the queue starts even if one is down at startup
+- `pendingCount()` leaves out the data source that is down and returns the rest (it used to throw)
+- The poller does not stop on an unexpected failure either (it logs, waits a little and goes on)
 
 ## Visiting only the databases that have work
 
@@ -7664,7 +7683,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.9-SNAPSHOT
+jimble 2.7.10-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7688,7 +7707,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.9-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.10-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7823,9 +7842,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.8"
-	id("io.jimble.run") version "2.7.8"
-	id("io.jimble.db")  version "2.7.8"
+	id("io.jimble.jte") version "2.7.9"
+	id("io.jimble.run") version "2.7.9"
+	id("io.jimble.db")  version "2.7.9"
 }
 ```
 
@@ -7868,9 +7887,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.8"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.8"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.8"   // if you use a database
+	id("io.jimble.jte") version "2.7.9"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.9"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.9"   // if you use a database
 }
 
 repositories {
@@ -7885,7 +7904,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.8")
+	implementation("io.jimble:jimble-web:2.7.9")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7919,7 +7938,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.8' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.9' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on

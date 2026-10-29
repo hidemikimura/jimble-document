@@ -368,6 +368,20 @@ enqueueing are on the main data source, so the queue is created there and claime
 main data source only, use <code>MqQueue.mainOnly(&quot;name&quot;)</code> and return true from <code>mainOnly()</code> in the
 <code>MqExecutor</code> that puts to it.</p>
 </div>
+<h3 id="when-one-data-source-goes-down">When one data source goes down<a class="anchor" href="#when-one-data-source-goes-down">#</a></h3>
+<p>With several data sources, if one goes down (cannot connect, cannot read the table), <strong>the queue keeps
+running on the other data sources</strong> (since 2.7.9).</p>
+<ul>
+<li>The poller <strong>retries the data source that is down after a pause</strong> (1 second, doubling up to 30
+seconds) and skips it meanwhile, so waiting for a connection to an unreachable database does not hold
+back the other data sources' rows</li>
+<li>A log line is written when it goes down, when a retry still fails, and when it comes back (not on
+every round)</li>
+<li>Recovering stale rows (<code>recoverStale</code>) skips the data source that is down and recovers the others, so
+the queue starts even if one is down at startup</li>
+<li><code>pendingCount()</code> leaves out the data source that is down and returns the rest (it used to throw)</li>
+<li>The poller does not stop on an unexpected failure either (it logs, waits a little and goes on)</li>
+</ul>
 <h2 id="visiting-only-the-databases-that-have-work">Visiting only the databases that have work<a class="anchor" href="#visiting-only-the-databases-that-have-work">#</a></h2>
 <p>With dozens of data sources, the poller visits <strong>even the empty ones on every round</strong>. Whether the
 system is idle or only one database has work, SELECTs grow with the number of data sources.
@@ -463,6 +477,7 @@ Retries are not delayed: the poller's own process keeps a hint for the retry tim
 			<li class="level-3"><a href="#rows-left-running">Rows left running</a></li>
 			<li class="level-2"><a href="#registering-it-and-running-it">Registering it and running it</a></li>
 			<li class="level-2"><a href="#choosing-the-data-sources-a-queue-lives-on">Choosing the data sources a queue lives on</a></li>
+			<li class="level-3"><a href="#when-one-data-source-goes-down">When one data source goes down</a></li>
 			<li class="level-2"><a href="#visiting-only-the-databases-that-have-work">Visiting only the databases that have work</a></li>
 		</ul>
 	</nav>
