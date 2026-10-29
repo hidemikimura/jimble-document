@@ -249,15 +249,17 @@
 </table>
 <pre class="code"><code class="lang-kotlin"><span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.10"</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.10"</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.10"</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.11"</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.11"</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.11"</span>
 }
 </code></pre>
-<p>**Plugin Portal には出していません。**Maven Central から取るので、
-<code>settings.gradle.kts</code> に置き場所を書いてください（<code>jimble new</code> の雛形には入っています）。</p>
+<p>**Plugin Portal にも Maven Central にも出していません。**jimble の置き場（<code>https://repo.jimble.io</code>）から取るので、
+<code>settings.gradle.kts</code> に置き場所を書いてください（<code>jimble new</code> の雛形には入っています）。
+以前は Maven Central に出していました。そのころの版はそちらにも残っています。</p>
 <pre class="code"><code class="lang-kotlin">pluginManagement {
 	repositories {
+		maven(<span class="h-s">"https://repo.jimble.io"</span>)
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -274,6 +276,7 @@
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// settings.gradle.kts</span>
 pluginManagement {
 	repositories {
+		maven(<span class="h-s">"https://repo.jimble.io"</span>)
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -284,12 +287,13 @@ rootProject.name = <span class="h-s">"memo"</span>
 <pre class="code"><code class="lang-kotlin"><span class="h-c">// build.gradle.kts</span>
 <span class="h-k">plugins</span> {
 	application
-	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.10"</span>   <span class="h-c">// src/main/jte を使うなら</span>
-	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.10"</span>   <span class="h-c">// ホットリロードを使うなら</span>
-	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.10"</span>   <span class="h-c">// DB を使うなら</span>
+	id(<span class="h-s">"io.jimble.jte"</span>) version <span class="h-s">"2.7.11"</span>   <span class="h-c">// src/main/jte を使うなら</span>
+	id(<span class="h-s">"io.jimble.run"</span>) version <span class="h-s">"2.7.11"</span>   <span class="h-c">// ホットリロードを使うなら</span>
+	id(<span class="h-s">"io.jimble.db"</span>)  version <span class="h-s">"2.7.11"</span>   <span class="h-c">// DB を使うなら</span>
 }
 
 repositories {
+	maven(<span class="h-s">"https://repo.jimble.io"</span>)
 	mavenCentral()
 }
 
@@ -301,7 +305,7 @@ java {
 }
 
 <span class="h-k">dependencies</span> {
-	implementation(<span class="h-s">"io.jimble:jimble-web:2.7.10"</span>)
+	implementation(<span class="h-s">"io.jimble:jimble-web:2.7.11"</span>)
 
 	testImplementation(platform(<span class="h-s">"org.junit:junit-bom:5.11.4"</span>))
 	testImplementation(<span class="h-s">"org.junit.jupiter:junit-jupiter"</span>)
@@ -332,7 +336,7 @@ jimbleRun {
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p>**ツールチェーンの指定は要ります。**書かないと、依存の解決の時点で止まります。</p>
 <pre class="code"><code class="lang-text">Dependency resolution is looking for a library compatible with JVM runtime version 21,
-but 'io.jimble:jimble-web:2.7.10' is only compatible with JVM runtime version 25 or newer
+but 'io.jimble:jimble-web:2.7.11' is only compatible with JVM runtime version 25 or newer
 </code></pre>
 </div>
 <h2 id="どれを依存に足すか">どれを依存に足すか<a class="anchor" href="#どれを依存に足すか">#</a></h2>

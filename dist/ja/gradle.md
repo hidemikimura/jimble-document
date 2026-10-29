@@ -13,18 +13,20 @@
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.10"
-	id("io.jimble.run") version "2.7.10"
-	id("io.jimble.db")  version "2.7.10"
+	id("io.jimble.jte") version "2.7.11"
+	id("io.jimble.run") version "2.7.11"
+	id("io.jimble.db")  version "2.7.11"
 }
 ```
 
-**Plugin Portal には出していません。**Maven Central から取るので、
+**Plugin Portal にも Maven Central にも出していません。**jimble の置き場（`https://repo.jimble.io`）から取るので、
 `settings.gradle.kts` に置き場所を書いてください（`jimble new` の雛形には入っています）。
+以前は Maven Central に出していました。そのころの版はそちらにも残っています。
 
 ```kotlin
 pluginManagement {
 	repositories {
+		maven("https://repo.jimble.io")
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -45,6 +47,7 @@ pluginManagement {
 // settings.gradle.kts
 pluginManagement {
 	repositories {
+		maven("https://repo.jimble.io")
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -57,12 +60,13 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.10"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.7.10"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.7.10"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.11"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.11"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.11"   // DB を使うなら
 }
 
 repositories {
+	maven("https://repo.jimble.io")
 	mavenCentral()
 }
 
@@ -74,7 +78,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.10")
+	implementation("io.jimble:jimble-web:2.7.11")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -108,7 +112,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.10' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.11' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか

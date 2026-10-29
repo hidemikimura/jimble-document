@@ -69,8 +69,8 @@ Read [Principles](./principles) for the details.
 It is published only when a release is cut, so what you read here
 **works on the version you can download**.
 
-The releases are on
-[Maven Central](https://repo.maven.apache.org/maven2/io/jimble/).
+The releases are in jimble's own repository, `https://repo.jimble.io`
+(the version list is [jimble-web's maven-metadata.xml](https://repo.jimble.io/io/jimble/jimble-web/maven-metadata.xml); versions up to 2.7.10 are also on Maven Central).
 The dependency coordinates and a build file that works as it stands are on the
 [Gradle plugins](./gradle) page; the source is on
 [GitHub](https://github.com/hidemikimura/jimble).
@@ -7673,7 +7673,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 ```
 
 > [!NOTE]
-> **The CLI is on Maven Central, but it will not run as it is** — the
+> **The CLI is in jimble's repository (`repo.jimble.io`), but it will not run as it is** — the
 > `io.jimble:jimble-cli` jar has no `Main-Class`, so `java -jar` does nothing.
 > Build it from the repository.
 >
@@ -7683,7 +7683,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.11-SNAPSHOT
+jimble 2.7.12-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7707,7 +7707,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.11-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.12-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7842,18 +7842,21 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.10"
-	id("io.jimble.run") version "2.7.10"
-	id("io.jimble.db")  version "2.7.10"
+	id("io.jimble.jte") version "2.7.11"
+	id("io.jimble.run") version "2.7.11"
+	id("io.jimble.db")  version "2.7.11"
 }
 ```
 
-**They are not on the Plugin Portal.** They come from Maven Central, so write the
-repository into `settings.gradle.kts` (the `jimble new` skeleton already has it).
+**They are on neither the Plugin Portal nor Maven Central.** They come from jimble's own
+repository (`https://repo.jimble.io`), so write it into `settings.gradle.kts` (the `jimble new`
+skeleton already has it). jimble used to be published to Maven Central, and those older versions
+stay there.
 
 ```kotlin
 pluginManagement {
 	repositories {
+		maven("https://repo.jimble.io")
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -7875,6 +7878,7 @@ If you are not using `jimble new`, these two files are enough.
 // settings.gradle.kts
 pluginManagement {
 	repositories {
+		maven("https://repo.jimble.io")
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -7887,12 +7891,13 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.10"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.10"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.10"   // if you use a database
+	id("io.jimble.jte") version "2.7.11"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.11"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.11"   // if you use a database
 }
 
 repositories {
+	maven("https://repo.jimble.io")
 	mavenCentral()
 }
 
@@ -7904,7 +7909,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.10")
+	implementation("io.jimble:jimble-web:2.7.11")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7938,7 +7943,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.10' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.11' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -11138,7 +11143,7 @@ This is still 0.x, so upgrading is the fastest path.
 
 ## Scope
 
-**In scope** — the `io.jimble` libraries and Gradle plugins published to Maven Central.
+**In scope** — the `io.jimble` libraries and Gradle plugins published to `https://repo.jimble.io` (Maven Central up to 2.7.10).
 
 **Out of scope:**
 
@@ -11299,7 +11304,7 @@ buried under "fixed".
 
 ## Choosing a version
 
-**Releases are on [Maven Central](https://repo.maven.apache.org/maven2/io/jimble/).**
+**Releases are in jimble's own repository, `https://repo.jimble.io`** (version list: [maven-metadata.xml](https://repo.jimble.io/io/jimble/jimble-web/maven-metadata.xml); versions up to 2.7.10 are also on Maven Central).
 The dependency coordinates and a build file that works as it stands are on the
 [Gradle plugins](./gradle) page.
 

@@ -13,18 +13,21 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.10"
-	id("io.jimble.run") version "2.7.10"
-	id("io.jimble.db")  version "2.7.10"
+	id("io.jimble.jte") version "2.7.11"
+	id("io.jimble.run") version "2.7.11"
+	id("io.jimble.db")  version "2.7.11"
 }
 ```
 
-**They are not on the Plugin Portal.** They come from Maven Central, so write the
-repository into `settings.gradle.kts` (the `jimble new` skeleton already has it).
+**They are on neither the Plugin Portal nor Maven Central.** They come from jimble's own
+repository (`https://repo.jimble.io`), so write it into `settings.gradle.kts` (the `jimble new`
+skeleton already has it). jimble used to be published to Maven Central, and those older versions
+stay there.
 
 ```kotlin
 pluginManagement {
 	repositories {
+		maven("https://repo.jimble.io")
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -46,6 +49,7 @@ If you are not using `jimble new`, these two files are enough.
 // settings.gradle.kts
 pluginManagement {
 	repositories {
+		maven("https://repo.jimble.io")
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -58,12 +62,13 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.10"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.10"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.10"   // if you use a database
+	id("io.jimble.jte") version "2.7.11"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.11"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.11"   // if you use a database
 }
 
 repositories {
+	maven("https://repo.jimble.io")
 	mavenCentral()
 }
 
@@ -75,7 +80,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.10")
+	implementation("io.jimble:jimble-web:2.7.11")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -109,7 +114,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.10' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.11' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
