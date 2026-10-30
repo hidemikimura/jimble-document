@@ -342,6 +342,18 @@ parentheses is a gloss, not what the response says.</p>
 <td><strong>413</strong>「アップロードのサイズが上限（N バイト）を超えています」（&quot;over the N byte limit&quot;）</td>
 </tr>
 <tr>
+<td>More than 1,000 parts (fields and files)</td>
+<td><strong>413</strong>「アップロードできる部分（項目とファイル）は 1000 個までです」（&quot;at most 1000 parts, fields and files&quot;）</td>
+</tr>
+<tr>
+<td>A body with no declared length (chunked) over <code>server.max_request_size</code></td>
+<td><strong>413</strong>「リクエストのサイズが上限（N バイト）を超えています」（&quot;request over the N byte limit&quot;）</td>
+</tr>
+<tr>
+<td>A body with a declared length (Content-Length) over <code>server.max_request_size</code></td>
+<td><strong>413</strong> (the server refuses it before routing; your code never runs)</td>
+</tr>
+<tr>
 <td>Not readable as multipart</td>
 <td><strong>400</strong>「multipart を読めませんでした」（&quot;could not read the multipart body&quot;）</td>
 </tr>
@@ -354,6 +366,18 @@ and you have already written the excess to disk.</p>
 If <code>upload.max_total_size</code> is larger, <strong>startup fails</strong> — the server cuts the body
 first, so the limit you wrote could never be reached.
 If you want to allow large uploads, raise both.</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>With <code>max_total_size</code> equal to <code>server.max_request_size</code>, the total-size 413 (「アップロードのサイズが上限…」) is never reached.</strong>
+The body also carries the multipart boundaries and each part's headers, so the body limit bites before
+the files add up to the total. Both are 413, but the message and the source differ. If you want the
+total-size limit to be the one that fires, set <code>max_total_size</code> lower by the boundary overhead.</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>A request can carry at most 1,000 parts, fields included</strong> (Helidon fixes this; it is not configurable).
+Fields and files each count as one part, so every field you send leaves room for one file fewer.
+Setting <code>upload.max_files</code> above 1,000 can never be reached, so <strong>startup fails</strong>.</p>
+<p>Up to 2.7.11, too many parts and an oversized chunked body came back as <strong>400</strong>「multipart を読めませんでした」.</p>
 </div>
 <h2 id="saving">Saving<a class="anchor" href="#saving">#</a></h2>
 <p><strong>There is no save helper.</strong> You copy <code>uploadFile.file</code> with the JDK's <code>Files</code>.</p>

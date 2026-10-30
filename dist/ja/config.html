@@ -374,7 +374,7 @@ session {
 upload {
 	max_file_size  = <span class="h-n">10MiB</span>   <span class="h-c"># 1ファイル</span>
 	max_total_size = <span class="h-n">10MiB</span>   <span class="h-c"># 1リクエスト合計（server.max_request_size と揃える）</span>
-	max_files      = <span class="h-n">20</span>      <span class="h-c"># 1リクエストのファイル数</span>
+	max_files      = <span class="h-n">20</span>      <span class="h-c"># 1リクエストのファイル数（1000 まで。部分は項目も含めて 1000 個まで）</span>
 	temp_dir       = <span class="h-s">""</span>      <span class="h-c"># 空なら java.io.tmpdir</span>
 }
 
@@ -526,9 +526,10 @@ sql_cache {
 }
 
 redis {
-	host = <span class="h-s">""</span>        <span class="h-c"># 空なら Redis 無し</span>
+	host = <span class="h-s">""</span>        <span class="h-c"># 空なら Redis 無し（クラスターなら書かない）</span>
 	port = <span class="h-n">6379</span>
 	ssl  = <span class="h-k">false</span>
+	ssl_verification = <span class="h-s">"strict"</span>   <span class="h-c"># strict | ca_only。TLS の証明書をどこまで確かめるか（2.7.12 から）</span>
 	username = <span class="h-s">""</span>    <span class="h-c"># Redis 6 の ACL の利用者。空なら送らない</span>
 	password = ${?REDIS_PASSWORD}   <span class="h-c"># 空なら送らない</span>
 
@@ -544,6 +545,12 @@ redis {
 
 		subscription_connection_minimum_idle_size = <span class="h-n">1</span>
 		subscription_connection_pool_size         = <span class="h-n">50</span>
+	}
+
+	<span class="h-c"># Redis クラスター（2.7.12 から）。書けばクラスターに繋ぐ。host とは同時に書けない</span>
+	cluster {
+		nodes         = []   <span class="h-c"># "host:port" の並び（"a:6379,b:6379" のように , で区切った文字列でもよい。環境変数から渡すとき）</span>
+		scan_interval = <span class="h-n">5s</span>   <span class="h-c"># 構成（フェイルオーバー・ノードの増減）を見直す間隔</span>
 	}
 }
 
@@ -705,6 +712,35 @@ jimble {
 	<span class="h-c"># server.port は -Djimble.server.port=8080 でも指定できる（システムプロパティが優先）</span>
 }
 </code></pre>
+<h2 id="redis-クラスターに繋ぐ">Redis クラスターに繋ぐ<a class="anchor" href="#redis-クラスターに繋ぐ">#</a></h2>
+<p><strong><code>redis.cluster.nodes</code> を書くと、Redis クラスターに繋ぎます</strong>（2.7.12 から）。
+<code>redis.host</code> と両方書くと、どちらに繋ぐか分からないので起動で止まります（<code>DBUtil.load</code> のときに見ます。ノードの書き方やポートの誤りも同じ）。
+認証（<code>username</code> / <code>password</code>）・TLS（<code>ssl</code>）・<code>redis.settings</code> は、単体と同じものを使います。</p>
+<pre class="code"><code class="lang-hocon"><span class="h-c"># AWS ElastiCache / MemoryDB（クラスターモード有効）</span>
+redis {
+	cluster.nodes = [<span class="h-s">"clustercfg.my-cache.xxxxxx.apne1.cache.amazonaws.com:6379"</span>]   <span class="h-c"># 設定エンドポイント</span>
+	ssl      = <span class="h-k">true</span>                        <span class="h-c"># 転送中の暗号化を有効にしているなら</span>
+	password = ${?REDIS_PASSWORD}          <span class="h-c"># AUTH トークン（RBAC ならユーザー名も）</span>
+}
+</code></pre>
+<pre class="code"><code class="lang-hocon"><span class="h-c"># OCI Cache（シャード化されたクラスター）。TLS は必須</span>
+redis {
+	cluster.nodes = [<span class="h-s">"&lt;ディスカバリー・エンドポイントの FQDN&gt;:6379"</span>]
+	ssl = <span class="h-k">true</span>
+}
+</code></pre>
+<ul>
+<li>**書くのは入口だけでよい。**残りのノードは、繋いでからクラスターに教わります。
+自前のクラスターでノードを並べるなら、入口が1つ落ちても繋げるよう2つ以上書いてください</li>
+<li>**マスターだけから読みます。**レプリカからは読みません（書いた直後に読むセッション・ロック・SQL 結果キャッシュの消し込みが、古い値を見ないように）</li>
+<li><strong>接続の数はマスター1つごとです。</strong><code>connection_minimum_idle = 24</code> でマスターが3つなら、アプリ1つにつき最低 72 本を開けておきます。
+台数が多いなら小さくしてください</li>
+<li>**フェイルオーバーのあいだ（数秒〜十数秒）は失敗します。**キャッシュは書けなかったことを <code>false</code> で返し、
+セッションとロックは例外になります。手元のクラスター（<code>cluster-node-timeout 5000</code>）では、マスターを止めてから約 13 秒で戻りました</li>
+<li><strong>TLS の証明書の名前が合わない</strong>（ノードが IP で返ってくる）と繋がりません。そのときだけ <code>ssl_verification = &quot;ca_only&quot;</code>
+（発行元は確かめ、名前は確かめない）にしてください。確かめない（<code>none</code>）は選べません</li>
+<li>1つのクラスターを複数のアプリや環境で分け合うなら、<code>sql_cache.namespace</code> をそれぞれ別の値にしてください（単体と同じ）</li>
+</ul>
 <h2 id="cipherkey-と-authmfasecret_key-は別のもの">cipher.key と auth.mfa.secret_key は別のもの<a class="anchor" href="#cipherkey-と-authmfasecret_key-は別のもの">#</a></h2>
 <p><strong>二要素認証に <code>cipher.key</code> を流用しないでください。</strong></p>
 <p><strong><code>cipher.*</code> を書いたら、<code>hash.password.encrypt</code> も必ず書いてください。</strong>
@@ -773,6 +809,7 @@ jimble {
 			<li class="level-2"><a href="#秘密はファイルに書かない">秘密はファイルに書かない</a></li>
 			<li class="level-2"><a href="#コメントは--か-">コメントは # か //</a></li>
 			<li class="level-2"><a href="#設定キー">設定キー</a></li>
+			<li class="level-2"><a href="#redis-クラスターに繋ぐ">Redis クラスターに繋ぐ</a></li>
 			<li class="level-2"><a href="#cipherkey-と-authmfasecret_key-は別のもの">cipher.key と auth.mfa.secret_key は別のもの</a></li>
 			<li class="level-2"><a href="#trust_proxy-は既定で-false">trust_proxy は既定で false</a></li>
 			<li class="level-2"><a href="#cookiesecure-は既定で-true">cookie.secure は既定で true</a></li>

@@ -382,7 +382,7 @@ session {
 upload {
 	max_file_size  = <span class="h-n">10MiB</span>   <span class="h-c"># per file</span>
 	max_total_size = <span class="h-n">10MiB</span>   <span class="h-c"># per request, in total (keep it level with server.max_request_size)</span>
-	max_files      = <span class="h-n">20</span>      <span class="h-c"># files per request</span>
+	max_files      = <span class="h-n">20</span>      <span class="h-c"># files per request (at most 1000; a request carries at most 1000 parts, fields included)</span>
 	temp_dir       = <span class="h-s">""</span>      <span class="h-c"># empty means java.io.tmpdir</span>
 }
 
@@ -534,9 +534,10 @@ sql_cache {
 }
 
 redis {
-	host = <span class="h-s">""</span>        <span class="h-c"># empty means no Redis</span>
+	host = <span class="h-s">""</span>        <span class="h-c"># empty means no Redis (leave it out for a cluster)</span>
 	port = <span class="h-n">6379</span>
 	ssl  = <span class="h-k">false</span>
+	ssl_verification = <span class="h-s">"strict"</span>   <span class="h-c"># strict | ca_only: how far to check the TLS certificate (since 2.7.12)</span>
 	username = <span class="h-s">""</span>    <span class="h-c"># Redis 6 ACL user; empty sends none</span>
 	password = ${?REDIS_PASSWORD}   <span class="h-c"># empty sends none</span>
 
@@ -552,6 +553,12 @@ redis {
 
 		subscription_connection_minimum_idle_size = <span class="h-n">1</span>
 		subscription_connection_pool_size         = <span class="h-n">50</span>
+	}
+
+	<span class="h-c"># Redis Cluster (since 2.7.12). Writing nodes connects to a cluster; it cannot be combined with host</span>
+	cluster {
+		nodes         = []   <span class="h-c"># a list of "host:port" (or one comma-separated string such as "a:6379,b:6379", handy from an env var)</span>
+		scan_interval = <span class="h-n">5s</span>   <span class="h-c"># how often to re-read the topology (failover, nodes added or removed)</span>
 	}
 }
 
@@ -713,6 +720,35 @@ jimble {
 	<span class="h-c"># server.port also takes -Djimble.server.port=8080 (the system property wins)</span>
 }
 </code></pre>
+<h2 id="connecting-to-a-redis-cluster">Connecting to a Redis Cluster<a class="anchor" href="#connecting-to-a-redis-cluster">#</a></h2>
+<p><strong>Writing <code>redis.cluster.nodes</code> connects to a Redis Cluster</strong> (since 2.7.12).
+If you also write <code>redis.host</code>, there is no telling which one you meant, so startup stops (checked in <code>DBUtil.load</code>, as are malformed nodes and ports).
+Authentication (<code>username</code> / <code>password</code>), TLS (<code>ssl</code>) and <code>redis.settings</code> are shared with the single-server setup.</p>
+<pre class="code"><code class="lang-hocon"><span class="h-c"># AWS ElastiCache / MemoryDB (cluster mode enabled)</span>
+redis {
+	cluster.nodes = [<span class="h-s">"clustercfg.my-cache.xxxxxx.apne1.cache.amazonaws.com:6379"</span>]   <span class="h-c"># configuration endpoint</span>
+	ssl      = <span class="h-k">true</span>                        <span class="h-c"># if in-transit encryption is on</span>
+	password = ${?REDIS_PASSWORD}          <span class="h-c"># AUTH token (and a username with RBAC)</span>
+}
+</code></pre>
+<pre class="code"><code class="lang-hocon"><span class="h-c"># OCI Cache (sharded cluster). TLS is required</span>
+redis {
+	cluster.nodes = [<span class="h-s">"&lt;discovery endpoint FQDN&gt;:6379"</span>]
+	ssl = <span class="h-k">true</span>
+}
+</code></pre>
+<ul>
+<li><strong>An entry point is enough.</strong> The other nodes are learned from the cluster after connecting.
+If you list the nodes of your own cluster, write two or more so that one being down does not stop the connection</li>
+<li><strong>Reads go to masters only</strong>, never to replicas, so sessions, locks and SQL-cache invalidation never see a stale value right after a write</li>
+<li><strong>Connection counts are per master.</strong> With <code>connection_minimum_idle = 24</code> and three masters, each app keeps at least 72 connections open.
+Lower it if you run many instances</li>
+<li><strong>Operations fail during a failover (a few seconds to a dozen or so).</strong> The cache reports a failed write as <code>false</code>;
+sessions and locks throw. On a local cluster (<code>cluster-node-timeout 5000</code>) it recovered about 13 seconds after a master was stopped</li>
+<li><strong>If the TLS certificate name does not match</strong> (nodes are announced by IP), the connection fails. Only then set
+<code>ssl_verification = &quot;ca_only&quot;</code> (the issuer is checked, the name is not). Not checking at all (<code>none</code>) is not offered</li>
+<li>If several apps or environments share one cluster, give each its own <code>sql_cache.namespace</code>, as with a single server</li>
+</ul>
 <h2 id="cipherkey-and-authmfasecret_key-are-different-keys"><code>cipher.key</code> and <code>auth.mfa.secret_key</code> are different keys<a class="anchor" href="#cipherkey-and-authmfasecret_key-are-different-keys">#</a></h2>
 <p><strong>Do not reuse <code>cipher.key</code> for two-factor auth.</strong></p>
 <p><strong>If you set <code>cipher.*</code>, you must also set <code>hash.password.encrypt</code>.</strong> Leave it out and
@@ -783,6 +819,7 @@ Put <code>cookie { secure = false }</code> in your local <code>application.conf<
 			<li class="level-2"><a href="#do-not-write-secrets-in-the-file">Do not write secrets in the file</a></li>
 			<li class="level-2"><a href="#comments-are--or-">Comments are # or //</a></li>
 			<li class="level-2"><a href="#every-key">Every key</a></li>
+			<li class="level-2"><a href="#connecting-to-a-redis-cluster">Connecting to a Redis Cluster</a></li>
 			<li class="level-2"><a href="#cipherkey-and-authmfasecret_key-are-different-keys">cipher.key and auth.mfa.secret_key are different keys</a></li>
 			<li class="level-2"><a href="#trust_proxy-is-false-by-default">trust_proxy is false by default</a></li>
 			<li class="level-2"><a href="#cookiesecure-is-true-by-default">cookie.secure is true by default</a></li>

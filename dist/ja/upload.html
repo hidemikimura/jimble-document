@@ -340,6 +340,18 @@
 <td><strong>413</strong>「アップロードのサイズが上限（N バイト）を超えています」</td>
 </tr>
 <tr>
+<td>部分（項目とファイル）が 1,000 個を超えた</td>
+<td><strong>413</strong>「アップロードできる部分（項目とファイル）は 1000 個までです」</td>
+</tr>
+<tr>
+<td>大きさを名乗らない本文（chunked）が <code>server.max_request_size</code> を超えた</td>
+<td><strong>413</strong>「リクエストのサイズが上限（N バイト）を超えています」</td>
+</tr>
+<tr>
+<td>大きさを名乗った本文（Content-Length）が <code>server.max_request_size</code> を超えた</td>
+<td><strong>413</strong>（サーバーがルートに届く前に断ります。アプリのコードは動きません）</td>
+</tr>
+<tr>
 <td>multipart として読めない</td>
 <td><strong>400</strong>「multipart を読めませんでした」</td>
 </tr>
@@ -354,6 +366,17 @@
 大きいものを許すなら、<strong>両方を上げてください</strong>。</p>
 <p>0.6.x までは既定が 50MiB と 10MiB で<strong>食い違っていました</strong>（そのままでは 50MiB は届きません）。
 いまはどちらも 10MiB です。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>max_total_size</code> を <code>server.max_request_size</code> と同じ値にすると、合計の 413（「アップロードのサイズが上限…」）には届きません。</strong>
+本文には multipart の区切りと各部分のヘッダが入るので、ファイルの合計が上限に達する前に本文の上限が先に効きます。
+どちらも 413 ですが、文言と出どころが違います。合計の上限で断りたいなら、<code>max_total_size</code> を区切りの分だけ小さくしてください。</p>
+</div>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>部分は項目も含めて 1,000 個までです</strong>（Helidon が決めていて、設定では変えられません）。
+フォーム項目もファイルも 1 個と数えるので、項目を送るなら、届くファイルはその分だけ減ります。
+<code>upload.max_files</code> を 1,000 より大きくすると、決して届かないので<strong>起動時に落ちます</strong>。</p>
+<p>2.7.11 までは、部分の数の超過と chunked の本文の超過が <strong>400</strong>「multipart を読めませんでした」で返っていました。</p>
 </div>
 <h2 id="保存する">保存する<a class="anchor" href="#保存する">#</a></h2>
 <p><strong>保存のヘルパはありません。</strong><code>uploadFile.file</code> を JDK の <code>Files</code> で写します。</p>

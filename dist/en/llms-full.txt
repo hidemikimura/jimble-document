@@ -946,6 +946,9 @@ parentheses is a gloss, not what the response says.
 | --- | --- |
 | Too many files | **413**「アップロードできるファイル数は N 件までです」（"at most N files"） |
 | One file, or the total, over the limit | **413**「アップロードのサイズが上限（N バイト）を超えています」（"over the N byte limit"） |
+| More than 1,000 parts (fields and files) | **413**「アップロードできる部分（項目とファイル）は 1000 個までです」（"at most 1000 parts, fields and files"） |
+| A body with no declared length (chunked) over `server.max_request_size` | **413**「リクエストのサイズが上限（N バイト）を超えています」（"request over the N byte limit"） |
+| A body with a declared length (Content-Length) over `server.max_request_size` | **413** (the server refuses it before routing; your code never runs) |
 | Not readable as multipart | **400**「multipart を読めませんでした」（"could not read the multipart body"） |
 
 Size is checked **as the data is read**. Measure it after taking everything in
@@ -956,6 +959,19 @@ and you have already written the excess to disk.
 > If `upload.max_total_size` is larger, **startup fails** — the server cuts the body
 > first, so the limit you wrote could never be reached.
 > If you want to allow large uploads, raise both.
+
+> [!WARN]
+> **With `max_total_size` equal to `server.max_request_size`, the total-size 413 (「アップロードのサイズが上限…」) is never reached.**
+> The body also carries the multipart boundaries and each part's headers, so the body limit bites before
+> the files add up to the total. Both are 413, but the message and the source differ. If you want the
+> total-size limit to be the one that fires, set `max_total_size` lower by the boundary overhead.
+
+> [!WARN]
+> **A request can carry at most 1,000 parts, fields included** (Helidon fixes this; it is not configurable).
+> Fields and files each count as one part, so every field you send leaves room for one file fewer.
+> Setting `upload.max_files` above 1,000 can never be reached, so **startup fails**.
+>
+> Up to 2.7.11, too many parts and an oversized chunked body came back as **400**「multipart を読めませんでした」.
 
 ## Saving
 
@@ -7683,7 +7699,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.12-SNAPSHOT
+jimble 2.7.13-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7707,7 +7723,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.12-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.13-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7842,9 +7858,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.11"
-	id("io.jimble.run") version "2.7.11"
-	id("io.jimble.db")  version "2.7.11"
+	id("io.jimble.jte") version "2.7.12"
+	id("io.jimble.run") version "2.7.12"
+	id("io.jimble.db")  version "2.7.12"
 }
 ```
 
@@ -7891,9 +7907,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.11"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.11"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.11"   // if you use a database
+	id("io.jimble.jte") version "2.7.12"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.12"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.12"   // if you use a database
 }
 
 repositories {
@@ -7909,7 +7925,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.11")
+	implementation("io.jimble:jimble-web:2.7.12")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7943,7 +7959,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.11' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.12' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -8846,7 +8862,7 @@ session {
 upload {
 	max_file_size  = 10MiB   # per file
 	max_total_size = 10MiB   # per request, in total (keep it level with server.max_request_size)
-	max_files      = 20      # files per request
+	max_files      = 20      # files per request (at most 1000; a request carries at most 1000 parts, fields included)
 	temp_dir       = ""      # empty means java.io.tmpdir
 }
 
@@ -8998,9 +9014,10 @@ sql_cache {
 }
 
 redis {
-	host = ""        # empty means no Redis
+	host = ""        # empty means no Redis (leave it out for a cluster)
 	port = 6379
 	ssl  = false
+	ssl_verification = "strict"   # strict | ca_only: how far to check the TLS certificate (since 2.7.12)
 	username = ""    # Redis 6 ACL user; empty sends none
 	password = ${?REDIS_PASSWORD}   # empty sends none
 
@@ -9016,6 +9033,12 @@ redis {
 
 		subscription_connection_minimum_idle_size = 1
 		subscription_connection_pool_size         = 50
+	}
+
+	# Redis Cluster (since 2.7.12). Writing nodes connects to a cluster; it cannot be combined with host
+	cluster {
+		nodes         = []   # a list of "host:port" (or one comma-separated string such as "a:6379,b:6379", handy from an env var)
+		scan_interval = 5s   # how often to re-read the topology (failover, nodes added or removed)
 	}
 }
 
@@ -9177,6 +9200,40 @@ jimble {
 	# server.port also takes -Djimble.server.port=8080 (the system property wins)
 }
 ```
+
+## Connecting to a Redis Cluster
+
+**Writing `redis.cluster.nodes` connects to a Redis Cluster** (since 2.7.12).
+If you also write `redis.host`, there is no telling which one you meant, so startup stops (checked in `DBUtil.load`, as are malformed nodes and ports).
+Authentication (`username` / `password`), TLS (`ssl`) and `redis.settings` are shared with the single-server setup.
+
+```hocon
+# AWS ElastiCache / MemoryDB (cluster mode enabled)
+redis {
+	cluster.nodes = ["clustercfg.my-cache.xxxxxx.apne1.cache.amazonaws.com:6379"]   # configuration endpoint
+	ssl      = true                        # if in-transit encryption is on
+	password = ${?REDIS_PASSWORD}          # AUTH token (and a username with RBAC)
+}
+```
+
+```hocon
+# OCI Cache (sharded cluster). TLS is required
+redis {
+	cluster.nodes = ["<discovery endpoint FQDN>:6379"]
+	ssl = true
+}
+```
+
+- **An entry point is enough.** The other nodes are learned from the cluster after connecting.
+  If you list the nodes of your own cluster, write two or more so that one being down does not stop the connection
+- **Reads go to masters only**, never to replicas, so sessions, locks and SQL-cache invalidation never see a stale value right after a write
+- **Connection counts are per master.** With `connection_minimum_idle = 24` and three masters, each app keeps at least 72 connections open.
+  Lower it if you run many instances
+- **Operations fail during a failover (a few seconds to a dozen or so).** The cache reports a failed write as `false`;
+  sessions and locks throw. On a local cluster (`cluster-node-timeout 5000`) it recovered about 13 seconds after a master was stopped
+- **If the TLS certificate name does not match** (nodes are announced by IP), the connection fails. Only then set
+  `ssl_verification = "ca_only"` (the issuer is checked, the name is not). Not checking at all (`none`) is not offered
+- If several apps or environments share one cluster, give each its own `sql_cache.namespace`, as with a single server
 
 ## `cipher.key` and `auth.mfa.secret_key` are different keys
 
