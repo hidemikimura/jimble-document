@@ -91,6 +91,10 @@
 				<a href="execution"
 				   class="">Execution model</a>
 			</li>
+			<li>
+				<a href="captcha"
+				   class="">Bot protection (ALTCHA)</a>
+			</li>
 		</ul>
 		<p class="section">Database</p>
 		<ul>
@@ -499,6 +503,13 @@ hash {
 rate_limit {
 	enabled = <span class="h-k">true</span>
 	store   = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
+}
+
+altcha {
+	secret      = ${?ALTCHA_SECRET}   <span class="h-c"># signs the challenges (32+ characters; always from the environment)</span>
+	cost        = <span class="h-n">5000</span>                <span class="h-c"># weight of one attempt (PBKDF2 iterations)</span>
+	counter_max = <span class="h-n">10000</span>               <span class="h-c"># upper bound of the answer (picked from half of it up to it)</span>
+	expires     = <span class="h-n">10m</span>                 <span class="h-c"># how long a challenge stays valid</span>
 }
 
 cache {

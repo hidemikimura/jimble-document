@@ -21,6 +21,7 @@
 - [レートリミット](https://jimble.io/ja/ratelimit.md): ルートに宣言する。トークンバケット、メモリ / Redis / DB
 - [ログインと認可](https://jimble.io/ja/auth.md): before 1行と、ルート属性だけ。既定は「閉じている」
 - [実行モデル](https://jimble.io/ja/execution.md): リクエストごとに仮想スレッド。何がどのスレッドで動くか
+- [ロボット対策（ALTCHA）](https://jimble.io/ja/captcha.md): 外のサービスに登録せずに、フォームの送り手が人かを確かめる
 
 ## データベース
 

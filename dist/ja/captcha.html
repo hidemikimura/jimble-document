@@ -1,0 +1,374 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ロボット対策（ALTCHA） - jimble</title>
+<meta name="description" content="外のサービスに登録せずに、フォームの送り手が人かを確かめる">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">本文へ</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="検索" autocomplete="off" aria-label="検索">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="page">日本語</a>
+		<a href="../en/"
+		 aria-current="false">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="目次">
+		<p class="section">はじめに</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">jimble とは</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">5分で最初のエンドポイント</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">考え方</a>
+			</li>
+		</ul>
+		<p class="section">基本</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">ルーティング</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">リクエストとレスポンス</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">ファイルアップロード</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">検証とページング</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">エラー処理</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">テンプレート</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">静的ファイルと SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">セッションと安全側の既定</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">レートリミット</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">ログインと認可</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">実行モデル</a>
+			</li>
+			<li>
+				<a href="captcha"
+				   class="current">ロボット対策（ALTCHA）</a>
+			</li>
+		</ul>
+		<p class="section">データベース</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">DB を使う</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">トランザクション</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">遅延読み込みと先読み</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">キャッシュとロック</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">マイグレーションとコード生成</a>
+			</li>
+			<li>
+				<a href="multi-db"
+				   class="">同じ作りの DB を並べる</a>
+			</li>
+		</ul>
+		<p class="section">実行基盤</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">バッチ</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+			<li>
+				<a href="mail"
+				   class="">メール</a>
+			</li>
+		</ul>
+		<p class="section">プロトコル</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">開発</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">jimble コマンド</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle プラグイン</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">ホットリロード</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">テスト</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">設定</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">サーバー設定</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">ログ</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">本番で動かす</a>
+			</li>
+		</ul>
+		<p class="section">そのほか</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">落とし穴</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">ユーティリティ</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">jooby からの移行</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">セキュリティ</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">版と互換性</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">2.0 への移行</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="ロボット対策altcha">ロボット対策（ALTCHA）<a class="anchor" href="#ロボット対策altcha">#</a></h1>
+<p>フォームを送る前に、<strong>ブラウザに少し重い計算を解かせ</strong>、答えをサーバーで確かめます（proof-of-work）。
+画像の文字を読ませる CAPTCHA と違い、利用者は「私はロボットではありません」に印を付けて数秒待つだけです。</p>
+<ul>
+<li>**外のサービスへの登録が要りません。**reCAPTCHA や Turnstile と違い、運営者もテナントも、どこにも申し込みません</li>
+<li>**別のサーバーは要りません。**問題を作るのも確かめるのも、アプリの中です</li>
+<li>**ドメインを登録しません。**独自ドメインのテナントがいくつあっても、そのまま使えます</li>
+<li>利用者のデータは外に出ません</li>
+</ul>
+<p>ブラウザ側は <a href="https://altcha.org">ALTCHA</a> のウィジェット（<code>altcha</code> 3.x。MIT）を使います。
+jimble が作るのは、サーバー側の 2 つ（問題を返すルートと、答えを確かめるフィルタ）です。</p>
+<h2 id="書くこと">書くこと<a class="anchor" href="#書くこと">#</a></h2>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/altcha/challenge"</span>, Altcha::challenge);
+
+path(<span class="h-s">"/contact"</span>, () -&gt; {
+	before(Altcha::verify);
+	get(<span class="h-s">""</span>, context -&gt; context.response().text(<span class="h-s">"form"</span>));
+	post(<span class="h-s">""</span>, context -&gt; context.response().text(<span class="h-s">"ok"</span>));
+});</code></pre>
+<p><code>Altcha::verify</code> は <code>before</code> と同じで、<strong>書いたブロックにだけ</strong>かかります。
+GET などの状態を変えないメソッドは素通しするので、フォームを出すルートと同じブロックに置けます。</p>
+<p>鍵を設定に書きます。<strong>32 文字以上で、必ず環境変数から読んでください。</strong></p>
+<pre class="code"><code class="lang-conf">altcha {
+	secret = ${?ALTCHA_SECRET}
+}
+</code></pre>
+<p>鍵を書いていない・短いときは、問題を作るところ（<code>/altcha/challenge</code>）と確かめるところで止まります。</p>
+<h2 id="ウィジェットを置く">ウィジェットを置く<a class="anchor" href="#ウィジェットを置く">#</a></h2>
+<pre class="code"><code class="lang-html">&lt;script type="module" src="https://cdn.jsdelivr.net/npm/altcha@3.5.0/dist/main/altcha.js"&gt;&lt;/script&gt;
+
+&lt;form method="post" action="/contact"&gt;
+	...
+	&lt;altcha-widget challenge="/altcha/challenge"&gt;&lt;/altcha-widget&gt;
+	&lt;button&gt;送る&lt;/button&gt;
+&lt;/form&gt;
+</code></pre>
+<ul>
+<li>版は<strong>決めて書きます</strong>（<code>altcha@3</code> のように幅を持たせない）。npm から入れて自分で配ってもかまいません</li>
+<li>ウィジェットは、解いた答えをフォームの <code>altcha</code> 項目に入れて送ります</li>
+<li>フォームでなく <code>fetch</code> で送るなら、答えを JSON の本文の <code>altcha</code> か、<code>X-Altcha</code> ヘッダに入れます</li>
+<li>CSP を掛けているアプリは、ウィジェットが Web Worker を使うので、ALTCHA の文書を見て許可を足してください（jimble は既定で CSP を出しません）</li>
+</ul>
+<h2 id="断られたとき">断られたとき<a class="anchor" href="#断られたとき">#</a></h2>
+<p>答えが無い・形が違う・期限切れ・書き換えてある・一度使った、のどれでも <strong>403</strong> です。</p>
+<table>
+<thead>
+<tr>
+<th>結果（<code>AltchaResult</code>）</th>
+<th>文言</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MISSING</code></td>
+<td>「ロボットでないことの確認（ALTCHA）が送られていません」</td>
+</tr>
+<tr>
+<td><code>MALFORMED</code></td>
+<td>「ロボットでないことの確認（ALTCHA）の形が正しくありません」</td>
+</tr>
+<tr>
+<td><code>EXPIRED</code></td>
+<td>「ロボットでないことの確認（ALTCHA）の期限が切れています。もう一度確かめてください」</td>
+</tr>
+<tr>
+<td><code>INVALID</code></td>
+<td>「ロボットでないことを確かめられませんでした」</td>
+</tr>
+<tr>
+<td><code>REPLAYED</code></td>
+<td>「ロボットでないことの確認（ALTCHA）はもう使われています。もう一度確かめてください」</td>
+</tr>
+</tbody>
+</table>
+<p>403 にせず、フォームを出し直したいときは、<code>Altcha.check</code> で結果を受け取ります。</p>
+<pre class="code"><code class="lang-java">post(<span class="h-s">"/contact"</span>, context -&gt; {
+	AltchaResult result = Altcha.check(context.request().bodyForm().getStringOptional(Altcha.FIELD_NAME));
+	<span class="h-k">if</span> (!result.verified()) {
+		<span class="h-c">// result.message() を出してフォームを返す</span>
+	}
+	...
+});
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p>**<code>Altcha.check</code> は、通った答えを「使った」と記録します。**同じ答えで 2 回呼ぶと、2 回目は <code>REPLAYED</code> です。
+<code>before(Altcha::verify)</code> を掛けたルートの中で、もう一度 <code>check</code> を呼ばないでください。</p>
+</div>
+<h2 id="同じ答えは-1-回だけ">同じ答えは 1 回だけ<a class="anchor" href="#同じ答えは-1-回だけ">#</a></h2>
+<p>一度通った答えは、<strong>期限まで「使った」印を置いて</strong>、もう一度は通しません。
+印は流量制限と同じ置き場（<code>rate_limit.store</code>）に置きます。</p>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong>複数台に並べるなら、<code>rate_limit.store</code> を <code>redis</code> か <code>db</code> にしてください。</strong>
+<code>memory</code> のままだと、印はその台にしかないので、別の台に送られた同じ答えは通ります。</p>
+</div>
+<p>置き場が使えないとき（Redis が落ちたなど）は、<strong>ログに出して通します</strong>。流量制限と同じ扱いで、
+置き場が止まっただけで全部のフォームが送れなくなるのを避けるためです。署名と答えは確かめてあります。</p>
+<h2 id="重さと期限">重さと期限<a class="anchor" href="#重さと期限">#</a></h2>
+<pre class="code"><code class="lang-conf">altcha {
+	cost        = <span class="h-n">5000</span>    <span class="h-c"># 1 回の計算の重さ（PBKDF2 の繰り返し回数）</span>
+	counter_max = <span class="h-n">10000</span>   <span class="h-c"># 答えの数の上限。counter_max / 2 〜 counter_max から選ぶ</span>
+	expires     = <span class="h-n">10m</span>     <span class="h-c"># 問題の期限</span>
+}
+</code></pre>
+<p>ブラウザは答えの数を 0 から順に試すので、計算はおよそ <code>cost × 答えの数</code> 回です。
+<strong>既定のままで、10 コアの Mac の Chrome で、答えが上限近くのとき 3.1 秒</strong>でした。
+古いスマートフォンはその数倍かかります。重くするほどボットは嫌がりますが、人も待ちます。</p>
+<p>ウィジェットは、ページを開いたときではなく<strong>触ったときに問題を取りに来る</strong>ので、期限は長くしなくてかまいません。</p>
+<h2 id="これだけでは止めきれない">これだけでは止めきれない<a class="anchor" href="#これだけでは止めきれない">#</a></h2>
+<p>proof-of-work は<strong>ボットに手間を掛けさせる</strong>ものです。計算を厭わないボットは通ります。</p>
+<ul>
+<li>送る回数は <a href="./ratelimit">レートリミット</a> で絞る（<code>/altcha/challenge</code> にも掛けておくと、問題を作らせ続ける攻撃も絞れます）</li>
+<li>ログインの試行は <code>Lockout.attempt</code> で絞る（<a href="./auth">認証</a>）</li>
+</ul>
+
+		</article>
+
+		<nav class="pager" aria-label="前後のページ">
+			<a class="prev" href="execution">
+				<span>前</span>実行モデル
+			</a>
+			<a class="next" href="db">
+				<span>次</span>DB を使う
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="このページの中身">
+		<p class="section">このページ</p>
+		<ul>
+			<li class="level-2"><a href="#書くこと">書くこと</a></li>
+			<li class="level-2"><a href="#ウィジェットを置く">ウィジェットを置く</a></li>
+			<li class="level-2"><a href="#断られたとき">断られたとき</a></li>
+			<li class="level-2"><a href="#同じ答えは-1-回だけ">同じ答えは 1 回だけ</a></li>
+			<li class="level-2"><a href="#重さと期限">重さと期限</a></li>
+			<li class="level-2"><a href="#これだけでは止めきれない">これだけでは止めきれない</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — Java 製の Web アプリケーションフレームワーク / Apache-2.0</p>
+	<p class="note">このサイトは jimble のテンプレート（jte）で作った静的 HTML です。外部の CDN には繋いでいません。</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>

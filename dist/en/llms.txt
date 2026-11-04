@@ -21,6 +21,7 @@
 - [Login and authorization](https://jimble.io/en/auth.md): One line of before, plus route attributes. Closed by default
 - [Rate limiting](https://jimble.io/en/ratelimit.md): Declared on the route. Token bucket, memory / Redis / DB
 - [Execution model](https://jimble.io/en/execution.md): One virtual thread per request. What runs on which thread
+- [Bot protection (ALTCHA)](https://jimble.io/en/captcha.md): Check that a form's sender is a person, without signing up for any outside service
 
 ## Database
 

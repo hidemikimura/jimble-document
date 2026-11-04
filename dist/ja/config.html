@@ -91,6 +91,10 @@
 				<a href="execution"
 				   class="">実行モデル</a>
 			</li>
+			<li>
+				<a href="captcha"
+				   class="">ロボット対策（ALTCHA）</a>
+			</li>
 		</ul>
 		<p class="section">データベース</p>
 		<ul>
@@ -491,6 +495,13 @@ hash {
 rate_limit {
 	enabled = <span class="h-k">true</span>
 	store   = <span class="h-s">"db"</span>     <span class="h-c"># db | memory | redis</span>
+}
+
+altcha {
+	secret      = ${?ALTCHA_SECRET}   <span class="h-c"># 問題に署名する鍵（32 文字以上。必ず環境変数から）</span>
+	cost        = <span class="h-n">5000</span>                <span class="h-c"># 1 回の計算の重さ（PBKDF2 の繰り返し回数）</span>
+	counter_max = <span class="h-n">10000</span>               <span class="h-c"># 答えの数の上限（半分〜上限から選ぶ）</span>
+	expires     = <span class="h-n">10m</span>                 <span class="h-c"># 問題の期限</span>
 }
 
 cache {

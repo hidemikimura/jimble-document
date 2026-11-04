@@ -5,6 +5,7 @@
 	<url><loc>https://jimble.io/ja/auth</loc></url>
 	<url><loc>https://jimble.io/ja/batch</loc></url>
 	<url><loc>https://jimble.io/ja/cache</loc></url>
+	<url><loc>https://jimble.io/ja/captcha</loc></url>
 	<url><loc>https://jimble.io/ja/cli</loc></url>
 	<url><loc>https://jimble.io/ja/codegen</loc></url>
 	<url><loc>https://jimble.io/ja/config</loc></url>
@@ -46,6 +47,7 @@
 	<url><loc>https://jimble.io/en/auth</loc></url>
 	<url><loc>https://jimble.io/en/batch</loc></url>
 	<url><loc>https://jimble.io/en/cache</loc></url>
+	<url><loc>https://jimble.io/en/captcha</loc></url>
 	<url><loc>https://jimble.io/en/cli</loc></url>
 	<url><loc>https://jimble.io/en/codegen</loc></url>
 	<url><loc>https://jimble.io/en/config</loc></url>

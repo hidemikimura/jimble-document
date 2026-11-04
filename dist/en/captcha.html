@@ -1,0 +1,375 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot protection (ALTCHA) - jimble</title>
+<meta name="description" content="Check that a form&#39;s sender is a person, without signing up for any outside service">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxYjFmMjQiLz48dGV4dCB4PSIzMiIgeT0iNDUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ajwvdGV4dD48L3N2Zz4=">
+<link rel="stylesheet" href="../static/site.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+	<a class="brand" href="./">jimble</a>
+	<div class="search">
+		<input type="search" id="q" placeholder="Search" autocomplete="off" aria-label="Search">
+		<ul id="results" hidden></ul>
+	</div>
+	<nav class="lang">
+		<a href="../ja/"
+		 aria-current="false">日本語</a>
+		<a href="../en/"
+		 aria-current="page">English</a>
+	</nav>
+</header>
+
+<div class="layout">
+
+	<nav class="side" aria-label="Pages">
+		<p class="section">Getting started</p>
+		<ul>
+			<li>
+				<a href="index"
+				   class="">What jimble is</a>
+			</li>
+			<li>
+				<a href="quickstart"
+				   class="">Your first endpoint in 5 minutes</a>
+			</li>
+			<li>
+				<a href="principles"
+				   class="">Principles</a>
+			</li>
+		</ul>
+		<p class="section">Basics</p>
+		<ul>
+			<li>
+				<a href="routing"
+				   class="">Routing</a>
+			</li>
+			<li>
+				<a href="request-response"
+				   class="">Request and response</a>
+			</li>
+			<li>
+				<a href="upload"
+				   class="">File upload</a>
+			</li>
+			<li>
+				<a href="validation"
+				   class="">Validation and paging</a>
+			</li>
+			<li>
+				<a href="errors"
+				   class="">Error handling</a>
+			</li>
+			<li>
+				<a href="view"
+				   class="">Templates</a>
+			</li>
+			<li>
+				<a href="assets"
+				   class="">Static files and SPA</a>
+			</li>
+			<li>
+				<a href="session-security"
+				   class="">Sessions and safe defaults</a>
+			</li>
+			<li>
+				<a href="auth"
+				   class="">Login and authorization</a>
+			</li>
+			<li>
+				<a href="ratelimit"
+				   class="">Rate limiting</a>
+			</li>
+			<li>
+				<a href="execution"
+				   class="">Execution model</a>
+			</li>
+			<li>
+				<a href="captcha"
+				   class="current">Bot protection (ALTCHA)</a>
+			</li>
+		</ul>
+		<p class="section">Database</p>
+		<ul>
+			<li>
+				<a href="db"
+				   class="">Using the DB</a>
+			</li>
+			<li>
+				<a href="sql"
+				   class="">SQL DSL</a>
+			</li>
+			<li>
+				<a href="transaction"
+				   class="">Transactions</a>
+			</li>
+			<li>
+				<a href="async"
+				   class="">Lazy loading and prefetch</a>
+			</li>
+			<li>
+				<a href="cache"
+				   class="">Cache and locks</a>
+			</li>
+			<li>
+				<a href="codegen"
+				   class="">Migrations and code generation</a>
+			</li>
+			<li>
+				<a href="multi-db"
+				   class="">Lining up databases with the same tables</a>
+			</li>
+		</ul>
+		<p class="section">Runtime</p>
+		<ul>
+			<li>
+				<a href="batch"
+				   class="">Batch</a>
+			</li>
+			<li>
+				<a href="mq"
+				   class="">MQ</a>
+			</li>
+			<li>
+				<a href="mail"
+				   class="">Mail</a>
+			</li>
+		</ul>
+		<p class="section">Protocols</p>
+		<ul>
+			<li>
+				<a href="sse"
+				   class="">SSE</a>
+			</li>
+			<li>
+				<a href="websocket"
+				   class="">WebSocket</a>
+			</li>
+			<li>
+				<a href="mcp"
+				   class="">MCP</a>
+			</li>
+		</ul>
+		<p class="section">Development</p>
+		<ul>
+			<li>
+				<a href="cli"
+				   class="">The jimble command</a>
+			</li>
+			<li>
+				<a href="gradle"
+				   class="">Gradle plugins</a>
+			</li>
+			<li>
+				<a href="hot-reload"
+				   class="">Hot reload</a>
+			</li>
+			<li>
+				<a href="testing"
+				   class="">Testing</a>
+			</li>
+			<li>
+				<a href="config"
+				   class="">Configuration</a>
+			</li>
+			<li>
+				<a href="server"
+				   class="">Server configuration</a>
+			</li>
+			<li>
+				<a href="log"
+				   class="">Logging</a>
+			</li>
+			<li>
+				<a href="deploy"
+				   class="">Running in production</a>
+			</li>
+		</ul>
+		<p class="section">More</p>
+		<ul>
+			<li>
+				<a href="pitfalls"
+				   class="">Traps</a>
+			</li>
+			<li>
+				<a href="util"
+				   class="">Utilities</a>
+			</li>
+			<li>
+				<a href="migration-jooby"
+				   class="">Migrating from jooby</a>
+			</li>
+			<li>
+				<a href="security"
+				   class="">Security</a>
+			</li>
+			<li>
+				<a href="versioning"
+				   class="">Versions and compatibility</a>
+			</li>
+			<li>
+				<a href="migrate-2"
+				   class="">Moving to 2.0</a>
+			</li>
+		</ul>
+	</nav>
+
+	<main id="main">
+		<article>
+			<h1 id="bot-protection-altcha">Bot protection (ALTCHA)<a class="anchor" href="#bot-protection-altcha">#</a></h1>
+<p>Before a form is sent, <strong>the browser solves a moderately heavy computation</strong>, and the server checks the answer
+(proof-of-work). Unlike CAPTCHAs that make people read distorted text, the user ticks &quot;I'm not a robot&quot; and waits a few seconds.</p>
+<ul>
+<li><strong>No outside service to sign up for.</strong> Unlike reCAPTCHA or Turnstile, neither you nor your tenants register anywhere</li>
+<li><strong>No separate server.</strong> Creating and checking challenges both happen inside the app</li>
+<li><strong>No domains to register.</strong> Tenants on their own domains work as they are, however many there are</li>
+<li>Your users' data does not leave your app</li>
+</ul>
+<p>The browser side is the <a href="https://altcha.org">ALTCHA</a> widget (<code>altcha</code> 3.x, MIT).
+jimble provides the two server pieces: a route that hands out challenges, and a filter that checks answers.</p>
+<h2 id="what-you-write">What you write<a class="anchor" href="#what-you-write">#</a></h2>
+<pre class="code"><code class="lang-java">get(<span class="h-s">"/altcha/challenge"</span>, Altcha::challenge);
+
+path(<span class="h-s">"/contact"</span>, () -&gt; {
+	before(Altcha::verify);
+	get(<span class="h-s">""</span>, context -&gt; context.response().text(<span class="h-s">"form"</span>));
+	post(<span class="h-s">""</span>, context -&gt; context.response().text(<span class="h-s">"ok"</span>));
+});</code></pre>
+<p><code>Altcha::verify</code> works like <code>before</code>: <strong>it applies only to the block you write it in.</strong>
+Methods that do not change state (GET and so on) pass straight through, so it can share a block with the route that shows the form.</p>
+<p>Put the key in the configuration. <strong>At least 32 characters, and always read it from the environment.</strong></p>
+<pre class="code"><code class="lang-conf">altcha {
+	secret = ${?ALTCHA_SECRET}
+}
+</code></pre>
+<p>With no key, or a short one, both handing out a challenge (<code>/altcha/challenge</code>) and checking an answer stop with an error.</p>
+<h2 id="placing-the-widget">Placing the widget<a class="anchor" href="#placing-the-widget">#</a></h2>
+<pre class="code"><code class="lang-html">&lt;script type="module" src="https://cdn.jsdelivr.net/npm/altcha@3.5.0/dist/main/altcha.js"&gt;&lt;/script&gt;
+
+&lt;form method="post" action="/contact"&gt;
+	...
+	&lt;altcha-widget challenge="/altcha/challenge"&gt;&lt;/altcha-widget&gt;
+	&lt;button&gt;Send&lt;/button&gt;
+&lt;/form&gt;
+</code></pre>
+<ul>
+<li><strong>Pin the version</strong> (not a range like <code>altcha@3</code>). Installing it from npm and serving it yourself is fine too</li>
+<li>The widget puts the solved answer in the form's <code>altcha</code> field</li>
+<li>If you send with <code>fetch</code> instead of a form, put the answer in the JSON body's <code>altcha</code> or in the <code>X-Altcha</code> header</li>
+<li>If your app sets a CSP, the widget uses Web Workers; check ALTCHA's documentation and add what it needs (jimble sends no CSP by default)</li>
+</ul>
+<h2 id="when-it-refuses">When it refuses<a class="anchor" href="#when-it-refuses">#</a></h2>
+<p>No answer, a malformed one, an expired one, a tampered one, or one already used: all of these are <strong>403</strong>.
+The messages come out of jimble in Japanese; the English in parentheses is a gloss.</p>
+<table>
+<thead>
+<tr>
+<th>Result (<code>AltchaResult</code>)</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MISSING</code></td>
+<td>「ロボットでないことの確認（ALTCHA）が送られていません」（&quot;no ALTCHA answer was sent&quot;）</td>
+</tr>
+<tr>
+<td><code>MALFORMED</code></td>
+<td>「ロボットでないことの確認（ALTCHA）の形が正しくありません」（&quot;the ALTCHA answer is malformed&quot;）</td>
+</tr>
+<tr>
+<td><code>EXPIRED</code></td>
+<td>「ロボットでないことの確認（ALTCHA）の期限が切れています。もう一度確かめてください」（&quot;expired; try again&quot;）</td>
+</tr>
+<tr>
+<td><code>INVALID</code></td>
+<td>「ロボットでないことを確かめられませんでした」（&quot;could not confirm you are not a robot&quot;）</td>
+</tr>
+<tr>
+<td><code>REPLAYED</code></td>
+<td>「ロボットでないことの確認（ALTCHA）はもう使われています。もう一度確かめてください」（&quot;already used; try again&quot;）</td>
+</tr>
+</tbody>
+</table>
+<p>To show the form again instead of a 403, take the result from <code>Altcha.check</code>.</p>
+<pre class="code"><code class="lang-java">post(<span class="h-s">"/contact"</span>, context -&gt; {
+	AltchaResult result = Altcha.check(context.request().bodyForm().getStringOptional(Altcha.FIELD_NAME));
+	<span class="h-k">if</span> (!result.verified()) {
+		<span class="h-c">// show result.message() and return the form</span>
+	}
+	...
+});
+</code></pre>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong><code>Altcha.check</code> records a passing answer as used.</strong> Call it twice with the same answer and the second call returns <code>REPLAYED</code>.
+Do not call <code>check</code> again inside a route already covered by <code>before(Altcha::verify)</code>.</p>
+</div>
+<h2 id="each-answer-passes-once">Each answer passes once<a class="anchor" href="#each-answer-passes-once">#</a></h2>
+<p>Once an answer passes, <strong>a &quot;used&quot; mark is kept until the challenge expires</strong>, and the same answer is refused after that.
+The mark lives in the same store as rate limiting (<code>rate_limit.store</code>).</p>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>If you run more than one instance, set <code>rate_limit.store</code> to <code>redis</code> or <code>db</code>.</strong>
+With <code>memory</code>, the mark exists only on one instance, so the same answer sent to another instance passes.</p>
+</div>
+<p>If the store is unavailable (Redis is down, say), the answer <strong>passes and the failure is logged</strong>. That matches rate limiting:
+a store outage should not stop every form in the app. The signature and the answer have already been checked.</p>
+<h2 id="weight-and-expiry">Weight and expiry<a class="anchor" href="#weight-and-expiry">#</a></h2>
+<pre class="code"><code class="lang-conf">altcha {
+	cost        = <span class="h-n">5000</span>    <span class="h-c"># weight of one attempt (PBKDF2 iterations)</span>
+	counter_max = <span class="h-n">10000</span>   <span class="h-c"># upper bound of the answer, picked from counter_max / 2 up to counter_max</span>
+	expires     = <span class="h-n">10m</span>     <span class="h-c"># how long a challenge stays valid</span>
+}
+</code></pre>
+<p>The browser tries answers from 0 upward, so the work is about <code>cost × answer</code> computations.
+<strong>With the defaults, Chrome on a 10-core Mac took 3.1 seconds for an answer near the upper bound.</strong>
+Older phones take several times that. Heavier settings bother bots more, and people too.</p>
+<p>The widget fetches a challenge <strong>when the user touches it</strong>, not when the page opens, so the expiry does not need to be long.</p>
+<h2 id="this-alone-does-not-stop-everything">This alone does not stop everything<a class="anchor" href="#this-alone-does-not-stop-everything">#</a></h2>
+<p>Proof-of-work <strong>makes bots spend effort</strong>. A bot willing to compute gets through.</p>
+<ul>
+<li>Limit how often forms are sent with <a href="./ratelimit">rate limiting</a> (putting it on <code>/altcha/challenge</code> as well limits floods of challenge requests)</li>
+<li>Limit login attempts with <code>Lockout.attempt</code> (<a href="./auth">authentication</a>)</li>
+</ul>
+
+		</article>
+
+		<nav class="pager" aria-label="Previous and next page">
+			<a class="prev" href="execution">
+				<span>Previous</span>Execution model
+			</a>
+			<a class="next" href="db">
+				<span>Next</span>Using the DB
+			</a>
+		</nav>
+	</main>
+
+	<nav class="toc" aria-label="On this page">
+		<p class="section">On this page</p>
+		<ul>
+			<li class="level-2"><a href="#what-you-write">What you write</a></li>
+			<li class="level-2"><a href="#placing-the-widget">Placing the widget</a></li>
+			<li class="level-2"><a href="#when-it-refuses">When it refuses</a></li>
+			<li class="level-2"><a href="#each-answer-passes-once">Each answer passes once</a></li>
+			<li class="level-2"><a href="#weight-and-expiry">Weight and expiry</a></li>
+			<li class="level-2"><a href="#this-alone-does-not-stop-everything">This alone does not stop everything</a></li>
+		</ul>
+	</nav>
+</div>
+
+<footer class="bottom">
+	<p>jimble — a Java web framework / Apache-2.0</p>
+	<p class="note">This site is static HTML built with jimble's own template engine (jte). It talks to no external CDN.</p>
+</footer>
+
+<script src="../static/search.js"></script>
+<script src="../static/copy.js"></script>
+
+</body>
+</html>
