@@ -683,6 +683,7 @@ scheduler {
 	tick_interval   = <span class="h-n">1s</span>              <span class="h-c"># how often cron is checked</span>
 	exit_check      = <span class="h-n">3s</span>              <span class="h-c"># how often a stop order is checked for</span>
 	execute_threads = <span class="h-n">10</span>              <span class="h-c"># threads that run batches (0 for unlimited)</span>
+	claim_stagger   = <span class="h-n">1s</span>              <span class="h-c"># how long a busy server waits before claiming a cron firing, per batch more than the least busy server (at most 5s; 0s to not wait)</span>
 	queue_name      = <span class="h-s">"mq_scheduler"</span>
 }
 

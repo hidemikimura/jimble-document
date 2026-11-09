@@ -383,8 +383,84 @@ install(() -&gt; assets);
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">補足</p>
-<p>書き換えたときだけ <code>ETag</code> と <code>Last-Modified</code> は付きません（中身がリクエストごとに変わるため）。
-<code>Cache-Control</code> は <code>public,max-age=&lt;assets.max_age&gt;,must-revalidate</code> になります。</p>
+<p>書き換えたときは <code>ETag</code> と <code>Last-Modified</code> を付けず、<code>Cache-Control</code> は <code>private,no-cache</code> になります
+（中身がリクエストごとに変わるので、CDN などの共有キャッシュに置かせない。D-212）。</p>
+</div>
+<h3 id="head-に-titleogp-を入れるspahead">head に title・OGP を入れる（SpaHead）<a class="anchor" href="#head-に-titleogp-を入れるspahead">#</a></h3>
+<p><code>SpaHead</code> を使うと、<strong>テンプレートエンジンを使わずに</strong>、ビルドした index.html の <code>&lt;head&gt;</code> に
+title・description・OGP・canonical・JSON-LD を入れられます。</p>
+<pre class="code"><code class="lang-java">install(() -&gt; SpaHandler.mount(<span class="h-s">"/"</span>, <span class="h-s">"test-spa-head"</span>, spa -&gt; spa
+	.route(<span class="h-s">"/items/{id}"</span>, SpaHead.rewriter(context -&gt; {
+		String id = context.request().bodyPath().getString(<span class="h-s">"id"</span>);
+		<span class="h-k">if</span> (id.equals(<span class="h-s">"0"</span>)) {
+			<span class="h-k">return</span> <span class="h-k">null</span>;    <span class="h-c">// 見つからない：index.html のまま</span>
+		}
+		<span class="h-k">return</span> SpaHead.of()
+			.title(<span class="h-s">"商品 "</span> + id)
+			.description(<span class="h-s">"商品 "</span> + id + <span class="h-s">" の説明"</span>)
+			.canonical(<span class="h-s">"https://shop.example/items/"</span> + id)
+			.og(<span class="h-s">"type"</span>, <span class="h-s">"product"</span>)
+			.og(<span class="h-s">"image"</span>, <span class="h-s">"https://shop.example/items/"</span> + id + <span class="h-s">".jpg"</span>);
+	}))
+));</code></pre>
+<ul>
+<li><strong>index.html には何も書き足しません。</strong><code>&lt;head&gt;</code> に同じタグ（同じ <code>&lt;title&gt;</code>・同じ <code>name</code>・同じ <code>property</code>・canonical）があれば差し替え、
+無ければ <code>&lt;/head&gt;</code> の前に足します。Vite などが出した index.html をそのまま使えます</li>
+<li><strong>書き換えるのは、サーバーが返す最初の HTML だけです。</strong><code>&lt;body&gt;</code> にも JS にも触らないので、
+2 ページ目からブラウザの中で描く動き（CSR）は変わりません</li>
+<li>プレビューの Bot（Slack・X・LINE・Facebook など）は JS を動かさないので、ここで入れた OGP だけを見ます。
+<strong>人にも Bot にも同じものを返す</strong>ので、User-Agent で分けなくてかまいません</li>
+<li>値はすべてエスケープします。JSON-LD（<code>jsonLd(...)</code>）は <code>&lt;</code> を <code>\u003c</code> にして、<code>&lt;/script&gt;</code> で閉じられないようにします</li>
+<li>同じものを 2 回足すと、あとの値になります。足すたびに新しい <code>SpaHead</code> を返します（元は変えません）</li>
+<li>関数が <code>null</code> を返すと、index.html をそのまま返します（見つからないものなど）</li>
+<li>1 ページあたりの手間は、タグ 6 つ・index.html 1.8KB で約 10 マイクロ秒でした</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>入るタグ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>title(...)</code></td>
+<td><code>&lt;title&gt;</code></td>
+</tr>
+<tr>
+<td><code>description(...)</code></td>
+<td><code>&lt;meta name=&quot;description&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>meta(name, ...)</code></td>
+<td><code>&lt;meta name=&quot;...&quot;&gt;</code>（<code>robots</code> など）</td>
+</tr>
+<tr>
+<td><code>og(name, ...)</code></td>
+<td><code>&lt;meta property=&quot;og:...&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>twitter(name, ...)</code></td>
+<td><code>&lt;meta name=&quot;twitter:...&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>property(name, ...)</code></td>
+<td><code>&lt;meta property=&quot;...&quot;&gt;</code>（<code>og:</code> 以外。<code>fb:app_id</code> など）</td>
+</tr>
+<tr>
+<td><code>canonical(url)</code></td>
+<td><code>&lt;link rel=&quot;canonical&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>jsonLd(...)</code></td>
+<td><code>&lt;script type=&quot;application/ld+json&quot;&gt;</code>（文字列か、<code>Data</code> などを JSON にしたもの。いつも足す）</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">補足</p>
+<p>画面を移ったあとの title や meta は、これまでどおりクライアント側（vue-router のフックや <code>@unhead/vue</code> など）で変えてください。
+サーバーが入れたタグはクライアントのライブラリが知らないので、移ったあとも残ることがあります。
+Bot は最初の HTML しか見ないので、Bot に見えるものには影響しません。</p>
 </div>
 <h2 id="mpa">MPA<a class="anchor" href="#mpa">#</a></h2>
 <pre class="code"><code class="lang-java">install(() -&gt; MpaHandler.mount(<span class="h-s">"/docs"</span>, <span class="h-s">"test-mpa"</span>));</code></pre>
@@ -427,6 +503,7 @@ install(() -&gt; assets);
 			<li class="level-3"><a href="#無いもの">無いもの</a></li>
 			<li class="level-2"><a href="#spa">SPA</a></li>
 			<li class="level-3"><a href="#パスごとに-indexhtml-を書き換える">パスごとに index.html を書き換える</a></li>
+			<li class="level-3"><a href="#head-に-titleogp-を入れるspahead">head に title・OGP を入れる（SpaHead）</a></li>
 			<li class="level-2"><a href="#mpa">MPA</a></li>
 			<li class="level-2"><a href="#安全側の既定">安全側の既定</a></li>
 			<li class="level-2"><a href="#開発中に直したとき">開発中に直したとき</a></li>

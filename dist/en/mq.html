@@ -324,6 +324,26 @@ claimed again while it was being processed&quot;, raise <code>mq.stale</code>.</
 	recover_interval = <span class="h-n">1m</span>    <span class="h-c"># how often to put them back; 0s means only when the queue starts</span>
 }
 </code></pre>
+<h4 id="keeping-long-jobs-alive-while-they-run-keepalive">Keeping long jobs alive while they run (<code>keepAlive</code>)<a class="anchor" href="#keeping-long-jobs-alive-while-they-run-keepalive">#</a></h4>
+<p>For an Executor whose jobs can take longer than <code>mq.stale</code>, make <code>keepAlive()</code> return true (since 2.7.14).</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> ExportExecutor <span class="h-k">extends</span> MqExecutor {
+	...
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">boolean</span> keepAlive () {
+		<span class="h-k">return</span> <span class="h-k">true</span>;    <span class="h-c">// keep the running mark fresh while the job runs</span>
+	}
+}
+</code></pre>
+<ul>
+<li>While the job runs, <strong>the row's <code>updated_at</code> is rewritten every third of <code>mq.stale</code></strong>, so a row that is still running is not put back</li>
+<li><strong>Unlike raising <code>mq.stale</code>, this does not delay recovery when the process dies</strong> (nobody is left to keep it fresh, so it comes back after <code>mq.stale</code> as before)</li>
+<li>One thread per process does it, with one <code>UPDATE ... WHERE id IN (...)</code> per queue and data source. It does not run when there is nothing to keep alive</li>
+<li>The default is false (as before)</li>
+</ul>
+<div class="callout callout-warn"><p class="callout-title">Careful</p>
+<p><strong>A job with <code>keepAlive()</code> true is never put back if it never finishes</strong> (a stuck call to an outside service, say).
+If you call outside services, always set a timeout on the call.</p>
+</div>
 <h2 id="registering-it-and-running-it">Registering it and running it<a class="anchor" href="#registering-it-and-running-it">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-c">// create the table</span>
 <span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();

@@ -2000,8 +2000,57 @@ Paths are written the same way as real routes (`{id}`, a trailing `/*`).
 | Your real route list | **Stays separate** (a different instance — requirement F-W-20) |
 
 > [!NOTE]
-> When a rewrite happens — and only then — `ETag` and `Last-Modified` are not attached (the content changes per request).
-> `Cache-Control` becomes `public,max-age=<assets.max_age>,must-revalidate`.
+> A rewritten page gets no `ETag` or `Last-Modified`, and `Cache-Control` becomes `private,no-cache`
+> (the content can change per request, so shared caches such as a CDN must not keep it — D-212).
+
+### Putting title and OGP into the head (SpaHead)
+
+`SpaHead` puts title, description, OGP, canonical and JSON-LD into the `<head>` of your built index.html,
+**without a template engine.**
+
+```java
+install(() -> SpaHandler.mount("/", "test-spa-head", spa -> spa
+	.route("/items/{id}", SpaHead.rewriter(context -> {
+		String id = context.request().bodyPath().getString("id");
+		if (id.equals("0")) {
+			return null;    // 見つからない：index.html のまま
+		}
+		return SpaHead.of()
+			.title("商品 " + id)
+			.description("商品 " + id + " の説明")
+			.canonical("https://shop.example/items/" + id)
+			.og("type", "product")
+			.og("image", "https://shop.example/items/" + id + ".jpg");
+	}))
+));
+```
+
+- **You add nothing to index.html.** If the `<head>` already has the same tag (the same `<title>`, the same `name`, the same `property`, or canonical), it is replaced;
+  otherwise it is inserted before `</head>`. The index.html that Vite and friends produce works as it is
+- **Only the first HTML the server returns is rewritten.** The `<body>` and the JS are untouched,
+  so rendering in the browser from the second page on (CSR) does not change
+- Link-preview bots (Slack, X, LINE, Facebook and so on) run no JS, so they see exactly the OGP put in here.
+  **People and bots get the same page**, so there is no need to branch on the User-Agent
+- Every value is escaped. JSON-LD (`jsonLd(...)`) turns `<` into `\u003c`, so `</script>` cannot close it
+- Adding the same thing twice keeps the later value. Each call returns a new `SpaHead` (the original is unchanged)
+- If your function returns `null`, index.html goes out unchanged (for something that was not found, say)
+- The cost per page was about 10 microseconds for six tags on a 1.8 KB index.html
+
+| Method | Tag |
+| --- | --- |
+| `title(...)` | `<title>` |
+| `description(...)` | `<meta name="description">` |
+| `meta(name, ...)` | `<meta name="...">` (`robots` and so on) |
+| `og(name, ...)` | `<meta property="og:...">` |
+| `twitter(name, ...)` | `<meta name="twitter:...">` |
+| `property(name, ...)` | `<meta property="...">` (other than `og:`, such as `fb:app_id`) |
+| `canonical(url)` | `<link rel="canonical">` |
+| `jsonLd(...)` | `<script type="application/ld+json">` (a string, or `Data` and the like turned into JSON; always added) |
+
+> [!NOTE]
+> Keep changing the title and meta after navigation on the client side, as before (a vue-router hook, `@unhead/vue`, and so on).
+> The client library does not know about tags the server put in, so they can remain after navigation.
+> Bots only read the first HTML, so what bots see is not affected.
 
 ## MPA
 
@@ -6594,6 +6643,12 @@ Even across several servers, **one cron firing runs at most as many times as the
 Every server sees the same firing time, but only the servers that manage to advance the "last fired" time and the "runs in that firing" count in `batch_master` run it.
 Up to 2.5.7 only the number of running copies was checked, so **a batch that finished quickly could run again on a server whose clock reached the same firing a little later** (the check runs every second, plus any clock drift between servers).
 
+**The server that claimed a firing runs it, even if another server is less busy** (since 2.7.14). Up to 2.7.13, a server that was running more batches than another one tried to hand the firing over to the less busy server and skipped it. The other servers can no longer claim that firing, so **it did not run on any server** (the only trace was "同時実行数の上限に達しています" — the concurrency limit was reached). This does not happen with a single server.
+
+Instead, **steering work to less busy servers now happens before a firing is claimed** (since 2.7.14). A server running more batches than the least busy server waits that difference × `scheduler.claim_stagger` (1 second by default, at most 5 seconds) before claiming.
+Every server sees the same firing within `tick_interval` (1 second by default), so the less busy server usually claims it first. If no less busy server claims it (it is stopped, say), the busier server claims it after waiting, so the firing is never lost.
+This steers work "usually", not always (clocks and check intervals differ between servers). Set it to `0s` to not wait at all.
+
 ## Running one on its own
 
 **You write the batch entry point yourself.** The whole startup order is right there in that one file.
@@ -6779,6 +6834,29 @@ mq {
 	recover_interval = 1m    # how often to put them back; 0s means only when the queue starts
 }
 ```
+
+#### Keeping long jobs alive while they run (`keepAlive`)
+
+For an Executor whose jobs can take longer than `mq.stale`, make `keepAlive()` return true (since 2.7.14).
+
+```java
+public class ExportExecutor extends MqExecutor {
+	...
+	@Override
+	public boolean keepAlive () {
+		return true;    // keep the running mark fresh while the job runs
+	}
+}
+```
+
+- While the job runs, **the row's `updated_at` is rewritten every third of `mq.stale`**, so a row that is still running is not put back
+- **Unlike raising `mq.stale`, this does not delay recovery when the process dies** (nobody is left to keep it fresh, so it comes back after `mq.stale` as before)
+- One thread per process does it, with one `UPDATE ... WHERE id IN (...)` per queue and data source. It does not run when there is nothing to keep alive
+- The default is false (as before)
+
+> [!WARN]
+> **A job with `keepAlive()` true is never put back if it never finishes** (a stuck call to an outside service, say).
+> If you call outside services, always set a timeout on the call.
 
 ## Registering it and running it
 
@@ -7825,7 +7903,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.14-SNAPSHOT
+jimble 2.7.15-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7849,7 +7927,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.14-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.15-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -7984,9 +8062,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.13"
-	id("io.jimble.run") version "2.7.13"
-	id("io.jimble.db")  version "2.7.13"
+	id("io.jimble.jte") version "2.7.14"
+	id("io.jimble.run") version "2.7.14"
+	id("io.jimble.db")  version "2.7.14"
 }
 ```
 
@@ -8033,9 +8111,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.13"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.13"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.13"   // if you use a database
+	id("io.jimble.jte") version "2.7.14"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.14"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.14"   // if you use a database
 }
 
 repositories {
@@ -8051,7 +8129,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.13")
+	implementation("io.jimble:jimble-web:2.7.14")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -8085,7 +8163,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.13' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.14' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -9285,6 +9363,7 @@ scheduler {
 	tick_interval   = 1s              # how often cron is checked
 	exit_check      = 3s              # how often a stop order is checked for
 	execute_threads = 10              # threads that run batches (0 for unlimited)
+	claim_stagger   = 1s              # how long a busy server waits before claiming a cron firing, per batch more than the least busy server (at most 5s; 0s to not wait)
 	queue_name      = "mq_scheduler"
 }
 

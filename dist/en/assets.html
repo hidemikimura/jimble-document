@@ -383,8 +383,84 @@ The tree's precedence (fixed segment &gt; path parameter &gt; wildcard) applies 
 </tbody>
 </table>
 <div class="callout callout-note"><p class="callout-title">Note</p>
-<p>When a rewrite happens — and only then — <code>ETag</code> and <code>Last-Modified</code> are not attached (the content changes per request).
-<code>Cache-Control</code> becomes <code>public,max-age=&lt;assets.max_age&gt;,must-revalidate</code>.</p>
+<p>A rewritten page gets no <code>ETag</code> or <code>Last-Modified</code>, and <code>Cache-Control</code> becomes <code>private,no-cache</code>
+(the content can change per request, so shared caches such as a CDN must not keep it — D-212).</p>
+</div>
+<h3 id="putting-title-and-ogp-into-the-head-spahead">Putting title and OGP into the head (SpaHead)<a class="anchor" href="#putting-title-and-ogp-into-the-head-spahead">#</a></h3>
+<p><code>SpaHead</code> puts title, description, OGP, canonical and JSON-LD into the <code>&lt;head&gt;</code> of your built index.html,
+<strong>without a template engine.</strong></p>
+<pre class="code"><code class="lang-java">install(() -&gt; SpaHandler.mount(<span class="h-s">"/"</span>, <span class="h-s">"test-spa-head"</span>, spa -&gt; spa
+	.route(<span class="h-s">"/items/{id}"</span>, SpaHead.rewriter(context -&gt; {
+		String id = context.request().bodyPath().getString(<span class="h-s">"id"</span>);
+		<span class="h-k">if</span> (id.equals(<span class="h-s">"0"</span>)) {
+			<span class="h-k">return</span> <span class="h-k">null</span>;    <span class="h-c">// 見つからない：index.html のまま</span>
+		}
+		<span class="h-k">return</span> SpaHead.of()
+			.title(<span class="h-s">"商品 "</span> + id)
+			.description(<span class="h-s">"商品 "</span> + id + <span class="h-s">" の説明"</span>)
+			.canonical(<span class="h-s">"https://shop.example/items/"</span> + id)
+			.og(<span class="h-s">"type"</span>, <span class="h-s">"product"</span>)
+			.og(<span class="h-s">"image"</span>, <span class="h-s">"https://shop.example/items/"</span> + id + <span class="h-s">".jpg"</span>);
+	}))
+));</code></pre>
+<ul>
+<li><strong>You add nothing to index.html.</strong> If the <code>&lt;head&gt;</code> already has the same tag (the same <code>&lt;title&gt;</code>, the same <code>name</code>, the same <code>property</code>, or canonical), it is replaced;
+otherwise it is inserted before <code>&lt;/head&gt;</code>. The index.html that Vite and friends produce works as it is</li>
+<li><strong>Only the first HTML the server returns is rewritten.</strong> The <code>&lt;body&gt;</code> and the JS are untouched,
+so rendering in the browser from the second page on (CSR) does not change</li>
+<li>Link-preview bots (Slack, X, LINE, Facebook and so on) run no JS, so they see exactly the OGP put in here.
+<strong>People and bots get the same page</strong>, so there is no need to branch on the User-Agent</li>
+<li>Every value is escaped. JSON-LD (<code>jsonLd(...)</code>) turns <code>&lt;</code> into <code>\u003c</code>, so <code>&lt;/script&gt;</code> cannot close it</li>
+<li>Adding the same thing twice keeps the later value. Each call returns a new <code>SpaHead</code> (the original is unchanged)</li>
+<li>If your function returns <code>null</code>, index.html goes out unchanged (for something that was not found, say)</li>
+<li>The cost per page was about 10 microseconds for six tags on a 1.8 KB index.html</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Tag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>title(...)</code></td>
+<td><code>&lt;title&gt;</code></td>
+</tr>
+<tr>
+<td><code>description(...)</code></td>
+<td><code>&lt;meta name=&quot;description&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>meta(name, ...)</code></td>
+<td><code>&lt;meta name=&quot;...&quot;&gt;</code> (<code>robots</code> and so on)</td>
+</tr>
+<tr>
+<td><code>og(name, ...)</code></td>
+<td><code>&lt;meta property=&quot;og:...&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>twitter(name, ...)</code></td>
+<td><code>&lt;meta name=&quot;twitter:...&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>property(name, ...)</code></td>
+<td><code>&lt;meta property=&quot;...&quot;&gt;</code> (other than <code>og:</code>, such as <code>fb:app_id</code>)</td>
+</tr>
+<tr>
+<td><code>canonical(url)</code></td>
+<td><code>&lt;link rel=&quot;canonical&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>jsonLd(...)</code></td>
+<td><code>&lt;script type=&quot;application/ld+json&quot;&gt;</code> (a string, or <code>Data</code> and the like turned into JSON; always added)</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-note"><p class="callout-title">Note</p>
+<p>Keep changing the title and meta after navigation on the client side, as before (a vue-router hook, <code>@unhead/vue</code>, and so on).
+The client library does not know about tags the server put in, so they can remain after navigation.
+Bots only read the first HTML, so what bots see is not affected.</p>
 </div>
 <h2 id="mpa">MPA<a class="anchor" href="#mpa">#</a></h2>
 <pre class="code"><code class="lang-java">install(() -&gt; MpaHandler.mount(<span class="h-s">"/docs"</span>, <span class="h-s">"test-mpa"</span>));</code></pre>
@@ -427,6 +503,7 @@ and the only way to clear that is <code>Resources.clearCache()</code>. With <cod
 			<li class="level-3"><a href="#what-is-not-there">What is not there</a></li>
 			<li class="level-2"><a href="#spa">SPA</a></li>
 			<li class="level-3"><a href="#rewriting-indexhtml-per-path">Rewriting index.html per path</a></li>
+			<li class="level-3"><a href="#putting-title-and-ogp-into-the-head-spahead">Putting title and OGP into the head (SpaHead)</a></li>
 			<li class="level-2"><a href="#mpa">MPA</a></li>
 			<li class="level-2"><a href="#defaults-on-the-safe-side">Defaults on the safe side</a></li>
 			<li class="level-2"><a href="#when-you-edit-during-development">When you edit during development</a></li>

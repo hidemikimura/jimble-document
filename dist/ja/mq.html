@@ -321,6 +321,26 @@
 	recover_interval = <span class="h-n">1m</span>    <span class="h-c"># 戻す間隔。0s なら、キューを起動するときだけ</span>
 }
 </code></pre>
+<h4 id="長くかかる処理は動いている間だけ延ばすkeepalive">長くかかる処理は、動いている間だけ延ばす（<code>keepAlive</code>）<a class="anchor" href="#長くかかる処理は動いている間だけ延ばすkeepalive">#</a></h4>
+<p><code>mq.stale</code> より長くかかる処理がある Executor は、<code>keepAlive()</code> を true にします（2.7.14 から）。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">public</span> <span class="h-k">class</span> ExportExecutor <span class="h-k">extends</span> MqExecutor {
+	...
+	<span class="h-a">@Override</span>
+	<span class="h-k">public</span> <span class="h-k">boolean</span> keepAlive () {
+		<span class="h-k">return</span> <span class="h-k">true</span>;    <span class="h-c">// 処理している間、running の印を延ばし続ける</span>
+	}
+}
+</code></pre>
+<ul>
+<li>処理している間、<strong><code>mq.stale</code> の 1/3 ごとに行の <code>updated_at</code> を書き直す</strong>ので、まだ動いている行は戻されません</li>
+<li><strong><code>mq.stale</code> を長くするのと違い、プロセスが落ちたときに戻るまでの時間は延びません</strong>（落ちれば延ばす人がいないので、これまでどおり <code>mq.stale</code> で戻ります）</li>
+<li>延ばすのはプロセスで 1 本のスレッドで、キューとデータソースごとに 1 本の <code>UPDATE ... WHERE id IN (...)</code> でまとめて打ちます。延ばす行が無いときは動きません</li>
+<li>既定は false です（これまでと同じ）</li>
+</ul>
+<div class="callout callout-warn"><p class="callout-title">注意</p>
+<p><strong><code>keepAlive()</code> を true にした処理は、終わらなければいつまでも戻されません</strong>（止まった外部の呼び出しなど）。
+外部を呼ぶなら、呼ぶ側で必ずタイムアウトを付けてください。</p>
+</div>
 <h2 id="登録して回す">登録して回す<a class="anchor" href="#登録して回す">#</a></h2>
 <pre class="code"><code class="lang-java"><span class="h-c">// テーブルを用意する</span>
 <span class="h-k">new</span> MqQueue(NoticeExecutor.QUEUE_NAME).install();

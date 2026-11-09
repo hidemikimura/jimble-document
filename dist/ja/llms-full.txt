@@ -1989,8 +1989,57 @@ install(() -> SpaHandler.mount("/app", "test-spa", spa -> spa
 | 本体のルート一覧 | **混ざらない**（別インスタンス。要件 F-W-20） |
 
 > [!NOTE]
-> 書き換えたときだけ `ETag` と `Last-Modified` は付きません（中身がリクエストごとに変わるため）。
-> `Cache-Control` は `public,max-age=<assets.max_age>,must-revalidate` になります。
+> 書き換えたときは `ETag` と `Last-Modified` を付けず、`Cache-Control` は `private,no-cache` になります
+> （中身がリクエストごとに変わるので、CDN などの共有キャッシュに置かせない。D-212）。
+
+### head に title・OGP を入れる（SpaHead）
+
+`SpaHead` を使うと、**テンプレートエンジンを使わずに**、ビルドした index.html の `<head>` に
+title・description・OGP・canonical・JSON-LD を入れられます。
+
+```java
+install(() -> SpaHandler.mount("/", "test-spa-head", spa -> spa
+	.route("/items/{id}", SpaHead.rewriter(context -> {
+		String id = context.request().bodyPath().getString("id");
+		if (id.equals("0")) {
+			return null;    // 見つからない：index.html のまま
+		}
+		return SpaHead.of()
+			.title("商品 " + id)
+			.description("商品 " + id + " の説明")
+			.canonical("https://shop.example/items/" + id)
+			.og("type", "product")
+			.og("image", "https://shop.example/items/" + id + ".jpg");
+	}))
+));
+```
+
+- **index.html には何も書き足しません。**`<head>` に同じタグ（同じ `<title>`・同じ `name`・同じ `property`・canonical）があれば差し替え、
+  無ければ `</head>` の前に足します。Vite などが出した index.html をそのまま使えます
+- **書き換えるのは、サーバーが返す最初の HTML だけです。**`<body>` にも JS にも触らないので、
+  2 ページ目からブラウザの中で描く動き（CSR）は変わりません
+- プレビューの Bot（Slack・X・LINE・Facebook など）は JS を動かさないので、ここで入れた OGP だけを見ます。
+  **人にも Bot にも同じものを返す**ので、User-Agent で分けなくてかまいません
+- 値はすべてエスケープします。JSON-LD（`jsonLd(...)`）は `<` を `\u003c` にして、`</script>` で閉じられないようにします
+- 同じものを 2 回足すと、あとの値になります。足すたびに新しい `SpaHead` を返します（元は変えません）
+- 関数が `null` を返すと、index.html をそのまま返します（見つからないものなど）
+- 1 ページあたりの手間は、タグ 6 つ・index.html 1.8KB で約 10 マイクロ秒でした
+
+| メソッド | 入るタグ |
+| --- | --- |
+| `title(...)` | `<title>` |
+| `description(...)` | `<meta name="description">` |
+| `meta(name, ...)` | `<meta name="...">`（`robots` など） |
+| `og(name, ...)` | `<meta property="og:...">` |
+| `twitter(name, ...)` | `<meta name="twitter:...">` |
+| `property(name, ...)` | `<meta property="...">`（`og:` 以外。`fb:app_id` など） |
+| `canonical(url)` | `<link rel="canonical">` |
+| `jsonLd(...)` | `<script type="application/ld+json">`（文字列か、`Data` などを JSON にしたもの。いつも足す） |
+
+> [!NOTE]
+> 画面を移ったあとの title や meta は、これまでどおりクライアント側（vue-router のフックや `@unhead/vue` など）で変えてください。
+> サーバーが入れたタグはクライアントのライブラリが知らないので、移ったあとも残ることがあります。
+> Bot は最初の HTML しか見ないので、Bot に見えるものには影響しません。
 
 ## MPA
 
@@ -6415,6 +6464,12 @@ java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_b
 どの台にも同じ回の時刻が来ますが、`batch_master` の「最後に走らせた回」と「その回で走らせた数」を進められた台だけが走らせます。
 2.5.7 までは「いま走っている数」だけで止めていたので、**ほかの台より早く終わるバッチは、時刻が少し遅れて来た台でもう一度走ることがありました**（確かめる間隔は1秒、それに台どうしの時計のずれが加わります）。
 
+**回を取った台は、ほかの台のほうが空いていても譲りません**（2.7.14 から）。2.7.13 までは、取った台がほかの台より多くのバッチを走らせていると、空いている台に譲ろうとしてその回を飛ばしていました。ほかの台はもうその回を取れないので、**その回はどの台でも走りませんでした**（「同時実行数の上限に達しています」とだけ出ます）。1台で動かしているときは起きません。
+
+そのかわり、**空いている台に寄せるのは、回を取りにいく前に行います**（2.7.14 から）。いま走らせているバッチが、いちばん少ない台より多い台は、その差 × `scheduler.claim_stagger`（既定 1 秒。上限 5 秒）だけ待ってから取りにいきます。
+どの台にも同じ回の時刻が `tick_interval`（既定 1 秒）以内に来るので、たいていは空いている台が先に取ります。空いている台が取らなければ（止まっているなど）、待ったあとで自分が取るので、回は消えません。
+寄せるのは「たいてい」で、必ずではありません（時計のずれや、確かめる間隔のずれがあるため）。`0s` にすると待ちません。
+
 ## 単体で走らせる
 
 バッチの入口は**自分で書きます**。起動の順番がそのファイルに全部出ます。
@@ -6597,6 +6652,29 @@ mq {
 	recover_interval = 1m    # 戻す間隔。0s なら、キューを起動するときだけ
 }
 ```
+
+#### 長くかかる処理は、動いている間だけ延ばす（`keepAlive`）
+
+`mq.stale` より長くかかる処理がある Executor は、`keepAlive()` を true にします（2.7.14 から）。
+
+```java
+public class ExportExecutor extends MqExecutor {
+	...
+	@Override
+	public boolean keepAlive () {
+		return true;    // 処理している間、running の印を延ばし続ける
+	}
+}
+```
+
+- 処理している間、**`mq.stale` の 1/3 ごとに行の `updated_at` を書き直す**ので、まだ動いている行は戻されません
+- **`mq.stale` を長くするのと違い、プロセスが落ちたときに戻るまでの時間は延びません**（落ちれば延ばす人がいないので、これまでどおり `mq.stale` で戻ります）
+- 延ばすのはプロセスで 1 本のスレッドで、キューとデータソースごとに 1 本の `UPDATE ... WHERE id IN (...)` でまとめて打ちます。延ばす行が無いときは動きません
+- 既定は false です（これまでと同じ）
+
+> [!WARN]
+> **`keepAlive()` を true にした処理は、終わらなければいつまでも戻されません**（止まった外部の呼び出しなど）。
+> 外部を呼ぶなら、呼ぶ側で必ずタイムアウトを付けてください。
 
 ## 登録して回す
 
@@ -7617,7 +7695,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.14-SNAPSHOT
+jimble 2.7.15-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -7640,7 +7718,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.7.14-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.7.15-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -7770,9 +7848,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.13"
-	id("io.jimble.run") version "2.7.13"
-	id("io.jimble.db")  version "2.7.13"
+	id("io.jimble.jte") version "2.7.14"
+	id("io.jimble.run") version "2.7.14"
+	id("io.jimble.db")  version "2.7.14"
 }
 ```
 
@@ -7817,9 +7895,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.13"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.7.13"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.7.13"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.14"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.14"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.14"   // DB を使うなら
 }
 
 repositories {
@@ -7835,7 +7913,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.13")
+	implementation("io.jimble:jimble-web:2.7.14")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -7869,7 +7947,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.13' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.14' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか
@@ -9040,6 +9118,7 @@ scheduler {
 	tick_interval   = 1s              # cron を確かめる間隔
 	exit_check      = 3s              # 止められていないか確かめる間隔
 	execute_threads = 10              # バッチを走らせるスレッド数（0 で無制限）
+	claim_stagger   = 1s              # cron の回を取りにいく前に、忙しい台が待つ時間（いちばん少ない台より1本多いごと。上限 5 秒。0s で待たない）
 	queue_name      = "mq_scheduler"
 }
 
