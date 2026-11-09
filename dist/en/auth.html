@@ -1338,7 +1338,7 @@ a passkey is bound to only one rp_id. Decide first which domain serves the login
 </tr>
 <tr>
 <td>Origin</td>
-<td>Anything not in <code>origins</code> is refused, and so are calls from inside another site's iframe (<code>crossOrigin</code>)</td>
+<td>Anything not in <code>origins</code> is refused. <strong>Only an exact match passes; subdomains are not allowed</strong> (even with rp_id <code>example.com</code>, a call from <code>shop.example.com</code> is refused unless it is listed in <code>origins</code>). Calls from inside another site's iframe (<code>crossOrigin</code>) are refused too</td>
 </tr>
 <tr>
 <td>User verification</td>
@@ -1375,7 +1375,7 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 <tbody>
 <tr>
 <td>Storage</td>
-<td>The <code>auth_passkey</code> table. <strong>Needs a DB and sessions</strong>. Used challenges are kept in <code>auth_passkey_challenge</code> and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions)</td>
+<td>The <code>auth_passkey</code> table. <strong>Needs a DB and sessions</strong>. Used challenges are kept in <code>auth_passkey_challenge</code> and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions). The indexes are <code>(realm, rp_id, user_id)</code> and <code>(realm, user_id)</code>, so listing without a site and <code>deleteAll</code> read only that user's rows (since 2.7.16; a table from an earlier version gets the index the next time passkeys are used)</td>
 </tr>
 <tr>
 <td>Realms</td>

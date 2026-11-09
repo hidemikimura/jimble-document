@@ -3412,7 +3412,7 @@ post("/passkey/login", c -> {
 | | |
 | --- | --- |
 | Challenge | Kept in the session and **usable once**. Refused after `timeout`. A registration challenge only works for the user who was logged in when it was issued |
-| Origin | Anything not in `origins` is refused, and so are calls from inside another site's iframe (`crossOrigin`) |
+| Origin | Anything not in `origins` is refused. **Only an exact match passes; subdomains are not allowed** (even with rp_id `example.com`, a call from `shop.example.com` is refused unless it is listed in `origins`). Calls from inside another site's iframe (`crossOrigin`) are refused too |
 | User verification | **On-device user verification (UV) is always required.** A security key that was only touched (UP) does not pass |
 | Signature | Verified with the registered public key (ES256 / EdDSA / RS256, all with the JDK alone) |
 | User | The user handle the browser returns must match the registered one |
@@ -3431,7 +3431,7 @@ Passkey.deleteAll("", me.id());                        // account deletion, etc.
 
 | | |
 | --- | --- |
-| Storage | The `auth_passkey` table. **Needs a DB and sessions**. Used challenges are kept in `auth_passkey_challenge` and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions) |
+| Storage | The `auth_passkey` table. **Needs a DB and sessions**. Used challenges are kept in `auth_passkey_challenge` and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions). The indexes are `(realm, rp_id, user_id)` and `(realm, user_id)`, so listing without a site and `deleteAll` read only that user's rows (since 2.7.16; a table from an earlier version gets the index the next time passkeys are used) |
 | Realms | Split by the route's `Auth.REALM` (registration and login use the route's realm; listing and deleting also take a realm) |
 | A lost device | Have the user log in another way (a password, say) and remove it with `Passkey.delete`. `Auth.revoke` only stops current sessions; the passkey stays |
 
@@ -7949,7 +7949,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.16-SNAPSHOT
+jimble 2.7.17-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7973,7 +7973,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.16-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.17-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -8108,9 +8108,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.15"
-	id("io.jimble.run") version "2.7.15"
-	id("io.jimble.db")  version "2.7.15"
+	id("io.jimble.jte") version "2.7.16"
+	id("io.jimble.run") version "2.7.16"
+	id("io.jimble.db")  version "2.7.16"
 }
 ```
 
@@ -8157,9 +8157,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.15"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.15"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.15"   // if you use a database
+	id("io.jimble.jte") version "2.7.16"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.16"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.16"   // if you use a database
 }
 
 repositories {
@@ -8175,7 +8175,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.15")
+	implementation("io.jimble:jimble-web:2.7.16")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -8209,7 +8209,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.15' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.16' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on

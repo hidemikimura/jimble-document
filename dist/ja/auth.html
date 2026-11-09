@@ -1336,7 +1336,7 @@ post(<span class="h-s">"/passkey/login"</span>, c -&gt; {
 </tr>
 <tr>
 <td>オリジン</td>
-<td><code>origins</code> に無いものは断ります。別のサイトの iframe の中からの呼び出し（<code>crossOrigin</code>）も断ります</td>
+<td><code>origins</code> に無いものは断ります。<strong>並べたものと完全に一致するものだけを通し、サブドメインは許しません</strong>（rp_id が <code>example.com</code> でも、<code>origins</code> に無い <code>shop.example.com</code> からの呼び出しは断ります）。別のサイトの iframe の中からの呼び出し（<code>crossOrigin</code>）も断ります</td>
 </tr>
 <tr>
 <td>本人確認</td>
@@ -1373,7 +1373,7 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 <tbody>
 <tr>
 <td>置き場</td>
-<td><code>auth_passkey</code> テーブル。<strong>DB とセッションが要ります</strong>。使ったチャレンジは <code>auth_passkey_challenge</code> に残し、同じものは2度通しません（2.5.2 から。cookie のセッションで、取られた要求を送り直させないため）</td>
+<td><code>auth_passkey</code> テーブル。<strong>DB とセッションが要ります</strong>。使ったチャレンジは <code>auth_passkey_challenge</code> に残し、同じものは2度通しません（2.5.2 から。cookie のセッションで、取られた要求を送り直させないため）。索引は <code>(realm, rp_id, user_id)</code> と <code>(realm, user_id)</code> で、サイトを渡さない一覧と <code>deleteAll</code> も、その人の行だけを引きます（2.7.16 から。前の版の表には、次に使ったときに足します）</td>
 </tr>
 <tr>
 <td>種別</td>

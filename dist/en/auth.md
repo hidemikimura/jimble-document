@@ -903,7 +903,7 @@ post("/passkey/login", c -> {
 | | |
 | --- | --- |
 | Challenge | Kept in the session and **usable once**. Refused after `timeout`. A registration challenge only works for the user who was logged in when it was issued |
-| Origin | Anything not in `origins` is refused, and so are calls from inside another site's iframe (`crossOrigin`) |
+| Origin | Anything not in `origins` is refused. **Only an exact match passes; subdomains are not allowed** (even with rp_id `example.com`, a call from `shop.example.com` is refused unless it is listed in `origins`). Calls from inside another site's iframe (`crossOrigin`) are refused too |
 | User verification | **On-device user verification (UV) is always required.** A security key that was only touched (UP) does not pass |
 | Signature | Verified with the registered public key (ES256 / EdDSA / RS256, all with the JDK alone) |
 | User | The user handle the browser returns must match the registered one |
@@ -922,7 +922,7 @@ Passkey.deleteAll("", me.id());                        // account deletion, etc.
 
 | | |
 | --- | --- |
-| Storage | The `auth_passkey` table. **Needs a DB and sessions**. Used challenges are kept in `auth_passkey_challenge` and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions) |
+| Storage | The `auth_passkey` table. **Needs a DB and sessions**. Used challenges are kept in `auth_passkey_challenge` and never accepted twice (since 2.5.2; so a captured request cannot be replayed with cookie sessions). The indexes are `(realm, rp_id, user_id)` and `(realm, user_id)`, so listing without a site and `deleteAll` read only that user's rows (since 2.7.16; a table from an earlier version gets the index the next time passkeys are used) |
 | Realms | Split by the route's `Auth.REALM` (registration and login use the route's realm; listing and deleting also take a realm) |
 | A lost device | Have the user log in another way (a password, say) and remove it with `Passkey.delete`. `Auth.revoke` only stops current sessions; the passkey stays |
 
