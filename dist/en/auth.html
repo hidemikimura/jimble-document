@@ -1392,6 +1392,75 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 keeps getting in with it even after the password is changed.</p>
 <p><strong>Put a rate limit on the passkey login endpoints</strong> (<code>RateLimit</code>). Guessing does not work, but every issued challenge creates a session.</p>
 </div>
+<h3 id="using-passkeys-without-auth">Using passkeys without Auth<a class="anchor" href="#using-passkeys-without-auth">#</a></h3>
+<p><strong>Apps that keep the login in their own session and do not use jimble's <code>Auth</code></strong> use the methods that take a realm and a user ID (since 2.7.15).
+They never look at <code>Auth.principal</code>, <code>Auth.login</code>, or the route's <code>Auth.REALM</code>.</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// Registration (the app checks that this is the user first, e.g. by asking for the password again)</span>
+post(<span class="h-s">"/admin/passkey/register/options"</span>, c -&gt; {
+	<span class="h-k">long</span> me = myLoggedInUserId(c);    <span class="h-c">// the app's own login</span>
+	c.response().json(Passkey.registrationOptions(c, rp(c), <span class="h-s">"admin"</span>, me, myLoginId(c)));
+});
+post(<span class="h-s">"/admin/passkey/register"</span>, c -&gt; {
+	Passkey.register(c, rp(c), <span class="h-s">"admin"</span>, myLoggedInUserId(c), c.request().bodyJson(), <span class="h-s">"Laptop"</span>);
+	c.response().json(<span class="h-s">"ok"</span>, <span class="h-k">true</span>);
+});
+
+<span class="h-c">// Login (verification only; the app logs the user in)</span>
+post(<span class="h-s">"/admin/passkey/login/options"</span>, c -&gt; c.response().json(Passkey.loginOptions(c, rp(c), <span class="h-s">"admin"</span>)));
+post(<span class="h-s">"/admin/passkey/login"</span>, c -&gt; {
+	OptionalLong id = Passkey.authenticate(c, rp(c), <span class="h-s">"admin"</span>, c.request().bodyJson());
+	Admin admin = id.isPresent() ? admins.findActive(id.getAsLong()).orElse(<span class="h-k">null</span>) : <span class="h-k">null</span>;   <span class="h-c">// the app refuses disabled, deleted or other-tenant users</span>
+	<span class="h-k">if</span> (admin == <span class="h-k">null</span>) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">401</span>, <span class="h-s">"Could not log in with the passkey"</span>);
+	}
+	c.session().regenerateId();       <span class="h-c">// the app also regenerates the session ID</span>
+	myLogin(c, admin);
+	c.response().json(<span class="h-s">"ok"</span>, <span class="h-k">true</span>);
+});
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>registrationOptions(c, rp, realm, userId, userName)</code></td>
+<td>Keeps the challenge in the session, bound to the realm, user ID and site. The user's passkeys already registered for this site go into <code>excludeCredentials</code>. <strong>Does not check that anyone is logged in or who they are</strong> (the caller's job)</td>
+</tr>
+<tr>
+<td><code>register(c, rp, realm, userId, credential, label)</code></td>
+<td>Refuses with 400 if the realm, user ID or site differ from the options (so nobody can finish someone else's registration). 400 if verification fails, 409 if already registered</td>
+</tr>
+<tr>
+<td><code>loginOptions(c, rp, realm)</code></td>
+<td>Issues the challenge for the given realm instead of the route attribute</td>
+</tr>
+<tr>
+<td><code>authenticate(c, rp, realm, credential)</code></td>
+<td>Checks everything in &quot;What is checked&quot;, advances <code>last_used_at</code> and the signature counter, and <strong>returns the user ID</strong>. <strong>Returns empty on failure</strong> (no exception) and logs the reason only as a warning. Neither calls <code>Auth.login</code> nor regenerates the session ID</td>
+</tr>
+<tr>
+<td>Realm</td>
+<td>Same rule as <code>Auth.checkRealm</code> (letters, digits, <code>_</code>, <code>-</code>, up to 64; empty for no realm); otherwise <code>IllegalArgumentException</code>. The user ID must be 1 or more</td>
+</tr>
+<tr>
+<td>Session</td>
+<td><strong>Calls <code>session().save()</code> itself when it stores or removes the challenge.</strong> Saving again at the end of the request is fine. A session store (<code>session.store</code>) is required</td>
+</tr>
+<tr>
+<td>Tables</td>
+<td>The same <code>auth_passkey</code> and <code>auth_passkey_challenge</code> as the <code>Auth</code> methods. <strong>Created in the default data source (<code>DBUtil.getMainDB()</code>) on first use.</strong> <code>db.&lt;name&gt;.framework_tables</code> only limits the per-data-source tables (<code>db_lock</code> and so on) and has no effect on the passkey tables, which cannot be put in another data source</td>
+</tr>
+</tbody>
+</table>
+<p>They share the table with passkeys registered through <code>Auth</code>, separated by realm. For listing and deleting, use the realm-taking <code>Passkey.list(realm, rp, userId)</code>, <code>Passkey.delete(realm, userId, id)</code> and <code>Passkey.deleteAll(realm, userId)</code>.</p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>An ID from <code>authenticate</code> does not mean the user may get in.</strong> Look the ID up again to refuse disabled, deleted or other-tenant users.
+<strong>Regenerate the session ID when logging in</strong> (<code>session().regenerateId()</code>). Otherwise anyone who knew the pre-login session ID gets in too.</p>
+</div>
 <h2 id="basic-auth">Basic auth<a class="anchor" href="#basic-auth">#</a></h2>
 <p>Operational endpoints can use Basic auth
 (<a href="./request-response">Requests and responses</a>).</p>
@@ -1487,6 +1556,7 @@ keeps getting in with it even after the password is changed.</p>
 			<li class="level-3"><a href="#when-each-client-has-its-own-domain-saas">When each client has its own domain (SaaS)</a></li>
 			<li class="level-3"><a href="#what-is-checked">What is checked</a></li>
 			<li class="level-3"><a href="#listing-and-deleting">Listing and deleting</a></li>
+			<li class="level-3"><a href="#using-passkeys-without-auth">Using passkeys without Auth</a></li>
 			<li class="level-2"><a href="#basic-auth">Basic auth</a></li>
 			<li class="level-2"><a href="#what-this-does-not-do-2">What this does not do</a></li>
 		</ul>

@@ -1390,6 +1390,75 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 パスワードを変えられても、そのパスキーで入り続けられます。</p>
 <p><strong>パスキーのログインの口には、流量制限を掛けてください</strong>（<code>RateLimit</code>）。総当たりは効きませんが、チャレンジを出すたびにセッションを作ります。</p>
 </div>
+<h3 id="auth-を使わないアプリから使う">Auth を使わないアプリから使う<a class="anchor" href="#auth-を使わないアプリから使う">#</a></h3>
+<p><strong>ログインを自分のセッションで持ち、jimble の <code>Auth</code> を使わないアプリ</strong>は、種別と利用者 ID を渡す口を使います（2.7.15 から）。
+<code>Auth.principal</code> も <code>Auth.login</code> もルートの <code>Auth.REALM</code> も見ません。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 登録（本人であることは、アプリが確かめてから呼ぶ。パスワードの入れ直しなど）</span>
+post(<span class="h-s">"/admin/passkey/register/options"</span>, c -&gt; {
+	<span class="h-k">long</span> me = myLoggedInUserId(c);    <span class="h-c">// アプリのログイン</span>
+	c.response().json(Passkey.registrationOptions(c, rp(c), <span class="h-s">"admin"</span>, me, myLoginId(c)));
+});
+post(<span class="h-s">"/admin/passkey/register"</span>, c -&gt; {
+	Passkey.register(c, rp(c), <span class="h-s">"admin"</span>, myLoggedInUserId(c), c.request().bodyJson(), <span class="h-s">"ノート PC"</span>);
+	c.response().json(<span class="h-s">"ok"</span>, <span class="h-k">true</span>);
+});
+
+<span class="h-c">// ログイン（確かめるだけ。ログインはアプリがさせる）</span>
+post(<span class="h-s">"/admin/passkey/login/options"</span>, c -&gt; c.response().json(Passkey.loginOptions(c, rp(c), <span class="h-s">"admin"</span>)));
+post(<span class="h-s">"/admin/passkey/login"</span>, c -&gt; {
+	OptionalLong id = Passkey.authenticate(c, rp(c), <span class="h-s">"admin"</span>, c.request().bodyJson());
+	Admin admin = id.isPresent() ? admins.findActive(id.getAsLong()).orElse(<span class="h-k">null</span>) : <span class="h-k">null</span>;   <span class="h-c">// 止めた・消した・テナント違いはアプリが断る</span>
+	<span class="h-k">if</span> (admin == <span class="h-k">null</span>) {
+		<span class="h-k">throw</span> <span class="h-k">new</span> HttpException(<span class="h-n">401</span>, <span class="h-s">"パスキーでログインできませんでした"</span>);
+	}
+	c.session().regenerateId();       <span class="h-c">// ID の振り直しもアプリがする</span>
+	myLogin(c, admin);
+	c.response().json(<span class="h-s">"ok"</span>, <span class="h-k">true</span>);
+});
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>registrationOptions(c, rp, realm, userId, userName)</code></td>
+<td>チャレンジをセッションに置き、種別・利用者 ID・サイトに結びつけます。その人がこのサイトで登録済みのパスキーは <code>excludeCredentials</code> に入ります。<strong>ログインしているか・本人かは確かめません</strong>（呼ぶ側の責任）</td>
+</tr>
+<tr>
+<td><code>register(c, rp, realm, userId, credential, label)</code></td>
+<td>options で渡した種別・利用者 ID・サイトと違えば 400 で断ります（ほかの人の登録の手続きを使わせない）。確かめられなければ 400、登録済みなら 409 です</td>
+</tr>
+<tr>
+<td><code>loginOptions(c, rp, realm)</code></td>
+<td>ルートの属性ではなく、渡した種別のチャレンジを出します</td>
+</tr>
+<tr>
+<td><code>authenticate(c, rp, realm, credential)</code></td>
+<td>「何を確かめるか」の表のすべてを確かめ、通れば <code>last_used_at</code> と署名の回数を進めて<strong>利用者 ID を返します</strong>。<strong>通らなければ空</strong>（例外にしません）で、理由はログ（warn）にだけ出します。<code>Auth.login</code> もセッション ID の振り直しもしません</td>
+</tr>
+<tr>
+<td>種別</td>
+<td><code>Auth.checkRealm</code> と同じ決まり（英数字・<code>_</code>・<code>-</code> の 64 文字まで。種別なしは空文字）。違えば <code>IllegalArgumentException</code> です。利用者 ID は 1 以上</td>
+</tr>
+<tr>
+<td>セッション</td>
+<td><strong>チャレンジを置く・消すときに、中で <code>session().save()</code> します</strong>。アプリが要求の終わりに保存し直してもかまいません。セッション（<code>session.store</code>）は要ります</td>
+</tr>
+<tr>
+<td>表</td>
+<td><code>Auth</code> の口と同じ <code>auth_passkey</code> と <code>auth_passkey_challenge</code> です。<strong>既定のデータソース（<code>DBUtil.getMainDB()</code>）に、初めて使ったときに作ります。</strong><code>db.&lt;名前&gt;.framework_tables</code> はデータソースごとに作る表（<code>db_lock</code> など）だけを絞るもので、パスキーの表には効きません。ほかのデータソースに作ることはできません</td>
+</tr>
+</tbody>
+</table>
+<p><code>Auth</code> の口で登録したパスキーと同じ表に並び、種別で分かれます。一覧と削除は、種別を渡す <code>Passkey.list(realm, rp, userId)</code>・<code>Passkey.delete(realm, userId, id)</code>・<code>Passkey.deleteAll(realm, userId)</code> を使います。</p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**<code>authenticate</code> が ID を返しても、その人を入れてよいとは限りません。**止めた利用者・消した利用者・ほかのテナントの利用者かは、返った ID でアプリが引き直して確かめてください。
+<strong>ログインさせるときは、セッション ID を振り直してください</strong>（<code>session().regenerateId()</code>）。振り直さないと、ログインの前に渡したセッション ID を知っている人が、そのまま入れます。</p>
+</div>
 <h2 id="basic-認証">Basic 認証<a class="anchor" href="#basic-認証">#</a></h2>
 <p>運用向けの口には Basic 認証が使えます（<a href="./request-response">リクエストとレスポンス</a>）。</p>
 <pre class="code"><code class="lang-java">path(<span class="h-s">"/ops"</span>, () -&gt; {
@@ -1484,6 +1553,7 @@ Passkey.deleteAll(<span class="h-s">""</span>, me.id());                        
 			<li class="level-3"><a href="#クライアントごとにドメインが違うときsaas">クライアントごとにドメインが違うとき（SaaS）</a></li>
 			<li class="level-3"><a href="#何を確かめるか">何を確かめるか</a></li>
 			<li class="level-3"><a href="#一覧と削除">一覧と削除</a></li>
+			<li class="level-3"><a href="#auth-を使わないアプリから使う">Auth を使わないアプリから使う</a></li>
 			<li class="level-2"><a href="#basic-認証">Basic 認証</a></li>
 			<li class="level-2"><a href="#やらないこと-2">やらないこと</a></li>
 		</ul>
