@@ -6552,6 +6552,9 @@ java -cp app.jar ... class=com.example.ArchiveBatch data_source=shop_b
 どの台にも同じ回の時刻が `tick_interval`（既定 1 秒）以内に来るので、たいていは空いている台が先に取ります。空いている台が取らなければ（止まっているなど）、待ったあとで自分が取るので、回は消えません。
 寄せるのは「たいてい」で、必ずではありません（時計のずれや、確かめる間隔のずれがあるため）。`0s` にすると待ちません。
 
+**DB が止まって戻ったときも、同時実行数より多くは走りません**（2.7.18 から）。DB が止まっているあいだは心拍（`batch_execute_info.updated_at`。`batch.heartbeat` ごと）を打てないので、戻った直後の回には、動いているバッチの行が古く見えます（`batch.alive` より古い行は数に入らず、その 3 倍より古い行は消されます）。その回で 2 本目が起動したら、心拍が途切れていた 1 本目が、次に DB に届いたときに数え直して**退きます**（中断の指示が立ちます）。2.7.17 までは数え直さなかったので、止まるたびに 1 本ずつ増えていました。
+退けるのは中断の指示を見て抜けるバッチだけです。**`isCancelOrder()` を見ないバッチは、終わるまで走ります**（数には入るので、それ以上は増えません）。
+
 ## 単体で走らせる
 
 バッチの入口は**自分で書きます**。起動の順番がそのファイルに全部出ます。
@@ -7777,7 +7780,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.18-SNAPSHOT
+jimble 2.7.19-SNAPSHOT
 ```
 
 毎回書きたくなければ、`~/.zshrc` に上の `export` を足すか、リンクを張ってください。
@@ -7800,7 +7803,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### 手元でビルドした jimble を使うとき
 
 `jimble new` が作る `build.gradle.kts` は、**CLI をビルドした版**を参照します。
-公開していない版（`2.7.18-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
+公開していない版（`2.7.19-SNAPSHOT` など）なら、**先にローカルへ publish**してください。
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -7930,9 +7933,9 @@ jar の `Implementation-Version` を読んでいます。
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.17"
-	id("io.jimble.run") version "2.7.17"
-	id("io.jimble.db")  version "2.7.17"
+	id("io.jimble.jte") version "2.7.18"
+	id("io.jimble.run") version "2.7.18"
+	id("io.jimble.db")  version "2.7.18"
 }
 ```
 
@@ -7977,9 +7980,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.17"   // src/main/jte を使うなら
-	id("io.jimble.run") version "2.7.17"   // ホットリロードを使うなら
-	id("io.jimble.db")  version "2.7.17"   // DB を使うなら
+	id("io.jimble.jte") version "2.7.18"   // src/main/jte を使うなら
+	id("io.jimble.run") version "2.7.18"   // ホットリロードを使うなら
+	id("io.jimble.db")  version "2.7.18"   // DB を使うなら
 }
 
 repositories {
@@ -7995,7 +7998,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.17")
+	implementation("io.jimble:jimble-web:2.7.18")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -8029,7 +8032,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.17' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.18' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## どれを依存に足すか

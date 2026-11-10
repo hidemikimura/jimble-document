@@ -6731,6 +6731,9 @@ Instead, **steering work to less busy servers now happens before a firing is cla
 Every server sees the same firing within `tick_interval` (1 second by default), so the less busy server usually claims it first. If no less busy server claims it (it is stopped, say), the busier server claims it after waiting, so the firing is never lost.
 This steers work "usually", not always (clocks and check intervals differ between servers). Set it to `0s` to not wait at all.
 
+**A database outage does not let more than the limit run either** (since 2.7.18). While the database is down, the heartbeat (`batch_execute_info.updated_at`, every `batch.heartbeat`) cannot be written, so right after it comes back the running batch's row looks old (rows older than `batch.alive` are not counted, and rows older than three times that are deleted). If a second copy starts in that window, the first one, whose heartbeat was interrupted, recounts the next time it reaches the database and **steps aside** (its cancel order is set). Up to 2.7.17 nothing recounted, so each outage could add one more copy.
+Only a batch that checks the cancel order can step aside. **A batch that never calls `isCancelOrder()` runs until it finishes** (it is still counted, so no further copies start).
+
 ## Running one on its own
 
 **You write the batch entry point yourself.** The whole startup order is right there in that one file.
@@ -7985,7 +7988,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.18-SNAPSHOT
+jimble 2.7.19-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -8009,7 +8012,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.18-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.19-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -8144,9 +8147,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.17"
-	id("io.jimble.run") version "2.7.17"
-	id("io.jimble.db")  version "2.7.17"
+	id("io.jimble.jte") version "2.7.18"
+	id("io.jimble.run") version "2.7.18"
+	id("io.jimble.db")  version "2.7.18"
 }
 ```
 
@@ -8193,9 +8196,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.17"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.17"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.17"   // if you use a database
+	id("io.jimble.jte") version "2.7.18"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.18"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.18"   // if you use a database
 }
 
 repositories {
@@ -8211,7 +8214,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.17")
+	implementation("io.jimble:jimble-web:2.7.18")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -8245,7 +8248,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.17' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.18' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
