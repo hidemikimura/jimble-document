@@ -496,6 +496,13 @@ hash {
 		<span class="h-c"># If you set cipher.*, you must set this too (startup fails otherwise)</span>
 		encrypt = <span class="h-k">false</span>
 		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># only for 1.x compatibility. gives no protection (below). cannot be rotated</span>
+		algorithm = <span class="h-s">"argon2id"</span>   <span class="h-c"># argon2id (default since 2.7.17) | bcrypt. checking tells them apart by prefix, so stored hashes keep working after a change</span>
+		argon2 {
+			memory      = <span class="h-n">19MiB</span>   <span class="h-c"># memory per hash (8KiB per lane up to 1GiB)</span>
+			iterations  = <span class="h-n">2</span>       <span class="h-c"># passes (1-100)</span>
+			parallelism = <span class="h-n">1</span>       <span class="h-c"># lanes (1-64)</span>
+			max_concurrency = <span class="h-n">8</span>   <span class="h-c"># hashes computed at once (default: CPU count; the rest wait). each holds memory, so lower it on a small heap</span>
+		}
 		cost    = <span class="h-n">10</span>   <span class="h-c"># bcrypt cost (4-31). each step doubles the time. bcrypt ignores everything past 72 bytes</span>
 	}
 }
@@ -789,7 +796,7 @@ was added.</p>
 </tr>
 </tbody>
 </table>
-<p>An app with no <code>cipher.*</code> at all needs no setting, exactly as before (BCrypt only, no
+<p>An app with no <code>cipher.*</code> at all needs no setting, exactly as before (hash only, no
 encryption).</p>
 <h2 id="trust_proxy-is-false-by-default">trust_proxy is false by default<a class="anchor" href="#trust_proxy-is-false-by-default">#</a></h2>
 <p>Set it to <code>true</code> and <code>X-Forwarded-For</code> is trusted.

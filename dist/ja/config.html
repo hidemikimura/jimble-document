@@ -488,6 +488,13 @@ hash {
 		<span class="h-c"># cipher.* を書くなら、これも必ず書く（書かないと起動時に落ちる）</span>
 		encrypt = <span class="h-k">false</span>
 		pepper  = ${?PASSWORD_PEPPER}   <span class="h-c"># 1.x との互換のためだけ。守りにならない（下記）。入れ替えられない</span>
+		algorithm = <span class="h-s">"argon2id"</span>   <span class="h-c"># argon2id（既定。2.7.17 から）| bcrypt。照合はハッシュの頭で見分けるので、変えても保存済みのものは照合できる</span>
+		argon2 {
+			memory      = <span class="h-n">19MiB</span>   <span class="h-c"># 1 回に使うメモリ（並列 1 つあたり 8KiB〜1GiB）</span>
+			iterations  = <span class="h-n">2</span>       <span class="h-c"># 繰り返し（1〜100）</span>
+			parallelism = <span class="h-n">1</span>       <span class="h-c"># 並列（1〜64）</span>
+			max_concurrency = <span class="h-n">8</span>   <span class="h-c"># 同時に計算する数の上限（既定は CPU の数。超えた分は待つ）。1 回ごとに memory を持つので、ヒープが小さければ下げる</span>
+		}
 		cost    = <span class="h-n">10</span>   <span class="h-c"># bcrypt のコスト（4〜31）。1 上げると倍の時間。72 バイトより後ろは bcrypt が読まない</span>
 	}
 }
@@ -782,7 +789,7 @@ redis {
 </tbody>
 </table>
 <p><code>cipher.*</code> をまったく書いていないアプリは、これまでどおり何も書かなくて構いません
-（暗号化なし、BCrypt だけ）。</p>
+（暗号化なし、ハッシュだけ）。</p>
 <h2 id="trust_proxy-は既定で-false">trust_proxy は既定で false<a class="anchor" href="#trust_proxy-は既定で-false">#</a></h2>
 <p><code>true</code> にすると <code>X-Forwarded-For</code> を信じます。
 <strong>ロードバランサの後ろに置くまでは <code>false</code> のままにしてください。</strong>

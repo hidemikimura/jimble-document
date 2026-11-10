@@ -2463,7 +2463,7 @@ counting accounts whose last login is old, for instance.**
 
 ## Passwords
 
-`PasswordUtil` hashes with BCrypt. **Whether it then encrypts is yours to choose.**
+`PasswordUtil` hashes with **Argon2id** (since 2.7.17; BCrypt before that). **Whether it then encrypts is yours to choose.**
 
 ```java
 String hash = PasswordUtil.createHash(password);
@@ -2496,6 +2496,42 @@ in the startup log (`パスワード暗号化=あり`). Write `encrypt` when you
 Turning encryption on or off later means rebuilding the hashes you already stored.
 `createHash(password, encrypt)` and `check(input, hash, encrypted)` let you pin each side
 on its own.
+
+### Argon2id and BCrypt
+
+| | |
+| --- | --- |
+| Algorithm | Chosen by `hash.password.algorithm`: `argon2id` by default, `bcrypt` to go back |
+| Checking | **The stored hash's prefix decides** (`$argon2id$` is Argon2id, `$2a$` is BCrypt). Stored hashes keep working after a change, and both can sit in the same table |
+| Parameters | `hash.password.argon2.memory` (default 19MiB), `iterations` (default 2), `parallelism` (default 1): the OWASP minimum. 16-byte salt, 32-byte hash |
+| Format | A PHC string (`$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>`), interchangeable with libargon2, Spring Security, argon2-cffi and others |
+| Cost | Computed with Password4j. About 20 ms each, and **each hash holds `memory` (19MiB by default) until it finishes**. It also creates about 39MiB of garbage per pass, so one hash allocates about 97MiB |
+| Hashes at once | Capped by `hash.password.argon2.max_concurrency` (default: CPU count); the rest wait. Memory then tops out at that number × `memory` plus the garbage. More than the CPU count would not be faster, so normal speed is unchanged |
+
+**After changing the algorithm or parameters, rehash on successful login.** The plain password exists only then, so users move over as they log in.
+
+```java
+String stored = user.getString("password_hash");
+
+if (Auth.checkPassword(input, stored)) {
+	if (PasswordUtil.needsRehash(stored)) {      // true when algorithm, parameters or cost differ from the settings
+		users.updatePasswordHash(user.getLong("id"), PasswordUtil.createHash(input));
+	}
+	// log the user in
+}
+```
+
+> [!TRAP]
+> **A short password column will not fit the new hashes.** BCrypt was 60 characters; Argon2id is **about 97** (around 110 with large parameters), with the pepper after it.
+> With `hash.password.encrypt = true` the encrypted value is **about 150**. Widen the column (to `varchar(255)`, say) before upgrading,
+> and keep `hash.password.algorithm = "bcrypt"` until you can.
+>
+> **Until everyone has moved over, login time differs per user.** BCrypt users and Argon2id users take different times, and unknown IDs take the Argon2id time, so response times reveal that an ID with a BCrypt hash exists.
+> Rehash with `needsRehash` to close the gap quickly.
+>
+> **Lower `max_concurrency` on a small heap with many CPUs.** Requests (virtual threads) never compute more than the CPU count at once anyway,
+> but plain threads such as batch or MQ workers compute as many as you run (uncapped, 50 of them hit OutOfMemoryError on a 160MiB heap).
+> Put a rate limit (`RateLimit`) on the login endpoint too: unknown IDs are hashed once to even out the timing, so anyone can make the server compute without knowing an ID.
 
 `CipherUtil` is **AES/CBC with a fixed IV.** It is kept so that ciphertext already in your
 database can still be read. **Do not use it for anything you encrypt from now on.** The same
@@ -2593,7 +2629,7 @@ success.** `Auth.login` **regenerates the session id** before storing anything, 
 > [!TRAP]
 > **Do not call `PasswordUtil.check` directly here.** With a `null` hash it returns
 > `false` **immediately**, so **a user that does not exist answers measurably faster**
-> (being slow is BCrypt's whole job). That timing **lets someone enumerate which ids
+> (being slow is a password hash's whole job). That timing **lets someone enumerate which ids
 > exist.**
 >
 > `Auth.attemptLogin` runs one round anyway before returning `false`.
@@ -7949,7 +7985,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.17-SNAPSHOT
+jimble 2.7.18-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -7973,7 +8009,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.17-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.18-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -8108,9 +8144,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.16"
-	id("io.jimble.run") version "2.7.16"
-	id("io.jimble.db")  version "2.7.16"
+	id("io.jimble.jte") version "2.7.17"
+	id("io.jimble.run") version "2.7.17"
+	id("io.jimble.db")  version "2.7.17"
 }
 ```
 
@@ -8157,9 +8193,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.16"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.16"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.16"   // if you use a database
+	id("io.jimble.jte") version "2.7.17"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.17"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.17"   // if you use a database
 }
 
 repositories {
@@ -8175,7 +8211,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.16")
+	implementation("io.jimble:jimble-web:2.7.17")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -8209,7 +8245,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.16' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.17' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
@@ -9222,6 +9258,13 @@ hash {
 		# If you set cipher.*, you must set this too (startup fails otherwise)
 		encrypt = false
 		pepper  = ${?PASSWORD_PEPPER}   # only for 1.x compatibility. gives no protection (below). cannot be rotated
+		algorithm = "argon2id"   # argon2id (default since 2.7.17) | bcrypt. checking tells them apart by prefix, so stored hashes keep working after a change
+		argon2 {
+			memory      = 19MiB   # memory per hash (8KiB per lane up to 1GiB)
+			iterations  = 2       # passes (1-100)
+			parallelism = 1       # lanes (1-64)
+			max_concurrency = 8   # hashes computed at once (default: CPU count; the rest wait). each holds memory, so lower it on a small heap
+		}
 		cost    = 10   # bcrypt cost (4-31). each step doubles the time. bcrypt ignores everything past 72 bytes
 	}
 }
@@ -9513,7 +9556,7 @@ was added.
 | `cipher.key` / `cipher.iv` | Reads the **already-encrypted password hashes of a migrated app**. Not for anything new — fixed IV, no tamper detection |
 | `auth.mfa.secret_key` | Encrypts **TOTP secrets**. AES-256-GCM |
 
-An app with no `cipher.*` at all needs no setting, exactly as before (BCrypt only, no
+An app with no `cipher.*` at all needs no setting, exactly as before (hash only, no
 encryption).
 
 ## trust_proxy is false by default

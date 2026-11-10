@@ -320,7 +320,7 @@ context.response().redirect(<span class="h-s">"/me"</span>);
 <div class="callout callout-trap"><p class="callout-title">落とし穴</p>
 <p><strong><code>PasswordUtil.check</code> を直に呼ばないでください。</strong>
 ハッシュが <code>null</code> のとき<strong>即座に <code>false</code> を返す</strong>ので、
-<strong>利用者がいないほうが目に見えて速くなります</strong>（BCrypt は遅いのが仕事です）。
+<strong>利用者がいないほうが目に見えて速くなります</strong>（パスワードのハッシュは遅いのが仕事です）。
 応答時間で<strong>どの ID が存在するかを外から数えられます。</strong></p>
 <p><code>Auth.attemptLogin</code> は、相手がいなくても<strong>1回まわしてから</strong> <code>false</code> を返します。
 <strong>メッセージも分けないでください</strong>——分けたら時間を合わせた意味がありません。</p>

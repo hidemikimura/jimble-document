@@ -568,7 +568,7 @@ DB が漏れたときに総当たりを難しくする効果は<strong>ありま
 <p>3 を確認する手立ては jimble にはありません。<strong>「最終ログイン日時が古い人を数える」など、
 アプリ側で持っている情報で判断してください。</strong></p>
 <h2 id="パスワード">パスワード<a class="anchor" href="#パスワード">#</a></h2>
-<p><code>PasswordUtil</code> は BCrypt でハッシュ化します。<strong>そのうえで暗号化するかどうかは選べます。</strong></p>
+<p><code>PasswordUtil</code> は <strong>Argon2id</strong> でハッシュ化します（2.7.17 から。それまでは BCrypt）。<strong>そのうえで暗号化するかどうかは選べます。</strong></p>
 <pre class="code"><code class="lang-java">String hash = PasswordUtil.createHash(password);
 
 <span class="h-k">if</span> (PasswordUtil.check(input, user.getString(<span class="h-s">"password"</span>))) {
@@ -594,6 +594,61 @@ cipher {
 （<code>パスワード暗号化=あり</code>）。明示したいときは <code>encrypt</code> を書いてください。</p>
 <p>暗号化を後から入れる・外すときは、保存済みのハッシュを作り直す必要があります。
 <code>createHash(password, encrypt)</code> と <code>check(input, hash, encrypted)</code> で片方ずつ指定できます。</p>
+<h3 id="argon2id-と-bcrypt">Argon2id と BCrypt<a class="anchor" href="#argon2id-と-bcrypt">#</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>方式</td>
+<td><code>hash.password.algorithm</code> で選びます。既定は <code>argon2id</code>、前の方式に戻すなら <code>bcrypt</code></td>
+</tr>
+<tr>
+<td>照合</td>
+<td><strong>保存してあるハッシュの頭で見分けます</strong>（<code>$argon2id$</code> なら Argon2id、<code>$2a$</code> なら BCrypt）。方式を変えても、保存済みのハッシュはそのまま照合できます。同じ表に混ざってかまいません</td>
+</tr>
+<tr>
+<td>パラメータ</td>
+<td><code>hash.password.argon2.memory</code>（既定 19MiB）・<code>iterations</code>（既定 2）・<code>parallelism</code>（既定 1）。既定は OWASP の推奨の最小です。ソルトは 16 バイト、ハッシュは 32 バイト</td>
+</tr>
+<tr>
+<td>形</td>
+<td>PHC の文字列（<code>$argon2id$v=19$m=19456,t=2,p=1$&lt;ソルト&gt;$&lt;ハッシュ&gt;</code>）。libargon2・Spring Security・argon2-cffi などほかの実装が作ったものとも照合できます</td>
+</tr>
+<tr>
+<td>計算</td>
+<td>Password4j を使います。1 回に 20ms ほどかかり、<strong>計算の間 <code>memory</code>（既定 19MiB）を持ち続けます</strong>。ほかに繰り返し 1 回ごとに約 39MiB の使い捨てを作るので、1 回で約 97MiB を確保します</td>
+</tr>
+<tr>
+<td>同時に計算する数</td>
+<td><code>hash.password.argon2.max_concurrency</code>（既定は CPU の数）で絞り、超えた分は待たせます。使うメモリは「この数 × <code>memory</code>」と使い捨ての分で頭打ちになります。CPU の数より多く並べても速くならないので、ふだんの速さは変わりません</td>
+</tr>
+</tbody>
+</table>
+<p>**方式やパラメータを変えたあとは、ログインに成功したときに作り直します。**平文はそのときしか無いので、ログインした人から順に入れ替わります。</p>
+<pre class="code"><code class="lang-java">String stored = user.getString(<span class="h-s">"password_hash"</span>);
+
+<span class="h-k">if</span> (Auth.checkPassword(input, stored)) {
+	<span class="h-k">if</span> (PasswordUtil.needsRehash(stored)) {      <span class="h-c">// 方式・パラメータ・コストがいまの設定と違えば true</span>
+		users.updatePasswordHash(user.getLong(<span class="h-s">"id"</span>), PasswordUtil.createHash(input));
+	}
+	<span class="h-c">// ログインさせる</span>
+}
+</code></pre>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**パスワードの列が短いと、新しいハッシュが入りません。**BCrypt は 60 文字でしたが、Argon2id は <strong>97 文字前後</strong>（パラメータを大きくすると 110 文字ほど）で、ペッパーはその後ろに付きます。
+<code>hash.password.encrypt = true</code> なら暗号化して <strong>150 文字ほど</strong>になります。上げる前に、列を <code>varchar(255)</code> などに広げてください。
+広げられないうちは <code>hash.password.algorithm = &quot;bcrypt&quot;</code> のままにしておきます。</p>
+<p>**入れ替わるまでは、ログインにかかる時間が利用者ごとに違います。**BCrypt の人と Argon2id の人とで時間が違い、いない ID は Argon2id の時間になるので、応答時間から「BCrypt のハッシュを持つ ID がある」ことが分かります。
+<code>needsRehash</code> で作り直して、早く揃えてください。</p>
+<p>**ヒープが小さいのに CPU が多いときは、<code>max_concurrency</code> を下げてください。**リクエスト（仮想スレッド）はもともと CPU の数までしか同時に計算しませんが、
+バッチや MQ のワーカーなど普通のスレッドは並べた数だけ計算します（絞らないと、ヒープ 160MiB で 50 本並べて OutOfMemoryError になりました）。
+ログインの口には流量制限（<code>RateLimit</code>）も掛けてください。いない ID でも時間を揃えるために 1 回計算するので、ログイン ID を知らなくても計算させられます。</p>
+</div>
 <p><code>CipherUtil</code> は <strong>AES/CBC で IV が固定</strong>です。既に保存されている暗号文を読むために残してあります。
 <strong>新しく暗号化するものには使わないでください。</strong> 同じ平文が必ず同じ暗号文になり、改ざん検知もありません。
 新しく作るものは <code>Aead</code>（AES-256-GCM）を使います。</p>
@@ -630,6 +685,7 @@ cipher {
 			<li class="level-3"><a href="#hashpasswordpepper-は守りになりません">hash.password.pepper は守りになりません</a></li>
 			<li class="level-3"><a href="#パスワードの鍵は入れ替えられません">パスワードの鍵は入れ替えられません</a></li>
 			<li class="level-2"><a href="#パスワード">パスワード</a></li>
+			<li class="level-3"><a href="#argon2id-と-bcrypt">Argon2id と BCrypt</a></li>
 		</ul>
 	</nav>
 </div>

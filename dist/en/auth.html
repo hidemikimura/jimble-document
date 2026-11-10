@@ -319,7 +319,7 @@ success.</strong> <code>Auth.login</code> <strong>regenerates the session id</st
 <div class="callout callout-trap"><p class="callout-title">Trap</p>
 <p><strong>Do not call <code>PasswordUtil.check</code> directly here.</strong> With a <code>null</code> hash it returns
 <code>false</code> <strong>immediately</strong>, so <strong>a user that does not exist answers measurably faster</strong>
-(being slow is BCrypt's whole job). That timing <strong>lets someone enumerate which ids
+(being slow is a password hash's whole job). That timing <strong>lets someone enumerate which ids
 exist.</strong></p>
 <p><code>Auth.attemptLogin</code> runs one round anyway before returning <code>false</code>.
 <strong>Do not split the message either</strong> — that undoes the point of matching the timing.</p>
