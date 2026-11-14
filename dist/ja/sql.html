@@ -516,6 +516,53 @@ SQL の決まりで、評価されるのがどちらより後だからです。
 }
 where(Site.id.<span class="h-k">in</span>(ids));
 </code></pre>
+<h2 id="形の決まった-select-を使い回すsqltemplate">形の決まった SELECT を使い回す（<code>SQL.template</code>）<a class="anchor" href="#形の決まった-select-を使い回すsqltemplate">#</a></h2>
+<p>同じ形（同じ表・同じ列・同じ WHERE の形で、値だけ違う）の SELECT を要求のたびに引くなら、
+<strong>形を一度だけ作って、値だけを差し替えます</strong>（3.0.0）。</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// 一度だけ作る（static final に置く）</span>
+<span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POST_BY_ID = SQL.template(SQL.select()
+	.from(Post.instance())
+	.where(Post.id.eq(Dsl.param(<span class="h-s">"id"</span>)))
+	.where(Post.deleted_at.is_null()));
+
+<span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POSTS_IN = SQL.template(SQL.select()
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param(<span class="h-s">"site"</span>)))
+	.where(Post.id.<span class="h-k">in</span>(Dsl.params(<span class="h-s">"ids"</span>)))       <span class="h-c">// IN の値の並び</span>
+	.orderBy(Post.id.asc()));
+
+<span class="h-c">// 要求のたびに値を入れて投げる</span>
+Optional&lt;Data&gt; post = db.select(POST_BY_ID.bind(<span class="h-s">"id"</span>, id));
+List&lt;Data&gt; posts    = db.selectListCached(POSTS_IN.bind(<span class="h-s">"site"</span>, siteId, <span class="h-s">"ids"</span>, ids));
+</code></pre>
+<ul>
+<li><strong>値の場所には <code>Dsl.param(&quot;名前&quot;)</code>、<code>in</code> / <code>not_in</code> の値の並びには <code>Dsl.params(&quot;名前&quot;)</code> を置きます。</strong>
+<code>bind(&quot;名前&quot;, 値, ...)</code>（または <code>Map</code>）で値を入れます。名前の過不足は <code>SqlBuildException</code> です</li>
+<li>**SQL の字面は方言ごとに 1 回だけ作ります。**要求のたびの組み立て（ビルダーを作る・SQL を書き出す・値を集める）が無くなります。
+列の多い表の全列の SELECT ほど効きます</li>
+<li><strong>出る SQL・パラメータ・結果の形（テーブル名でネストした <code>Data</code>）は、同じ形をビルダーに値を入れて引いたときと同じです。</strong>
+<code>selectCached</code> / <code>selectListCached</code> も使え、キャッシュのキーも同じになります</li>
+<li><code>in</code> の値の数で文は変わります。値の数だけ <code>?</code> を並べます（同じ template で、値の数がいくつでも引けます）</li>
+<li>値の印でない値（<code>status.eq(1)</code> の <code>1</code> など）は、決まった値のまま毎回送ります</li>
+<li>作った template は変わらないので、スレッドをまたいで同時に使えます</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong><code>bind</code> に <code>null</code> は渡せません</strong>（<code>SqlBuildException</code>）。ビルダーの <code>eq(null)</code> と同じく、<code>= NULL</code> はどの行にも当たらないからです。
+NULL と比べるなら <code>is_null()</code> を使う template を別に作ってください。
+<strong>空の一覧も渡せません</strong>（<code>in</code> に空の一覧を渡せないのと同じ）。
+<strong>列や式などの SQL の部品も渡せません</strong>（印の場所はもう <code>?</code> なので、部品のオブジェクトがそのまま送られてしまいます）。
+列と比べるなら、印ではなくその列を置いた template を作ってください。
+<strong><code>starts_with</code> / <code>contains</code> / <code>ends_with</code> には印を置けません</strong>（値に <code>%</code> を付けて文字列にするためです）。
+<code>like(Dsl.param(&quot;q&quot;))</code> にして、<code>%</code> を付けてエスケープした値を <code>bind</code> してください。</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p><strong>値の印（<code>Dsl.param</code> / <code>Dsl.params</code>）は、template の中でだけ使えます。</strong>
+印を置いたビルダーをそのまま <code>db.select(...)</code> に渡すと、DB に送る前に <code>SqlBuildException</code> になります。
+<strong><code>SQL.template(...)</code> に渡したビルダーは、そのあと使わないでください。</strong>
+句の並びは写して持ちますが、FROM や条件の部品は元のビルダーと分け合うので、あとから <code>inner(...)</code> を足すと template も変わります。
+<code>SQL.template(SQL.select()...)</code> と、その場で組み立てて渡すのが安全です。</p>
+</div>
+<p><strong>条件によって WHERE を足したり足さなかったりする文には向きません</strong>（形が毎回変わります）。それは今までどおりビルダーで書きます。</p>
 <h2 id="製品の違いで気をつけること">製品の違いで気をつけること<a class="anchor" href="#製品の違いで気をつけること">#</a></h2>
 <p><strong>名前が同じでも意味が違う</strong>ものは DSL が揃えます。</p>
 <table>
@@ -667,6 +714,7 @@ SQL は成功し、例外も警告も出ないので、<strong>プールが枯�
 			<li class="level-2"><a href="#まとめた値で絞るhaving">まとめた値で絞る（having）</a></li>
 			<li class="level-2"><a href="#ウィンドウ関数">ウィンドウ関数</a></li>
 			<li class="level-2"><a href="#in-に空の一覧は渡せません">in に空の一覧は渡せません</a></li>
+			<li class="level-2"><a href="#形の決まった-select-を使い回すsqltemplate">形の決まった SELECT を使い回す（SQL.template）</a></li>
 			<li class="level-2"><a href="#製品の違いで気をつけること">製品の違いで気をつけること</a></li>
 			<li class="level-2"><a href="#db-製品が違うとき">DB 製品が違うとき</a></li>
 			<li class="level-2"><a href="#まとめて流す">まとめて流す</a></li>

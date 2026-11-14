@@ -519,6 +519,54 @@ Only the caller knows which one was meant, so the caller decides.</p>
 }
 where(Site.id.<span class="h-k">in</span>(ids));
 </code></pre>
+<h2 id="reusing-a-fixed-shape-select-sqltemplate">Reusing a fixed-shape SELECT (<code>SQL.template</code>)<a class="anchor" href="#reusing-a-fixed-shape-select-sqltemplate">#</a></h2>
+<p>If you run the same shape of SELECT on every request (same tables, same columns, same WHERE,
+only the values differ), <strong>build the shape once and swap in the values</strong> (3.0.0).</p>
+<pre class="code"><code class="lang-java"><span class="h-c">// Build once (keep it in a static final)</span>
+<span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POST_BY_ID = SQL.template(SQL.select()
+	.from(Post.instance())
+	.where(Post.id.eq(Dsl.param(<span class="h-s">"id"</span>)))
+	.where(Post.deleted_at.is_null()));
+
+<span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POSTS_IN = SQL.template(SQL.select()
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param(<span class="h-s">"site"</span>)))
+	.where(Post.id.<span class="h-k">in</span>(Dsl.params(<span class="h-s">"ids"</span>)))       <span class="h-c">// a list of values for IN</span>
+	.orderBy(Post.id.asc()));
+
+<span class="h-c">// On each request, bind the values and run it</span>
+Optional&lt;Data&gt; post = db.select(POST_BY_ID.bind(<span class="h-s">"id"</span>, id));
+List&lt;Data&gt; posts    = db.selectListCached(POSTS_IN.bind(<span class="h-s">"site"</span>, siteId, <span class="h-s">"ids"</span>, ids));
+</code></pre>
+<ul>
+<li><strong>Put <code>Dsl.param(&quot;name&quot;)</code> where a value goes, and <code>Dsl.params(&quot;name&quot;)</code> where <code>in</code> / <code>not_in</code> takes a list.</strong>
+Bind the values with <code>bind(&quot;name&quot;, value, ...)</code> (or a <code>Map</code>). A missing or unknown name is a <code>SqlBuildException</code></li>
+<li><strong>The SQL text is built once per dialect.</strong> The per-request work (creating the builder, writing the SQL,
+collecting the parameters) goes away. The wider the tables you select all columns from, the more it saves</li>
+<li><strong>The SQL, the parameters and the shape of the result (<code>Data</code> nested by table name) are the same as
+binding the values into a builder of the same shape.</strong> <code>selectCached</code> / <code>selectListCached</code> work too, with the same cache key</li>
+<li>The statement changes with the number of <code>in</code> values: one <code>?</code> per value (one template serves any count)</li>
+<li>Values that are not markers (the <code>1</code> in <code>status.eq(1)</code>) are sent as they are, every time</li>
+<li>A template does not change once built, so threads can share it</li>
+</ul>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong><code>bind</code> does not take <code>null</code></strong> (<code>SqlBuildException</code>). As with <code>eq(null)</code> on a builder, <code>= NULL</code> matches no row.
+To compare with NULL, build a separate template that uses <code>is_null()</code>.
+<strong>An empty list is refused as well</strong> (just as <code>in</code> refuses one).
+<strong>So are SQL parts such as columns and expressions</strong> (the marker is already a <code>?</code>, so the part object itself would be sent).
+To compare with a column, build a template with that column in place of the marker.
+<strong><code>starts_with</code> / <code>contains</code> / <code>ends_with</code> cannot take a marker</strong> (they turn the value into a string with <code>%</code>).
+Use <code>like(Dsl.param(&quot;q&quot;))</code> and bind the value with the <code>%</code> added and escaped.</p>
+</div>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>The markers (<code>Dsl.param</code> / <code>Dsl.params</code>) only work inside a template.</strong>
+Pass a builder holding a marker straight to <code>db.select(...)</code> and you get a <code>SqlBuildException</code> before anything is sent.
+<strong>Do not use a builder again after handing it to <code>SQL.template(...)</code>.</strong>
+The template copies the lists of clauses, but shares the FROM and condition parts with the original,
+so adding <code>inner(...)</code> to the original later changes the template too.
+Building it in place, <code>SQL.template(SQL.select()...)</code>, is the safe way.</p>
+</div>
+<p><strong>It does not suit statements that add WHERE conditions only sometimes</strong> (the shape changes each time). Keep using a builder for those.</p>
 <h2 id="product-differences-to-watch">Product differences to watch<a class="anchor" href="#product-differences-to-watch">#</a></h2>
 <p><strong>Where the name is the same but the meaning is not</strong>, the DSL lines them up.</p>
 <table>
@@ -673,6 +721,7 @@ An unclosed one is picked up at the end of the execution (F-D-16), but that
 			<li class="level-2"><a href="#filtering-on-an-aggregate-having">Filtering on an aggregate (having)</a></li>
 			<li class="level-2"><a href="#window-functions">Window functions</a></li>
 			<li class="level-2"><a href="#in-will-not-take-an-empty-list">in will not take an empty list</a></li>
+			<li class="level-2"><a href="#reusing-a-fixed-shape-select-sqltemplate">Reusing a fixed-shape SELECT (SQL.template)</a></li>
 			<li class="level-2"><a href="#product-differences-to-watch">Product differences to watch</a></li>
 			<li class="level-2"><a href="#when-the-db-product-differs">When the DB product differs</a></li>
 			<li class="level-2"><a href="#running-a-batch">Running a batch</a></li>

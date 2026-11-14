@@ -354,8 +354,8 @@ for development and CI.</p>
 <strong>startup fails</strong>.</p>
 <p><strong>Not one line of your application code changes.</strong></p>
 <pre class="code"><code class="lang-java"><span class="h-c">// This one line becomes</span>
-<span class="h-c">//   MySQL      SELECT `post`.`id` AS `post__id` ... LIMIT ? OFFSET ?</span>
-<span class="h-c">//   PostgreSQL SELECT "post"."id" AS "post__id" ... LIMIT ? OFFSET ?</span>
+<span class="h-c">//   MySQL      SELECT `post`.`id`, `post`.`title` ... LIMIT ? OFFSET ?</span>
+<span class="h-c">//   PostgreSQL SELECT "post"."id", "post"."title" ... LIMIT ? OFFSET ?</span>
 <span class="h-c">// depending on product</span>
 SQL.select().from(Post.instance()).where(Post.id.eq(<span class="h-n">1L</span>));
 </code></pre>

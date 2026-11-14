@@ -566,7 +566,7 @@ Optional&lt;RedisLockResult&gt; lock = RedisLock.tryLock(<span class="h-s">"batc
 「ロックが無いのに進んでしまった」を作らないためです。</p>
 <h3 id="db-だけでロックする">DB だけでロックする<a class="anchor" href="#db-だけでロックする">#</a></h3>
 <p>Redis が無い場所では <code>DBLock</code> を使えます。先に行を作っておき、<strong>トランザクションの中で</strong>取ります。</p>
-<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// 1回だけ（あれば何もしない）</span>
+<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// 起動のたびに呼んでよい（あれば何もしない）</span>
 ...
 db.transaction(tx -&gt; {
 	DBLock.lock(db, <span class="h-s">"daily"</span>);         <span class="h-c">// SELECT ... FOR UPDATE</span>
@@ -574,6 +574,10 @@ db.transaction(tx -&gt; {
 });
 </code></pre>
 <p><code>create</code> も <code>lock</code> も戻り値はありません。<strong>失敗は例外です。</strong></p>
+<div class="callout callout-trap"><p class="callout-title">落とし穴</p>
+<p>**3.0.0 で、行のキーの作り方（ハッシュ）が変わりました。**2.7.19 以前に <code>create</code> した行は使われないので、
+上げたら <code>create</code> を呼び直してください。起動のたびに <code>create</code> を呼んでおけば、版を上げても何もしなくて済みます。</p>
+</div>
 <table>
 <thead>
 <tr>

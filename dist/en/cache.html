@@ -590,7 +590,7 @@ That is so you never create &quot;it went ahead even though there was no lock&qu
 <h3 id="locking-with-the-db-alone">Locking with the DB alone<a class="anchor" href="#locking-with-the-db-alone">#</a></h3>
 <p>Where there is no Redis you can use <code>DBLock</code>. Create the row beforehand, then
 take it <strong>inside a transaction</strong>.</p>
-<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// once only (does nothing if it exists)</span>
+<pre class="code"><code class="lang-java">DBLock.create(db, <span class="h-s">"daily"</span>);           <span class="h-c">// fine to call on every startup (does nothing if it exists)</span>
 ...
 db.transaction(tx -&gt; {
 	DBLock.lock(db, <span class="h-s">"daily"</span>);         <span class="h-c">// SELECT ... FOR UPDATE</span>
@@ -598,6 +598,10 @@ db.transaction(tx -&gt; {
 });
 </code></pre>
 <p>Neither <code>create</code> nor <code>lock</code> returns anything. <strong>Failures are exceptions.</strong></p>
+<div class="callout callout-trap"><p class="callout-title">Trap</p>
+<p><strong>In 3.0.0 the way the row key is made (the hash) changed.</strong> Rows you <code>create</code>d with 2.7.19 or earlier are no longer used,
+so call <code>create</code> again after upgrading. If you call <code>create</code> on every startup, there is nothing to do when you upgrade.</p>
+</div>
 <table>
 <thead>
 <tr>

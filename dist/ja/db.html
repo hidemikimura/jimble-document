@@ -351,8 +351,8 @@ db {
 <p>省略すると <code>mysql</code> です。知らない値を書くと<strong>起動時に落ちます</strong>。</p>
 <p><strong>アプリのコードは1行も変わりません。</strong></p>
 <pre class="code"><code class="lang-java"><span class="h-c">// この1行が、product に応じて</span>
-<span class="h-c">//   MySQL      SELECT `post`.`id` AS `post__id` ... LIMIT ? OFFSET ?</span>
-<span class="h-c">//   PostgreSQL SELECT "post"."id" AS "post__id" ... LIMIT ? OFFSET ?</span>
+<span class="h-c">//   MySQL      SELECT `post`.`id`, `post`.`title` ... LIMIT ? OFFSET ?</span>
+<span class="h-c">//   PostgreSQL SELECT "post"."id", "post"."title" ... LIMIT ? OFFSET ?</span>
 <span class="h-c">// になります</span>
 SQL.select().from(Post.instance()).where(Post.id.eq(<span class="h-n">1L</span>));
 </code></pre>

@@ -543,6 +543,10 @@ mail {
 	}
 }
 
+sql {
+	select_alias = <span class="h-k">false</span>   <span class="h-c"># put AS `table__column` on SELECT columns; off by default since 3.0.0 (true gives the 2.x SQL)</span>
+}
+
 sql_cache {
 	enabled = <span class="h-k">false</span>
 	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>

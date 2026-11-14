@@ -535,6 +535,10 @@ mail {
 	}
 }
 
+sql {
+	select_alias = <span class="h-k">false</span>   <span class="h-c"># SELECT 句の列に AS `表__列` を付けるか。3.0.0 から既定は付けない（true で 2.x と同じ SQL）</span>
+}
+
 sql_cache {
 	enabled = <span class="h-k">false</span>
 	store   = <span class="h-s">"memory"</span>   <span class="h-c"># memory | redis | db</span>
