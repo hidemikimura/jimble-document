@@ -7988,7 +7988,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 2.7.19-SNAPSHOT
+jimble 2.7.20-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -8012,7 +8012,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`2.7.19-SNAPSHOT`, say),
+was built from**. If that version is not published (`2.7.20-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -8147,9 +8147,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.18"
-	id("io.jimble.run") version "2.7.18"
-	id("io.jimble.db")  version "2.7.18"
+	id("io.jimble.jte") version "2.7.19"
+	id("io.jimble.run") version "2.7.19"
+	id("io.jimble.db")  version "2.7.19"
 }
 ```
 
@@ -8196,9 +8196,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "2.7.18"   // if you use src/main/jte
-	id("io.jimble.run") version "2.7.18"   // if you want hot reload
-	id("io.jimble.db")  version "2.7.18"   // if you use a database
+	id("io.jimble.jte") version "2.7.19"   // if you use src/main/jte
+	id("io.jimble.run") version "2.7.19"   // if you want hot reload
+	id("io.jimble.db")  version "2.7.19"   // if you use a database
 }
 
 repositories {
@@ -8214,7 +8214,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:2.7.18")
+	implementation("io.jimble:jimble-web:2.7.19")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -8248,7 +8248,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:2.7.18' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:2.7.19' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on
