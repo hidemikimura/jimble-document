@@ -563,6 +563,28 @@ NULL と比べるなら <code>is_null()</code> を使う template を別に作�
 <code>SQL.template(SQL.select()...)</code> と、その場で組み立てて渡すのが安全です。</p>
 </div>
 <p><strong>条件によって WHERE を足したり足さなかったりする文には向きません</strong>（形が毎回変わります）。それは今までどおりビルダーで書きます。</p>
+<h3 id="ページングする一覧limit--offset-に印を置く">ページングする一覧（<code>limit</code> / <code>offset</code> に印を置く）<a class="anchor" href="#ページングする一覧limit--offset-に印を置く">#</a></h3>
+<p><code>limit</code> と <code>offset</code> にも <code>Dsl.param</code> を置けます（3.0.2）。SQL は数を入れたときと同じ <code>LIMIT ? OFFSET ?</code> です。</p>
+<pre class="code"><code class="lang-java"><span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POSTS_PAGE = SQL.template(SQL.select()
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param(<span class="h-s">"site"</span>)))
+	.orderBy(Post.id.desc())
+	.limit(Dsl.param(<span class="h-s">"per"</span>))
+	.offset(Dsl.param(<span class="h-s">"skip"</span>)));
+
+<span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POSTS_COUNT = SQL.template(SQL.select(Dsl.count().as(<span class="h-s">"cnt"</span>))
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param(<span class="h-s">"site"</span>))));
+
+List&lt;Data&gt; posts = db.selectList(POSTS_PAGE.bind(<span class="h-s">"site"</span>, siteId, <span class="h-s">"per"</span>, paging.per(), <span class="h-s">"skip"</span>, paging.start() - <span class="h-n">1</span>));
+<span class="h-k">long</span> total = db.select(POSTS_COUNT.bind(<span class="h-s">"site"</span>, siteId)).map(d -&gt; d.getLong(<span class="h-s">"cnt"</span>)).orElse(<span class="h-n">0L</span>);
+</code></pre>
+<ul>
+<li>**<code>bind</code> には 0 以上の整数（<code>long</code> / <code>int</code>）を渡します。**負の数・小数・文字列・<code>null</code> は <code>SqlBuildException</code> です</li>
+<li><strong>全件を出す（<code>LIMIT</code> を付けない）のは別の形です。</strong><code>paging.perAll()</code> のときに使う template を別に作ります</li>
+<li>件数は template では数えません（<code>selectListWithRowCount</code> は template を受けません）。件数の template を別に作ります</li>
+<li><code>offset</code> だけに印を置いて <code>limit</code> が無いと、<code>SQL.template(...)</code> で <code>SqlBuildException</code> です（今のビルダーでも、<code>LIMIT</code> が無いと <code>OFFSET</code> は SQL に出ません）</li>
+</ul>
 <h2 id="製品の違いで気をつけること">製品の違いで気をつけること<a class="anchor" href="#製品の違いで気をつけること">#</a></h2>
 <p><strong>名前が同じでも意味が違う</strong>ものは DSL が揃えます。</p>
 <table>
@@ -715,6 +737,7 @@ SQL は成功し、例外も警告も出ないので、<strong>プールが枯�
 			<li class="level-2"><a href="#ウィンドウ関数">ウィンドウ関数</a></li>
 			<li class="level-2"><a href="#in-に空の一覧は渡せません">in に空の一覧は渡せません</a></li>
 			<li class="level-2"><a href="#形の決まった-select-を使い回すsqltemplate">形の決まった SELECT を使い回す（SQL.template）</a></li>
+			<li class="level-3"><a href="#ページングする一覧limit--offset-に印を置く">ページングする一覧（limit / offset に印を置く）</a></li>
 			<li class="level-2"><a href="#製品の違いで気をつけること">製品の違いで気をつけること</a></li>
 			<li class="level-2"><a href="#db-製品が違うとき">DB 製品が違うとき</a></li>
 			<li class="level-2"><a href="#まとめて流す">まとめて流す</a></li>

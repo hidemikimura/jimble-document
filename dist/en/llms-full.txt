@@ -4934,6 +4934,31 @@ List<Data> posts    = db.selectListCached(POSTS_IN.bind("site", siteId, "ids", i
 
 **It does not suit statements that add WHERE conditions only sometimes** (the shape changes each time). Keep using a builder for those.
 
+### Paged lists (markers in `limit` / `offset`)
+
+`limit` and `offset` take a `Dsl.param` too (3.0.2). The SQL is the same `LIMIT ? OFFSET ?` as with numbers.
+
+```java
+static final SelectTemplate POSTS_PAGE = SQL.template(SQL.select()
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param("site")))
+	.orderBy(Post.id.desc())
+	.limit(Dsl.param("per"))
+	.offset(Dsl.param("skip")));
+
+static final SelectTemplate POSTS_COUNT = SQL.template(SQL.select(Dsl.count().as("cnt"))
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param("site"))));
+
+List<Data> posts = db.selectList(POSTS_PAGE.bind("site", siteId, "per", paging.per(), "skip", paging.start() - 1));
+long total = db.select(POSTS_COUNT.bind("site", siteId)).map(d -> d.getLong("cnt")).orElse(0L);
+```
+
+- **Bind a non-negative integer (`long` / `int`).** A negative number, a decimal, a string or `null` is a `SqlBuildException`
+- **Listing everything (no `LIMIT`) is a different shape.** Build a separate template for `paging.perAll()`
+- A template does not count rows (`selectListWithRowCount` does not take a template). Build a separate count template
+- A marker in `offset` with no `limit` is a `SqlBuildException` from `SQL.template(...)` (with a builder too, `OFFSET` is only written when there is a `LIMIT`)
+
 ## Product differences to watch
 
 **Where the name is the same but the meaning is not**, the DSL lines them up.
@@ -8044,7 +8069,7 @@ export PATH="$PWD/jimble-cli/build/install/jimble/bin:$PATH"
 
 ```bash
 $ jimble version
-jimble 3.0.2-SNAPSHOT
+jimble 3.0.3-SNAPSHOT
 ```
 
 If you would rather not type that every time, add the `export` above to your
@@ -8068,7 +8093,7 @@ ln -sf "$PWD/jimble-cli/build/install/jimble/bin/jimble" /usr/local/bin/jimble
 ### Using a jimble you built yourself
 
 The `build.gradle.kts` that `jimble new` writes points at **the version the CLI
-was built from**. If that version is not published (`3.0.2-SNAPSHOT`, say),
+was built from**. If that version is not published (`3.0.3-SNAPSHOT`, say),
 **publish it locally first**.
 
 ```bash
@@ -8203,9 +8228,9 @@ There are three. **Add only the ones you need.**
 ```kotlin
 plugins {
 	application
-	id("io.jimble.jte") version "3.0.1"
-	id("io.jimble.run") version "3.0.1"
-	id("io.jimble.db")  version "3.0.1"
+	id("io.jimble.jte") version "3.0.2"
+	id("io.jimble.run") version "3.0.2"
+	id("io.jimble.db")  version "3.0.2"
 }
 ```
 
@@ -8252,9 +8277,9 @@ rootProject.name = "memo"
 // build.gradle.kts
 plugins {
 	application
-	id("io.jimble.jte") version "3.0.1"   // if you use src/main/jte
-	id("io.jimble.run") version "3.0.1"   // if you want hot reload
-	id("io.jimble.db")  version "3.0.1"   // if you use a database
+	id("io.jimble.jte") version "3.0.2"   // if you use src/main/jte
+	id("io.jimble.run") version "3.0.2"   // if you want hot reload
+	id("io.jimble.db")  version "3.0.2"   // if you use a database
 }
 
 repositories {
@@ -8270,7 +8295,7 @@ java {
 }
 
 dependencies {
-	implementation("io.jimble:jimble-web:3.0.1")
+	implementation("io.jimble:jimble-web:3.0.2")
 
 	testImplementation(platform("org.junit:junit-bom:5.11.4"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -8304,7 +8329,7 @@ jimbleRun {
 >
 > ```
 > Dependency resolution is looking for a library compatible with JVM runtime version 21,
-> but 'io.jimble:jimble-web:3.0.1' is only compatible with JVM runtime version 25 or newer
+> but 'io.jimble:jimble-web:3.0.2' is only compatible with JVM runtime version 25 or newer
 > ```
 
 ## Which artifact to depend on

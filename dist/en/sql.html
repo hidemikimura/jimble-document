@@ -567,6 +567,28 @@ so adding <code>inner(...)</code> to the original later changes the template too
 Building it in place, <code>SQL.template(SQL.select()...)</code>, is the safe way.</p>
 </div>
 <p><strong>It does not suit statements that add WHERE conditions only sometimes</strong> (the shape changes each time). Keep using a builder for those.</p>
+<h3 id="paged-lists-markers-in-limit--offset">Paged lists (markers in <code>limit</code> / <code>offset</code>)<a class="anchor" href="#paged-lists-markers-in-limit--offset">#</a></h3>
+<p><code>limit</code> and <code>offset</code> take a <code>Dsl.param</code> too (3.0.2). The SQL is the same <code>LIMIT ? OFFSET ?</code> as with numbers.</p>
+<pre class="code"><code class="lang-java"><span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POSTS_PAGE = SQL.template(SQL.select()
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param(<span class="h-s">"site"</span>)))
+	.orderBy(Post.id.desc())
+	.limit(Dsl.param(<span class="h-s">"per"</span>))
+	.offset(Dsl.param(<span class="h-s">"skip"</span>)));
+
+<span class="h-k">static</span> <span class="h-k">final</span> SelectTemplate POSTS_COUNT = SQL.template(SQL.select(Dsl.count().as(<span class="h-s">"cnt"</span>))
+	.from(Post.instance())
+	.where(Post.site_id.eq(Dsl.param(<span class="h-s">"site"</span>))));
+
+List&lt;Data&gt; posts = db.selectList(POSTS_PAGE.bind(<span class="h-s">"site"</span>, siteId, <span class="h-s">"per"</span>, paging.per(), <span class="h-s">"skip"</span>, paging.start() - <span class="h-n">1</span>));
+<span class="h-k">long</span> total = db.select(POSTS_COUNT.bind(<span class="h-s">"site"</span>, siteId)).map(d -&gt; d.getLong(<span class="h-s">"cnt"</span>)).orElse(<span class="h-n">0L</span>);
+</code></pre>
+<ul>
+<li><strong>Bind a non-negative integer (<code>long</code> / <code>int</code>).</strong> A negative number, a decimal, a string or <code>null</code> is a <code>SqlBuildException</code></li>
+<li><strong>Listing everything (no <code>LIMIT</code>) is a different shape.</strong> Build a separate template for <code>paging.perAll()</code></li>
+<li>A template does not count rows (<code>selectListWithRowCount</code> does not take a template). Build a separate count template</li>
+<li>A marker in <code>offset</code> with no <code>limit</code> is a <code>SqlBuildException</code> from <code>SQL.template(...)</code> (with a builder too, <code>OFFSET</code> is only written when there is a <code>LIMIT</code>)</li>
+</ul>
 <h2 id="product-differences-to-watch">Product differences to watch<a class="anchor" href="#product-differences-to-watch">#</a></h2>
 <p><strong>Where the name is the same but the meaning is not</strong>, the DSL lines them up.</p>
 <table>
@@ -722,6 +744,7 @@ An unclosed one is picked up at the end of the execution (F-D-16), but that
 			<li class="level-2"><a href="#window-functions">Window functions</a></li>
 			<li class="level-2"><a href="#in-will-not-take-an-empty-list">in will not take an empty list</a></li>
 			<li class="level-2"><a href="#reusing-a-fixed-shape-select-sqltemplate">Reusing a fixed-shape SELECT (SQL.template)</a></li>
+			<li class="level-3"><a href="#paged-lists-markers-in-limit--offset">Paged lists (markers in limit / offset)</a></li>
 			<li class="level-2"><a href="#product-differences-to-watch">Product differences to watch</a></li>
 			<li class="level-2"><a href="#when-the-db-product-differs">When the DB product differs</a></li>
 			<li class="level-2"><a href="#running-a-batch">Running a batch</a></li>
